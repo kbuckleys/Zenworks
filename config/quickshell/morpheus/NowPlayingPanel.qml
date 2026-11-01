@@ -297,6 +297,9 @@ CursorAnchor {
               seekBar.dragging = false;
               NowPlaying.seek(seekBar.dragFrac * NowPlaying.length);
             }
+            // taken away mid-drag (the panel hid): no seek, and the bar
+            // follows the track again rather than freezing (audit 10-31)
+            onCanceled: seekBar.dragging = false
           }
         }
 

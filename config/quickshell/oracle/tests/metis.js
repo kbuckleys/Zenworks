@@ -59,7 +59,10 @@ module.exports = {
     t.eq("fl oz", ex("8 fl oz to mL"), "8 floz to mL");
     t.eq("knots", ex("10 knots to km/h"), "10 knot to km/h");
     t.eq("but kN is a kilonewton", ex("5 kN to lbf"), "5 kN to lbf");
-    t.eq("speed of light", ex("speed of light"), "c");
+    t.eq("speed of light", ex("speed of light"), "(c)");
+    t.eq("a share of it is not a temperature", ex("0.5 speed of light"), "0.5 (c)");
+    t.eq("273k beside a temperature is kelvin", ex("273k in c"), "273 K to °C");
+    t.eq("2 c flour is no temperature", /°C/.test(ex("2 c flour") || ""), false);
     t.eq("light years", ex("1 light year in km"), "1 ly to km");
     t.eq("L/100km", ex("8 L/100km"), "8 L/(100 km) to L/(100 km)");
 

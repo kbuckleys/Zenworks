@@ -233,10 +233,15 @@ Singleton {
     root.rangeTo = Chr.isoOf(to);
     root.reloadEvents();
   }
+  // each list is a process of its own: paging faster than khal answers let
+  // an older month's events land last (audit 10-31), so only the newest is taken
+  property int listGen: 0
   function reloadEvents() {
     if (!root.calReady) return;
+    const gen = ++root.listGen;
     if (root.rangeFrom !== "")
       root.calAsk(["list", root.rangeFrom, root.rangeTo], (j) => {
+        if (gen !== root.listGen) return;
         if (j.error) { root.calError = j.error; return; }
         root.calError = "";
         root.events = j.events || [];
@@ -325,7 +330,8 @@ Singleton {
   }
   // ds, de: minutes (days for an all-day event)
   function shiftEvent(uid, ds, de, fn) { root.calDo(["shift", uid, String(Math.round(ds)), String(Math.round(de))], fn); }
-  function copyEvent(uid, days, fn) { root.calDo(["copy", uid, String(Math.round(days || 0))], fn); }
+  // `occ`: the day of the occurrence copied (cal.py copy shifts a repeat from it)
+  function copyEvent(uid, days, fn, occ) { root.calDo(["copy", uid, String(Math.round(days || 0)), String(occ || "")], fn); }
   function searchEvents(text, fn) { root.calAsk(["search", text], fn); }
   function newCalendar(title, color, fn) { root.calAsk(["newcal", title, color || ""], (j) => { root.loadCalendars(); root.reloadEvents(); if (fn) fn(j); }); }
   function setCalendar(name, title, color, fn) { root.calAsk(["setcal", name, title, color || ""], (j) => { root.loadCalendars(); if (fn) fn(j); }); }

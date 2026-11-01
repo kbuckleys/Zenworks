@@ -3,9 +3,10 @@
 // └─┘└─┘┘└┘└┴┘└─┘┴└─┴ ┴└─┘
 // https://github.com/kbuckleys/
 //
-// The setter. Pick a background in the grid and it lifts out into a card of
-// its own: a large look at it, the monitors drawn to scale as they sit on
-// the desk, how it is fitted, and one button that puts it there.
+// The setter. Pick a background in the grid and the panel turns into its
+// page (BackgroundSetter): a large look at it, the monitors drawn to scale
+// as they sit on the desk, how it is fitted, and one button that puts it
+// there.
 
 import QtQuick
 import Quickshell
@@ -58,20 +59,16 @@ LayerPopup {
   // the color being made in the color tab's picker
   property string pickHex: "#7a8cff"
 
-  // ── the focus card ───────────────────────────────────────────────────
-  // A click LIFTS a background into a card — see FocusCard.qml. What the
-  // card is about lives here, because the grid is what moves it: `focusPath`
-  // is held rather than read off the selection, so a rescan reordering the
-  // grid under the card cannot quietly change its subject.
+  // ── the setter page ──────────────────────────────────────────────────
+  // Opening a background MORPHS THE PANEL into its page (user, 2026-10-31),
+  // as folio's turns into a snippet's: the grid fades out, the panel takes
+  // the page's height, and the page — BackgroundSetter, which the viewer's
+  // and terminus' sheets hold too — comes in over it. What the page is
+  // about lives here, because the grid is what moves it: `focusPath` is held
+  // rather than read off the selection, so a rescan reordering the grid
+  // under the page cannot quietly change its subject.
   property string focusPath: ""
   property bool focusOpen: false
-  // THE CARD ALONE — the viewer's "Set as background". The setter is what was
-  // asked for, not the background grid, so the panel stays out of sight, the
-  // card sits in the middle of the screen, and putting the card away puts
-  // the whole surface away. Cleared by every ordinary open.
-  property bool cardOnly: false
-  // where the card grows out of — the clicked cell, in surface coordinates
-  property point focusFrom: Qt.point(0, 0)
 
   // BY DIRECTORY (user, 2026-10-25): the grid is one directory at a time —
   // its directories first (a cover and a count; a click or Return goes in,
@@ -91,7 +88,7 @@ LayerPopup {
     : popup.query !== ""
     ? Art.sortRows(Art.filter(popup.searchPool, popup.query, Picasso.dir), Picasso.sortMode, Picasso.dir)
     : Art.level(Art.sortRows(Picasso.files, Picasso.sortMode, Picasso.dir), Picasso.dir, popup.sub, Picasso.sortMode)
-  // the pictures alone, what the card steps through
+  // the pictures alone, what the setter page steps through
   readonly property var pictures: popup.filtered.filter((r) => !r.dir)
   readonly property int dirCount: popup.filtered.length - popup.pictures.length
 
@@ -174,7 +171,7 @@ LayerPopup {
   }
 
   // The presets, then the ones made here. Shaped like a file row — a path
-  // and nothing else — so the card can browse them the way it browses files.
+  // and nothing else — so the setter page can browse them the way it browses files.
   readonly property var colorItems: {
     const out = [];
     for (const c of Art.presetColors)
@@ -184,14 +181,16 @@ LayerPopup {
     return out;
   }
 
-  function colorName(hex) {
-    for (const c of Art.presetColors) if (c.hex === hex) return c.name;
-    return "Custom color";
-  }
-
-  // what the card browses: whichever list its subject came from
+  // what the page browses: whichever list its subject came from
   readonly property var focusList:
     Art.isColor(popup.focusPath) ? popup.colorItems : popup.pictures
+  // where in it the page is, -1 for a color made and not kept
+  readonly property int focusIndex: {
+    const f = popup.focusList;
+    for (let i = 0; i < f.length; ++i)
+      if (f[i].path === popup.focusPath) return i;
+    return -1;
+  }
 
   // Every connected output, by name. Built from the live list, so plugging a
   // monitor in puts it on the map with no edit.
@@ -201,41 +200,6 @@ LayerPopup {
     for (let i = 0; i < screens.length; ++i) out.push(screens[i].name);
     return out;
   }
-
-  // path -> cached thumbnail, so a monitor on the map can draw what is on it
-  // without decoding an 8MB original into a box 150 pixels wide
-  readonly property var thumbOf: {
-    const m = {};
-    const f = Picasso.files;
-    for (let i = 0; i < f.length; ++i) m[f[i].path] = f[i].thumb;
-    return m;
-  }
-
-  readonly property var focusRow: {
-    const f = Picasso.files;
-    for (let i = 0; i < f.length; ++i)
-      if (f[i].path === popup.focusPath) return f[i];
-    return null;
-  }
-
-  readonly property int focusIndex: {
-    const f = popup.focusList;
-    for (let i = 0; i < f.length; ++i)
-      if (f[i].path === popup.focusPath) return i;
-    return -1;
-  }
-
-  // The monitors the focused background is ALREADY on — said on the card, so
-  // "is this the one I have" does not need the map to answer it.
-  readonly property var focusOn: {
-    const out = [];
-    for (let i = 0; i < popup.screenNames.length; ++i)
-      if (Picasso.wallpaperFor(popup.screenNames[i]) === popup.focusPath)
-        out.push(popup.screenNames[i]);
-    return out;
-  }
-
-  readonly property Item panelItem: panel
 
   readonly property int cols: 4
   readonly property int colorCols: 5
@@ -264,14 +228,13 @@ LayerPopup {
   // One line, and always the same one. The hint strip that used to sit under
   // this taught a set of chords — type, alt s, alt f, return, esc — and every
   // one of them is now a thing on screen you can point at: the two rings are
-  // words you click, and a thumbnail opens a card. A strip explaining the
+  // words you click, and a thumbnail opens its page. A strip explaining the
   // keyboard equivalents of visible controls is a strip teaching you the
   // slower way to do what you were about to do anyway.
   //
-  // It no longer changes height either. The monitor row that used to replace
-  // it is a card floating over the grid, so the panel underneath stays
-  // exactly the size it was — which is the other half of a menu not being a
-  // mode.
+  // It no longer changes height either: the monitor row that used to replace
+  // it is on the setter page — which is the other half of a menu not being
+  // a mode.
   //
   // The keys all still work. They are simply no longer the interface.
   function stripHeight() { return 34; }
@@ -280,7 +243,9 @@ LayerPopup {
   // "just like artemis"): the filter in a line of its own over the
   // pictures, not in the bottom bar; the panel grows by it
   readonly property int inputH: popup.view === "backgrounds" && popup.query.length > 0 ? 36 : 0
+  // the setter page's own height while it is up — see focusOpen
   function calcHeight() {
+    if (popup.focusOpen) return focusCard.implicitHeight;
     return popup.inputH + popup.gridHeight() + popup.stripHeight();
   }
 
@@ -361,8 +326,8 @@ LayerPopup {
   // dismisses this popup — the compositor takes the focus grab away, and the
   // backdrop area is sitting there waiting for a click. The list would stop
   // dead halfway down with the picker gone.
-  // and while the screen picker is choosing the card's accent: its overlay
-  // takes the focus, and the card must still be there when it hands back
+  // and while the screen picker is choosing the setter's accent: its overlay
+  // takes the focus, and the page must still be there when it hands back
   // (or the maker's color)
   readonly property bool capturing: gridScroll.dragging || Picasso.pickInto === "card:accent"
                                     || Picasso.pickInto === "popup:maker"
@@ -432,7 +397,6 @@ LayerPopup {
   // ---------------------------------------------------------- actions --
 
   function openPopup() {
-    popup.cardOnly = false;
     popup.shown = true;
     popup.collapsing = false;
     popup.regrab = false;
@@ -482,110 +446,40 @@ LayerPopup {
     Qt.callLater(() => grid.positionViewAtIndex(popup.sel, GridView.Contain));
   }
 
-  // `from` is where the card grows out of, in the surface's own coordinates
-  // — the card lives in this surface, so no screen origin is involved.
-  function openFocus(list, index, from) {
+  function openFocus(list, index) {
     if (index < 0 || index >= list.length) return;
     if (list === popup.colorItems) popup.colorSel = index;
     else popup.sel = index;
     popup.focusPath = list[index].path;
-    popup.focusFrom = from;
     focusCard.reset();
     popup.focusOpen = true;
   }
 
-  // FROM OUTSIDE THE PICKER — the viewer's "Set as background". The picture
-  // need not be in the background directory: the card only needs a path, and
-  // one that is not in the grid simply has nothing to browse to either side.
-  // The viewer's look arrives staged, so what was dialed there is what the
-  // card shows and what Apply sets.
-  //
-  // A SCRATCH PICTURE, KEPT ONLY IF IT IS USED. The viewer's selection is
-  // rendered to a png in the runtime directory and handed over with `adopt`
-  // ({ dir, name }): Apply writes it into that directory under a free name and
-  // sets that (FocusCard.apply); the card closed any other way deletes it,
-  // and nothing was saved.
-  property var focusAdopt: null
-  function dropAdopt() {
-    const ad = popup.focusAdopt;
-    if (!ad) return;
-    popup.focusAdopt = null;
-    Quickshell.execDetached(["rm", "-f", ad.tmp]);
-  }
-  onFocusOpenChanged: if (!popup.focusOpen) popup.dropAdopt()
-  function focusFor(path, look, adopt) {
-    popup.dropAdopt();
-    popup.focusAdopt = adopt ? Object.assign({ tmp: path }, adopt) : null;
-    // an open picker keeps its grid under the card; a closed one opens as
-    // the card and nothing else
-    if (!popup.shown) { popup.openPopup(); popup.cardOnly = true; }
-    popup.view = "backgrounds";
-    popup.focusPath = path;
-    focusCard.reset();
-    if (look && Object.keys(look).length > 0) focusCard.stageLook = Object.assign({}, look);
-    // NOT YET — only once the surface knows its size. Opened from nothing,
-    // this runs before the compositor has told the layer how big it is, and
-    // the card's grow played out against a surface 0 pixels wide: it came
-    // out of the top-left corner and had finished by the time anything was
-    // drawn. So the card is asked for when there is somewhere to put it.
-    popup.pendingFocus = true;
-    popup.settleFocus();
-  }
-  property bool pendingFocus: false
-  function settleFocus() {
-    if (!popup.pendingFocus || popup.width <= 0 || popup.height <= 0) return;
-    popup.pendingFocus = false;
-    popup.focusFrom = Qt.point(popup.width / 2, popup.height / 2);
-    popup.focusOpen = true;
-  }
-  onWidthChanged: popup.settleFocus()
-  onHeightChanged: popup.settleFocus()
-
-  Connections {
-    target: Picasso
-    function onSetterRequested(path, look, adopt) { popup.focusFor(path, look, adopt); }
-  }
-
-  // Opened from the keyboard, which has no pointer to grow it from: it comes
-  // out of the selected cell instead, which is where you were looking.
+  // Opened from the keyboard: the selected cell, which is where you were
+  // looking.
   function openFocusAtSelection() {
     const colors = popup.view === "colors";
     const list = colors ? popup.colorItems : popup.filtered;
     if (list.length === 0) return;
     const i = Math.min(colors ? popup.colorSel : popup.sel, list.length - 1);
     if (!colors && list[i].dir) { popup.enterDir(list[i]); return; }
-    popup.openFocus(list, i, popup.cellCentre(i));
+    popup.openFocus(list, i);
   }
 
-  // the middle of a cell's picture, in surface coordinates, for the card to
-  // grow out of or go back into
-  function cellCentre(i) {
-    const colors = Art.isColor(popup.focusPath) || popup.view === "colors";
-    const item = colors ? colorGrid.itemAtIndex(i) : grid.itemAtIndex(i);
-    if (!item) return Qt.point(popup.width / 2, popup.height / 2);
-    return item.mapToItem(null, item.width * 0.5,
-                          colors ? item.height * 0.4 : 12 + (popup.cellH - 52) * 0.5);
-  }
-
-  // Back into whichever cell the card ended on, which is not the one it came
-  // out of if you browsed.
+  // back to the grid, on whichever cell the page ended on
   function closeFocus() {
-    if (popup.cardOnly) { popup.focusOpen = false; popup.closePopup(); return; }
-    if (popup.focusIndex >= 0)
-      popup.focusFrom = popup.cellCentre(popup.focusIndex + (Art.isColor(popup.focusPath) ? 0 : popup.dirCount));
     popup.focusOpen = false;
     popup.syncFocus();
   }
 
-  // The card BROWSES. Stepping to the neighbor keeps everything staged —
-  // you are comparing backgrounds under one set of answers, not starting the
-  // card over — and moves the grid's selection behind it, so closing the
-  // card leaves you where you ended up.
+  // The page BROWSES. Stepping to the neighbor keeps everything staged —
+  // you are comparing backgrounds under one set of answers, not starting
+  // over — and moves the grid's selection behind it, so going back leaves
+  // you where you ended up.
   function stepFocus(delta) {
     const list = popup.focusList;
-    // a picture from outside the list (the viewer's Set as background, a
-    // scratch selection) has no neighbors: a step landed on list[1], an
-    // unrelated background (audit 2026-10-28d; the arrows already hide)
+    // a color made in the picker and not kept has no neighbors: a step
+    // landed on list[1], an unrelated background (audit 2026-10-28d)
     if (list.length === 0 || popup.focusIndex < 0) return;
     const from = popup.focusIndex;
     const to = Math.max(0, Math.min(from + delta, list.length - 1));
@@ -616,8 +510,8 @@ LayerPopup {
 
   // ------------------------------------------------------------ panel --
 
-  // The surface outside the panel. (While the card is up its scrim covers
-  // all of this, so a click out here only ever means the picker.)
+  // The surface outside the panel: a click out here puts the picker away,
+  // the setter page with it.
   MouseArea {
     anchors.fill: parent
     z: 0
@@ -636,10 +530,6 @@ LayerPopup {
     shadowRadius: bgRoot.radius
     width: Zenon.layerWidth(1000)
     height: popup.calcHeight()
-    // Out of sight while the card is shown alone — opacity rather than
-    // visible, because the keys are the panel's (bgRoot holds the focus) and
-    // an invisible item cannot hold it.
-    opacity: popup.cardOnly ? 0 : popup.contentFade
 
     PanelGround {
       id: bgRoot
@@ -647,18 +537,19 @@ LayerPopup {
 
       Keys.onEscapePressed: (event) => {
         event.accepted = true;
-        // innermost first, the cascade every layer here uses: the card (which
-        // may have a color open inside it), then the filter, and only then
-        // the panel
+        // innermost first, the cascade every layer here uses: the setter page
+        // (which may have a color open inside it), then the filter, and then
+        // the panel. Not up a directory: backspace is that, and escape
+        // walking up made closing take one press per level (user, 2026-10-31)
         if (popup.focusOpen) { if (!focusCard.cancel()) popup.closeFocus(); }
         else if (popup.query !== "") popup.query = "";
-        else if (!popup.upDir()) popup.closePopup();
+        else popup.closePopup();
       }
 
       Keys.onPressed: (event) => {
-        // The card is modal over the grid and the keys are ITS while it is
-        // up: the arrows walk its own controls, not the grid behind it. See
-        // FocusCard.handleKey. Escape is handled above.
+        // The page has the keys while it is up: the arrows walk its own
+        // controls, not the grid behind it. See BackgroundSetter.handleKey.
+        // Escape is handled above.
         if (popup.focusOpen) {
           if (focusCard.handleKey(event)) event.accepted = true;
           return;
@@ -672,7 +563,7 @@ LayerPopup {
         }
 
         // The color tab has no filter to type into; the arrows walk the
-        // swatches and return lifts one into the card.
+        // swatches and return opens one's setter page.
         if (popup.view === "colors") {
           const k = event.key;
           if (k === Qt.Key_Left) popup.moveColorSel(-1);
@@ -753,12 +644,19 @@ LayerPopup {
           below: true
           follow: true
           bar: pickStrip
-          visible: modelData.visible
+          visible: modelData.visible && pickCol.visible
+          opacity: pickCol.opacity
         }
       }
 
+      // the grid and its strip, fading out under the setter page
       Column {
+        id: pickCol
         anchors.fill: parent
+        opacity: popup.focusOpen ? 0 : 1
+        visible: pickCol.opacity > 0.01
+        enabled: !popup.focusOpen
+        Behavior on opacity { NumberAnimation { duration: Zenon.normal; easing.type: Zenon.ease } }
 
         // ------------------------------------------- the search line --
         // Artemis' (ArtemisPopup inputBar): the lens and what you typed,
@@ -1024,17 +922,13 @@ LayerPopup {
                 // pointer agree about what is selected.
                 // A DOUBLE CLICK OPENS (user, 2026-10-27), as in terminus and
                 // the gallery: one click only selects. A directory goes in; a
-                // picture lifts into the card, which grows out of the
-                // thumbnail itself, so it reads as the picture coming forward
-                // rather than a dialog arriving from nowhere. The right
+                // picture turns the panel into its setter page. The right
                 // button still opens at once — it used to open the menu the
-                // card replaces, and a hand that has learned to right-click a
+                // page replaces, and a hand that has learned to right-click a
                 // background should still get somewhere.
                 function open() {
                   if (cell.modelData.dir) { popup.enterDir(cell.modelData); return; }
-                  const p = thumbBox.mapToItem(null, thumbBox.width / 2,
-                                               thumbBox.height / 2);
-                  popup.openFocus(popup.filtered, cell.index, p);
+                  popup.openFocus(popup.filtered, cell.index);
                 }
                 onClicked: (mouse) => {
                   if (mouse.button === Qt.RightButton) cellMa.open();
@@ -1046,8 +940,8 @@ LayerPopup {
           }
 
           // ── the color tab ────────────────────────────────────────────
-          // The swatches on the left, the maker on the right. A swatch lifts
-          // into the card like a picture does; the maker can either use what
+          // The swatches on the left, the maker on the right. A swatch opens
+          // its setter page like a picture does; the maker can either use what
           // it has made straight away or keep it as a swatch of its own.
           Item {
             id: colorView
@@ -1169,10 +1063,7 @@ LayerPopup {
                   anchors.fill: parent
                   hoverEnabled: true
                   acceptedButtons: Qt.LeftButton | Qt.RightButton
-                  onClicked: {
-                    const p = chip.mapToItem(null, chip.width / 2, chip.height / 2);
-                    popup.openFocus(popup.colorItems, swCell.index, p);
-                  }
+                  onClicked: popup.openFocus(popup.colorItems, swCell.index)
                 }
               }
             }
@@ -1243,7 +1134,7 @@ LayerPopup {
                   ready: Picasso.colors.indexOf(popup.pickHex) < 0
                   onClicked: Picasso.addColor(popup.pickHex)
                 }
-                // straight into the card, without keeping it
+                // straight into the setter page, without keeping it
                 DialogButton {
                   label: "Use"
                   ink: popup.highlight
@@ -1253,12 +1144,9 @@ LayerPopup {
                     let i = -1;
                     for (let k = 0; k < items.length; ++k)
                       if (items[k].hex === popup.pickHex) { i = k; break; }
-                    const from = makerPicker.mapToItem(null, makerPicker.width / 2,
-                                                       makerPicker.height / 2);
-                    if (i >= 0) { popup.openFocus(items, i, from); return; }
-                    // not a swatch yet: the card browses a list of one
+                    if (i >= 0) { popup.openFocus(items, i); return; }
+                    // not a swatch yet: nothing to browse to either side
                     popup.focusPath = Art.colorPath(popup.pickHex);
-                    popup.focusFrom = from;
                     focusCard.reset();
                     popup.focusOpen = true;
                   }
@@ -1456,7 +1344,7 @@ LayerPopup {
               act: () => Picasso.cycleFitFor(popup.screenName)
             }
 
-            // PICTURES OR COLORS: terminus' Segments, as picasso's card
+            // PICTURES OR COLORS: terminus' Segments, as picasso's setter
             // switches its tabs (user, 2026-10-12) — tab flips between them
             // too. At the right end since the crumbs took the left
             // (user, 2026-10-27).
@@ -1532,6 +1420,31 @@ LayerPopup {
           }
         }
       }
+
+      // ── THE SETTER PAGE (see focusOpen) ───────────────────────────────
+      // Comes in from the right over the grid going out, as folio's page
+      // does; the panel takes its height. The keys stay with bgRoot, which
+      // hands them over (handleKey) while it is up.
+      BackgroundSetter {
+        id: focusCard
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        width: parent.width
+        x: popup.focusOpen ? 0 : 24
+        opacity: popup.focusOpen ? 1 : 0
+        visible: opacity > 0.01
+        enabled: popup.focusOpen
+        Behavior on opacity { NumberAnimation { duration: Zenon.normal; easing.type: Zenon.ease } }
+        Behavior on x { NumberAnimation { duration: Zenon.normal; easing.type: Zenon.ease } }
+        shown: popup.focusOpen
+        path: popup.focusPath
+        list: popup.focusList
+        query: popup.query
+        queryCount: popup.filtered.length
+        screen: popup.screen
+        onDone: popup.closeFocus()
+        onStepped: (d) => popup.stepFocus(d)
+      }
     }
   }
 
@@ -1543,17 +1456,5 @@ LayerPopup {
     for (let i = 0; i < popup.screenNames.length; ++i)
       if (Picasso.wallpaperFor(popup.screenNames[i]) === path) return true;
     return false;
-  }
-
-  // ── the card ──────────────────────────────────────────────────────────
-  // In THIS surface rather than a window of its own, which is what lets it
-  // grow out of the very cell that was clicked — and what keeps the focus
-  // grab a list of one.
-  FocusCard {
-    id: focusCard
-    anchors.fill: parent
-    z: 3
-    picker: popup
-    panel: popup.panelItem
   }
 }

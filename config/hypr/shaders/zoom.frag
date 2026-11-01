@@ -24,7 +24,10 @@ varying vec2 v_texcoord;
 uniform sampler2D tex;
 uniform vec2 screen_size;
 
-const float PIXEL_GRID_ZOOM = 15.0;  // KWin PixelGridZoom
+// KWin's PixelGridZoom is 15 of its 100x; Hyprland's zoom stops at 10x
+// (zoom.lua MAX_ZOOM), so the grid comes in at the last two steps (8.92,
+// 10) instead of never (user, 2026-11-01)
+const float PIXEL_GRID_ZOOM = 8.0;
 
 void main() {
     // An unbound uniform reads as 0, which would put every fragment on a grid

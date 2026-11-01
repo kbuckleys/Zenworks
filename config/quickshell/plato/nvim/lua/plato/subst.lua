@@ -83,7 +83,11 @@ function M.compute()
         if s < 0 then break end
         out[#out + 1] = line:sub(from + 1, s)
         len = len + (s - from)
-        local okS, new = pcall(vim.fn.substitute, m[1], pat, rep, "")
+        -- a \= replacement is an expression: run for the preview it ran on
+        -- every keystroke, side effects and all (audit 10-31). Shown as the
+        -- match until Enter does it for real.
+        local okS, new = false, nil
+        if rep:sub(1, 2) ~= "\\=" then okS, new = pcall(vim.fn.substitute, m[1], pat, rep, "") end
         new = okS and new or m[1]
         out[#out + 1] = new
         lit[#lit + 1] = { len, len + #new }

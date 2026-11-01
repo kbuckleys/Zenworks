@@ -129,7 +129,9 @@ Scope {
       }
     }
     onExited: (code) => {
-      if (code !== 0) return;
+      // a failed check while applying ends the apply: `busy` stayed true and
+      // every later Apply did nothing (audit 10-31)
+      if (code !== 0) { if (check.then === "apply") zsh.finish("The terminal setup could not be checked"); return; }
       if (check.then === "offer") {
         if (check.same && check.loginZsh) zsh.keep("yes");
         else ask.running = true;
@@ -162,7 +164,9 @@ Scope {
     if (zsh.busy) return;
     zsh.busy = true;
     check.then = "apply";
-    check.running = true;
+    // the offer's check still running: its answer serves (a second start
+    // was queued, and installed twice)
+    if (!check.running) check.running = true;
   }
   function install() {
     if (check.missing.length === 0) { files.running = true; return; }

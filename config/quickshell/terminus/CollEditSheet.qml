@@ -235,13 +235,9 @@ Rectangle {
       if (plain) term.search(spec.kind, q);
       else term.searchScratch(d, q);
     };
-    // ── IN A TAB OF ITS OWN, LIKE FINDER'S (user, 2026-10-13) ────────
-    // A search is a place of its own with its own bar (SearchBar: where,
-    // names or contents, more rules, save), and the directory you asked
-    // from stays as it was in the tab you asked from. Refining from the
-    // results page itself — `s` over them, the bar's + — stays in it.
-    if (term.searchPage) run();
-    else term.openRealmInNewTab(run);
+    // IN THE TAB YOU ASKED FROM (user, 2026-11-01: "should no longer open
+    // in new tab"); Escape puts that directory back as it was.
+    run();
   }
 
   // "save as collection": the name row opens and takes the keyboard.
@@ -620,157 +616,20 @@ Rectangle {
           id: ruleRepeater
           model: ruleModel
 
-          delegate: Item {
+          // one rule's row, shared with the search bar's criteria rows
+          delegate: RuleRow {
             id: ruleRow
-            required property string kind
-            required property string op
-            required property string value
+            required kind
+            required op
+            required value
             required property int index
-
-            // What this row offers the ring. The value stop is whichever
-            // control the row is actually showing — a hidden one cannot
-            // take focus, and tabbing into it would look like Tab being
-            // swallowed.
-            readonly property var kindCtl: kindDrop
-            readonly property var opCtl: opDrop
-            readonly property var valCtl:
-              ruleRow.kind === "kind" ? valueDrop : valueField
             width: collCol.width
-            height: 44
-            // Lifted while one of its own dropdowns is open, for the
-            // reason patRow is — z orders an item among its SIBLINGS,
-            // and the rows below are this row's siblings.
-            z: (kindDrop.expanded || opDrop.expanded) ? 60 : 0
-
-            BulkDrop {
-
-              host: term
-
-              textSize: collEdit.textSize
-              id: kindDrop
-              overlay: term.dropLayerRef
-              anchors.left: parent.left
-              anchors.leftMargin: 16
-              anchors.verticalCenter: parent.verticalCenter
-              options: {
-                const out = [];
-                for (let i = 0; i < Coll.KINDS.length; ++i)
-                  out.push([Coll.KINDS[i].kind, Coll.KINDS[i].label]);
-                return out;
-              }
-              value: ruleRow.kind
-              onPicked: (v) => collEdit.setRule(ruleRow.index, "kind", v)
-              onTabbed: collEdit.focusFrom(kindDrop, 1)
-              onBackTabbed: collEdit.focusFrom(kindDrop, -1)
-            }
-
-            BulkDrop {
-
-              host: term
-
-              textSize: collEdit.textSize
-              id: opDrop
-              overlay: term.dropLayerRef
-              anchors.left: kindDrop.right
-              anchors.leftMargin: 8
-              anchors.verticalCenter: parent.verticalCenter
-              options: {
-                const ops = Coll.opsFor(ruleRow.kind);
-                const out = [];
-                for (let i = 0; i < ops.length; ++i) out.push([ops[i], ops[i]]);
-                return out;
-              }
-              value: ruleRow.op
-              onPicked: (v) => collEdit.setRule(ruleRow.index, "op", v)
-              onTabbed: collEdit.focusFrom(opDrop, 1)
-              onBackTabbed: collEdit.focusFrom(opDrop, -1)
-            }
-
-            // The Kind row picks from a list; everything else is typed.
-            // Two controls in one slot rather than a third column that
-            // is empty five rows out of six.
-            BulkDrop {
-              host: term
-              textSize: collEdit.textSize
-              id: valueDrop
-              overlay: term.dropLayerRef
-              visible: ruleRow.kind === "kind"
-              anchors.left: opDrop.right
-              anchors.leftMargin: 8
-              anchors.verticalCenter: parent.verticalCenter
-              options: {
-                const out = [["", "\u2014"]];
-                for (let i = 0; i < Coll.FILE_KINDS.length; ++i)
-                  out.push([Coll.FILE_KINDS[i].name,
-                            Coll.FILE_KINDS[i].label || Coll.FILE_KINDS[i].name]);
-                return out;
-              }
-              value: ruleRow.value
-              onPicked: (v) => collEdit.setRule(ruleRow.index, "value", v)
-              onTabbed: collEdit.focusFrom(valueDrop, 1)
-              onBackTabbed: collEdit.focusFrom(valueDrop, -1)
-            }
-
-            BulkField {
-
-              textSize: collEdit.textSize
-              id: valueField
-              visible: ruleRow.kind !== "kind"
-              anchors.left: opDrop.right
-              anchors.leftMargin: 8
-              anchors.right: ruleDrop.left
-              anchors.rightMargin: 10
-              anchors.verticalCenter: parent.verticalCenter
-              ghost: {
-                const k = ruleRow.kind;
-                if (k === "size") return "10m";
-                if (k === "date") return "7d";
-                if (k === "tag") return "a tag name";
-                if (k === "content") return "text to find inside";
-                return "text";
-              }
-              // Written back on every keystroke rather than on accept:
-              // the Save button is bound to whether the draft asks
-              // anything, and it would stay dead until you pressed
-              // Return in a field you had already filled in.
-              onTextChanged: collEdit.setRule(ruleRow.index, "value",
-                                               valueField.text)
-              onTabbed: collEdit.focusFrom(valueField, 1)
-              onBackTabbed: collEdit.focusFrom(valueField, -1)
-              onAccepted: collEdit.commit()
-              // Seeded once. The row is edited in place now, so this
-              // runs when the row is CREATED and never again — which is
-              // what stops the seed and the write-back chasing each
-              // other.
-              Component.onCompleted: valueField.text = ruleRow.value
-              // except when the kind changes: setRule empties the value,
-              // and the field went on showing the old words over an empty
-              // rule (audit 2026-10-28d)
-              Connections {
-                target: ruleRow
-                function onKindChanged() { if (valueField.text !== ruleRow.value) valueField.text = ruleRow.value; }
-              }
-            }
-
-            Text {
-              id: ruleDrop
-              anchors.right: parent.right
-              anchors.rightMargin: 16
-              anchors.verticalCenter: parent.verticalCenter
-              text: "\uEA76"
-              color: Zenon.accentMuted
-              opacity: ruleDropPress.pressed ? Zenon.pressDim : 1
-              font.family: Zenon.face
-              font.weight: Zenon.weight
-              font.pixelSize: Zenon.px(14)
-
-              MouseArea {
-                id: ruleDropPress
-                anchors.fill: parent
-                anchors.margins: -6
-                onClicked: collEdit.dropRule(ruleRow.index)
-              }
-            }
+            host: term
+            textSize: collEdit.textSize
+            onEdited: (field, v) => collEdit.setRule(ruleRow.index, field, v)
+            onDrop: collEdit.dropRule(ruleRow.index)
+            onTabbed: (ctl, dir) => collEdit.focusFrom(ctl, dir)
+            onAccepted: collEdit.commit()
           }
         }
 

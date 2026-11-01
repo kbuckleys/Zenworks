@@ -286,11 +286,15 @@ class OnePassword(Provider):
                 order.append(sec)
             by_section[sec].append(fl)
         sections = [section(s, by_section[s]) for s in order]
-        urls = [u.get("href") for u in e.get("urls") or [] if u.get("href")]
+        # each label from its own entry: numbered after the empty ones were
+        # left out, they slid onto the next site (audit 10-31)
+        kept = [u for u in e.get("urls") or [] if u.get("href")]
+        urls = [u.get("href") for u in kept]
         if urls:
             sections.insert(1 if sections else 0,
-                            section("websites", [field(f"url{i}", u_label(e, i), u, "url")
-                                                 for i, u in enumerate(urls)]))
+                            section("websites", [field(f"url{i}", (u.get("label") or "website").lower(),
+                                                       u.get("href"), "url")
+                                                 for i, u in enumerate(kept)]))
         it = item(e.get("id"), e.get("title"), sub, kind, host_of(urls[0]) if urls else "",
                   (e.get("vault") or {}).get("name", ""), e.get("favorite"), e.get("tags") or [],
                   iso_time(e.get("updated_at")), has_totp)
@@ -456,8 +460,3 @@ class OnePassword(Provider):
         if code != 0:
             raise VaultError(first_line(err).replace("[ERROR] ", "") or "op could not make a code")
         return out.strip()
-
-
-def u_label(e, i):
-    u = (e.get("urls") or [])[i]
-    return (u.get("label") or "website").lower()

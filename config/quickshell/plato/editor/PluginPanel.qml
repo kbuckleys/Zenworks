@@ -145,10 +145,29 @@ PlatoSheet {
     for (const e of panel.report.errors) out.push({ kind: "error", e: e });
     return out;
   }
+  // the plugin the cursor is on, or above it (its commits); an error row is
+  // nobody's: looked back from there, it was the last plugin, and u updated
+  // that one (audit 10-31)
   function selPlugin() {
+    const here = panel.rows[panel.sel];
+    if (here && here.kind === "error") return null;
     for (let i = panel.sel; i >= 0; --i)
       if (panel.rows[i] && panel.rows[i].kind === "plugin") return panel.rows[i].u;
     return null;
+  }
+  // a row's name, to find it again when the list is made anew (a check's
+  // answer): left at its index, the cursor sat on another plugin
+  function rowKey(r) {
+    if (!r) return "";
+    const o = r.u || r.p || r.x || r.e || r.c || {};
+    return r.kind + ":" + String(o.name || o.lang || o.hash || o.message || "");
+  }
+  property string selKey: ""
+  onSelChanged: panel.selKey = panel.rowKey(panel.rows[panel.sel])
+  onRowsChanged: {
+    const i = panel.rows.findIndex((r) => panel.rowKey(r) === panel.selKey);
+    if (i >= 0 && i !== panel.sel) panel.sel = i;
+    else if (panel.sel >= panel.rows.length) panel.sel = Math.max(0, panel.rows.length - 1);
   }
   function selParser() {
     const r = panel.rows[panel.sel];
@@ -171,6 +190,9 @@ PlatoSheet {
     const p = panel.selInstalled();
     if (!p || !panel.plugins) return;
     panel.plugins.ensureConfig(p.name, () => {
+      // left meanwhile (esc, another page, another row): not opened on it
+      const now = panel.selInstalled();
+      if (!panel.shown || !now || now.name !== p.name) return;
       panel.configure(panel.plugins.configFile(p.name));
       panel.close();
     });
@@ -217,7 +239,10 @@ PlatoSheet {
                 ["parsers", "Parsers"]]
       current: panel.page
       onChose: (v) => {
+        // out of adding too: a half-typed source stayed in the field as a
+        // filter that was not one, and Enter acted on the page under it
         panel.page = v; panel.sel = 0; panel.armed = "";
+        panel.adding = false; panel.problem = "";
         if (panel.page === "parsers" && panel.plugins && panel.plugins.parsers.length === 0)
           panel.plugins.listParsers(panel.filetype);
         panel.focusPage();
@@ -233,6 +258,7 @@ PlatoSheet {
       visible: running
     }
     Text {
+      textFormat: Text.PlainText
       id: panelStatus
       anchors.right: parent.right
       anchors.rightMargin: 16
@@ -349,6 +375,7 @@ PlatoSheet {
         }
       }
       Text {
+        textFormat: Text.PlainText
         id: right
         anchors.right: parent.right
         anchors.rightMargin: 12
@@ -393,6 +420,7 @@ PlatoSheet {
       visible: panel.rows.length === 0 && !panel.adding
       anchors.centerIn: parent
       Text {
+        textFormat: Text.PlainText
         anchors.horizontalCenter: parent.horizontalCenter
         font: panel.face
         color: Zenon.accentMuted

@@ -203,14 +203,6 @@ function pruneFreq(freq, alive) {
   return next;
 }
 
-// Which of these still exist. One process for the whole map rather than a stat
-// per key, and \036-separated because a path may contain anything else.
-function aliveCommand(paths) {
-  if (paths.length === 0) return "";
-  return "for p in " + paths.map((p) => Strings.shellQuote(p)).join(" ")
-    + "; do [ -e \"$p\" ] && printf '%s\\036' \"$p\"; done";
-}
-
 // ── rendering ────────────────────────────────────────────────────────────
 
 // Fit a path to the row, losing the MIDDLE rather than the tail. The old

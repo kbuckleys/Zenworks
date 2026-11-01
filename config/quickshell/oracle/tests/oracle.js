@@ -271,7 +271,7 @@ module.exports = {
         (bySection[m[2]] = bySection[m[2]] || []).push(m[1]);
       }
       for (const page of ["notify", "bar", "menu", "idle", "windows", "time", "datetime", "motion", "surfaces",
-                         "tiling", "workspaces", "wineffects"]) {
+                         "tiling", "workspaces", "wineffects", "display"]) {
         const listed = [].concat(...T.pageLayout(page).map((p) => p[1]));
         t.eq(page + ": each setting listed once", listed.length, new Set(listed).size);
         t.eq(page + ": every setting of the page is under a heading",
@@ -280,12 +280,12 @@ module.exports = {
         // oracle.js, not Oracle.qml: named "input:<field>"; the time
         // zone's rows are made from zone.tab: "tz:<field>"
         t.eq(page + ": nothing listed that the page lacks",
-          listed.filter((k) => (bySection[page] || []).indexOf(k) < 0 && !/^(input|tz|hl):/.test(k)).join(", "), "");
+          listed.filter((k) => (bySection[page] || []).indexOf(k) < 0 && !/^(input|tz|hl):/.test(k) && k !== "display:*").join(", "), "");
       }
       // hyprland's rows (HYPR_FIELDS): each in a part its page names, once
       t.eq("every hyprland row's part is on its page", T.hyprPlace(JSON.parse(JSON.stringify(T.pageLayout ? {
         windows: T.pageLayout("windows"), tiling: T.pageLayout("tiling"), workspaces: T.pageLayout("workspaces"),
-        wineffects: T.pageLayout("wineffects"), motion: T.pageLayout("motion") } : {}))).join(", "), "");
+        wineffects: T.pageLayout("wineffects"), motion: T.pageLayout("motion"), display: T.pageLayout("display") } : {}))).join(", "), "");
       for (const f of T.hyprFields()) {
         const page = T.pageLayout(f.section);
         if (!page) continue;
@@ -296,6 +296,12 @@ module.exports = {
                                    { key: "weatherEnabled", section: "time" }], "time", "");
       t.eq("laid out in the page's order", rows.map((r) => r.key).join(","), "weatherEnabled,calRemindLead,b");
       t.eq("the first of a part carries its heading", rows[0].head + "/" + rows[1].head, "Weather/Calendar");
+      const desk = T.filterSchema([{ key: "mainMonitor", section: "display" }, { key: "display:B:about", section: "display" },
+                                   { key: "display:B:mode", section: "display" }, { key: "displayArrange", section: "display" },
+                                   { key: "display:A:about", section: "display" }], "display", "");
+      t.eq("display: desk, then the monitors in their order, then every screen's",
+        desk.map((r) => r.key).join(","), "displayArrange,display:B:about,display:B:mode,display:A:about,mainMonitor");
+      t.eq("display: the monitors carry no heading", desk[1].head, undefined);
       t.eq("a search lists no headings",
         T.filterSchema([{ key: "weatherEnabled", section: "time", label: "Fetch the forecast" }], "time", "forecast")[0].head, undefined);
     }

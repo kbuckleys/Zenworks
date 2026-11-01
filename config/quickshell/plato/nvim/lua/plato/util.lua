@@ -46,6 +46,28 @@ function M.writeJson(path, t)
   return ok and true or false
 end
 
+-- READ, CHANGED, WRITTEN, BY ONE ENGINE AT A TIME (audit 10-31). Each plato
+-- window's engine read and wrote these files on its own, and two saving
+-- together dropped each other's change (sessions: project roots). The lock
+-- is a directory, made atomically; one left by a crash is broken after 5 s.
+function M.updateJson(path, fn)
+  vim.fn.mkdir(vim.fs.dirname(path), "p")
+  local lock = path .. ".lock"
+  local got = false
+  for _ = 1, 100 do
+    if vim.uv.fs_mkdir(lock, 448) then got = true; break end
+    local st = vim.uv.fs_stat(lock)
+    if st and os.time() - st.mtime.sec > 5 then vim.uv.fs_rmdir(lock) end
+    vim.uv.sleep(10)
+  end
+  local all = M.readJson(path)
+  local ok, err = pcall(fn, all)
+  if ok then M.writeJson(path, all) end
+  if got then vim.uv.fs_rmdir(lock) end
+  if not ok then error(err) end
+  return all
+end
+
 function M.ago(t, short)
   local d = os.time() - t
   if short then

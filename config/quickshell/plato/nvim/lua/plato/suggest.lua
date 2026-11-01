@@ -73,9 +73,7 @@ function M.check(buf)
       if choice == "b" then
         bridge.send({ event = "buildParsers", langs = { lang } })
       elseif choice == "n" then
-        local d = util.readJson(declinedPath)
-        d[lang] = true
-        util.writeJson(declinedPath, d)
+        util.updateJson(declinedPath, function(d) d[lang] = true end)
       end
     end)
 end
@@ -159,9 +157,7 @@ function M.checkTools(buf)
       if choice == "i" then
         bridge.send({ event = "install", pkgs = pkgs, why = "for " .. ft .. " files in Plato" })
       elseif choice == "n" then
-        local d = util.readJson(toolsDeclined)
-        for _, p in ipairs(pkgs) do d[p] = true end
-        util.writeJson(toolsDeclined, d)
+        util.updateJson(toolsDeclined, function(d) for _, p in ipairs(pkgs) do d[p] = true end end)
       end
     end)
 end

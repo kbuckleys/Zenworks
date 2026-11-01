@@ -39,7 +39,7 @@ const BUDGET = {
   "picasso/Annotator.qml": 3,
   "picasso/ColorPicker.qml": 15,
   "picasso/CropBox.qml": 7,       // the shade, the thirds and the grips' rim: the viewer's and the annotator's, moved
-  "picasso/FocusCard.qml": 7,
+  "picasso/BackgroundSetter.qml": 7,
   "picasso/LookEditor.qml": 9,
   "picasso/Loupe.qml": 1,
   "picasso/MapView.qml": 1,

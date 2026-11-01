@@ -268,10 +268,11 @@ Item {
   // The search sheet — see collEdit.askSearch. "" reopens on the last one.
   // names are searched as you type, on the bar (Chrome's liveInline);
   // contents, and refining a contents search or a refined one, ask the sheet
+  // Names are searched on the bar and refined in its criteria rows, with no
+  // sheet (user, 2026-11-01: "search should have no sheets. only grep search
+  // will use sheet"); `S` still asks for the text to look inside on one.
   function beginSearch(mode) {
-    const s = term.searchPage ? term.searchSpec : null;
-    if (mode === "grep" || (mode === "" && s && (s.kind !== "find" || (s.rules || []).length > 0)))
-      term.collEditRef.askSearch(mode);
+    if (mode === "grep") term.collEditRef.askSearch(mode);
     else term.chromeRef.liveSearch();
   }
 }

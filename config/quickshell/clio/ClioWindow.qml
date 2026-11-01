@@ -571,7 +571,10 @@ FloatingWindow {
     if (!n || n.kind === "sticky" || !win.mgr.fileManager) return;
     win.mgr.fileManager.choose(false, Quickshell.env("HOME"), (paths) => {
       if (!paths || !paths.length) return;
-      for (const p of paths) win.mgr.attach(n.id, p, (b) => { if (b) pane.editor.attachBlock(b); });
+      // into this note only: another opened meanwhile is not where it goes
+      for (const p of paths) win.mgr.attach(n.id, p, (b) => {
+        if (b && win.current && win.current.id === n.id) pane.editor.attachBlock(b);
+      });
     }, "", true);
   }
   // files dropped on the note, in at gap `at`, all at once and in the
@@ -599,16 +602,21 @@ FloatingWindow {
     if (!n || n.kind === "sticky" || !win.mgr.fileManager) return;
     win.mgr.fileManager.choose(false, Quickshell.env("HOME") + "/Pictures", (paths) => {
       if (!paths || !paths.length) return;
+      // the reading takes a while (up to two minutes): what it found goes
+      // into this note, and only while it is still the one open
+      const here = () => win.current && win.current.id === n.id;
       win.mgr.attach(n.id, paths[0], (b) => {
-        if (!b) return;
+        if (!b || !here()) return;
         if (b.k !== "image") { pane.editor.attachBlock(b); win.say("That is not a picture", true); return; }
         const at = pane.editor.caretGap();
         pane.editor.insertAt(at, [N.block("image", "", { src: b.src, name: b.name, size: b.size })]);
         win.say("Reading the document…");
         win.mgr.ocr(b.src, (t) => {
+          if (!here()) return;
           if (t === "") { win.say("No words found in it", true); return; }
           pane.editor.setOcr(b.src, t);
           const i = pane.editor.blocks.findIndex((x) => x.src === b.src);
+          if (i < 0) return;
           pane.editor.insertAt(i + 1, t.split("\n").map((l) => N.block("body", N.escape(l))));
         });
       });
@@ -1128,6 +1136,7 @@ FloatingWindow {
         font.pixelSize: Zenon.px(14)
       }
       Text {
+        textFormat: Text.PlainText
         id: carryText
         anchors.verticalCenter: parent.verticalCenter
         width: Math.min(implicitWidth, 200)

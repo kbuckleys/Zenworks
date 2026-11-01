@@ -58,6 +58,7 @@ Item {
         font.pixelSize: Zenon.px(12)
       }
       Text {
+        textFormat: Text.PlainText
         width: parent.width - (pin.visible ? pin.width + 6 : 0) - (rb.note && rb.note.sealed ? 18 : 0)
         elide: Text.ElideRight
         text: rb.note ? N.titleOf(rb.note) : ""

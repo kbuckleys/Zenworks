@@ -43,11 +43,20 @@ function M.open(item)
   vim.wo[win].wrap = false
   pcall(api.nvim_win_set_cursor, win, { item.lnum, math.max(0, (item.col or 1) - 1) })
   vim.fn.winrestview({ topline = math.max(1, item.lnum - 2) })
-  local function shut() close(win, buf, wasListed) end
+  -- once: closing the card fires WinLeave while it is still current, and the
+  -- second shut queued by it unlisted the file <CR> had just opened for
+  -- real (audit 10-31)
+  local shutDone = false
+  local function shut()
+    if shutDone then return end
+    shutDone = true
+    close(win, buf, wasListed)
+  end
   vim.keymap.set("n", "q", shut, { buffer = buf, nowait = true })
   vim.keymap.set("n", "<Esc>", shut, { buffer = buf, nowait = true })
   vim.keymap.set("n", "<CR>", function()
     local pos = api.nvim_win_get_cursor(win)
+    wasListed = true
     shut()
     vim.cmd.edit(vim.fn.fnameescape(file))
     pcall(api.nvim_win_set_cursor, 0, pos)

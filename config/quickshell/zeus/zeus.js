@@ -284,19 +284,44 @@ const SIGNALS = [
 // One line per pid that could not be reached, as "FAIL <pid>", and nothing
 // for the ones that could — the same contract the plain kill always had, so
 // one reader handles all of them.
-function signalScript(pids, sig) {
+//
+// `starts` (pid → when it started, epoch seconds, from the list's etimes):
+// each pid is checked to be that process still, right before it is sent to.
+// One that exited, or whose number now belongs to something else, says
+// "GONE <pid>" and is left alone (audit 10-31: the card can stay up, and the
+// root retry comes any time later).
+function pidCheck(starts, act) {
+  if (!starts) return null;
+  const pairs = Object.keys(starts).map((p) => (parseInt(p, 10) || 0) + ":" + (parseInt(starts[p], 10) || 0));
+  return "for x in " + pairs.join(" ") + "; do p=${x%%:*}; s=${x#*:}; "
+    + "e=$(ps -o etimes= -p \"$p\" 2>/dev/null | tr -d ' '); "
+    + "if [ -z \"$e\" ]; then echo \"GONE $p\"; continue; fi; "
+    + "d=$(( $(date +%s) - e - s )); "
+    + "if [ \"$d\" -gt 3 ] || [ \"$d\" -lt -3 ]; then echo \"GONE $p\"; continue; fi; "
+    + act + "; done";
+}
+function signalScript(pids, sig, starts) {
   const s = SIGNALS.some((x) => x.sig === sig) ? sig : "TERM";
-  return "for p in " + pids.map((p) => String(parseInt(p, 10) || 0)).join(" ")
-    + "; do kill -s " + s + " \"$p\" 2>/dev/null || echo \"FAIL $p\"; done";
+  const act = "kill -s " + s + " \"$p\" 2>/dev/null || echo \"FAIL $p\"";
+  const only = starts ? pickStarts(pids, starts) : null;
+  return pidCheck(only, act) || ("for p in " + pids.map((p) => String(parseInt(p, 10) || 0)).join(" ")
+    + "; do " + act + "; done");
+}
+function pickStarts(pids, starts) {
+  const o = {};
+  for (const p of pids) o[String(parseInt(p, 10) || 0)] = starts[String(p)] || 0;
+  return o;
 }
 
 function clampNice(n) {
   return Math.max(-20, Math.min(19, Math.round(Number(n) || 0)));
 }
 
-function niceScript(pids, n) {
-  return "for p in " + pids.map((p) => String(parseInt(p, 10) || 0)).join(" ")
-    + "; do renice -n " + clampNice(n) + " -p \"$p\" >/dev/null 2>&1 || echo \"FAIL $p\"; done";
+function niceScript(pids, n, starts) {
+  const act = "renice -n " + clampNice(n) + " -p \"$p\" >/dev/null 2>&1 || echo \"FAIL $p\"";
+  const only = starts ? pickStarts(pids, starts) : null;
+  return pidCheck(only, act) || ("for p in " + pids.map((p) => String(parseInt(p, 10) || 0)).join(" ")
+    + "; do " + act + "; done");
 }
 
 // fixed-width data columns; monospace font keeps them aligned

@@ -19,7 +19,7 @@ const fs = require("fs");
 const path = require("path");
 
 const SKIP_DIR = /^(oracle\/tests|oracle\/qmltests|themes|plato\/nvim)(\/|$)/;
-const SRC = /\b(title|summary|body|appName|artist|album|track|location|description|message|subject|label|name|path|text|preview|line|comment|author|desc|words|detail|content|snippet|caption|version)\b|modelData\[\d\]/i;
+const SRC = /\b(title|summary|body|appName|artist|album|track|location|description|message|subject|label|name|path|text|preview|line|comment|author|desc|words|detail|content|snippet|caption|version|titleOf|killLabel|target|args|cwd|cmdline|procName|word)\b|\.h\b|modelData\[\d\]/i;
 
 function walk(root, d, out) {
   for (const e of fs.readdirSync(path.join(root, d), { withFileTypes: true })) {
@@ -55,7 +55,10 @@ module.exports = {
         while (j < lines.length && !close.test(lines[j])) block.push(lines[j++]);
         const b = block.join("\n");
         const tx = /^\s*text:\s*(.+)$/m.exec(b);
-        if (tx && !/textFormat/.test(b) && !/^\s*"[^"]*"\s*$/.test(tx[1]) && SRC.test(tx[1]))
+        // a binding over several lines (`text: {`): all of it is the source
+        // (audit 10-31: NoteList's title read only its first line)
+        const src = tx && /\{\s*$/.test(tx[1]) ? b.slice(b.indexOf(tx[0])) : tx ? tx[1] : "";
+        if (tx && !/textFormat/.test(b) && !/^\s*"[^"]*"\s*$/.test(tx[1]) && SRC.test(src))
           bad.push(f + ":" + (i + 1) + "  " + tx[1].trim().slice(0, 70));
         i = j;
       }

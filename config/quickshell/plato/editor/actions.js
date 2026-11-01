@@ -99,7 +99,7 @@ const list = [
   // from the terminal nvim's leader binds
   { keys: "s", title: "Replace word under cursor",
     run: (c) => c.client.input(":%s/\\<<C-r><C-w>\\>/<C-r><C-w>/gI<Left><Left><Left>") },
-  { keys: "X", title: "Make file executable", run: (c) => c.client.cmd("silent !chmod +x %") },
+  { keys: "X", title: "Make file executable", run: (c) => c.client.cmd("silent !chmod +x -- %:S") },
   { keys: "r", title: "Toggle wrap", run: (c) => c.toggleWrap() },
   { keys: "R", title: "Reopen this project's tabs", run: (c) => c.restoreTabs() },
   { keys: "y", title: "Paste from yank history", run: (c) => c.picker.open("yanks") },
@@ -175,7 +175,9 @@ function spell(keys) {
   return String(keys).split("").map((k) => k === " " ? "space" : k).join(" ");
 }
 
-function escape(path) { return String(path).replace(/([ \\%#|"])/g, "\\$1"); }
+// what fnameescape() escapes: a backtick ran a shell command in :file and
+// :saveas, and $VAR * ? [ were expanded (audit 10-31)
+function escape(path) { return String(path).replace(/([ \t\n*?[{`$\\%#'"|!<])/g, "\\$1"); }
 
 // Writing the buffer to a path picked in the save dialog. :saveas on a
 // buffer with NO name leaves a listed [No Name] behind as the alternate

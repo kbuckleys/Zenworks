@@ -162,10 +162,16 @@ Singleton {
   // month is a few kilobytes)
   FileView { id: reader; blockLoading: true; printErrors: false }
   // a month into `months`, read once a session; a missing file is empty
+  // After forget() every file is gone (or about to be: the rm is detached),
+  // so a month asked for then is empty. Read from disk instead it was the
+  // forgotten month again — before the rm, or from reader's cached copy when
+  // the path did not change — and the next tick wrote it back (audit 10-31).
+  property bool forgotten: false
   function ensureMonth(mk) {
     if (root.months[mk]) return root.months[mk];
-    reader.path = root.pathOf(mk);
-    const m = K.parseMonth(reader.text());
+    let text = "";
+    if (!root.forgotten) { reader.path = root.pathOf(mk); text = reader.text(); }
+    const m = K.parseMonth(text);
     root.months[mk] = m;
     return m;
   }
@@ -189,6 +195,7 @@ Singleton {
 
   // every file gone, and what is in memory with it
   function forget() {
+    root.forgotten = true;
     root.months = ({});
     root.dirty = ({});
     root.ticks = [];

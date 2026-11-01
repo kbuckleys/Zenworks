@@ -73,7 +73,7 @@ module.exports = {
     const NOT_A_CARET = {
       "terminus/SideRow.qml": "a sidebar row's outline while a drop is held over it",
       "clio/ClioShelf.qml": "a shelf row's outline while a drop is held over it",
-      "metis/MetisPopup.qml": "the rates dot while the rates refresh",
+      "metis/MetisView.qml": "the rates dot while the rates refresh",
     };
     const own = [];
     for (const f of walk(root, "", [])) {

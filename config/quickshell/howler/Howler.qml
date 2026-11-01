@@ -326,6 +326,44 @@ Singleton {
     if (gone.length > 0) Quickshell.execDetached(["rm", "-f", "--"].concat(gone));
   }
 
+  // ── CAPTURES WHOSE FILE IS GONE ─────────────────────────────────────────
+  // A screenshot row draws its file, and the user deletes screenshots. Handed
+  // a missing file the Image fails, which works (the row falls through to its
+  // icon) but logs "Cannot open" for every one on every reload. So the paths
+  // are checked in one process — once the history is read, and again each
+  // time the panel opens — and the ones not there are left out
+  // (Wolf.capturePictures). Rows made since name files just written.
+  property var capturesGone: ({})
+  property bool capturesChecked: false
+  function checkCaptures() {
+    if (!root.historyRead) return;
+    if (aliveProc.running) { aliveProc.again = true; return; }
+    const paths = [];
+    for (let i = 0; i < root.history.length; ++i)
+      paths.push(...Wolf.capturePaths(root.history[i]));
+    if (paths.length === 0) { root.capturesGone = ({}); root.capturesChecked = true; return; }
+    aliveProc.asked = paths;
+    aliveProc.command = ["sh", "-c", Strings.aliveCommand(paths)];
+    aliveProc.running = true;
+  }
+  Process {
+    id: aliveProc
+    property var asked: []
+    property bool again: false
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        const here = {};
+        String(this.text || "").split("\u001e").forEach((p) => { if (p !== "") here[p] = true; });
+        const gone = {};
+        aliveProc.asked.forEach((p) => { if (!here[p]) gone[p] = true; });
+        root.capturesGone = gone;
+        root.capturesChecked = true;
+      }
+    }
+    onExited: if (aliveProc.again) { aliveProc.again = false; Qt.callLater(root.checkCaptures); }
+  }
+
   // THE COVER, ONLY ONCE THE PLAYER IS ON THIS TRACK. A toast can come in
   // ahead of the player's metadata — skip quickly and Spotify's toast for
   // the new song arrives while MPRIS still names the old one. mprisFor then
@@ -565,7 +603,10 @@ Singleton {
   // FULL SCREEN (2026-10-25): the focused workspace has a full-screen
   // window. What it held back is counted, and said in one toast on leaving.
   // (=== true: the workspace can be there a moment before its flags are)
-  readonly property bool fullscreenOn: !!Hyprland.focusedWorkspace && Hyprland.focusedWorkspace.hasFullscreen === true
+  readonly property bool fullscreenOn: {
+    const w = Hyprland.focusedWorkspace;
+    return !!w && w.hasFullscreen === true;
+  }
   property int heldInFullscreen: 0
   onFullscreenOnChanged: {
     if (root.fullscreenOn || root.heldInFullscreen === 0) return;
@@ -740,5 +781,6 @@ Singleton {
     root.history = Wolf.parse(stateFile.text());
     root.historyRead = true;
     root.pruneFrames();
+    Qt.callLater(root.checkCaptures);
   }
 }

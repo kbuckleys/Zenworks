@@ -4,7 +4,7 @@
 // https://github.com/kbuckleys/
 //
 // The keyboard's ring, around whatever it is lit on. One of picasso's
-// controls — see Seg — shared by the focus card and the viewer.
+// controls — see Seg — shared by the background setter and the viewer.
 
 import QtQuick
 import "../morpheus"

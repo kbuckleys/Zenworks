@@ -24,10 +24,8 @@
 import QtQuick
 import Quickshell
 import Quickshell.Io
-import Quickshell.Hyprland
 import "../morpheus"
 import "../morpheus/lagnotes.js" as LagNotes
-import "../morpheus/hypr.js" as Hypr
 import "stylus.js" as S
 
 Scope {
@@ -225,7 +223,7 @@ Scope {
       const was = !fresh && mgr.win.visible;
       fn(mgr.win);
       mgr.win.visible = true;
-      if (was) Hyprland.dispatch(Hypr.focusTitle("stylus"));
+      if (was) Attention.raise("stylus");
     });
   }
   function retire(w) {

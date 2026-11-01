@@ -691,6 +691,7 @@ PanelWindow {
                   // What is in a directory, or how big a file is — muted and in
                   // the margin, where the eye reaches for it only if it wants.
                   Text {
+                    textFormat: Text.PlainText
                     id: detail
                     anchors.right: arrow.left
                     anchors.rightMargin: arrow.visible ? 6 : 0

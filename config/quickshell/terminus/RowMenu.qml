@@ -960,17 +960,9 @@ PopupWindow {
                    act: () => term.rotateLook(90) });
         out.push({ label: "Convert to" + many, sub: menu.convertItems });
         out.push({ sep: true });
-        // across every monitor, as one picture — see setWallpaper
+        // picasso's own setter, in a sheet — see BackgroundSheet
         out.push({ label: "Set as background",
-                   act: () => term.setWallpaper(null) });
-        const screens = Quickshell.screens;
-        if (screens.length > 1) {
-          for (let i = 0; i < screens.length; ++i) {
-            const nm = screens[i].name;
-            out.push({ label: "Background on " + nm,
-                       act: () => term.setWallpaper(nm) });
-          }
-        }
+                   act: () => term.setBackground() });
       }
       out.push({ sep: true });
       out.push({ label: "Trash" + many, key: "d", danger: true, act: () => term.trash() });

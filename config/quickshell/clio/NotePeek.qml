@@ -40,6 +40,7 @@ Bubble {
       font.pixelSize: Zenon.px(14)
     }
     Text {
+      textFormat: Text.PlainText
       anchors.verticalCenter: parent.verticalCenter
       width: Math.min(implicitWidth, 280)
       elide: Text.ElideRight

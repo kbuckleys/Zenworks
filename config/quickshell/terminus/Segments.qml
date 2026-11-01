@@ -186,13 +186,13 @@ Item {
   FontMetrics {
     id: wordFm
     font.family: segs.face !== "" ? segs.face : Zenon.face
-    font.weight: segs.weight
+    font.weight: segs.weight || Zenon.weight
     font.pixelSize: segs.textSize
   }
   FontMetrics {
     id: glyphFm
     font.family: Zenon.face
-    font.weight: segs.glyphWeight
+    font.weight: segs.glyphWeight || Zenon.weight
     font.pixelSize: Math.round(segs.textSize * 1.05)
   }
   readonly property var partWs: {
@@ -214,8 +214,10 @@ Item {
   // an owned Timer, not Qt.callLater: it dies with the switch
   function settle() { if (!segs.settled && segs.visible && segs.width > 0) settleLater.restart(); }
   Timer { id: settleLater; interval: 0; onTriggered: segs.settled = true }
-  onVisibleChanged: segs.settle()
-  onWidthChanged: segs.settle()
+  // torn down (a reload), its own functions are already gone while these
+  // still fire: asked only while it has them
+  onVisibleChanged: if (segs.settle) segs.settle()
+  onWidthChanged: if (segs.settle) segs.settle()
   Component.onCompleted: segs.settle()
   Rectangle {
     id: lit
@@ -330,7 +332,7 @@ Item {
             : segs.faint.indexOf(one.modelData[0]) >= 0 && segs.hot !== one.modelData[0] ? 0.45 : 1
           Behavior on color { ColorAnimation { duration: Zenon.fast } }
           font.family: segs.face !== "" ? segs.face : Zenon.face
-          font.weight: segs.weight
+          font.weight: segs.weight || Zenon.weight
           font.features: { "tnum": 1 }
           font.pixelSize: segs.textSize
         }
@@ -350,7 +352,7 @@ Item {
           color: label.color
           opacity: label.opacity
           font.family: Zenon.face
-          font.weight: segs.glyphWeight
+          font.weight: segs.glyphWeight || Zenon.weight
           font.pixelSize: Math.round(segs.textSize * 1.05)
         }
         Text {

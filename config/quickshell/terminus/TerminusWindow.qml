@@ -1452,6 +1452,24 @@ FloatingWindow {
   // and every verb should act on them exactly as it acts on a directory.
   property string searchMode: ""
   property string searchQuery: ""
+  // A search out and not back yet, and how long the last one took (ms, -1
+  // when there is none) — the search bar's dots and its "· 0.4 s". Set by
+  // Searching.search and openCollection, settled by searchDone.
+  // A names search's words, lit in the results' names (Terminus.wordsMark)
+  readonly property string searchMark: root.searchPage && root.searchSpec.kind === "find"
+    ? Terminus.wordsMark(root.searchSpec.query) : ""
+  // A results page in list view is grouped by directory, a heading per
+  // directory and no WHERE column (Pane.groupHeadAt)
+  readonly property bool searchGrouped: root.searchPage && root.viewMode === "list"
+  property bool searchBusy: false
+  property real searchT0: 0
+  property int searchMs: -1
+  function searchBegun() { root.searchBusy = true; root.searchT0 = Date.now(); }
+  function searchDone() {
+    if (!root.searchBusy) return;
+    root.searchBusy = false;
+    root.searchMs = Date.now() - root.searchT0;
+  }
 
   // ── THE REALM CHANGES WHEN THE ROWS DO, NOT BEFORE ────────────────────
   // Opening a collection used to change four things the moment you asked
@@ -3747,6 +3765,8 @@ FloatingWindow {
     if (space.open) return "Space";
     if (plug.open) return plug.rows.length > 1 ? plug.rows.length + " new disks" : "New disk";
     if (diskInfo.open) return diskInfo.cur ? diskInfo.title : "Disk";
+    // the picture, between the bar's "Set" and "as background" (sheetLead)
+    if (bgSet.open) return Terminus.basename(bgSet.path);
     if (diskTool.open)
       return (diskTool.mode === "format" ? "Format " : "Check ")
         + (diskToolBody.title !== "" ? diskToolBody.title : "disk");
@@ -3958,8 +3978,8 @@ FloatingWindow {
   // ── A SHEET THAT ASKS A QUESTION SAYS IT AS A SENTENCE (user, 2026-10-17)
   // "Open <glyph> name with…", the way copy and move read "Copy <glyph>
   // name to…": the words either side of the subject, muted, on the bar.
-  readonly property string sheetLead: appPick.open ? "Open" : ""
-  readonly property string sheetTail: appPick.open ? "with\u2026" : ""
+  readonly property string sheetLead: appPick.open ? "Open" : bgSet.open ? "Set" : ""
+  readonly property string sheetTail: appPick.open ? "with\u2026" : bgSet.open ? "as background" : ""
   property string barLead: ""
   property string barTail: ""
   property string barGlyph: ""
@@ -3988,7 +4008,7 @@ FloatingWindow {
 
   readonly property bool modal: root.looking || cmdPalette.open || marks.open
     || disks.open || space.open || plug.open || diskInfo.open || tagPick.open || collEdit.open
-    || connect.open || props.open || confirm.open || diskTool.open
+    || connect.open || props.open || confirm.open || diskTool.open || bgSet.open
     || sendTo.open
     || bulk.open || prefs.open
     || appPick.open
@@ -4407,7 +4427,12 @@ FloatingWindow {
 
   function copyPath() { return renameDrag.copyPath(); }
 
-  function setWallpaper(screenName) { return renameDrag.setWallpaper(screenName); }
+  // picasso's own setter, in a sheet — see BackgroundSheet
+  function setBackground() {
+    const r = root.currentRow();
+    if (!r || r.isDir || !Terminus.isImage(r.name)) return;
+    bgSet.ask(r.path);
+  }
 
   // The row menu's Install on font files: the marked ones, or the one under
   // the cursor, through alexandria's install (its queue, its fc-cache and
@@ -6842,6 +6867,9 @@ FloatingWindow {
 
     // diskInfo, in its own file — see terminus/DiskInfoSheet.qml
     DiskInfoSheet { id: diskInfo; term: root }
+
+    // a picture's Set as background, in its own file — see terminus/BackgroundSheet.qml
+    BackgroundSheet { id: bgSet; term: root }
 
     // ── CHECK, REPAIR OR FORMAT A DISK ─────────────────────────────────
     // From a disk's menu. The card is terminus/DiskTool.qml; this is the

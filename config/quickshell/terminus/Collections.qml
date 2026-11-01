@@ -286,7 +286,8 @@ Item {
       // spent — see reCollect. Nothing to land on, so let them go.
       term.wantSel = "";
       term.reAt = -1;
-      term.status = "Nothing matches";
+      term.status = term.searchPage ? "" : "Nothing matches";
+      term.searchDone();
       return;
     }
     term.runStat(paths, paths);
@@ -326,7 +327,8 @@ Item {
 
     const cmd = Coll.command(f, Paths.home());
     if (cmd === "") { term.status = "No rules yet"; return; }
-    term.status = "Searching\u2026";
+    term.status = term.searchPage ? "" : "Searching\u2026";
+    term.searchBegun();
     collections.killCollGroup();
     collProc.folder = f;
     collProc.running = false;
@@ -491,6 +493,7 @@ Item {
     // exactly when it stops being worth anything.
     term.cancelCollection();
     term.collOpenId = -1;
+    term.searchBusy = false;
     term.searchMode = "";
     term.searchQuery = "";
     const backCwd = term.searchBackCwd;

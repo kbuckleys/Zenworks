@@ -141,12 +141,15 @@ Item {
         ? "file://" + scene.thumb : ""
       fillMode: Image.PreserveAspectCrop
       asynchronous: true
+      // a new picture keeps the last one's light until its own is decoded
+      retainWhileLoading: true
       sourceSize.width: 128
       sourceSize.height: 128
     }
     MultiEffect {
       anchors.fill: parent
-      visible: blurSrc.source.toString() !== "" && blurSrc.status === Image.Ready
+      visible: blurSrc.source.toString() !== ""
+        && (blurSrc.status === Image.Ready || blurSrc.status === Image.Loading)
       source: blurSrc
       blurEnabled: true
       blur: 1.0

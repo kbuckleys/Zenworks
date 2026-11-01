@@ -26,13 +26,11 @@
 import QtQuick
 import Quickshell
 import Quickshell.Io
-import Quickshell.Hyprland
 import "../morpheus"
 import "../morpheus/lagnotes.js" as LagNotes
 import "../oracle"
 import "alexandria.js" as A
 import "../oracle/oracle.js" as Ora
-import "../morpheus/hypr.js" as Hypr
 
 Scope {
   id: mgr
@@ -291,7 +289,7 @@ Scope {
       const was = !fresh && mgr.win.visible;
       fn(mgr.win, fresh);
       mgr.win.visible = true;
-      if (was) Hyprland.dispatch(Hypr.focusTitle("alexandria"));
+      if (was) Attention.raise("alexandria");
     });
   }
   // its window closed: the type goes with it

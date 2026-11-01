@@ -342,6 +342,7 @@ Item {
       // to them (elided) when the band is short. Between bars, the last
       // package pacman.log recorded, so it is never empty mid-job.
       Text {
+        textFormat: Text.PlainText
         id: now
         anchors.left: phaseText.right
         anchors.leftMargin: 12
@@ -412,6 +413,7 @@ Item {
     anchors.fill: parent
 
     Text {
+      textFormat: Text.PlainText
       id: resultLine
       anchors.left: parent.left
       anchors.right: parent.right

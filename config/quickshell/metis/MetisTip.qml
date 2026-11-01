@@ -42,6 +42,7 @@ Rectangle {
     spacing: 5
 
     Text {
+      textFormat: Text.PlainText
       anchors.verticalCenter: parent.verticalCenter
       text: tip.word
       color: Zenon.muted

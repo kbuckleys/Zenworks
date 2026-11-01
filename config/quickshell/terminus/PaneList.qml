@@ -155,7 +155,11 @@ ListView {
     onIndexChanged: cell.glideCheck()
     Component.onCompleted: cell.glideCheck()
 
-    height: term.rowH + (cell.head !== "" ? term.groupHeadH : 0)
+    // A grouped results page keeps every row one row tall: an uneven list
+    // re-guesses its height as rows are built, and the elastic scroll snapped
+    // on every guess (user, 2026-11-02). Its runs are marked on the row.
+    readonly property bool runs: plist.pane.searchGrouped
+    height: term.rowH + (cell.head !== "" && !cell.runs ? term.groupHeadH : 0)
 
     // ── THE HEADING ──────────────────────────────────────────────
     // Set in the same muted small caps the sidebar's section heads use,
@@ -163,7 +167,7 @@ ListView {
     // section in the sidebar rather than as a row you could click.
     Item {
       id: headBand
-      visible: cell.head !== ""
+      visible: cell.head !== "" && !cell.runs
       height: visible ? term.groupHeadH : 0
       anchors.left: parent.left
       anchors.right: parent.right
@@ -177,6 +181,8 @@ ListView {
         anchors.leftMargin: 12
         anchors.bottom: parent.bottom
         anchors.bottomMargin: 3
+        // a directory's name, when it is a search's heading
+        textFormat: Text.PlainText
         text: cell.head
         color: Zenon.accentMuted
         font.family: Zenon.face
@@ -199,13 +205,30 @@ ListView {
       }
     }
 
+    // where one directory's run ends and the next begins, on a grouped
+    // results page (the rows stay even; see `runs`)
+    Rectangle {
+      z: 2
+      visible: cell.runs && cell.head !== "" && cell.index > 0
+      anchors.left: parent.left
+      anchors.leftMargin: 12
+      anchors.right: parent.right
+      anchors.rightMargin: 12
+      anchors.top: parent.top
+      height: 1
+      color: Zenon.border
+    }
+
     EntryRow {
       host: term
     y: headBand.height
     width: plist.width
     entry: cell.row
-    // the filter's letters, lit in the name
-    mark: plist.pane.query
+    // a run's directory, said once, on its first row
+    whereSay: cell.runs ? cell.head : undefined
+    // the filter's letters, or a names search's words, lit in the name
+    mark: plist.pane.query !== "" ? plist.pane.query
+      : plist.pane === plist.term.act ? plist.term.searchMark : ""
     // ── THE TREE ─────────────────────────────────────────────
     // Only the list has one, and only over a real directory. A
     // search result is a path from anywhere and has no place in

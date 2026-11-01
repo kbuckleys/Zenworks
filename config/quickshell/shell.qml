@@ -23,13 +23,9 @@ import Quickshell.Hyprland
 import Quickshell.Wayland
 import "morpheus"
 import "cynosure"
-import "folio"
 import "artemis"
-import "lexi"
 import "zeus"
-import "ideo"
 import "calypso"
-import "metis"
 import "howler"
 import "cerberus"
 import "socordia"
@@ -118,6 +114,9 @@ ShellRoot {
   // startup and nothing of it stays once its last window closes: until the
   // first `qs ipc call Plato open`, this is an ipc handler and nothing else.
   // Handed terminus for its open/save dialogs and artemis as its file finder.
+  // artemis, the finder: no panel of its own since 2026-11-01 — the Files
+  // section of cynosure's list, and plato's Ctrl-P
+  ArtemisIndex { id: artemis; onToggleAsked: cynosure.toggle() }
   PlatoManager { id: plato; fileManager: terminus; finder: artemis; gitClient: delphi; notes: clioApp }
   // The font book — and oracle's font picker. Built on first use, like plato.
   AlexandriaManager { id: alexandria; fileManager: terminus }
@@ -135,10 +134,9 @@ ShellRoot {
   // the idle daemon, in place of hypridle. It calls cerberus directly rather
   // than shelling out to `qs ipc` to reach the process it is already inside.
   SocordiaDaemon { id: socordia; lockscreen: cerberus }
-  CynosurePopup { id: cynosure; keepAwake: socordia.forceAwake; statusbar: bar; screen: root.focusedScreen; morphMode: root.morphedFor("cynosure") && root.morphOnPill; morphFade: root.layerFade; morphRadius: root.pillRadius }
-  FolioPopup { id: folio; statusbar: bar; screen: root.focusedScreen; morphMode: root.morphedFor("folio") && root.morphOnPill; morphFade: root.layerFade }
-  ArtemisPopup { id: artemis; statusbar: bar; screen: root.focusedScreen; morphMode: root.morphedFor("artemis") && root.morphOnPill; morphFade: root.layerFade }
-  LexiPopup { id: lexi; statusbar: bar; screen: root.focusedScreen; morphMode: root.morphedFor("lexi") && root.morphOnPill; morphFade: root.layerFade }
+  // the quick panels cynosure hands the pill to ("cb invoice" → folio)
+  CynosurePopup { id: cynosure; keepAwake: socordia.forceAwake; statusbar: bar; screen: root.focusedScreen; morphMode: root.morphedFor("cynosure") && root.morphOnPill; morphFade: root.layerFade
+                  finder: artemis; passwords: calypsoMgr }
   // `&& !zeus.pinned`: torn off the pill, zeus is a window rather than the
   // pill's current shape, so it must stop drawing itself as one — otherwise it
   // keeps the pill's transparent ground and scales out of a bar it is no
@@ -148,11 +146,10 @@ ShellRoot {
   // focus following the mouse, glancing at the other screen carried the whole
   // panel across with it. It picks its monitor when it opens and keeps it.
   ZeusPopup { id: zeus; statusbar: bar; liveScreen: root.focusedScreen; screen: zeus.homeScreen ? zeus.homeScreen : root.focusedScreen; morphMode: root.morphedFor("zeus") && root.morphOnPill && !zeus.pinned; morphFade: root.layerFade }
-  IdeoPopup { id: ideo; statusbar: bar; screen: root.focusedScreen; morphMode: root.morphedFor("ideo") && root.morphOnPill; morphFade: root.layerFade }
   // the password manager: its accounts and backend, its window; Quick
   // Access (the popup) asks through it
-  CalypsoManager { id: calypsoMgr; fileManager: terminus; quick: calypso }
-  CalypsoPopup { id: calypso; mgr: calypsoMgr; statusbar: bar; screen: root.focusedScreen; morphMode: root.morphedFor("calypso") && root.morphOnPill; morphFade: root.layerFade }
+  // Quick Access is cynosure's ("pw …") since 2026-11-01
+  CalypsoManager { id: calypsoMgr; fileManager: terminus; quick: cynosure.quickAccess }
   // every shortcut on one sheet, held or tapped on binds.lua's keysSheet
   KeysSheet { screen: root.focusedScreen }
   // the very first start's Make it yours, after the sheet (ZshSetup)
@@ -161,7 +158,6 @@ ShellRoot {
   WindowSwitcher { screen: root.focusedScreen }
   // a moment of this screen's workspaces on every switch (Oracle › Windows)
   WorkspaceStrip { screen: root.focusedScreen }
-  MetisPopup { id: metis; statusbar: bar; screen: root.focusedScreen; morphMode: root.morphedFor("metis") && root.morphOnPill; morphFade: root.layerFade }
   HowlerPopup { id: howler; statusbar: bar; screen: root.focusedScreen; morphMode: root.morphedFor("howler") && root.morphOnPill; morphFade: root.layerFade }
   // what is waiting to be installed, out of the update count the way howler
   // comes out of the bell — see ceres/Ceres.qml for the checking itself
@@ -178,7 +174,9 @@ ShellRoot {
     function onLockedChanged() {
       if (!cerberus.locked) return;
       Ceres.forgetPassword();
-      calypso.lockVault();
+      // Quick Access goes with the vaults
+      cynosure.quickAccess.closePopup();
+      calypsoMgr.lockAll();
     }
   }
   PicassoPopup { id: picasso; statusbar: bar; screen: root.focusedScreen; morphMode: root.morphedFor("picasso") && root.morphOnPill; morphFade: root.layerFade }
@@ -588,8 +586,8 @@ ShellRoot {
   property int barWidthCollapsed: Zenon.layerWidth(morpheusContentWidth)
   // The layers the pill can wear, under the names activeLayer uses.
   readonly property var layers: ({
-    cynosure: cynosure, folio: folio, artemis: artemis, lexi: lexi,
-    zeus: zeus, ideo: ideo, calypso: calypso, metis: metis,
+    cynosure: cynosure,
+    zeus: zeus,
     howler: howler, ceres: ceres, picasso: picasso, chronos: chronos,
     hermes: hermes, disks: plugPanel
   })
@@ -605,10 +603,6 @@ ShellRoot {
     const l = root.layers[activeLayer];
     const fixed = root.fixedLayerWidth[activeLayer];
     if (fixed) return Zenon.layerWidth(fixed);
-    // cynosure shrink-wraps its rows and the pill follows it exactly; the 8px
-    // floor only guards against a degenerate zero-width pill
-    if (activeLayer === "cynosure" && l && l.contentWidth)
-      return Zenon.layerWidth(Math.max(8, l.contentWidth));
     // the rest fit themselves — see panelWidth in each
     if (l && l.panelWidth) return Zenon.layerWidth(l.panelWidth);
     return Zenon.layerWidth(1000);
@@ -625,8 +619,8 @@ ShellRoot {
   // would make progress jump to 1 at the start of every collapse.
   //
   // So it is LATCHED when the morph begins, and still followed while
-  // morphed, because a layer's width is not fixed — cynosure's changes as
-  // you filter, and the pill has to keep up with it.
+  // morphed, because a layer's width is not fixed — folio's and ideo's change
+  // as you filter, and the pill has to keep up with it.
   property int morphW: barWidthCollapsed
   onPillMorphedChanged: if (root.pillMorphed) root.morphW = root.barWidthExpanded
   onBarWidthExpandedChanged: if (root.pillMorphed) root.morphW = root.barWidthExpanded
@@ -634,8 +628,7 @@ ShellRoot {
   property int barHeightCollapsed: Zenon.slot
   property int barHeightExpanded: {
     if (!layerOpen) return barHeightCollapsed;
-    // cynosure is one row, exactly one slot; the rest measure themselves
-    if (activeLayer === "cynosure") return Zenon.slot;
+    // each measures itself
     const l = root.layers[activeLayer];
     try {
       if (l && l.calcHeight) return l.calcHeight();
@@ -702,8 +695,7 @@ ShellRoot {
   // Each layer reports opening, and the moment its close BEGINS
   // (`collapsing`), and the pill follows. Waiting for `shown` to drop instead
   // means waiting out the whole close animation, which left the pill sitting
-  // there expanded and empty. cynosure has no close animation and so no
-  // `collapsing`.
+  // there expanded and empty.
   Component.onCompleted: {
     for (const name in root.layers) {
       const l = root.layers[name];
@@ -846,8 +838,8 @@ ShellRoot {
       readonly property real pillY: bg.y
       // The pill's geometry animates on bg (its width and height Behaviors),
       // not here. It has to animate: snapped, a morph reads as a cut, and
-      // cynosure, which follows the pill's live width rather than easing on
-      // its own, goes jerky while you filter.
+      // a layer that follows the pill's live width rather than easing on
+      // its own (folio, ideo) goes jerky while you filter.
 
     // The pill's own first frame. QQuickWindow.frameSwapped fires once the
     // window has actually handed a buffer over, which is the earliest moment
@@ -891,13 +883,7 @@ ShellRoot {
       // this same shadow is what a quick access panel casts once it has
       // morphed out of the pill, so it eases back to the full one over the
       // morph — the panels keep exactly the shadow every menu has.
-      // Except cynosure: it is the one panel built like the pill, a strip,
-      // so wearing it the pill keeps its own light shadow — and cynosure
-      // standalone casts that same one. Eased, so handing the pill between
-      // cynosure and another panel cannot snap the shadow.
-      property real heavy: root.morphSource === "cynosure" ? 0 : 1
-      Behavior on heavy { NumberAnimation { duration: root.morphMs; easing.type: Zenon.ease } }
-      readonly property real m: root.morphProgress * heavy
+      readonly property real m: root.morphProgress
       ink: Zenon.alpha(Zenon.menuShadowInk, Zenon.menuShadowInk.a * (0.55 + 0.45 * m))
       grow: 4 + (Zenon.menuShadowGrow - 4) * m
       softness: 16 + (Zenon.menuShadowBlur - 16) * m

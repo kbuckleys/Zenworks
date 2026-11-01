@@ -209,6 +209,7 @@ Item {
     radius: Zenon.radiusControl
     color: Zenon.hud(0.8)
     Text {
+      textFormat: Text.PlainText
       id: cropSize
       anchors.centerIn: parent
       text: Math.round(box.r.w) + " × " + Math.round(box.r.h)

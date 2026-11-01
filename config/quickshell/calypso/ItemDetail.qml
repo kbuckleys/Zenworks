@@ -461,6 +461,7 @@ Item {
 
       // ── when ─────────────────────────────────────────────────────────
       Text {
+        textFormat: Text.PlainText
         width: parent.width
         horizontalAlignment: Text.AlignHCenter
         visible: text !== ""

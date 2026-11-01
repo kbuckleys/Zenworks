@@ -94,7 +94,11 @@ FloatingWindow {
   function reload() {
     if (!Chronos.calReady) return;
     const r = Chr.rangeOf(cw.view, cw.at);
+    // only the newest asked: paging faster than khal answers let an older
+    // range land last (audit 10-31)
+    const gen = ++cw.listGen;
     Chronos.listRange(r[0], r[1], (j) => {
+      if (gen !== cw.listGen) return;
       if (j.error) { cw.error = j.error; return; }
       cw.error = "";
       cw.events = j.events || [];
@@ -236,8 +240,19 @@ FloatingWindow {
   }
   function setColor(ev, hue) { cw.change(ev, { color: hue }, hue === "" ? "Its calendar's color" : ""); }
   function moveToCalendar(ev, cal) { cw.change(ev, { calendar: cal }, "Moved to " + cw.titleOf(cal)); }
+  // a repeat goes whole, so it is asked first, as a move is (audit 10-31:
+  // Delete on one time of a series trashed the series without a word)
   function deleteEvent(ev) {
     if (!ev || !ev.uid) return;
+    if (ev.repeats) {
+      cw.ask_({ question: "Delete every time it repeats?", glyph: "\u{F0456}", ink: Zenon.red,
+        detail: "“" + ev.title + "” repeats: deleting it deletes the whole series.",
+        choices: [{ label: "Delete them all", ink: Zenon.red, run: () => cw.deleteNow(ev) }, { label: "Cancel", run: () => {} }] });
+      return;
+    }
+    cw.deleteNow(ev);
+  }
+  function deleteNow(ev) {
     Chronos.getEvent(ev.uid, (before) => {
       Chronos.removeEvent(ev.uid, (ok, words) => {
         if (!ok) { cw.say(words, true); return; }
@@ -252,9 +267,10 @@ FloatingWindow {
       if (j.error) { cw.say(j.error, true); return; }
       cw.record({ kind: "save", before: null, after: { uid: j.uid } });
       cw.say(days ? "Pasted" : "Duplicated");
-    });
+    }, ev.date);
   }
   // copy and paste: onto the day the window is on
+  property int listGen: 0
   property var clip: null
   function copyEv(ev) { if (ev && ev.uid) { cw.clip = ev; cw.say("Copied “" + ev.title + "”"); } }
   function paste(iso) {

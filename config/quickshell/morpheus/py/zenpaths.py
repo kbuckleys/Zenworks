@@ -21,11 +21,15 @@
 # name here hides the backend's own module or a library's.
 
 import os
+import threading
 
 
 def write_atomic(path, data):
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    tmp = path + ".part"
+    # a name of its own per writer: two threads writing the same file at once
+    # (a backend answers each request on its own thread) shared "<path>.part"
+    # and could rename each other's half-written text into place
+    tmp = "%s.%d-%d.part" % (path, os.getpid(), threading.get_ident())
     with open(tmp, "wb") as f:
         f.write(data if isinstance(data, bytes) else data.encode("utf-8"))
         f.flush()

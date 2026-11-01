@@ -7,7 +7,6 @@ import QtQuick
 import Quickshell
 import Quickshell.Widgets
 import Quickshell.Io
-import Quickshell.Hyprland
 import "../morpheus"
 import "../morpheus/gridnav.js" as Nav
 import "../picasso"
@@ -17,19 +16,43 @@ import "../clio"
 import "folio.js" as Folio
 import "../picasso/capture.js" as Cap
 
-LayerPopup {
+// FOLIO — the clipboard and the snippets. Since 2026-11-01 what it holds
+// is shown as rows of Cynosure's list (the Clipboard and Snippets sections,
+// "cb …" for them alone): Cynosure loads this, unseen, and reads its
+// entries, pictures, stamps and snippets, and acts through it (takeClip,
+// takeSnippet, dropClip, keepClip, annotateClip, editSnippetAt). The one
+// part of it still drawn is the snippet page (`editing`), which takes the
+// panel while a snippet is written.
+
+Item {
   id: popup
 
-  // Explicitly the whole surface when idle and explicitly nothing while
-  // dragging, rather than leaning on what an unset mask means — getting that
-  // backwards leaves the popup permanently click-through. closeArea already
-  // fills the window, so it IS the full-surface region.
-  mask: Region { item: popup.dragging ? null : closeArea }
+  // ── THE VIEW CONTRACT ── how Cynosure loads it (cynosure/CynosurePopup.qml):
+  // `host` is Cynosure's window (its shown, its collapsing, the window a
+  // bubble hangs from); `dismissed` closes the panel, `backed` returns to
+  // its list. `closing` latches, so the close is done once however it
+  // arrives (Cynosure's grab, a click outside, a copy).
+  property var host: null
+  readonly property bool shown: !!popup.host && popup.host.shown
+  readonly property bool collapsing: !!popup.host && popup.host.collapsing
+  property bool nested: true
+  readonly property string escWord: "close"
+  signal dismissed()
+  signal backed()
+  property bool closing: false
+  // read and acted on by Cynosure's rows, unseen but for the snippet page:
+  // it never takes the keyboard but to write a snippet
+  property bool embedded: false
+  // bumped on each way in: rows that arrive one after another restart
+  // their entrance on it, as they did on the layer's own `opened`
+  property int opened: 0
 
   // ── DRAGGING ONE OF THESE SOMEWHERE ELSE ──────────────────────────────
   // Artemis' arrangement, wholesale, because the problem is identical: a
   // layer-shell popup that must let go of the pointer and of its own focus
   // grab for as long as a drag is in flight, without canceling the drag.
+  // Cynosure's window reads `dragging` for both: its input region and its
+  // grab let go while it is true.
   //
   // Wayland's drag grab is separate from the surface input region, so
   // dropping the region mid-drag does not cancel anything — it only decides
@@ -50,7 +73,10 @@ LayerPopup {
   property int sel: 0
   property bool hasText: false
   property bool hasImg: false
-  property string lastAction: ""
+  // one kind per command asked: a second asked while the first runs is
+  // queued by the Process, and with one shared kind the first's exit read
+  // the second's (two quick deletes closed the panel; audit 10-31)
+  property var actionKinds: []
 
   // ── THE PAGE A SNIPPET IS WRITTEN ON (user, 2026-10-21) ───────────────
   // ctrl n and ctrl e no longer hand the snippet to plato: the panel itself
@@ -82,7 +108,8 @@ LayerPopup {
   // The tile plus its own date line under the picture.
   readonly property int imgCellH: popup.imgCell + 22
   readonly property int imgRowsVisible: 3
-  readonly property int msgH: Zenon.hintBarH   // morpheus/HintBar's strip
+  // morpheus/HintBar's strip; Cynosure's strip says its keys when embedded
+  readonly property int msgH: popup.embedded ? 0 : Zenon.hintBarH
 
   // AS MANY AS THERE ARE, up to as many as fit. Five was the answer whether
   // the clipboard held two pictures or twenty, so two pictures sat in the
@@ -147,18 +174,6 @@ LayerPopup {
     : Math.min(1000, popup.textWant)
   readonly property int panelTarget: Zenon.layerWidth(popup.panelWidth)
 
-  // WHAT IS ON SCREEN, which is not the target while the pill is moving.
-  // Morphed, the pill's own animated width IS the value — following it makes
-  // the two locked frame-for-frame, and a Behavior on top of an easing
-  // source is a second easing chasing the first. Standalone there is no pill
-  // to follow, so the ease lives here. Cynosure does exactly this.
-  property real liveWidth: (popup.morphMode && popup.statusbar
-      && popup.statusbar.pillWidth > 0)
-    ? popup.statusbar.pillWidth : popup.panelTarget
-  Behavior on liveWidth {
-    enabled: !popup.morphMode
-    NumberAnimation { duration: Zenon.slow; easing.type: Zenon.ease }
-  }
   readonly property int imgRowsNeeded: Math.min(Math.ceil(popup.imgRows.length / popup.imgPerRow), popup.imgRowsVisible)
 
   function cellText(preview) {
@@ -202,26 +217,8 @@ LayerPopup {
     font.weight: 600
   }
 
-  focusable: true
 
-  HyprlandFocusGrab {
-    id: grab
-    windows: [ popup ]
-    // Not while dragging: the pointer is over another application by design
-    // at that point, and closing here would destroy the row the drag is
-    // sourced from, mid-gesture.
-    active: popup.shown && !popup.dragging
-    onCleared: {
-      popup.closePopup();
-    }
-  }
 
-  IpcHandler {
-    target: "Folio"
-    function toggle() {
-      popup.toggle();
-    }
-  }
 
   Process {
     id: listProc
@@ -329,10 +326,11 @@ LayerPopup {
     return Folio.stampLabel(popup.stamps[id] || 0, popup.openedAt, Oracle.clock24h);
   }
 
-  function openPopup() {
+  // Cynosure's way in: a fresh open
+  function start() {
+    popup.closing = false;
+    popup.opened++;
     popup.openedAt = Date.now();
-    popup.shown = true;
-    popup.collapsing = false;
     popup.mode = "text";
     popup.editing = false;
     popup.query = "";
@@ -340,8 +338,12 @@ LayerPopup {
     popup.sel = 0;
     popup.reload();
     popup.loadSnippets();
-    focusRetry.begin();
-    popup.playOpen();
+    if (!popup.embedded) focusRetry.begin();
+  }
+
+  // the filter as if typed here ("cb …" in Cynosure)
+  function setLine(q) {
+    filter.text = q || "";
   }
 
   // ── SNIPPETS ───────────────────────────────────────────────────────────
@@ -382,8 +384,33 @@ LayerPopup {
       }
     }
   }
+  // A CLIP'S OWN TEXT. A row's `content` is cliphist's list preview, which
+  // folds every run of spaces and line breaks into one space: kept as a
+  // snippet or filled into {clipboard}, a block of lines came out as one
+  // (audit 10-31). Decoded, one process per ask.
+  Component {
+    id: decoder
+    Process {
+      id: dec
+      property var done: null
+      running: true
+      stdout: StdioCollector {
+        id: decOut
+        waitForEnd: true
+        onStreamFinished: if (dec.done) dec.done(decOut.text)
+      }
+      onExited: dec.destroy()
+    }
+  }
+  function decodeText(id, fn) {
+    decoder.createObject(popup, { done: fn,
+      command: ["sh", "-c", "printf '%s' " + Strings.shellQuote(id) + " | cliphist decode"] });
+  }
   // what was copied last, for {clipboard}
-  function lastClip() { return popup.entries.length > 0 ? String(popup.entries[0].content || "") : ""; }
+  function lastClipThen(fn) {
+    if (popup.entries.length === 0) { fn(""); return; }
+    popup.decodeText(popup.entries[0].id, fn);
+  }
   // a file written whole (beside it, then moved over it); `was`, when it is
   // another path, is the old name of a snippet renamed, and goes
   function writeSnippet(name, text, was) {
@@ -406,10 +433,12 @@ LayerPopup {
   // the text clip under the cursor, kept
   function keepAsSnippet() {
     if (popup.mode !== "text" || popup.rows.length === 0) return;
-    const text = String(popup.rows[popup.sel].content || "");
-    const name = Folio.snippetName(text, popup.snippets.map((s) => s.name));
-    popup.writeSnippet(name, text, "");
-    popup.flash("Kept as \u201C" + name + "\u201D \u2014 tab to snippets");
+    popup.decodeText(popup.rows[popup.sel].id, (text) => {
+      if (text === "") return;
+      const name = Folio.snippetName(text, popup.snippets.map((s) => s.name));
+      popup.writeSnippet(name, text, "");
+      popup.flash("Kept as \u201C" + name + "\u201D \u2014 tab to snippets");
+    });
   }
   function editSnippet() {
     if (popup.editing || popup.mode !== "snip" || popup.rows.length === 0) return;
@@ -436,7 +465,7 @@ LayerPopup {
   function endEdit() {
     popup.editing = false;
     popup.editPath = "";
-    filter.forceActiveFocus();
+    if (!popup.embedded) filter.forceActiveFocus();
   }
   // Saved under the name typed, or under its first words when none was.
   // A name another snippet already has is refused in the hint strip's
@@ -466,15 +495,12 @@ LayerPopup {
     else if (ctrl && e.key === Qt.Key_S) { e.accepted = true; popup.saveEdit(); }
   }
   function closePopup() {
+    if (popup.closing) return;
+    popup.closing = true;
     rowFlash.cancel();
-    popup.collapsing = true;
-    popup.playClose();
+    popup.dismissed();
   }
-
-  function toggle() {
-    if (popup.shown) popup.closePopup();
-    else popup.openPopup();
-  }
+  function goBack() { popup.backed(); }
 
   function reload() {
     listProc.command = ["cliphist", "-preview-width", "10000", "list"];
@@ -514,14 +540,17 @@ LayerPopup {
   }
 
   function generateThumbs() {
-    if (thumbProc.running) return;
+    // asked again mid-run: once it is done, for the pictures that came since
+    if (thumbProc.running) { popup.thumbsAgain = true; return; }
     const cmd = Folio.thumbCommand(popup.imageIds, Folio.thumbDir());
     if (!cmd) return;
     thumbProc.command = ["sh", "-c", cmd];
     thumbProc.running = true;
   }
 
+property bool thumbsAgain: false
 function onThumbsDone() {
+  if (popup.thumbsAgain) { popup.thumbsAgain = false; Qt.callLater(popup.generateThumbs); }
 
   const ready = {};
   for (const r of popup.imgRows) ready[r.id] = true;
@@ -531,15 +560,16 @@ function onThumbsDone() {
 }
 
   function runAction(cmd, kind) {
-    popup.lastAction = kind;
+    popup.actionKinds = popup.actionKinds.concat([kind]);
     actionProc.command = ["sh", "-c", cmd];
     actionProc.running = true;
   }
 
   function onActionDone() {
-    if (popup.lastAction === "delete") popup.reload();
+    const kind = popup.actionKinds.length > 0 ? popup.actionKinds[0] : "";
+    popup.actionKinds = popup.actionKinds.slice(1);
+    if (kind === "delete") popup.reload();
     else popup.closePopup();
-    popup.lastAction = "";
   }
 
   // ── THE ROW FLASHES, THEN IT PASTES (user, 2026-10-21) ────────────────
@@ -563,8 +593,12 @@ function onThumbsDone() {
     if (popup.mode === "snip") {
       // filled in now, onto the clipboard as any copy is (and into its
       // history), and the panel goes as a copy closes it
-      const text = Folio.expandSnippet(popup.rows[popup.sel].content, new Date(), popup.lastClip());
-      popup.runAction("printf '%s' " + Strings.shellQuote(text) + " | wl-copy", "copy");
+      const snip = String(popup.rows[popup.sel].content || "");
+      const put = (clip) => {
+        const text = Folio.expandSnippet(snip, new Date(), clip);
+        popup.runAction("printf '%s' " + Strings.shellQuote(text) + " | wl-copy", "copy");
+      };
+      if (snip.indexOf("{clipboard}") >= 0) popup.lastClipThen(put); else put("");
       return;
     }
     const id = popup.mode === "image"
@@ -573,6 +607,82 @@ function onThumbsDone() {
     popup.carryStamp = popup.stamps[id] !== undefined ? popup.stamps[id] : null;
     popup.runAction(Folio.copyCommand(id), "copy");
   }
+
+  // ── WHAT CYNOSURE'S ROWS DO ───────────────────────────────────────────
+  // The same actions as this panel's own rows, by id rather than by cursor.
+  // A copy closes the panel as one always has (onActionDone).
+  function takeClip(id) {
+    popup.carryStamp = popup.stamps[id] !== undefined ? popup.stamps[id] : null;
+    popup.runAction(Folio.copyCommand(id), "copy");
+  }
+  function takeSnippet(content) {
+    const snip = String(content || "");
+    const put = (clip) => {
+      const text = Folio.expandSnippet(snip, new Date(), clip);
+      popup.runAction("printf '%s' " + Strings.shellQuote(text) + " | wl-copy", "copy");
+    };
+    if (snip.indexOf("{clipboard}") >= 0) popup.lastClipThen(put); else put("");
+  }
+  // typed into the window that had the keyboard, the caret put back at
+  // {cursor} (2026-11-01): after the panel has gone, so the keys land there
+  function pasteSnippet(content) {
+    const snip = String(content || "");
+    const put = (clip) => {
+      const x = Folio.expandSnippetAt(snip, new Date(), clip);
+      popup.closePopup();
+      Quickshell.execDetached(["sh", "-c", Folio.pasteSnippetCommand(x.text, x.back)]);
+    };
+    if (snip.indexOf("{clipboard}") >= 0) popup.lastClipThen(put); else put("");
+  }
+  function dropClip(id) {
+    popup.runAction(Folio.deleteCommand(id, Folio.thumbDir()), "delete");
+  }
+  function dropSnippet(path) {
+    // to the trash, not gone: a snippet is something you wrote
+    Quickshell.execDetached(["gio", "trash", path]);
+    snipReload.restart();
+  }
+  function keepClip(id) {
+    popup.decodeText(id, (text) => {
+      if (text === "") return;
+      const name = Folio.snippetName(text, popup.snippets.map((s) => s.name));
+      popup.writeSnippet(name, text, "");
+      popup.flash("Kept as \u201C" + name + "\u201D");
+    });
+  }
+  // the picture as a file (as a drag writes it), shown in picasso's viewer
+  function viewClip(id) {
+    popup.dragDecode(id, (f) => {
+      if (f === "") return;
+      Quickshell.execDetached(["qs", "ipc", "call", "Picasso", "view", f]);
+      popup.closePopup();
+    });
+  }
+  // the picture kept in Pictures, under when it was saved
+  function saveClip(id) {
+    popup.dragDecode(id, (f) => {
+      if (f === "") return;
+      const d = new Date();
+      const two = (n) => (n < 10 ? "0" : "") + n;
+      const name = "Clipboard " + d.getFullYear() + "-" + two(d.getMonth() + 1) + "-" + two(d.getDate())
+        + " " + two(d.getHours()) + "." + two(d.getMinutes()) + "." + two(d.getSeconds()) + ".png";
+      Quickshell.execDetached(["sh", "-c", "mkdir -p \"$1\" && cp -- \"$2\" \"$1/$3\"", "folio",
+        UserDirs.pictures, f, name]);
+      popup.flash("Saved to Pictures");
+    });
+  }
+  function annotateClip(id) {
+    popup.dragDecode(id, (f) => {
+      if (f === "") return;
+      Picasso.annotate(f);
+      popup.closePopup();
+    });
+  }
+  // the page, for a snippet ("" path: a new one)
+  function editSnippetAt(path, name, text) {
+    popup.beginEdit(path || "", name || "", text || "");
+  }
+  function stampText(id) { return popup.stampOf(id); }
 
   // Into picasso's annotation window rather than an image viewer: a clip is
   // most often a screenshot, and what you want next is to mark it up. The
@@ -714,12 +824,6 @@ function onThumbsDone() {
     dragProc.running = true;
   }
 
-  MouseArea {
-    id: closeArea
-    anchors.fill: parent
-    z: 0
-    onClicked: popup.closePopup()
-  }
 
   // shell.qml sizes the morphed pill from this; without it the pill fell back
   // to a hardcoded 320px and the panel floated free of its own background
@@ -727,12 +831,9 @@ function onThumbsDone() {
     return popup.bodyH;
   }
 
-  LayerPanel {
+  Item {
     id: panel
-    host: popup
-    ground: bg
-    width: Math.round(popup.liveWidth)
-    height: popup.bodyH
+    anchors.fill: parent
 
     // ClippingRectangle, not Rectangle + clip: true. Qt's own clip is
     // RECTANGULAR — it clips to the bounding box and knows nothing about the
@@ -892,10 +993,21 @@ function onThumbsDone() {
                   // region first, so the surface is already transparent by
                   // the time the drag is offered
                   popup.dragging = true;
-                  popup.dragPicture(Folio.plain(textRow.modelData.preview),
-                                    "\uF0F6", Zenon.cyan, function(url) {
-                    textRow.Drag.imageSource = url;
-                    textRow.Drag.active = true;
+                  const go = function(text) {
+                    textRow.Drag.mimeData = { "text/plain": text };
+                    popup.dragPicture(Folio.plain(textRow.modelData.preview),
+                                      "\uF0F6", Zenon.cyan, function(url) {
+                      textRow.Drag.imageSource = url;
+                      textRow.Drag.active = true;
+                    });
+                  };
+                  // a clip's row is cliphist's folded preview: what is carried
+                  // is the clip itself, decoded first (audit 10-31); a
+                  // snippet's text is its file's already
+                  if (textRow.modelData.snip) go(String(textRow.modelData.content || ""));
+                  else popup.decodeText(textRow.modelData.id, function(t) {
+                    if (!popup.dragging) return;
+                    go(t !== "" ? t : String(textRow.modelData.content || ""));
                   });
                 }
               }
@@ -1238,7 +1350,7 @@ function onThumbsDone() {
               ground: popup.bgColor
               inset: 16
               ghostFocused: true
-              placeholder: "Text to paste again \u2014 {date} {time} {weekday} {clipboard} are filled in"
+              placeholder: "Text to paste again \u2014 {date} {time} {weekday} {clipboard} {uuid} {cursor} are filled in; {date +3d} moves the day"
               mgr: Clio.app
               spelling: popup.editing
               onKeyPressed: (e) => {
@@ -1284,6 +1396,8 @@ function onThumbsDone() {
       // morpheus/HintBar, as every strip (ceres' height, ground and rule)
       HintBar {
         id: msgBar
+        visible: !popup.embedded
+        height: popup.msgH
         width: parent.width
         rows: Folio.hintText(popup.editing ? "edit" : popup.mode)
         note: popup.note
@@ -1312,6 +1426,7 @@ function onThumbsDone() {
     }
 
     Keys.onEscapePressed: (event) => {
+      // Cynosure's one rule (2026-11-01): esc clears the line, then closes
       event.accepted = true;
       if (filter.text !== "") {
         filter.text = "";
@@ -1356,6 +1471,9 @@ function onThumbsDone() {
           const chars = Array.from(filter.text);
           chars.pop();
           filter.text = chars.join("");
+        } else {
+          // an empty line: back to Cynosure's list
+          popup.goBack();
         }
       } else if (event.key === Qt.Key_Home) {
         event.accepted = true;
@@ -1376,7 +1494,7 @@ function onThumbsDone() {
 
   FocusRetry {
     id: focusRetry
-    live: popup.shown
+    live: popup.shown && !popup.embedded
     took: filter.activeFocus
     onPlace: filter.forceActiveFocus()
   }

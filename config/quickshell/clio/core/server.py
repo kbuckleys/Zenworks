@@ -324,6 +324,10 @@ class Server(lines.Service):
         super().__init__()
         self.key = None
         self.lock = threading.Lock()
+        # ids deleted for good this run: each request has its own thread, so
+        # a save asked before a remove can land after it and bring the page
+        # back (audit 10-31); a removed id is never written again
+        self.removed = set()
         self.ix = Index()
         # every page as this backend last read or wrote it: path → mtime
         self.known = {}
@@ -388,6 +392,8 @@ class Server(lines.Service):
         note.pop("_disk", None)
         note.setdefault("kind", "note")
         with self.lock:
+            if i in self.removed:
+                return {"sealed": "", "mtime": 0}
             now = self.ix.find(i)
             p = now or self.ix.place(note)
             # THE SYNC GUARD. The file changed since it was read (another
@@ -430,7 +436,12 @@ class Server(lines.Service):
         return {"sealed": "sealed" in note and note["sealed"] or "", "mtime": os.path.getmtime(p)}
 
     def remove(self, args):
+        with self.lock:
+            return self._remove(args)
+
+    def _remove(self, args):
         i = safe_id(args.get("id"))
+        self.removed.add(i)
         p = self.ix.find(i)
         gone = self.srcs_of(read_note(p) if p else None)
         if p:
@@ -471,6 +482,10 @@ class Server(lines.Service):
         return out
 
     def meta(self, args):
+        with self.lock:
+            return self._meta(args)
+
+    def _meta(self, args):
         write_atomic(path_of(META), json.dumps(args.get("meta") or {}, ensure_ascii=False, indent=1))
         return {}
 
@@ -626,6 +641,12 @@ class Server(lines.Service):
 
     # ── the lock ──
     def password(self, args):
+        # under the save lock: a note saved while every page is being
+        # resealed would be written back under the old key
+        with self.lock:
+            return self._password(args)
+
+    def _password(self, args):
         new = str(args.get("password") or "")
         if len(new) < 1:
             raise ClioError("It needs a password")

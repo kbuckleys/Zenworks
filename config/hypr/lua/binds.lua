@@ -65,20 +65,15 @@ bind("terminate",   "SUPER + SHIFT + F1",      "Terminate hyprland",      hl.dsp
 -- APPS
 bind("terminal",       "SUPER + RETURN",     "Open the terminal",              hl.dsp.exec_cmd(term))
 bind("browser",        "SUPER + B",          "Open the browser",               hl.dsp.exec_cmd(web))
+-- Cynosure is every quick panel since 2026-11-01 (the calculator, files,
+-- the clipboard, emoji, the dictionary, passwords): its one bind is theirs
 bind("cynosure",       "SUPER + SPACE",      "Cynosure, the launcher",         hl.dsp.exec_cmd("qs ipc call Cynosure toggle"))
 -- held, the sheet shows until the keys come up; tapped, it stays open
 bind("keysSheet",      "SUPER + SLASH",      "Shortcuts cheat sheet",          hl.dsp.exec_cmd("qs ipc call Keys hold"), { onRelease = hl.dsp.exec_cmd("qs ipc call Keys release") })
 bind("terminus",       "SUPER + E",          "Terminus, a new window",         hl.dsp.exec_cmd("qs ipc call Terminus spawn ''"))
-bind("folio",          "SUPER + C",          "Folio, the clipboard",           hl.dsp.exec_cmd("qs ipc call Folio toggle"))
-bind("metis",          "SUPER + SHIFT + C",  "Metis, the calculator",          hl.dsp.exec_cmd("qs ipc call Metis toggle"))
-bind("artemis",        "SUPER + S",          "Artemis, file search",           hl.dsp.exec_cmd("qs ipc call Artemis toggle"))
-bind("ideoEmoji",      "SUPER + J",          "Ideo, emoji",                    hl.dsp.exec_cmd("qs ipc call Ideo emoji"))
-bind("ideoNerd",       "SUPER + SHIFT + J",  "Ideo, nerd glyphs",              hl.dsp.exec_cmd("qs ipc call Ideo nerd"))
-bind("calypso",        "SUPER + V",          "Calypso, Quick Access",          hl.dsp.exec_cmd("qs ipc call Calypso toggle"))
 bind("calypsoWin",     "SUPER + SHIFT + V",  "Calypso, the window",            hl.dsp.exec_cmd("qs ipc call Calypso window"))
 bind("clio",           "SUPER + O",          "Clio, notes",                    hl.dsp.exec_cmd("qs ipc call Clio open"))
 bind("zeus",           "SUPER + K",          "Zeus, the system monitor",       hl.dsp.exec_cmd("qs ipc call Zeus toggle"))
-bind("lexi",           "SUPER + D",          "Lexi, the dictionary",           hl.dsp.exec_cmd("qs ipc call Lexi toggle"))
 bind("picasso",        "SUPER + SHIFT + B",  "Picasso, the viewer",            hl.dsp.exec_cmd("qs ipc call Picasso toggle"))
 bind("ceresStore",     "SUPER + P",          "Ceres, the store",               hl.dsp.exec_cmd("qs ipc call Ceres toggleWindow store"))
 bind("ceresUpdates",   "SUPER + SHIFT + P",  "Ceres, updates",                 hl.dsp.exec_cmd("qs ipc call Ceres toggleWindow updates"))
@@ -88,7 +83,6 @@ bind("oracle",         "",                   "Oracle, the settings",           h
 bind("chronos",        "",                   "Chronos, the calendar",          hl.dsp.exec_cmd("qs ipc call Chronos toggle"))
 bind("calendarWin",    "",                   "Calendar, the window",           hl.dsp.exec_cmd("qs ipc call Calendar open ''"))
 bind("icarus",         "",                   "Icarus, the desktop menu",       hl.dsp.exec_cmd("qs ipc call Icarus toggle"))
-bind("lexiTranslate",  "",                   "Lexi, translate",                hl.dsp.exec_cmd("qs ipc call Lexi translate"))
 bind("zeusProcs",      "",                   "Zeus, the processes",            hl.dsp.exec_cmd("qs ipc call Zeus view list"))
 bind("zeusNet",        "",                   "Zeus, the connections",          hl.dsp.exec_cmd("qs ipc call Zeus view net"))
 bind("zeusSound",      "",                   "Zeus, sound",                    hl.dsp.exec_cmd("qs ipc call Zeus view sound"))
@@ -318,3 +312,16 @@ bind("brightDown", "XF86MonBrightnessDown",  "Brightness down",      hl.dsp.exec
 -- off until given a chord in oracle's Shortcuts
 bind("micMute",    "",                       "Mute the microphone",  hl.dsp.exec_cmd("pamixer --default-source -t"))
 bind("stop",       "",                       "Stop playing",         hl.dsp.exec_cmd("playerctl stop"))
+
+-- Cynosure's hotkeys: chords you gave its rows (shift return, Set hotkey),
+-- written by it to hotkeys.lua. Each one asks Cynosure to run that row.
+-- Guarded like the files above.
+local hok, hotkeys = pcall(require, "lua.hotkeys")
+if hok and type(hotkeys) == "table" then
+	for _, h in ipairs(hotkeys) do
+		if type(h) == "table" and type(h.chord) == "string" and h.chord:match("^[%w%s%+:_]+$") then
+			hl.bind(h.chord, hl.dsp.exec_cmd("qs ipc call Cynosure hotkey '" .. h.chord .. "'"),
+				{ description = h.label or "Cynosure hotkey" })
+		end
+	end
+end

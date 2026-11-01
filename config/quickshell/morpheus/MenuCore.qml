@@ -51,7 +51,7 @@ Item {
     id: hintMetrics
     font.family: Zenon.face
     font.weight: Zenon.weight
-    font.pixelSize: Zenon.px(13)
+    font.pixelSize: Zenon.px(12)
   }
 
   readonly property int cardW: {
@@ -66,7 +66,8 @@ Item {
       let w = rowMetrics.advanceWidth(String(r.text || "")) + 12 + 10;
       if (r.icon || r.image) w += 16 + Zenon.menuIconGap;
       if (r.hasChildren || r.children || r.mark !== undefined) w += 16 + 8;
-      if (r.hint) w += hintMetrics.advanceWidth(String(r.hint)) + 12;
+      // the hint on its key cap: the cap's padding round the words (KeyCap)
+      if (r.hint) w += hintMetrics.advanceWidth(String(r.hint)) + Math.round(Zenon.px(12) * 1.15) + 2 + 12;
       most = Math.max(most, w);
     }
     return Math.max(Zenon.menuMinWidth, Math.ceil(most + Zenon.menuCardPad * 2 + 2 + Zenon.menuFitSlack));

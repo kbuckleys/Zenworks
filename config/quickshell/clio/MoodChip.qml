@@ -21,6 +21,7 @@ Rectangle {
   border.width: 1
   border.color: chip.on ? Zenon.alpha(chip.ink, 0.7) : Zenon.border
   Text {
+    textFormat: Text.PlainText
     id: label
     anchors.centerIn: parent
     text: chip.word

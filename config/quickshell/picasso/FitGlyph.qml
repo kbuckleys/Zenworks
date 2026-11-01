@@ -4,7 +4,7 @@
 // https://github.com/kbuckleys/
 //
 // A FIT, DRAWN: a screen 26 wide and what the picture does inside it —
-// crop, fit, stretch, pad (center) or tile. The focus card's Fit switch wears
+// crop, fit, stretch, pad (center) or tile. The background setter's Fit switch wears
 // it (Segments' `art`), and so does Oracle's Background › Fit (2026-10-27:
 // one drawing for one setting, wherever it is set).
 //

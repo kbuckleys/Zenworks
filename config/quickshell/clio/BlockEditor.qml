@@ -107,6 +107,8 @@ Item {
   // ── IN AND OUT ─────────────────────────────────────────────────────────
   function load(bs, opts) {
     opts = opts || {};
+    // a sink asked for in the note before must not reorder this one
+    sinkTimer.stop();
     ed.ghost = "";
     ed.cross = null;
     ed.mediaSel = "";
@@ -1227,7 +1229,8 @@ Item {
       if (!it.isText) { if (rich) parts.push(b); continue; }
       const a = x === ed.cross.from ? ed.cross.fromPos : 0;
       const e = x === ed.cross.to ? ed.cross.toPos : it.te.length;
-      if (rich) { const o = Object.assign({}, b, { h: ed.keep(it.range(a, e)) }); delete o._key; parts.push(o); }
+      // a code block keeps raw text; range() hands it over escaped (audit 10-31)
+      if (rich) { const o = Object.assign({}, b, { h: b.k === "mono" ? N.plain(it.range(a, e)) : ed.keep(it.range(a, e)) }); delete o._key; parts.push(o); }
       else parts.push(it.plainRange(a, e));
     }
     return rich ? parts : parts.join("\n");
@@ -1238,7 +1241,9 @@ Item {
     ed.flushTyping();
     const first = rep.itemAt(c.from), last = rep.itemAt(c.to);
     const A = ed.blocks[c.from], Z = ed.blocks[c.to];
-    const keepA = first && first.isText ? ed.keep(first.range(0, c.fromPos)) : null;
+    // a code block keeps raw text, and range() hands it over escaped
+    const keepA = first && first.isText
+      ? (A.k === "mono" ? N.plain(first.range(0, c.fromPos)) : ed.keep(first.range(0, c.fromPos))) : null;
     const keepZ = last && last.isText ? ed.keep(last.range(c.toPos, last.te.length)) : "";
     const list = [];
     let caret = { at: c.from, pos: c.fromPos };

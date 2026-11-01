@@ -7,7 +7,7 @@
 // `current` is what the monitor has now, ringed faintly while nothing is
 // chosen, so leaving a row alone does not look like choosing it.
 //
-// One of picasso's controls, shared by the focus card and the viewer.
+// One of picasso's controls, shared by the background setter and the viewer.
 
 import QtQuick
 import "../morpheus"

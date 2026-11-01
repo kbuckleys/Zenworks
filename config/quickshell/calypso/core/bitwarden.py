@@ -439,9 +439,21 @@ class Bitwarden(Provider):
             for c in draft["custom"]:
                 ref = str(c.get("ref") or "")
                 val = c.get("value")
-                if val is None and ref.startswith("c:"):
+                was = None
+                if ref.startswith("c:"):
                     n = int(ref[2:])
-                    val = old[n].get("value") if n < len(old) else ""
+                    was = old[n] if n < len(old) else None
+                if val is None:
+                    val = was.get("value") if was else ""
+                # a yes/no field stays one: shown as "yes"/"no" (detail), it
+                # came back as text and every save turned it into a word
+                # (audit 10-31)
+                if was and was.get("type") == 2:
+                    v = str(val).strip().lower()
+                    new.append({"name": c.get("label") or "field",
+                                "value": "true" if v in ("yes", "true") else "false",
+                                "type": 2, "linkedId": None})
+                    continue
                 new.append({"name": c.get("label") or "field", "value": val or "",
                             "type": 1 if c.get("hidden") else 0, "linkedId": None})
             e["fields"] = new

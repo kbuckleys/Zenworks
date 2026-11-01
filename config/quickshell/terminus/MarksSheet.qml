@@ -335,6 +335,7 @@ Rectangle {
         // basename and the name alone would be the sheet refusing to say
         // which is which.
         Text {
+          textFormat: Text.PlainText
           id: markPath
           anchors.right: markDrop.left
           anchors.rightMargin: 10

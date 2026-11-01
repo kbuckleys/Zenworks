@@ -16,6 +16,17 @@
 // `center` and WRAPPING — a wider window shows more of it round the back,
 // as a globe would, instead of pulling it wider. Chukotka meets the rest
 // of Russia across the date line rather than sticking out of the west.
+//
+// THE NIGHT RUNS ON PAST THE BAND (user, 2026-10-31): the map's south edge
+// is 60°S, but the terminator goes on to the pole — the canvas reaches
+// `spill` further down, the shading carried on there and faded out, under
+// the rows below (OracleWindow stacks the map's row under its neighbors;
+// the list's clip still bounds it). The land, the cities and the pointer
+// keep to the band itself.
+//
+// IN THE ACCENT (user, 2026-10-31): the land, its coast, the sun and the
+// pinned city are `highlight` (Zenon.cyan, the theme's or your own accent);
+// only the names stay in the ink.
 
 import QtQuick
 import "../morpheus"
@@ -36,7 +47,9 @@ Item {
   readonly property real west: -169
   readonly property real center: wm.west + cv.width / 2 / Math.max(0.01, wm.k)
   // pixels a degree, the same both ways
-  readonly property real k: cv.height / (World.NORTH - World.SOUTH)
+  readonly property real k: wm.height / (World.NORTH - World.SOUTH)
+  // how far past the band's bottom the night goes on: down to the pole
+  readonly property real spill: (World.SOUTH + 90) * wm.k
   // lon, lat → the map's pixels; `turn` is which copy of the world, −1 west
   function px(lon, turn) { return cv.width / 2 + (lon + 360 * (turn || 0) - wm.center) * wm.k; }
   function py(lat) { return (World.NORTH - lat) * wm.k; }
@@ -65,16 +78,18 @@ Item {
 
   Canvas {
     id: cv
-    anchors.fill: parent
+    width: wm.width
+    height: wm.height + wm.spill
     // 17 ms a paint: straight away, so a resize never shows a stretched one
     onWidthChanged: requestPaint()
     onHeightChanged: requestPaint()
     onPaint: {
       const ctx = getContext("2d");
       ctx.reset();
-      const w = width, h = height;
+      // h: the band's bottom; the night alone goes on to `full`
+      const w = width, h = wm.height, full = height;
       if (w <= 0 || h <= 0) return;
-      const ink = wm.fgColor;
+      const ink = wm.highlight;
       const inkA = (a) => Qt.rgba(ink.r, ink.g, ink.b, a);
       const sun = Ora.subsolar(Date.now());
       const turns = wm.turns();
@@ -111,15 +126,15 @@ Item {
       const night = (cols) => {
         ctx.beginPath();
         const cx = (i) => i === 0 ? 0 : i === cols.length - 1 ? w : (i + 0.5) * step;
-        const north = cols.map((sp) => sp.length ? Math.max(0, wm.py(Math.max(...sp.map((x) => x[1])))) : h);
-        const south = cols.map((sp) => sp.length ? Math.min(h, wm.py(Math.min(...sp.map((x) => x[0])))) : h);
+        const north = cols.map((sp) => sp.length ? Math.max(0, wm.py(Math.max(...sp.map((x) => x[1])))) : full);
+        const south = cols.map((sp) => sp.length ? Math.min(full, wm.py(Math.min(...sp.map((x) => x[0])))) : full);
         ctx.moveTo(0, 0);
         north.forEach((y, i) => ctx.lineTo(cx(i), y));
         ctx.lineTo(w, 0);
         ctx.closePath();
-        ctx.moveTo(0, h);
+        ctx.moveTo(0, full);
         south.forEach((y, i) => ctx.lineTo(cx(i), y));
-        ctx.lineTo(w, h);
+        ctx.lineTo(w, full);
         ctx.closePath();
         cols.forEach((sp, i) => {
           if (sp.length < 2) return;
@@ -134,6 +149,16 @@ Item {
         ctx.fill();
         ctx.fillStyle = Zenon.darken(0.06);
         ctx.fill();
+      }
+      // the spill fades out, so the night has no bottom edge of its own
+      if (full > h) {
+        const fade = ctx.createLinearGradient(0, h, 0, full);
+        fade.addColorStop(0, Zenon.alpha(ink, 0));
+        fade.addColorStop(1, Zenon.alpha(ink, 1));
+        ctx.globalCompositeOperation = "destination-out";
+        ctx.fillStyle = fade;
+        ctx.fillRect(0, h, w, full - h);
+        ctx.globalCompositeOperation = "source-over";
       }
       // and its edge, so a coast reads against the night too
       land();
@@ -164,8 +189,13 @@ Item {
     }
   }
 
-  // the theme's ink changed: the land is drawn in it
-  onFgColorChanged: cv.requestPaint()
+  // the accent changed (a theme, Accent color): the land is drawn in it;
+  // a theme change alone moves the night's ground and shade
+  onHighlightChanged: cv.requestPaint()
+  Connections {
+    target: Zenon
+    function onThemeChanged() { cv.requestPaint(); }
+  }
   Timer {
     interval: 60000
     running: wm.visible
@@ -186,14 +216,14 @@ Item {
       visible: cm.pinned
       width: 7; height: 7; radius: 3.5
       x: -3.5; y: -3.5
-      color: wm.fgColor
+      color: wm.highlight
     }
     Rectangle {
       width: 16; height: 16; radius: 8
       x: -8; y: -8
       color: "transparent"
       border.width: 1.5
-      border.color: Zenon.alpha(wm.fgColor, cm.pinned ? 0.7 : 0.45)
+      border.color: Zenon.alpha(wm.highlight, cm.pinned ? 0.7 : 0.45)
     }
     // the name, kept inside the map: left of the ring near the right edge,
     // under it near the top
@@ -227,7 +257,7 @@ Item {
   }
 
   MouseArea {
-    anchors.fill: cv
+    anchors.fill: parent
     hoverEnabled: true
     onPositionChanged: (m) => {
       wm.hovered = Ora.nearestZone(Oracle.zones, World.NORTH - m.y / wm.k,

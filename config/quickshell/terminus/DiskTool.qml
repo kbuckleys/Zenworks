@@ -320,6 +320,7 @@ FocusScope {
       }
 
       Text {
+        textFormat: Text.PlainText
         visible: !!tool.can
         width: parent.width
         wrapMode: Text.WordWrap
@@ -427,6 +428,7 @@ FocusScope {
           onAccepted: tool.go()
         }
         Text {
+          textFormat: Text.PlainText
           anchors.verticalCenter: parent.verticalCenter
           text: {
             if (!tool.fmt) return "";
@@ -445,6 +447,7 @@ FocusScope {
         visible: !!tool.fmt && tool.fmt.blocks.length > 1
         spacing: 8
         Text {
+          textFormat: Text.PlainText
           width: 110
           anchors.verticalCenter: parent.verticalCenter
           text: tool.target === "ext4" || tool.target === "xfs" ? "Block size" : "Cluster size"

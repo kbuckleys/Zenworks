@@ -18,10 +18,8 @@
 import QtQuick
 import Quickshell
 import Quickshell.Io
-import Quickshell.Hyprland
 import "../morpheus"
 import "../morpheus/lagnotes.js" as LagNotes
-import "../morpheus/hypr.js" as Hypr
 import "../oracle"
 import "argus.js" as A
 
@@ -86,7 +84,7 @@ Scope {
       const was = !fresh && mgr.win.visible;
       fn(mgr.win);
       mgr.win.visible = true;
-      if (was) Hyprland.dispatch(Hypr.focusTitle("argus"));
+      if (was) Attention.raise("argus");
     });
   }
   function retire(w) {

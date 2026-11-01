@@ -337,8 +337,16 @@ FloatingWindow {
     win.showTab(win.tabs.some(x => x[0] === view) ? view : win.tab);
     // asked for with a query (Ceres.searchPackages)
     if (view === "packages" && Ceres.askedQuery !== "") {
+      win.seekName = Ceres.askedSeek;
+      Ceres.askedSeek = "";
       win.sharedQuery = Ceres.askedQuery;
       Ceres.askedQuery = "";
+    }
+    // and its change asked for (Ceres.changePackage): the confirm sheet
+    if (view === "packages" && Ceres.askedChange) {
+      const r = Ceres.askedChange;
+      Ceres.askedChange = null;
+      Qt.callLater(() => win.confirmOne(r));
     }
   }
 
@@ -3057,6 +3065,7 @@ FloatingWindow {
             font.pixelSize: Zenon.px(22)
           }
           Text {
+            textFormat: Text.PlainText
             id: mdWhat
             anchors.top: mdTitle.bottom
             anchors.topMargin: 6
@@ -4349,6 +4358,7 @@ FloatingWindow {
         anchors.margins: 18
         spacing: 8
         Text {
+          textFormat: Text.PlainText
           width: parent.width
           wrapMode: Text.Wrap
           horizontalAlignment: Text.AlignHCenter
@@ -5367,6 +5377,7 @@ FloatingWindow {
               }
 
               Text {
+                textFormat: Text.PlainText
                 id: entGlyph
                 visible: !ent.modelData.head
                 anchors.left: parent.left

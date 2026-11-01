@@ -693,6 +693,7 @@ Item {
       text: "󰍉"
     }
     Text {
+      textFormat: Text.PlainText
       anchors.verticalCenter: parent.verticalCenter
       font: bar.font
       color: parent.sc && parent.sc.total === 0 ? Zenon.red : Zenon.white

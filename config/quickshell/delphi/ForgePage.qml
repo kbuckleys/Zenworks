@@ -645,6 +645,7 @@ Item {
                 font.pixelSize: Zenon.px(13)
               }
               Text {
+                textFormat: Text.PlainText
                 anchors.verticalCenter: parent.verticalCenter
                 text: parent.parent.mark.word
                 color: Zenon[parent.parent.mark.ink]

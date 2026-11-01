@@ -611,7 +611,7 @@ function methods.colorAt()
       local hex = line:sub(a + 1, b)
       if n == 3 then hex = hex:gsub("(%x)", "%1%1") end
       return { buf = buf, line = row, s = a - 1, e = b, hex = hex:sub(1, 6),
-               alpha = n == 8 and line:sub(b - 1, b) or "" }
+               alpha = n == 8 and line:sub(b - 1, b) or "", was = line:sub(a, b) }
     end
     from = b + 1
   end
@@ -622,6 +622,11 @@ function methods.setColor(p)
   if not api.nvim_buf_is_valid(buf) then return false end
   if p.s == nil or p.e == nil then return false end
   local r = (p.line or 1) - 1
+  -- only over the color it was opened on: the file can be read again while
+  -- the sheet is up (a pick from the screen, checktime on the way back), and
+  -- the old bytes then landed in unrelated text (audit 10-31)
+  local now = api.nvim_buf_get_lines(buf, r, r + 1, false)[1] or ""
+  if p.was and now:sub(p.s + 1, p.e) ~= p.was then return false end
   pcall(api.nvim_buf_set_text, buf, r, p.s, r, p.e, { tostring(p.hex or "") })
   view.schedule(true)
   return true

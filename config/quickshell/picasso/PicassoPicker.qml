@@ -708,7 +708,7 @@ Scope {
             }
 
             // the formats the wheel walks through, this one lit — picasso's
-            // own answer buttons, as the focus card and the viewer wear them
+            // own answer buttons, as the background setter and the viewer wear them
             Row {
               visible: !picker.ruler
               spacing: 4

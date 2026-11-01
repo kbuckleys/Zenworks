@@ -731,47 +731,37 @@ Column {
     // ── SEARCH AS YOU TYPE (user, 2026-10-29: "just like artemis") ──
     // `s` opens this field on the bar; every pause in the typing runs the
     // name search (fd + fzf, Terminus.findCommand — Artemis' recipe) over
-    // the directory you asked from, in a tab of its own as the sheet's did,
-    // and SearchBar's where / what / + / Save stand under the bar as soon as
-    // there are results. Contents (`S`) and refinements keep the sheet.
+    // the directory you asked from, in the same tab, and SearchBar's where /
+    // what / criteria rows / Save stand under the bar as soon as there are
+    // results. Only contents (`S`) asks on a sheet.
     Row {
       id: liveInline
       // open while typing, and on a names search's page so its question can
       // be changed in place
       property bool open: false
-      // a tab is being opened for the first keystroke: the next ones wait
-      // for it rather than each opening another
-      property bool opening: false
       readonly property var spec: term.searchPage ? term.searchSpec : null
-      readonly property bool shown: liveInline.open
-        || (!!liveInline.spec && liveInline.spec.kind === "find")
+      readonly property bool shown: liveInline.open || !!liveInline.spec
       function begin() {
         liveInline.open = true;
         if (!liveField.activeFocus)
-          liveField.text = liveInline.spec && liveInline.spec.kind === "find" ? liveInline.spec.query : "";
+          liveField.text = liveInline.spec ? liveInline.spec.query : "";
         liveField.forceActiveFocus();
         liveField.selectAll();
       }
       function run() {
         const q = liveField.text.trim();
-        if (q === "" || liveInline.opening) return;
+        if (q === "") return;
         const s = liveInline.spec;
         if (s) {
-          if (s.kind === "find" && s.query === q) return;
+          if (s.query === q) return;
           term.respec({ query: q });
           return;
         }
-        const spec = { kind: "find", query: q, root: term.cwd, rules: [] };
+        // IN THIS TAB (user, 2026-11-01: "should no longer open in new
+        // tab"): search() keeps where you were, and Escape goes back there
+        term.searchSpec = { kind: "find", query: q, root: term.cwd, rules: [] };
         term.lastSearch = { kind: "find", query: q, root: term.cwd, rules: [] };
-        liveInline.opening = true;
-        term.openRealmInNewTab(() => {
-          term.searchSpec = spec;
-          term.search("find", q);
-          liveInline.opening = false;
-          liveField.forceActiveFocus();
-          // typed on while the tab opened: catch up
-          if (liveField.text.trim() !== q) liveTyped.restart();
-        });
+        term.search("find", q);
       }
       function leave(back) {
         liveTyped.stop();
@@ -811,7 +801,7 @@ Column {
         font.pixelSize: Zenon.px(17)
         clip: true
         onTextChanged: if (activeFocus) liveTyped.restart()
-        onActiveFocusChanged: if (!activeFocus && text.trim() === "" && !liveInline.opening) liveInline.open = false
+        onActiveFocusChanged: if (!activeFocus && text.trim() === "") liveInline.open = false
         Keys.onEscapePressed: (e) => { e.accepted = true; liveInline.leave(true); }
         Keys.onReturnPressed: (e) => {
           e.accepted = true;
@@ -825,7 +815,7 @@ Column {
           visible: liveField.text === ""
           anchors.verticalCenter: parent.verticalCenter
           textFormat: Text.PlainText
-          text: "Search names"
+          text: liveInline.spec && liveInline.spec.kind === "grep" ? "Search contents" : "Search names"
           color: Zenon.accentMuted
           font: liveField.font
         }
@@ -1155,6 +1145,7 @@ Column {
       }
 
       Text {
+        textFormat: Text.PlainText
         anchors.verticalCenter: parent.verticalCenter
         text: {
           const n = term.markedCount;
@@ -3177,7 +3168,11 @@ Column {
           easing.type: Zenon.travelEase
         }
       }
-      filtered: term.query !== ""
+      // A search's page says what it is doing rather than "Empty": still out,
+      // or nothing found, under the lens (user, 2026-11-01)
+      filtered: term.query !== "" || term.searchMode !== ""
+      text: term.searchMode !== "" && term.searchBusy ? "Searching\u2026"
+        : filtered ? "No matches" : "Empty"
     }
 
     // ── AND OVER THE PREVIEW OF AN EMPTY DIRECTORY (user, 2026-10-10) ──
@@ -3380,6 +3375,7 @@ Column {
           : 0.14)
         Behavior on width { NumberAnimation { duration: Zenon.fast; easing.type: Zenon.ease } }
         Text {
+          textFormat: Text.PlainText
           id: saveNumberText
           anchors.centerIn: parent
           // the number it would add, read off the name it would make

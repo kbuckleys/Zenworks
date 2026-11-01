@@ -39,7 +39,7 @@ module.exports = {
       const lines = fs.readFileSync(path.join(root, f), "utf8").split("\n");
       lines.forEach((l, i) => {
         const code = l.replace(/\/\/.*$/, "");
-        if (/onLinkActivated:.*(xdg-open|openUrlExternally)/.test(code) || /^\s*\["xdg-open", (url|link)\]/.test(code)) act.push(f + ":" + (i + 1));
+        if (/onLinkActivated:.*(xdg-open|openUrlExternally)/.test(code) || /"xdg-open",\s*(url|link|href)\b/.test(code)) act.push(f + ":" + (i + 1));
         // an address a server or a listing handed over (a forge's .url, a
         // package's link) — audit 2026-10-28b: Delphi's forge pages did this
         if (/"xdg-open",\s*[\w.\[\]]*(\.url\b|\burl\]|modelData\[)/.test(code)) act.push(f + ":" + (i + 1));

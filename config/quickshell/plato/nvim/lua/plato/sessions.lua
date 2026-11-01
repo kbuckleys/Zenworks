@@ -25,7 +25,6 @@ local util = require("plato.util")
 local path = vim.fn.stdpath("state") .. "/sessions.json"
 
 local function read() return util.readJson(path) end
-local function write(all) util.writeJson(path, all) end
 
 -- every listed file, by project, in nvim's order
 local function current()
@@ -48,17 +47,17 @@ end
 -- tabs you closed one by one must not all come back the next time
 local mine = {}
 function M.save()
-  local all = read()
   local now = current()
-  for r in pairs(mine) do
-    if not now[r] then all[r] = nil end
-  end
-  mine = {}
-  for r, files in pairs(now) do
-    all[r] = { files = files, at = os.time() }
-    mine[r] = true
-  end
-  write(all)
+  util.updateJson(path, function(all)
+    for r in pairs(mine) do
+      if not now[r] then all[r] = nil end
+    end
+    mine = {}
+    for r, files in pairs(now) do
+      all[r] = { files = files, at = os.time() }
+      mine[r] = true
+    end
+  end)
 end
 
 function M.restore(root)

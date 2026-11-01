@@ -47,6 +47,9 @@ Rectangle {
   signal backTabbed()
 
   function claim() { fldIn.forceActiveFocus(); fldIn.selectAll(); }
+  // A secret refused: the lock screen's shake (morpheus' Shake).
+  function shake() { shakeT.run(); }
+  transform: Shake { id: shakeT; reach: 7 }
 
   // WHETHER IT ACTUALLY HAS THE KEYBOARD. The retry that opens the card has
   // to ask the field, not the scope around it: activeFocus propagates up a
@@ -114,15 +117,36 @@ Rectangle {
     anchors.leftMargin: 8
     anchors.rightMargin: (clearChip.visible ? clearChip.width + 12 : 8) + fld.trailRoom
     verticalAlignment: Text.AlignVCenter
-    color: Zenon.white
+    // masked, its own echo stays for the caret and the selection to sit on
+    // but is drawn clear: SecretDots below are what shows
+    color: fld.masked ? "transparent" : Zenon.white
     selectionColor: Zenon.selBg
-    selectedTextColor: Zenon.white
+    selectedTextColor: fld.masked ? "transparent" : Zenon.white
     font.family: fld.family
     font.weight: Zenon.weight
     font.pixelSize: fld.textSize
     echoMode: fld.masked ? TextInput.Password : TextInput.Normal
     passwordCharacter: "\u2022"
     clip: true
+
+    // ── THE LOCK SCREEN'S DOTS (2026-10-31) ─────────────────────────
+    // morpheus' SecretDots over the echo, one bullet per character in the
+    // field's own face and size with no spacing, so each lands where the
+    // echo's would: the caret and a selection still line up. Placed off
+    // character 0, which follows the input's own scroll as the caret moves.
+    SecretDots {
+      visible: fld.masked
+      count: fld.masked ? fldIn.text.length : 0
+      glyph: "\u2022"
+      ink: Zenon.white
+      family: fld.family
+      size: fld.textSize
+      spacing: 0
+      // swell from the start of the text, so it grows away from the caret
+      transformOrigin: Item.Left
+      x: { fldIn.cursorRectangle; fldIn.text; fldIn.width; return fldIn.positionToRectangle(0).x; }
+      y: Math.round((fldIn.height - height) / 2)
+    }
     // Before the specific handlers below, which is where Tab has to be
     // caught: a TextInput otherwise hands it to the scene's own focus chain,
     // which in a card full of list delegates lands somewhere arbitrary.

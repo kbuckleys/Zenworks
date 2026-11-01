@@ -51,6 +51,9 @@ local function apply(r)
 	-- one it had when the rule was picked
 	local cls = r.class:gsub("_%d+_%d+$", "")
 	local spec = { match = { class = esc(cls) .. "(_\\d+_\\d+)?" } }
+	-- "steam_app" alone is every Steam game: Proton names each window
+	-- steam_app_<appid>. A rule picked from one game keeps its own id.
+	if cls == "steam_app" then spec.match.class = "steam_app_\\d+" end
 	-- the suite's own windows share quickshell's class and are told apart
 	-- by title alone, so theirs is matched whole: "terminus" is not
 	-- "terminus-picker", "plato" not "plato-capture"
@@ -74,7 +77,10 @@ local function apply(r)
 	if r.no_blur then spec.no_blur = true end
 	if type(r.idle_inhibit) == "string" and r.idle_inhibit ~= "" then spec.idle_inhibit = r.idle_inhibit end
 	if r.open == "maximize" then spec.maximize = true end
-	if r.open == "fullscreen" then spec.fullscreen = true end
+	-- full screen means full screen: a window that asks to be maximized
+	-- (Proton's "fullscreen" does) would otherwise pull itself back to
+	-- zoomed, border and gaps and all, the moment it maps
+	if r.open == "fullscreen" then spec.fullscreen = true; spec.suppress_event = "maximize" end
 	if r.no_initial_focus then spec.no_initial_focus = true end
 	hl.window_rule(spec)
 	-- Border: one of the theme's hues. Applied by base.lua after its own

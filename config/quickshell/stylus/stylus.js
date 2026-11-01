@@ -287,6 +287,11 @@ function offWhy(action, d, p) {
   }
   // a disk image is ejected by being detached (forge detach)
   if (action === "eject") return d.system ? "The system runs from this drive" : "";
+  // an erase of the system's disk, whole or a volume of it: no partition
+  // there need be mounted (LVM, LUKS, swap, an EFI partition left to
+  // automount) for it to be the one running (audit 10-31; formatCommand
+  // refuses it as root too)
+  if (action === "erase" && d.system) return "The system runs from this drive";
   if (!p) {
     if (action === "erase" && (d.parts || []).length > 0) {
       return (d.parts || []).some(systemMounted) ? "The system runs from this drive" : "";

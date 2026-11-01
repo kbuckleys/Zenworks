@@ -85,6 +85,7 @@ Item {
           store.apps = JSON.parse(listOut.text).apps || [];
           store.loaded = true;
           store.failed = false;
+          store.takeAsked();
         } catch (e) {
           if (!store.loaded) store.failed = true;
           return;
@@ -243,6 +244,20 @@ Item {
     store.remember();
     store.show(a);
   }
+  // an app asked for from outside (Ceres.openApp): its page, once there is
+  // a catalog to find it in
+  function takeAsked() {
+    const key = Ceres.askedApp;
+    if (key === "" || !store.loaded) { if (key !== "" && !store.loading) store.load(); return; }
+    Ceres.askedApp = "";
+    const a = store.apps.find(x => x.key === key);
+    if (a) store.open(a);
+  }
+  Connections {
+    target: Ceres
+    function onAskedAppChanged() { store.takeAsked(); }
+  }
+  Component.onCompleted: Qt.callLater(store.takeAsked)
   function show(a) {
     store.app = a;
     store.variant = St.openingSource(a, Ceres.preferSource);
@@ -1031,7 +1046,7 @@ Item {
           Flow {
             id: bannerLinks
             readonly property var list: St.links(store.detail && store.detail.urls || {})
-            visible: list.length > 0
+            visible: (list || []).length > 0
             anchors.right: parent.right
             anchors.rightMargin: 40
             anchors.verticalCenter: parent.verticalCenter
@@ -1106,7 +1121,7 @@ Item {
             if (sz[0]) out.push(["SIZE", sz[0], sz[1]]);
             return out;
           }
-          visible: strip.cells.length > 0
+          visible: (strip.cells || []).length > 0
           width: parent.width
           Repeater {
             model: strip.cells
@@ -1200,7 +1215,7 @@ Item {
               linkColor: Zenon.link   // a link in it is the theme's (Zenon.link)
               readonly property var d: store.detail || {}
               text: "<b>From the AUR.</b> Built on this computer from a recipe its users maintain"
-                + (d.maintainer ? " \u2014 this one by " + d.maintainer : "") + "; you can read the PKGBUILD "
+                + (d && d.maintainer ? " \u2014 this one by " + d.maintainer : "") + "; you can read the PKGBUILD "
                 + "before it builds. Described here by its Flathub listing."
                 + (d.outOfDate ? "  <font color='" + Zenon.hex(Zenon.yellow) + "'>Flagged out of date.</font>" : "")
               color: Zenon.accentKey
@@ -1338,7 +1353,7 @@ Item {
           // THREE ACROSS, of one size (the App Store's): a picture of
           // another shape sits inside its frame rather than resizing it
           readonly property real cellW: (shotList.width - 2 * shotList.spacing) / 3
-          visible: shotList.list.length > 0
+          visible: (shotList.list || []).length > 0
           width: parent.width
           height: visible ? Math.round(shotList.cellW * 0.625) + 30 : 0
           orientation: ListView.Horizontal

@@ -402,6 +402,9 @@ Singleton {
     interval: 400
     onTriggered: stateFile.setText(Scribe.serialize(root.notes))
   }
+  // a reload or quit inside the beat: written now, not lost with the timer
+  // (audit 10-31)
+  Component.onDestruction: if (saveTimer.running) stateFile.setText(Scribe.serialize(root.notes))
 
   IpcHandler {
     target: "Clio"

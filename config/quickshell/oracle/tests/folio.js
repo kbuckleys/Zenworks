@@ -36,6 +36,13 @@ module.exports = {
     t.eq("the clipboard", F.expandSnippet("re: {clipboard}", now, "the plan"), "re: the plan");
     t.eq("an unknown one is left", F.expandSnippet("{nope}", now), "{nope}");
     t.eq("literal braces", F.expandSnippet("{{date}}", now), "{date}");
+    t.eq("a date ahead", F.expandSnippet("{date +3d}", now), "2026-10-24");
+    t.eq("a weekday back", F.expandSnippet("{weekday -1d}", now), "Tuesday");
+    t.eq("a month on", F.expandSnippet("{date +1M}", now), "2026-11-21");
+    t.ok("a uuid", /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(F.expandSnippet("{uuid}", now)));
+    t.eq("the cursor: gone from the text, counted from the end", F.expandSnippetAt("Hi {cursor}, bye", now), { text: "Hi , bye", back: 5 });
+    t.eq("no cursor, nothing to walk back", F.expandSnippetAt("plain", now).back, 0);
+    t.ok("the paste walks back", F.pasteSnippetCommand("a'b", 2).indexOf("wtype -k Left") > 0 && F.pasteSnippetCommand("a'b", 2).indexOf("'a'\\''b'") > 0);
 
     // names
     t.eq("first words", F.snippetName("Thanks so much for the quick reply!", []), "Thanks so much for the");

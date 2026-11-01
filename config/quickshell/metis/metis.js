@@ -93,7 +93,9 @@ const ALIASES = [
   [/\bsq(?:uare)?\.?\s+(km|m|cm|mm|mi|ft|in|yd)\b/gi, "$1^2"],
   [/\bcu(?:bic)?\.?\s+(km|m|cm|mm|ft|in|yd)\b/gi, "$1^3"],
   [/\b(percent|pct)\b/gi, "%"],
-  [/\bspeed\s+of\s+light\b/gi, "c"],
+  // in brackets: a bare "c" after a number was then read as °C ("0.5 speed
+  // of light" → 0.5 °C; audit 10-31)
+  [/\bspeed\s+of\s+light\b/gi, "(c)"],
   [/\bspeed\s+of\s+sound\b/gi, "(343 m/s)"],
   [/\blight[\s-]?years?\b/gi, "ly"],
   [/\bastronomical\s+units?\b/gi, "au"],
@@ -1141,7 +1143,9 @@ function prepare(input, ctx) {
   }
   s = s.replace(/\b(?:an?\s+)?half[\s-]?marathons?\b/gi, "(21.0975 km)")
     .replace(/\b(?:an?\s+)?marathons?\b/gi, "(42.195 km)")
-    .replace(/(\d+(?:\.\d+)?)k\b(?![\w/])/g, (all, n) => (race ? n + " km" : "(" + n + " × 1000)"))
+    // not before a temperature: "273k in c" is kelvin (below), and this made
+    // it 273 000 first (audit 10-31)
+    .replace(/(\d+(?:\.\d+)?)k\b(?![\w/])(?!\s+(?:to|in|as|into)\s+(?:°|deg(?:rees?)?\s+)?(?:[cCfF]|[cC]elsius|[fF]ahrenheit)\b)/g, (all, n) => (race ? n + " km" : "(" + n + " × 1000)"))
     .replace(/(\d{1,2}):(\d{2})\s*(?:min(?:utes?)?\s*)?(?:\/|per\s+)\s*(km|kilomet(?:er|re)s?|mi|miles?)\b/gi,
       (all, mm, ss, u) => "(" + (Number(mm) * 60 + Number(ss)) + " s/" + (/^mi/i.test(u) ? "mi" : "km") + ")");
   if (race && /^(.+?)\s+in\s+(\d.*)$/i.test(s) && !/\s(?:to|as|into)\s/i.test(s)) pace = true;
@@ -1180,7 +1184,9 @@ function prepare(input, ctx) {
     (all, dd, u) => dd + " °" + u[0].toUpperCase());
   // (not inside a hex number, where 0x1F is a number and not a temperature)
   if (!/0x/i.test(s))
-    s = s.replace(/(\d)\s*([CcFf])(?![\w²³^/·*])/g, (all, dd, u) => dd + " °" + u.toUpperCase());
+    // not "2 c flour": a word after it (other than to/in/as/into) makes it a
+    // cup, not a temperature (audit 10-31)
+    s = s.replace(/(\d)\s*([CcFf])(?![\w²³^/·*])(?!\s+(?!(?:to|in|as|into)\b)[a-z])/gi, (all, dd, u) => dd + " °" + u.toUpperCase());
   s = s.replace(/\b(to|in|as|into)\s+(?:degrees?\s+|deg\s+|°)?([CcFf]|celsius|fahrenheit)$/i,
     (all, k, u) => k + " °" + u[0].toUpperCase());
 
@@ -1497,6 +1503,13 @@ function calcScript() {
     + "printf '\\036\\n'\n"
     + "[ -n \"$r\" ] && " + QALC_BASE + " -- \"($r) to base\" 2>/dev/null\n"
     + "printf '\\036\\n%s\\n' \"$e\"\n";
+}
+
+// The run for a plain qalc question, as a Process's command. Metis' own
+// calcProc and Cynosure's answer line both start it, so the two cannot come
+// to read the same question differently.
+function calcArgs(prep) {
+  return ["bash", "-c", calcScript(), "metis", prep.expr, prep.alt || "", prep.target || ""];
 }
 
 function stripAnsi(s) {
@@ -2043,13 +2056,20 @@ function isoDate(d) {
 function plural(n, w) { return n + " " + w + (n === 1 ? "" : "s"); }
 
 // calendar years, months and days from a to b (a ≤ b)
+// whole months from `a` (a 31st landing on a short month's last day), then
+// the days left by the calendar. Borrowing the month before `b` gave "4
+// months -2 days" from Oct 31 to Mar 1, February being 28 (audit 10-31).
 function diffParts(a, b) {
-  let y = b.getFullYear() - a.getFullYear();
-  let mo = b.getMonth() - a.getMonth();
-  let dd = b.getDate() - a.getDate();
-  if (dd < 0) { mo -= 1; dd += daysIn(b.getFullYear(), (b.getMonth() + 11) % 12); }
-  if (mo < 0) { y -= 1; mo += 12; }
-  return { y: y, m: mo, d: dd };
+  let months = (b.getFullYear() - a.getFullYear()) * 12 + b.getMonth() - a.getMonth();
+  const at = (n) => {
+    const y = a.getFullYear() + Math.floor((a.getMonth() + n) / 12);
+    const m = ((a.getMonth() + n) % 12 + 12) % 12;
+    return Date.UTC(y, m, Math.min(a.getDate(), daysIn(y, m)));
+  };
+  const end = Date.UTC(b.getFullYear(), b.getMonth(), b.getDate());
+  if (at(months) > end) months -= 1;
+  const dd = Math.round((end - at(months)) / 86400000);
+  return { y: Math.floor(months / 12), m: months % 12, d: dd };
 }
 function partsText(p) {
   const out = [];
@@ -2227,7 +2247,7 @@ function datePrepare(s, now) {
     const c = /^now$/i.test(m[1]) ? now0 : clockMin(m[1]);
     if (c >= 0) {
       const d = (/^h/i.test(m[4]) ? Number(m[3]) * 60 : Number(m[3])) + Number(m[5] || 0);
-      return clockAt(c, (m[2] === "-" ? -1 : 1) * d, s, /^now$/i.test(m[1]) ? now0 : -1);
+      return clockAt(c, (m[2] === "-" ? -1 : 1) * d, s, /^now$/i.test(m[1]) ? now0 : -1, now);
     }
   }
   const CUS = "(h|hrs?|hours?|mins?|minutes?|s|secs?|seconds?)";
@@ -2245,7 +2265,7 @@ function datePrepare(s, now) {
     }
     const d = (/^h/i.test(u) ? n * 60 : n) * sign;
     const now0 = now.getHours() * 60 + now.getMinutes();
-    return clockAt(now0, d, s, now0);
+    return clockAt(now0, d, s, now0, now);
   }
   // 9:15 to 17:40
   if ((m = /^(\S+(?:\s*[ap]m)?)\s+(?:to|until|till|–|-)\s+(\S+(?:\s*[ap]m)?)$/i.exec(s))) {
@@ -2339,8 +2359,18 @@ function dateAnswer(d, today, label) {
 // a clock time moved by `delta` minutes: "17:00", the 12-hour form, and the
 // day it lands on when that is not the same one. `fromNow` is the minute it
 // was asked at, when the start was "now", for the "in 8 h" chip.
-function clockAt(start, delta, label, fromNow) {
-  const t = Math.round(start + delta);
+// `now`, when given: the time is worked out on the real clock, from today at
+// `start` (or now itself) — minutes added to the wall clock were an hour out
+// across a clock change: "in 2 hours" at 01:30 on spring-forward night said
+// 03:30 (audit 10-31)
+function clockAt(start, delta, label, fromNow, now) {
+  let t = Math.round(start + delta);
+  if (now) {
+    const from = fromNow >= 0 ? now
+      : new Date(now.getFullYear(), now.getMonth(), now.getDate(), Math.floor(start / 60), start % 60);
+    const at = new Date(from.getTime() + delta * 60000);
+    t = (dayNum(at) - dayNum(now)) * 1440 + at.getHours() * 60 + at.getMinutes();
+  }
   const day = Math.floor(t / 1440);
   const mins = ((t % 1440) + 1440) % 1440;
   const h = Math.floor(mins / 60), mi = mins % 60;
@@ -2400,9 +2430,16 @@ const MASS_RE = /\b(?:g|kg|mg|oz|lb|grams?|kilograms?|ounces?|pounds?)\b/i;
 function cooking(s) {
   const t = s.replace(/\b(\d+(?:\.\d+)?|an?|one)\s+sticks?\b(?:\s+of)?/gi,
     (all, n) => "(" + (isNaN(Number(n)) ? 1 : n) + " × 0.5 cup)");
+  // the most of the words named: "flour" matched "2 cups bread flour" first,
+  // with "2 cups bread" for the amount, and peanut butter was butter
+  // (audit 10-31). Every entry is tried; the shortest amount wins.
+  let best = null;
   for (const [src, perCup, name] of INGREDIENTS) {
     const m = new RegExp("^(.*\\d.*?)\\s+(?:of\\s+)?(" + src + ")(?:\\s+(?:to|in|as|into)\\s+(.+))?$", "i").exec(t);
-    if (!m) continue;
+    if (m && (!best || m[1].trim().length < best.m[1].trim().length)) best = { m: m, perCup: perCup, name: name };
+  }
+  if (best) {
+    const m = best.m, perCup = best.perCup, name = best.name;
     const qty = m[1].trim();
     const vol = VOL_RE.test(qty), mass = MASS_RE.test(qty);
     if (!vol && !mass) return null;

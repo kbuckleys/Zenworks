@@ -287,20 +287,59 @@ function snippetRows(snips, query) {
                    preview: s.name, sub: preview(s.text) }));
 }
 const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-function expandSnippet(text, now, clipboard) {
-  const d = now || new Date();
+// A snippet's placeholders, filled as it goes out:
+//   {date} {time} {datetime} {weekday} {year} {month} {day} {clipboard}
+//   {date +3d} {weekday -1d} {datetime +2h} …  — offset by s m h d w or M
+//     (months), for any of the date ones (user, 2026-11-01: Raycast's)
+//   {uuid}                                     — a new one each time
+//   {cursor}                                   — where the caret lands, pasted
+// {{ and }} are literal braces. An unknown one is left as it is.
+function shiftDate(d, n, unit) {
+  const x = new Date(d.getTime());
+  if (unit === "M") x.setMonth(x.getMonth() + n);
+  else x.setTime(x.getTime() + n * ({ s: 1e3, m: 6e4, h: 36e5, d: 864e5, w: 6048e5 }[unit] || 0));
+  return x;
+}
+function newUuid() {
+  let s = "";
+  for (let i = 0; i < 32; i++) s += Math.floor(Math.random() * 16).toString(16);
+  return s.slice(0, 8) + "-" + s.slice(8, 12) + "-4" + s.slice(13, 16) + "-"
+    + "89ab"[Math.floor(Math.random() * 4)] + s.slice(17, 20) + "-" + s.slice(20, 32);
+}
+// → { text, back }: `back` is how many characters follow {cursor} (0 with none)
+function expandSnippetAt(text, now, clipboard) {
+  const base = now || new Date();
   const two = (n) => (n < 10 ? "0" : "") + n;
-  const date = d.getFullYear() + "-" + two(d.getMonth() + 1) + "-" + two(d.getDate());
-  const time = two(d.getHours()) + ":" + two(d.getMinutes());
-  const vals = {
-    date: date, time: time, datetime: date + " " + time, weekday: WEEKDAYS[d.getDay()],
-    year: String(d.getFullYear()), month: two(d.getMonth() + 1), day: two(d.getDate()),
-    clipboard: String(clipboard || "")
+  const vals = (d) => {
+    const date = d.getFullYear() + "-" + two(d.getMonth() + 1) + "-" + two(d.getDate());
+    const time = two(d.getHours()) + ":" + two(d.getMinutes());
+    return { date: date, time: time, datetime: date + " " + time, weekday: WEEKDAYS[d.getDay()],
+             year: String(d.getFullYear()), month: two(d.getMonth() + 1), day: two(d.getDate()) };
   };
-  return String(text || "")
+  const out = String(text || "")
     .replace(/\{\{/g, "\u0001").replace(/\}\}/g, "\u0002")
-    .replace(/\{([a-z]+)\}/g, (m, k) => vals[k] !== undefined ? vals[k] : m)
+    .replace(/\{([a-z]+)(?:\s*([+-])\s*(\d+)\s*([smhdwM]))?\}/g, (m, k, sign, n, unit) => {
+      if (k === "clipboard" && !sign) return String(clipboard || "");
+      if (k === "uuid" && !sign) return newUuid();
+      if (k === "cursor" && !sign) return "\u0003";
+      const d = sign ? shiftDate(base, (sign === "-" ? -1 : 1) * Number(n), unit) : base;
+      const v = vals(d)[k];
+      return v !== undefined ? v : m;
+    })
     .replace(/\u0001/g, "{").replace(/\u0002/g, "}");
+  const at = out.indexOf("\u0003");
+  const clean = out.replace(/\u0003/g, "");
+  return { text: clean, back: at < 0 ? 0 : Array.from(clean.slice(at)).length };
+}
+function expandSnippet(text, now, clipboard) {
+  return expandSnippetAt(text, now, clipboard).text;
+}
+// the keys that put the snippet where it was asked for: typed (wtype), then
+// the caret walked back to {cursor}; on the clipboard too
+function pasteSnippetCommand(text, back) {
+  const q = "'" + String(text).replace(/'/g, "'\\''") + "'";
+  return "sleep 0.3 && printf '%s' " + q + " | wl-copy >/dev/null 2>&1; wtype -- " + q
+    + (back > 0 ? " && for _ in $(seq " + Math.min(5000, back) + "); do wtype -k Left; done" : "");
 }
 // a name for a clip kept as a snippet: its first few words, safe as a file
 // name, and not one already taken ("…", "… 2", "… 3")

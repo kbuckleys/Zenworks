@@ -85,6 +85,7 @@ EmptyState 1.0 EmptyState.qml
 singleton Share 1.0 Share.qml
 ClearChip 1.0 ClearChip.qml
 AddChip 1.0 AddChip.qml
+CheckChip 1.0 CheckChip.qml
 ChevronChip 1.0 ChevronChip.qml
 Swatch 1.0 Swatch.qml
 SysMeter 1.0 SysMeter.qml
@@ -94,3 +95,6 @@ OpenWatchdog 1.0 OpenWatchdog.qml
 WindowSwitcher 1.0 WindowSwitcher.qml
 WorkspaceStrip 1.0 WorkspaceStrip.qml
 singleton Net 1.0 Net.qml
+SecretDots 1.0 SecretDots.qml
+Shake 1.0 Shake.qml
+singleton Attention 1.0 Attention.qml

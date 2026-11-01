@@ -10,7 +10,7 @@
 // THIS IS THE PART THAT IS ALWAYS IN THE SHELL: the accounts, the line to
 // the backend (bin/calypsod, calypso/core — Python, no Quickshell in it), the
 // ipc handler and the .desktop entry. The window type is compiled on the
-// first open. Quick Access (CalypsoPopup, the bar's layer) and the window
+// first open. Quick Access ("pw …" in Cynosure, CalypsoView) and the window
 // both ask through here, so an account unlocked in one is open in the other.
 //
 //   accounts                      [{ id, kind, name, …the platform's own }]
@@ -37,13 +37,11 @@
 import QtQuick
 import Quickshell
 import Quickshell.Io
-import Quickshell.Hyprland
 import "../morpheus"
 import "../ceres"
 import "../terminus"
 import "../morpheus/lagnotes.js" as LagNotes
 import "calypso.js" as C
-import "../morpheus/hypr.js" as Hypr
 
 Scope {
   id: mgr
@@ -287,12 +285,22 @@ Scope {
   }
 
   // done(ok, err)
+  // bumped per account on every lock: an unlock still working when the
+  // vault was locked (the screen locked while bw was deriving the key) came
+  // back and opened it again behind the lock (audit 10-31)
+  property var _lockGen: ({})
   function unlock(acct, secret, done) {
     mgr.setState(acct.id, { busy: true, error: "" });
+    const gen = mgr._lockGen[acct.id] || 0;
     mgr.call("unlock", acct, { secret: secret }, (ok, res, err) => {
       mgr.setState(acct.id, { busy: false });
       if (!ok) {
         if (done) done(false, err);
+        return;
+      }
+      if ((mgr._lockGen[acct.id] || 0) !== gen) {
+        mgr.call("lock", acct, {}, () => {});
+        if (done) done(false, { error: "Locked again" });
         return;
       }
       mgr.setState(acct.id, { unlocked: true });
@@ -303,6 +311,7 @@ Scope {
   }
   signal unlocked(string id)
   function lock(acct) {
+    mgr._lockGen[acct.id] = (mgr._lockGen[acct.id] || 0) + 1;
     mgr.setState(acct.id, { unlocked: false });
     mgr.dropItems(acct.id);
     mgr.locked(acct.id);
@@ -312,8 +321,10 @@ Scope {
   // every account, and the daemon stopped once they have gone: what it held
   // in memory goes with it
   function lockAll() {
+    // busy ones too: an unlock on its way is locked by its generation
     for (const a of mgr.accounts) {
-      if ((mgr.states[a.id] || {}).unlocked) mgr.lock(a);
+      const st = mgr.states[a.id] || {};
+      if (st.unlocked || st.busy) mgr.lock(a);
     }
     mgr.locked("");
     stopTimer.restart();
@@ -407,7 +418,7 @@ Scope {
     repeat: true
     running: mgr.anyOpen && mgr.lockAfter > 0
     onTriggered: {
-      if ((mgr.win && mgr.win.visible && mgr.win.active) || (mgr.quick && mgr.quick.shown)) { mgr.touch(); return; }
+      if ((mgr.win && mgr.win.visible && mgr.win.keyed) || (mgr.quick && mgr.quick.shown)) { mgr.touch(); return; }
       if (Date.now() - mgr.lastUse > mgr.lockAfter * 60000) {
         mgr.lockAll();
         mgr.tell("Calypso locked itself after " + mgr.lockAfter + " minutes");
@@ -556,7 +567,7 @@ Scope {
       const was = !fresh && mgr.win.visible;
       fn(mgr.win, fresh);
       mgr.win.visible = true;
-      if (was) Hyprland.dispatch(Hypr.focusTitle("calypso"));
+      if (was) Attention.raise("calypso");
     });
   }
   function open() {

@@ -21,7 +21,6 @@ import Quickshell.Hyprland
 import Quickshell.Io
 import "../morpheus"
 import "../ceres"
-import "../morpheus/hypr.js" as Hypr
 import "../morpheus/lagnotes.js" as LagNotes
 
 Scope {
@@ -132,7 +131,8 @@ Scope {
     const scr = Oracle.focusedScreen();
     const props = { mgr: mgr, fileManager: mgr.fileManager, fontBook: mgr.fontBook };
     if (scr) props.screen = scr;
-    if (mgr.section !== "") props.section = mgr.section;
+    // Background was a page until 2026-10-31: now on Theme & color
+    if (mgr.section !== "") props.section = mgr.section === "paper" ? "look" : mgr.section;
     const sz = mgr.savedSize();
     if (sz) { props.implicitWidth = sz.w; props.implicitHeight = sz.h; }
     const t0 = Date.now();
@@ -166,7 +166,8 @@ Scope {
     mgr.win.openPopup(section || "");
     if (key) mgr.win.reveal(key);
     // already open is not the same as in front of you — it may be on
-    // another workspace entirely
+    // another workspace entirely: focused on screen, flashed elsewhere
+    // (morpheus/Attention)
     if (was) mgr.raise();
   }
 
@@ -175,7 +176,7 @@ Scope {
   OpenWatchdog { id: watchdog; owner: mgr; tag: "oracle" }
 
   function raise() {
-    Hyprland.dispatch(Hypr.focusTitle("oracle"));
+    Attention.raise("oracle");
   }
 
   // The window oracle is in has the keyboard: the one case where a toggle
@@ -203,6 +204,7 @@ Scope {
     if (mgr.alive()) mgr.win.closePopup();
   }
 
+
   IpcHandler {
     // "Oracle", like every other layer's own name — the settings STORE answers
     // to "OracleSettings" so that this one can.
@@ -212,7 +214,12 @@ Scope {
     // open standing in a named section, for a keybind or a menu that goes
     // straight to the monitors or the lock rather than wherever it was left
     function at(section: string) { mgr.open(section); }
-    // open on one setting, by its key: `qs ipc call Oracle show barAutohide`
+    // open on one setting, by its key: `qs ipc call Oracle setting barAutohide`.
+    // Not "show": the qs command line reads that word as its own `qs ipc
+    // show`, and refuses the key after it — so `Oracle show <key>` never
+    // arrived from a shell (Cynosure's settings rows, 2026-11-02). Kept for
+    // anything that calls it from inside.
+    function setting(key: string) { mgr.openAt(key); }
     function show(key: string) { mgr.openAt(key); }
     // open on the FIRST section, wherever it was left — icarus' Settings
     // is a front door, not a return to where you were. Named by position

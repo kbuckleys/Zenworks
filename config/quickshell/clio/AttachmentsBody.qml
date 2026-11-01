@@ -82,6 +82,7 @@ Item {
           height: 22
           color: Zenon.hud(0.75)
           Text {
+            textFormat: Text.PlainText
             anchors.fill: parent
             anchors.leftMargin: 6
             anchors.rightMargin: 6

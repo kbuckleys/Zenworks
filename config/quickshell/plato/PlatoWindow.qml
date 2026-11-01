@@ -20,7 +20,6 @@ import "core"
 import "editor"
 import "editor/actions.js" as Actions
 import "../morpheus/icons.js" as Icons
-import "../morpheus/hypr.js" as Hypr
 import "../ceres"
 import "../delphi/delphi.js" as D
 
@@ -197,10 +196,7 @@ FloatingWindow {
     target: Hyprland
     function onActiveToplevelChanged() { win.noteAddress(); }
   }
-  function raise() {
-    const sel = win.hyprAddress !== "" ? "address:" + win.hyprAddress : "title:^(" + win.title + ")$";
-    Hyprland.dispatch(Hypr.focusWindow(sel));
-  }
+  function raise() { Attention.raise(win.title, win.hyprAddress); }
   onFocusedChanged: {
     if (win.focused) {
       win.noteAddress();
@@ -402,9 +398,9 @@ FloatingWindow {
       // plato's own verbs on the tree's menu, after Open
       extraItems: [
         { text: "Open in a split", icon: "\u{F0E4F}", hint: "ctrl w v", when: "file",
-          run: (p) => { nvim.cmd("lua vim.cmd.vsplit(" + JSON.stringify(p) + ")"); editor.forceActiveFocus(); } },
+          run: (p) => { nvim.cmd("lua vim.cmd.vsplit(vim.fn.fnameescape(" + JSON.stringify(p) + "))"); editor.forceActiveFocus(); } },
         { text: "Open below", icon: "\u{F0E4E}", hint: "ctrl w s", when: "file",
-          run: (p) => { nvim.cmd("lua vim.cmd.split(" + JSON.stringify(p) + ")"); editor.forceActiveFocus(); } },
+          run: (p) => { nvim.cmd("lua vim.cmd.split(vim.fn.fnameescape(" + JSON.stringify(p) + "))"); editor.forceActiveFocus(); } },
         { text: "Search in here", icon: "\u{F0349}",
           run: (p, isDir) => picker.openGrepIn(isDir ? p : p.slice(0, p.lastIndexOf("/"))) },
       ]
@@ -1286,7 +1282,9 @@ FloatingWindow {
     nvim.request("selection", {}, (r) => {
       if (!r) return;
       const lines = st._list(r.lines).map(String);
-      const f = String(r.file || "").replace(Quickshell.env("HOME"), "~");
+      // home only at the start: /mnt/home/u/x was /mnt~/x (audit 10-31)
+      const h = Quickshell.env("HOME"), f0 = String(r.file || "");
+      const f = f0 === h || f0.indexOf(h + "/") === 0 ? "~" + f0.slice(h.length) : f0;
       const name = f === "" ? "Untitled" : f.slice(f.lastIndexOf("/") + 1);
       const where = f === "" ? "" : f + ":" + r.l1 + (r.l2 > r.l1 ? "–" + r.l2 : "");
       const prose = ["markdown", "text", ""].indexOf(String(r.ft || "")) >= 0;

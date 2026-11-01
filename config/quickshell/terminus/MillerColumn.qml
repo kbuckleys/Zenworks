@@ -221,7 +221,7 @@ Item {
       entry: colRow.row
       // the live column is the listing: the filter's letters lit, and a
       // reorder glides (Pane.reflow)
-      mark: col.isLive && term.act ? term.act.query : ""
+      mark: col.isLive && term.act ? (term.act.query || term.searchMark) : ""
       Glide { id: colGlide; limit: col.height }
       function glideCheck() {
         if (!col.isLive || !term.act || !term.act.reflowing) { colGlide.stop(); return; }
@@ -336,6 +336,7 @@ Item {
     // What it holds, counted from the rows already shown above, and its
     // size once du has been round — never a guess at it.
     Text {
+      textFormat: Text.PlainText
       id: colSum
       anchors.top: colCover.bottom
       anchors.topMargin: colCover.shown ? 10 : 0

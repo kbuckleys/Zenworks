@@ -266,10 +266,10 @@ class Proton(Provider):
                     field("password", "password", pick(e, "password"), "secret", True, "password"),
                     field("totp", "one-time password", totp, "totp", True, "totp") if totp else None]
         elif kind == "card":
-            main = [field("holder", "cardholder name", pick(e, "cardholder_name", "cardholderName")),
+            main = [field("cardholder", "cardholder name", pick(e, "cardholder_name", "cardholderName")),
                     field("number", "number", pick(e, "number"), "secret", True, "password"),
                     field("expiry", "expiry date", pick(e, "expiration_date", "expirationDate"), "date"),
-                    field("cvv", "verification number", pick(e, "verification_number", "cvv"), "secret", True),
+                    field("code", "verification number", pick(e, "verification_number", "cvv"), "secret", True),
                     field("pin", "PIN", pick(e, "pin"), "secret", True)]
         elif kind == "ssh":
             main = [field("public", "public key", pick(e, "public_key", "publicKey")),

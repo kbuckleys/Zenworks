@@ -26,7 +26,7 @@ function formatOf(id) {
 }
 
 function defaults() {
-  return { format: "mp4", exact: false, audio: true, gifWidth: 720, gifFps: 15, loop: true };
+  return Object.assign({ format: "mp4", exact: false, audio: true, gifWidth: 720, gifFps: 15, loop: true }, FRAME_DEFAULTS);
 }
 function parseSettings(text) {
   var d = defaults(), j;
@@ -38,7 +38,7 @@ function parseSettings(text) {
   if (GIF_WIDTHS.indexOf(j.gifWidth) >= 0) d.gifWidth = j.gifWidth;
   if (GIF_FPS.indexOf(j.gifFps) >= 0) d.gifFps = j.gifFps;
   if (typeof j.loop === "boolean") d.loop = j.loop;
-  return d;
+  return parseFrameSettings(j, d);
 }
 function serializeSettings(s) { return JSON.stringify(parseSettings(JSON.stringify(s)), null, 2) + "\n"; }
 
@@ -172,6 +172,137 @@ function stripArgs(src, dir, durMs, count) {
           "-vf", "fps=" + rate.toFixed(4) + ",scale=-2:96", "-frames:v", String(n), "-q:v", "5",
           dir + "/f%02d.jpg"];
 }
+
+// ── FRAMES, AS PICTURES (2026-11-01) ─────────────────────────────────────
+// The frame under the playhead, or a run of them out of the kept part, as
+// image files: PNG (lossless, the default), JPEG or WebP, as picasso writes.
+// Named after the video and where in it they are: "clip-01m23.450s.png".
+var FRAME_FORMATS = [
+  { id: "png", label: "PNG", ext: ".png" },
+  { id: "jpg", label: "JPEG", ext: ".jpg" },
+  { id: "webp", label: "WebP", ext: ".webp" }
+];
+// which frames of the kept part: all, one every N seconds, every Nth, or N in all
+var FRAME_MODES = [["all", "All"], ["secs", "Seconds"], ["nth", "Frames"], ["count", "Count"]];
+var FRAME_SECS = [0.5, 1, 2, 5];
+var FRAME_NTH = [2, 5, 10, 30];
+var FRAME_COUNTS = [10, 25, 50, 100];
+var FRAME_DEFAULTS = { frameFormat: "png", framesMode: "secs", framesSecs: 1, framesNth: 10, framesCount: 25 };
+function frameFormatOf(id) {
+  for (var i = 0; i < FRAME_FORMATS.length; ++i) if (FRAME_FORMATS[i].id === id) return FRAME_FORMATS[i];
+  return FRAME_FORMATS[0];
+}
+function parseFrameSettings(j, d) {
+  if (FRAME_FORMATS.some(function (f) { return f.id === j.frameFormat; })) d.frameFormat = j.frameFormat;
+  if (FRAME_MODES.some(function (m) { return m[0] === j.framesMode; })) d.framesMode = j.framesMode;
+  if (FRAME_SECS.indexOf(j.framesSecs) >= 0) d.framesSecs = j.framesSecs;
+  if (FRAME_NTH.indexOf(j.framesNth) >= 0) d.framesNth = j.framesNth;
+  if (FRAME_COUNTS.indexOf(j.framesCount) >= 0) d.framesCount = j.framesCount;
+  return d;
+}
+
+// 83450 → "01m23.450s"; "1h01m23.450s" once `hours` (a video an hour or
+// longer: every name in a run the same width, so they sort as they play)
+function frameStamp(ms, hours) {
+  var t = Math.max(0, Math.round(Number(ms) || 0));
+  var pad = function (n, w) { var s = String(n); while (s.length < w) s = "0" + s; return s; };
+  var h = Math.floor(t / 3600000), m = Math.floor(t / 60000) % 60, s = Math.floor(t / 1000) % 60;
+  return (hours || h > 0 ? h + "h" : "") + pad(m, 2) + "m" + pad(s, 2) + "." + pad(t % 1000, 3) + "s";
+}
+// beside the original: "/v/clip.mp4" at 83450 → "/v/clip-01m23.450s.png"
+function framePath(src, ms, format, hours) {
+  return dirOf(src) + "/" + baseOf(src) + "-" + frameStamp(ms, hours) + frameFormatOf(format).ext;
+}
+// the directory a run goes into, inside the one picked: "<picked>/clip-frames"
+function framesDir(picked, src) { return String(picked || "").replace(/\/+$/, "") + "/" + baseOf(src) + "-frames"; }
+
+// How many a run makes, near enough (a screen recording's frame rate
+// varies, so "all" is a guess from the stated one)
+function framesEstimate(o, fps) {
+  var len = Math.max(0, (o.outMs - o.inMs) / 1000);
+  if (o.framesMode === "secs") return Math.max(1, Math.ceil(len / o.framesSecs - 1e-6));
+  if (o.framesMode === "count") return o.framesCount;
+  var all = Math.max(1, Math.round(len * (Number(fps) || 0)));
+  return o.framesMode === "nth" ? Math.ceil(all / o.framesNth) : all;
+}
+
+function encodeArgs(format) {
+  if (format === "jpg") return ["-q:v", "2"];
+  if (format === "webp") return ["-c:v", "libwebp", "-quality", "90"];
+  return [];
+}
+
+// THE FRAME SHOWING AT `atSec` (the file's own time, its start_time
+// included). A plain `-ss` lands on the first frame AT or after a time,
+// which is the NEXT frame whenever the playhead sits between two — and a
+// screen recording's frames can be seconds apart. So: the packets from the
+// keyframe before it, until one is decoded past it (dts only grows), and
+// the latest that shows by then. argv: the video is $1, the time $2.
+function pickArgs(src, atSec) {
+  return ["sh", "-c",
+    "ffprobe -v error -select_streams v:0 -read_intervals \"$2%\" -show_entries packet=pts_time,dts_time "
+    + "-of compact=p=0:nk=0 -i \"$1\" | awk -v p=\"$2\" '"
+    + "{ pt = \"\"; dt = \"\"; n = split($0, kv, \"|\"); for (i = 1; i <= n; i++) { split(kv[i], e, \"=\"); "
+    + "if (e[1] == \"pts_time\") pt = e[2]; else if (e[1] == \"dts_time\") dt = e[2] } "
+    + "if (pt != \"\" && pt != \"N/A\" && pt + 0 <= p + 0 && (best == \"\" || pt + 0 > best + 0)) best = pt; "
+    + "if (dt != \"\" && dt != \"N/A\" && dt + 0 > p + 0) exit } "
+    + "END { if (best != \"\") print best }'",
+    "sh", src, Number(atSec).toFixed(6)];
+}
+// That frame to `out`, full size (a crop still applies). `seekSec` is from
+// the start of the video; half a millisecond early, so rounding cannot step
+// past it onto the next.
+function frameArgs(src, out, o) {
+  var crop = cropFilter(o.crop || null);
+  return ["ffmpeg", "-hide_banner", "-nostdin", "-loglevel", "error", "-y",
+          "-ss", Math.max(0, Number(o.seekSec) - 0.0005).toFixed(6), "-i", src]
+    .concat(crop ? ["-vf", crop] : [], ["-frames:v", "1", "-update", "1"], encodeArgs(o.format), [out]);
+}
+
+// A run of them into `dir`. The video's own timestamps are kept (-copyts)
+// and moved to start at 0 (its start_time, `startSec`), in milliseconds, so
+// each file is numbered by where it sits: "clip-000083450.png", which
+// framesRenameArgs then turns into "clip-01m23.450s.png".
+function framesArgs(src, dir, o) {
+  var a = Number(o.inMs) / 1000, b = Number(o.outMs) / 1000;
+  var f = ["settb=1/1000", "setpts=PTS-" + (Number(o.startSec) || 0).toFixed(6) + "/TB"];
+  var crop = cropFilter(o.crop || null);
+  var cap = [];
+  if (o.framesMode === "secs" || o.framesMode === "count") {
+    // the first frame in each step of S seconds from the in point: its own
+    // time, never a copy (fps= hands a step the LAST frame that rounds to
+    // it, half a step late)
+    var S = o.framesMode === "secs" ? Number(o.framesSecs) : Math.max(0.001, b - a) / o.framesCount;
+    var slot = function (v) { return "floor((" + v + "-" + a.toFixed(3) + ")/" + S.toFixed(6) + ")"; };
+    f.push("trim=start=" + a.toFixed(3) + ":end=" + b.toFixed(3),
+           "select='isnan(prev_selected_t)+gt(" + slot("t") + "\\," + slot("prev_selected_t") + ")'");
+    if (o.framesMode === "count") cap = ["-frames:v", String(o.framesCount)];
+  } else {
+    f.push("trim=start=" + a.toFixed(3) + ":end=" + b.toFixed(3));
+    if (o.framesMode === "nth") f.push("select='not(mod(n\\," + o.framesNth + "))'");
+  }
+  if (crop) f.push(crop);
+  // a % in a name (the directory's too) would be read as the counter
+  var pattern = (dir + "/" + baseOf(src)).replace(/%/g, "%%") + "-%09d" + frameFormatOf(o.format).ext;
+  return ["ffmpeg", "-hide_banner", "-nostdin", "-loglevel", "error", "-y", "-progress", "pipe:1", "-nostats",
+          "-copyts", "-ss", secs(o.inMs), "-i", src, "-an", "-sn", "-vf", f.join(","),
+          "-fps_mode", "passthrough", "-enc_time_base", "1/1000", "-frame_pts", "1"]
+    .concat(cap, encodeArgs(o.format), [pattern]);
+}
+// "clip-000083450.png" → "clip-01m23.450s.png", every one in `dir`: the
+// directory is $1, the name before the number $2, the extension $3, and $4
+// is 1 for a video an hour or longer (see frameStamp)
+function framesRenameArgs(dir, src, format, hours) {
+  return ["sh", "-c",
+    "cd \"$1\" || exit 1; for f in \"$2\"-[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]\"$3\"; do "
+    + "[ -e \"$f\" ] || continue; n=${f#\"$2\"-}; n=${n%\"$3\"}; n=$(printf '%s' \"$n\" | sed 's/^0*//'); n=${n:-0}; "
+    + "h=$((n / 3600000)); m=$((n / 60000 % 60)); s=$((n / 1000 % 60)); ms=$((n % 1000)); "
+    + "if [ \"$4\" = 1 ] || [ $h -gt 0 ]; then t=$(printf '%dh%02dm%02d.%03ds' $h $m $s $ms); else t=$(printf '%02dm%02d.%03ds' $m $s $ms); fi; "
+    + "mv -n -- \"$f\" \"$2-$t$3\"; done",
+    "sh", dir, baseOf(src), frameFormatOf(format).ext, hours ? "1" : "0"];
+}
+// the latest "frame=" in a -progress block: how many are written so far
+function framesDone(line) { var m = /^frame=(\d+)/.exec(String(line || "")); return m ? Number(m[1]) : -1; }
 
 // ── RECORDING PREFERENCES ────────────────────────────────────────────────
 // What argus.lua asks for before it records (`qs ipc call Argus recPrefs`):

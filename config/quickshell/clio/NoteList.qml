@@ -36,6 +36,7 @@ Item {
     width: parent.width
     height: 44
     Text {
+      textFormat: Text.PlainText
       id: scopeName
       x: 16
       anchors.verticalCenter: parent.verticalCenter
@@ -309,6 +310,7 @@ Item {
         x: 8
         width: parent.width - 16
         Text {
+          textFormat: Text.PlainText
           width: parent.width
           horizontalAlignment: Text.AlignHCenter
           elide: Text.ElideRight

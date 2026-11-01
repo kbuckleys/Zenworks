@@ -52,7 +52,9 @@ Item {
     interval: 250
     onTriggered: {
       if (!row.gen || box.text === "" || !row.win) { row.strength = null; return; }
-      row.win.mgr.call("strength", null, { text: box.text }, (ok, r) => { if (ok) row.strength = r; });
+      // the answer for what is typed now, not for an older text (audit 10-31)
+      const asked = box.text;
+      row.win.mgr.call("strength", null, { text: asked }, (ok, r) => { if (ok && box.text === asked) row.strength = r; });
     }
   }
 
@@ -124,6 +126,7 @@ Item {
         }
       }
       Text {
+        textFormat: Text.PlainText
         anchors.verticalCenter: parent.verticalCenter
         text: row.strength ? row.strength.word : ""
         color: Zenon.accentMuted

@@ -94,13 +94,6 @@ Singleton {
   // `paths` is one path, or several joined by newlines — several is a
   // gallery of just those, the way a file manager hands over a selection.
   signal viewRequested(string paths)
-  // And the way back: a picture from the viewer made a background goes
-  // through the picker's own card — its monitors, span, fit and slideshow —
-  // carrying whatever look was dialed in the viewer, staged, not applied.
-  // `adopt`, when given, says `path` is a scratch render (a selection) to be
-  // written into adopt.dir as adopt.name only if the card is applied — see
-  // PicassoPopup.focusAdopt.
-  signal setterRequested(string path, var look, var adopt)
 
   // Where screenshots land: XDG's pictures directory, then Screenshots — the
   // directory hyprshot.lua used, found the same way.
@@ -133,9 +126,6 @@ Singleton {
   function annotate(path) { if (path && path !== "") root.annotateRequested(path); }
   // "" is the viewer opened on its own: the pictures directory, as a gallery
   function view(paths) { root.viewRequested(paths || ""); }
-  function setAsWallpaper(path, look, adopt) {
-    if (path && path !== "") root.setterRequested(path, look || ({}), adopt || null);
-  }
 
   readonly property var fitModes: ["crop", "fit", "stretch", "pad", "tile"]
   readonly property var fitLabels: ({

@@ -78,6 +78,8 @@ module.exports = {
     t.eq("today", M.openedWords(now - 3600000, now), "Today");
     t.eq("yesterday", M.openedWords(now - 86400000 * 1.2, now), "Yesterday");
     t.eq("a week", M.openedWords(now - 86400000 * 8, now), "1 week ago");
+    t.eq("late last night is yesterday",
+      M.openedWords(new Date(2026, 9, 19, 23, 0).getTime(), new Date(2026, 9, 20, 8, 0).getTime()), "Yesterday");
 
     // search
     t.eq("lit, case kept", M.litSnippet("The Owl & owl", "owl", "#fff"),

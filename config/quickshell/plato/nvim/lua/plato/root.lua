@@ -52,17 +52,25 @@ local function write(buf, target, quit)
     vim.notify("Could not write " .. tidy(target) .. ": " .. tostring(err), vim.log.levels.ERROR)
     return
   end
+  -- what was written: typing on while polkit asks is not saved by it
+  local tick = api.nvim_buf_get_changedtick(buf)
   vim.system({ "pkexec", "sh", "-c", 'cat -- "$1" > "$2"', "sh", tmp, target }, { text = true },
     vim.schedule_wrap(function(r)
       os.remove(tmp)
       if r.code == 0 then
-        if api.nvim_buf_is_valid(buf) then
+        local newer = api.nvim_buf_is_valid(buf) and api.nvim_buf_get_changedtick(buf) ~= tick
+        if api.nvim_buf_is_valid(buf) and not newer then
           vim.bo[buf].modified = false
           -- read back, so nvim's idea of the file's time is the new one and
           -- the change watch (disk.lua) does not take this write for someone
           -- else's
           api.nvim_buf_call(buf, function() vim.cmd("silent! checktime") end)
           pcall(api.nvim_exec_autocmds, "BufWritePost", { buffer = buf, modeline = false })
+        end
+        if newer then
+          vim.notify(tidy(target) .. " written as root, without the changes made since",
+            vim.log.levels.WARN)
+          return
         end
         vim.notify(tidy(target) .. " written as root")
         if quit then vim.cmd("quit") end

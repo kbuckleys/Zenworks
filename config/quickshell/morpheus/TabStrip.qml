@@ -507,8 +507,13 @@ Rectangle {
             tabStrip.dragTo = Math.max(0, Math.min(tabStrip.tabs.length - 1,
               Math.round(tabStrip.dragX / w)));
           }
+          // released comes before clicked, so the click is told by this,
+          // not by `dragging` (already false): a drag that ended on the ×
+          // closed the tab, and any drag picked it (audit 10-31)
+          property bool wasDrag: false
           onReleased: {
             const was = tabMouse.dragging;
+            tabMouse.wasDrag = was;
             tabMouse.dragging = false;
             const st = tabMouse.strip;
             if (!st) return;
@@ -522,7 +527,7 @@ Rectangle {
             if (tabMouse.strip) tabMouse.strip.endDrag();
           }
           onClicked: (m) => {
-            if (tabMouse.dragging) return;
+            if (tabMouse.wasDrag) { tabMouse.wasDrag = false; return; }
             const id = tabCell.modelData.id;
             // deferred: closing replaces the model this delegate belongs to
             if (m.button === Qt.MiddleButton || tabMouse.onClose(m))

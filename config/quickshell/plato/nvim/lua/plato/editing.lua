@@ -647,7 +647,9 @@ local function undos()
       wrote[buf] = {}
       api.nvim_buf_attach(buf, false, {
         on_bytes = noteBytes,
-        on_detach = function(_, b) wrote[b] = nil end,
+        -- unloaded (:bdelete) as well as wiped: known again when it is
+        -- read back, or on_bytes was never attached again (audit 10-31)
+        on_detach = function(_, b) wrote[b] = nil; seq[b] = nil end,
       })
     end
   end
@@ -712,6 +714,12 @@ end
 -- viewer, rather than as a buffer of binary. Anything else is nvim's gf.
 local images = { png = 1, jpg = 1, jpeg = 1, gif = 1, webp = 1, bmp = 1, svg = 1,
   tif = 1, tiff = 1, avif = 1, ico = 1, jxl = 1, heic = 1 }
+-- the bytes recorded so far, dropped: undo's list walks the undo states to
+-- count each one's lines, and that walk is no edit to flash (undo.lua)
+function M.forgetBytes(buf)
+  if wrote[buf] then wrote[buf] = {} end
+end
+
 function M.imagePath(f)
   if not f or f == "" then return nil end
   local ext = (f:match("%.([%w]+)$") or ""):lower()

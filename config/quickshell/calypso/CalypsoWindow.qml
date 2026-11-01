@@ -276,7 +276,13 @@ FloatingWindow {
     return null;
   }
   // nothing kept from before: the window hiding, an account locking
+  // bumped by forget(): a reveal asked before it is not shown after it
+  property int forgetGen: 0
+  // focused: a FloatingWindow has no `active` of its own, and the auto-lock
+  // asking for one locked a window being read (audit 10-31)
+  readonly property bool keyed: stage.Window.active
   function forget() {
+    win.forgetGen++;
     win.bigValue = "";
     win.genOpen = false;
     if (win.editing) { win.editing = false; win.editSt = null; }
@@ -728,7 +734,10 @@ FloatingWindow {
     const f = win.fieldWith("password");
     const it = win.item;
     if (!f || !it) return;
+    const gen = win.forgetGen;
     win.mgr.call("reveal", win.acctOf(it), { item: it.id, ref: f.ref }, (ok, r, err) => {
+      // hidden, locked or another item since it was asked: not shown (audit 10-31)
+      if (gen !== win.forgetGen || win.item !== it) return;
       if (!ok) { win.failed(err, null); return; }
       win.bigLabel = it.title + "  \u00b7  " + f.label;
       win.bigValue = r.value;
@@ -1550,6 +1559,7 @@ FloatingWindow {
       Rectangle { anchors.fill: parent; color: Zenon.headBg }
       Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Zenon.border }
       Text {
+        textFormat: Text.PlainText
         id: headTitle
         anchors.left: parent.left
         anchors.leftMargin: 22

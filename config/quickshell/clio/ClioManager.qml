@@ -21,14 +21,12 @@
 import QtQuick
 import Quickshell
 import Quickshell.Io
-import Quickshell.Hyprland
 import "../morpheus"
 import "../terminus"
 import "../ceres"
 import "../morpheus/lagnotes.js" as LagNotes
 import "notes.js" as N
 import "../metis/metis.js" as Metis
-import "../morpheus/hypr.js" as Hypr
 
 Scope {
   id: mgr
@@ -190,8 +188,9 @@ Scope {
       delete out.locked;
       if (sealed) {
         // a locked note is written sealed: its blocks are the ones opened
-        const bs = mgr.opened[id];
+        const bs = mgr._heldBlocks[id] || mgr.opened[id];
         if (!bs) continue;      // not open: nothing new to write
+        delete mgr._heldBlocks[id];
         out.blocks = bs;
         delete out.sealed;
         out.title = n.d ? N.titleOf(Object.assign({}, n, { blocks: bs })) : out.title;
@@ -199,6 +198,7 @@ Scope {
       mgr.saveOne(id, out, sealed, n);
     }
     if (held) writeTimer.restart();
+    mgr.lockIfIdle();
   }
   // one note to the disk, with the time its file had when read (`_disk`):
   // the backend writes it only if that is still the file's time. If the
@@ -213,6 +213,7 @@ Scope {
     mgr.call("save", { note: out, seal: sealed, expect: now0 && now0._disk ? now0._disk : 0 }, (ok, r, err) => {
       mgr._writing--;
       delete mgr._inflight[id];
+      Qt.callLater(mgr.lockIfIdle);
       if (!ok) { mgr.failed("Could not save “" + (n.d ? n.d.title : "") + "”", err); return; }
       if (r.conflict) {
         const disk = N.clean(r.disk), copy = N.clean(r.copy);
@@ -509,16 +510,36 @@ Scope {
   }
   function unlock(pw, done) {
     mgr.call("unlock", { password: pw }, (ok, r, err) => {
-      if (ok) { mgr.unlocked = true; lockTimer.restart(); }
+      // unlocked again before a held lock reached the backend: it stays open
+      if (ok) { mgr._lockAsked = false; mgr.unlocked = true; lockTimer.restart(); }
       if (done) done(ok, err);
     });
   }
+  // LOCKED AT ONCE HERE, IN THE BACKEND ONCE THE WRITES ARE DONE (audit
+  // 10-31). A locked note's save held behind its last one (flush) looked
+  // its blocks up in `opened` when it came round, after forgetOpen had
+  // cleared it, and the edit was dropped; and a backend already locked has
+  // no key to seal with. So what is held keeps its blocks, and the backend
+  // forgets the key only when nothing is waiting to be written.
+  property var _heldBlocks: ({})
+  property bool _lockAsked: false
   function lockNow() {
     mgr.flush();
-    mgr.call("lockNow", {}, () => {});
+    for (const id in mgr._pending)
+      if (mgr._pending[id].locked && mgr.opened[id]) mgr._heldBlocks[id] = mgr.opened[id];
+    mgr._lockAsked = true;
     mgr.forgetOpen();
+    mgr.lockIfIdle();
   }
+  function lockIfIdle() {
+    if (!mgr._lockAsked || mgr._writing > 0 || Object.keys(mgr._pending).length > 0) return;
+    mgr._lockAsked = false;
+    mgr.call("lockNow", {}, () => {});
+  }
+  // bumped on every lock: an unseal asked before it is not opened after it
+  property int lockGen: 0
   function forgetOpen() {
+    mgr.lockGen++;
     mgr.unlocked = false;
     mgr.opened = ({});
     // what was derived from opened blocks goes too
@@ -527,8 +548,11 @@ Scope {
   // a sealed note's blocks, from the backend (unlocked first)
   function unseal(id, done) {
     if (mgr.opened[id]) { done(true, mgr.opened[id]); return; }
+    const gen = mgr.lockGen;
     mgr.call("unseal", { id: id }, (ok, r, err) => {
       if (!ok) { done(false, null, err); return; }
+      // locked while it was being opened: it stays shut
+      if (gen !== mgr.lockGen) { done(false, null, { error: "It was locked again" }); return; }
       const o = Object.assign({}, mgr.opened);
       o[id] = r.blocks;
       mgr.opened = o;
@@ -933,9 +957,13 @@ Scope {
     const all = mgr.notes.map((n) => n.sealed && mgr.opened[n.id] ? Object.assign({}, n, { blocks: mgr.opened[n.id] }) : n);
     const due = N.dueChecks(all, now, mgr.told);
     if (due.length === 0) return;
-    // what was told a month ago is let go of
+    // what was told a month ago is let go of, unless it is still waiting to
+    // be ticked: let go of, it was told again after every later reminder
+    // (audit 10-31)
+    const still = {};
+    for (const d of N.dueChecks(all, now, null)) still[d.key] = true;
     const t = {};
-    for (const k in mgr.told) if (+k.split("|")[1] > now - 30 * 86400000) t[k] = true;
+    for (const k in mgr.told) if (still[k] || +k.split("|")[1] > now - 30 * 86400000) t[k] = true;
     for (const d of due) {
       t[d.key] = true;
       const n = mgr.noteOf(d.id);
@@ -987,7 +1015,7 @@ Scope {
         const was = !fresh && mgr.win.visible;
         fn(mgr.win, fresh);
         mgr.win.visible = true;
-        if (was) Hyprland.dispatch(Hypr.focusTitle("clio"));
+        if (was) Attention.raise("clio");
       };
       // A window opened afresh reads the notebook again, from where it is
       // written: what was copied in from another machine since shows up.
@@ -1072,6 +1100,18 @@ Scope {
   function note() { mgr.withWindow((w) => w.newNote()); }
   // a note at words in it, lit for a moment: minerva's "Show in Clio"
   function openAt(id, text) { mgr.withWindow((w) => w.openAt(id, text || "")); }
+  // a note of the words, from Cynosure's "note …" (2026-11-01): their first
+  // line its title, the rest its body; opened on when `show`. done(id).
+  function quickNote(words, show, done) {
+    mgr.whenLoaded(() => {
+      const lines = String(words || "").split("\n");
+      const blocks = [N.block("title", N.escape(lines[0].trim() || "Untitled"))]
+        .concat(lines.slice(1).filter((l) => l.trim() !== "").map((l) => N.block("body", N.escape(l))));
+      const id = mgr.newNote("", blocks);
+      if (show) mgr.openAt(id, "");
+      if (done) done(id);
+    });
+  }
   // the stickies' own "Open in Clio": the Stickies shelf, on that one
   function openSticky(id) { mgr.withWindow((w) => w.openSticky("s:" + id)); }
 }

@@ -203,7 +203,8 @@ QtObject {
   readonly property var sorted: {
     const kept = Terminus.filterEntries(pane.raw, "", term.showHidden,
                                         term.portalGhost);
-    if (term.searchMode !== "") return kept;
+    if (term.searchMode !== "")
+      return pane.searchGrouped ? Terminus.groupByDir(kept) : kept;
     if (term.sizing) {
       const m = term.dirSizes;
       for (let i = 0; i < kept.length; ++i) {
@@ -902,7 +903,23 @@ QtObject {
     return y + (pane.groupHeadAt(i) !== "" ? term.groupHeadH : 0);
   }
 
+  // This pane is showing the results, grouped (term.searchGrouped)
+  readonly property bool searchGrouped: pane.active && term.searchGrouped
+  // A row opened out of a result directory belongs to that result's run,
+  // so it is the top-level row above it that is labeled.
+  function searchLabelAt(i) {
+    const v = pane.view;
+    while (i > 0 && pane.depthOf(v[i].path) > 0) --i;
+    return Terminus.searchGroupLabel(v[i].path,
+      term.searchSpec ? (term.searchSpec.root || term.cwd) : term.cwd, Paths.home());
+  }
   function groupHeadAt(i) {
+    if (pane.searchGrouped) {
+      const v = pane.view;
+      if (i < 0 || i >= v.length || pane.depthOf(v[i].path) > 0) return "";
+      const here = pane.searchLabelAt(i);
+      return i === 0 || pane.searchLabelAt(i - 1) !== here ? here : "";
+    }
     if (!term.grouped) return "";
     const v = pane.view;
     if (i < 0 || i >= v.length) return "";

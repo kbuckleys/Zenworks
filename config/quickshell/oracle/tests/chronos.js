@@ -103,6 +103,11 @@ module.exports = {
     t.eq("plain: today is today", pn("Read today"), ["Read", "2026-10-28", "2026-10-28", ""]);
     t.eq("plain: only when", pn("tomorrow 9am"), "Say what it is, not only when");
     t.eq("plain: an ISO date", pn("Launch 2026-12-01 10:00"), ["Launch", "2026-12-01 10:00", "2026-12-01 11:00", ""]);
+    t.eq("plain: a word starting like a day is a word", pn("Wedding fri"), ["Wedding", "2026-10-30", "2026-10-30", ""]);
+    t.eq("plain: nor a month", pn("Decorate 3 rooms"), ["Decorate 3 rooms", "2026-10-28", "2026-10-28", ""]);
+    t.eq("plain: a full month name", pn("Exam december 3"), ["Exam", "2026-12-03", "2026-12-03", ""]);
+    t.eq("plain: weds", pn("Swim weds"), ["Swim", "2026-11-04", "2026-11-04", ""]);
+    t.eq("plain: 11-1pm is late morning to one", pn("Brunch sat 11-1pm"), ["Brunch", "2026-10-31 11:00", "2026-10-31 13:00", ""]);
     t.eq("a draft at a slot", [C.draft("2026-11-02", 545, "x").start, C.draft("2026-11-02", 545, "x").end, C.draft("2026-11-02", -1).allDay],
          ["2026-11-02 09:00", "2026-11-02 10:00", true]);
   }

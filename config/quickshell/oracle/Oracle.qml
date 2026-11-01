@@ -850,7 +850,7 @@ Singleton {
     // over from Background. The id stays "look", so a remembered section
     // still opens here.
     { id: "look", group: "looks", label: "Theme & color", icon: "\uF1FC",
-      blurb: "the palette \u2014 the theme, Follow Daytime and Follow Background, the accent" },
+      blurb: "the palette \u2014 the theme, Follow Daytime and Follow Background, the accent, the background" },
     { id: "fonts", group: "looks", label: "Fonts", icon: "\uF031",
       blurb: "the type every component reads \u2014 the font, the monospace, their sizes" },
     { id: "surfaces", group: "looks", label: "Surfaces", icon: "\uF24D",
@@ -860,8 +860,6 @@ Singleton {
       blurb: "hyprland's blur, glass, shadow, inner glow, corner shape and motion blur" },
     { id: "motion", group: "looks", label: "Motion", icon: "",
       blurb: "how long everything takes, and how scrolling feels" },
-    { id: "paper", group: "looks", label: "Background", icon: "",
-      blurb: "picasso \u2014 the background, where it comes from and how it fits" },
     // ── DESKTOP: the windows and what sits around them ──
     { id: "display", group: "desktop", label: "Display", icon: "\uF108",
       blurb: "hyprland's monitors \u2014 resolution, refresh, scale, rotation" },
@@ -967,6 +965,10 @@ Singleton {
       elideLeft: true,
       help: "A plain lua file hyprland reads when it starts, read back on every change \u2014 editing it by hand works too." },
     // ── bar ──
+    // the pill first, under no heading (BarSample.qml): its modules
+    // shown or hidden by a click, the Size rows drawn at their real size
+    { key: "barSample", section: "bar", type: "sample", sample: "bar", label: "Pill", pin: true,
+      alias: "preview sample pill bar modules show hide click" },
     { key: "barPosition", section: "bar", label: "Position", type: "enum", segments: true, art: "bar",
       options: [ { value: "bottom", label: "Bottom" },
                  { value: "top",    label: "Top" } ],
@@ -1045,9 +1047,9 @@ Singleton {
       label: "Follow Daytime by night", type: "enum", optionsFrom: "themesNoSun", open: true, chipW: 208,
       help: "Only while the theme is Follow Daytime: what it wears from sunset to sunrise." },
     // A color of your own for the accent, over any theme (user, 2026-10-20).
-    // Folds open on a color picker (ColorFold); shown again under Background
-    // (`alsoIn`), beside Follow Background, whose accent it also replaces.
-    { key: "accentColor", section: "look", alsoIn: "paper", alsoAfter: "followVivid", fold: "color",
+    // Folds open on a color picker (ColorFold); it replaces Follow
+    // Background's accent too.
+    { key: "accentColor", section: "look", fold: "color",
       also: ["accentResetOnBackground"],
       alias: "accent colour color highlight custom manual picker tint theme",
       label: "Accent color", type: "color", none: "Theme's own",
@@ -1057,7 +1059,7 @@ Singleton {
       alias: "accent colour color reset background wallpaper change",
       label: "Reset with background", type: "bool",
       help: "A new background puts the accent back to the theme's own." },
-    // with the other theme rows, not under Background (user, 2026-10-12):
+    // with the other theme rows, not under the Background heading (user, 2026-10-12):
     // what it makes is a theme, and it lands in the Theme list above
     // (marked there with U+F2C0, its light mark kept — Ora.themeOptions)
     { key: "actionSaveFollow", section: "look", alias: "follow background save keep freeze theme wallpaper",
@@ -1107,6 +1109,10 @@ Singleton {
     // otherwise seen only with a menu open
     { key: "surfacesSample", section: "surfaces", type: "sample", label: "Sample",
       alias: "preview sample surfaces panel menu card" },
+    // Window effects' window, pinned over its page (EffectsSample.qml):
+    // hyprland's blur, shadow, glow and corner as its rows set them
+    { key: "effectsSample", section: "wineffects", type: "sample", sample: "effects", label: "Window", pin: true,
+      alias: "preview sample window effects blur shadow glow corner rounding power" },
     { key: "cornerRadius", section: "surfaces", label: "Corner rounding", type: "int",
       // 24 since Hyprland 0.57 lifted its own window cap (20 → 100): past
       // about 14 the short rows and buttons are already as round as they go
@@ -1291,11 +1297,12 @@ Singleton {
       min: 24, max: 200, step: 4, unit: "px", pairMax: "notifMaxHeight",
       help: "So a one-word notification still reads as a panel rather than as a strip." },
 
-    // ── background ──
-    { key: "backgroundDir", section: "paper", label: "Location", type: "text",
+    // ── background: Theme & color's last part (user, 2026-10-31: no page
+    // of its own in the sidebar) ──
+    { key: "backgroundDir", section: "look", label: "Location", type: "text",
       pick: "directory", placeholder: "your pictures directory, then /Backgrounds",
       help: "Where picasso looks for backgrounds, chosen in terminus. Rescanned when this changes. Empty asks XDG for your pictures directory." },
-    { key: "backgroundFit", section: "paper", label: "Fit", type: "enum", segments: true, art: "fit",
+    { key: "backgroundFit", section: "look", label: "Fit", type: "enum", segments: true, art: "fit",
       options: [ { value: "crop",    label: "Crop" },
                  { value: "fit",     label: "Fit" },
                  { value: "stretch", label: "Stretch" },
@@ -1311,7 +1318,7 @@ Singleton {
                  { value: "oklch", label: "OKLCH" },
                  { value: "cmyk",  label: "CMYK" } ],
       help: "How the color picker writes a color to the clipboard. The scroll wheel changes it while the picker is up." },
-    { key: "backgroundZoom", section: "paper", label: "Overscan", type: "real",
+    { key: "backgroundZoom", section: "look", label: "Overscan", type: "real",
       min: 1.0, max: 1.4, step: 0.01, unit: "x",
       help: "How far past the screen the image is drawn — the room the arrival's zoom moves in." },
 
@@ -1335,7 +1342,7 @@ Singleton {
     { key: "followSlideshow", section: "look", alias: "follow background wallpaper slideshow",
       label: "Follow the slideshow", type: "bool",
       help: "A slideshow on that monitor changes the theme with every picture. Off, the theme stays with the picture the slideshow started on." },
-    { key: "wallpaperTint", section: "paper", alias: "tint wallpaper accent colour color glass background",
+    { key: "wallpaperTint", section: "look", alias: "tint wallpaper accent colour color glass background",
       label: "Background tint", type: "real", min: 0, max: 0.3, step: 0.02,
       help: "Lays the glass in a little of the background's own color, so the pill and its panels read as lit by what is behind them. Zero is the theme's plain ground." },
     // ── recording (argus) ──
@@ -1359,6 +1366,10 @@ Singleton {
                  { value: "bottomLeft", label: "Bottom left" }, { value: "bottomRight", label: "Bottom right" } ],
       help: "Where the camera bubble sits." },
     // ── idle & lock ──
+    // the timers drawn first, pinned over the page (IdleTimeline.qml):
+    // a marker dragged sets its timer
+    { key: "idleTimeline", section: "idle", type: "sample", sample: "idle", label: "Timeline", pin: true,
+      alias: "preview timeline idle lock screens off lighting timers away" },
     { key: "idleEnabled", section: "idle", label: "Idle timers", type: "bool",
       help: "Off, nothing happens however long you are away. The lock still works by hand." },
     { key: "idleLockSecs", section: "idle", label: "Lock after", type: "int",
@@ -1534,6 +1545,10 @@ Singleton {
     { key: "workspaceStrip", section: "workspaces", alias: "workspace strip switcher osd overview numbers switch",
       label: "Workspace strip", type: "bool",
       help: "Every time the workspace changes, its number and the apps on each workspace show low on the screen for a moment." },
+    // the desk first, under no heading (WindowsDesk.qml): the rows below
+    // drawn on the main monitor at their real size
+    { key: "windowsDesk", section: "windows", type: "sample", sample: "desk", label: "Desk", pin: true,
+      alias: "preview sample desk gaps borders corners rounding focus dim tiled windows" },
     // hyprland's windows, kept in hypr/lua/effects.lua beside the shadows
     // and animations — see Ora's EFFECTS (2026-10-25)
     { key: "hyprGapsOut", section: "windows", label: "Outer gaps", type: "int", min: 0, max: 40, step: 1, unit: "px",
@@ -2571,10 +2586,14 @@ Singleton {
   // exits, and one without the new engine loaded saved over ours, leaving
   // only the keyboard (2026-10-26) — so it is gone first, then the file.
   // A start also writes classicui.conf's text tray icon (Ora.imClassicUi).
+  // ONE AT A TIME (audit 10-31): a start waits up to 5 s for fcitx5 to go,
+  // and a reload asked meanwhile wrote its newer profile first, the start's
+  // older one over it after — and both went through the same .tmp.
   function imWrite(path, text, then) {
     const start = then === "start";
     Quickshell.execDetached(["sh", "-c",
-      "put() { mkdir -p \"${2%/*}\" && printf %s \"$1\" > \"$2.tmp\" && mv -f \"$2.tmp\" \"$2\"; }; "
+      "exec 9>\"${XDG_RUNTIME_DIR:-/tmp}/oracle-im.lock\"; flock 9; "
+      + "put() { mkdir -p \"${2%/*}\" && printf %s \"$1\" > \"$2.tmp\" && mv -f \"$2.tmp\" \"$2\"; }; "
       + "if [ \"$2\" = start ] && fcitx5-remote --check; then fcitx5-remote -e; i=0; "
       + "while pgrep -u \"$(id -u)\" -x fcitx5 >/dev/null && [ $i -lt 50 ]; do sleep 0.1; i=$((i+1)); done; fi; "
       + "put \"$1\" \"$3\" || exit 1; [ -n \"$5\" ] && put \"$4\" \"$5\"; "

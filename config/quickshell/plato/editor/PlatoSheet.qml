@@ -146,6 +146,7 @@ Item {
       anchors.right: parent.right
       rows: layer.hints
       leading: Text {
+        textFormat: Text.PlainText
         anchors.verticalCenter: parent.verticalCenter
         visible: text !== ""
         text: layer.footText

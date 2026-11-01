@@ -196,7 +196,23 @@ function parseQuick(text, iso) {
 // none is all day. " @ place" is where. What is left is the title.
 // → { allDay, start, end, title, location, iso } or { error }
 const WEEKDAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
-const MONTH_WORDS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+const MONTH_NAMES = ["january", "february", "march", "april", "may", "june", "july", "august",
+                     "september", "october", "november", "december"];
+// A day or a month is its name or its usual short form, and nothing else:
+// any word that only began with one was taken — "Wedding fri" fell on
+// Wednesday, "Decorate 3 rooms" on December 3 (audit 10-31). The patterns
+// name the words outright, so a word like one is passed over, not a stop.
+const DAY_RE = "(?:sun(?:day)?|mon(?:day)?|tue(?:s|sday)?|wed(?:s|nesday)?|thu(?:r|rs|rsday)?|fri(?:day)?|sat(?:urday)?)\\.?";
+const MONTH_RE = "(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t|tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\\.?";
+function weekdayOf(w) {
+  const x = String(w || "").toLowerCase().replace(/\.$/, "");
+  if (x === "weds") return 3;
+  return x.length >= 3 ? WEEKDAYS.findIndex((d) => d.startsWith(x)) : -1;
+}
+function monthOf(w) {
+  const x = String(w || "").toLowerCase().replace(/\.$/, "");
+  return x.length >= 3 ? MONTH_NAMES.findIndex((m) => m.startsWith(x)) : -1;
+}
 function parseNatural(text, iso, now) {
   let s = " " + String(text || "").trim() + " ";
   if (s.trim() === "") return { error: "Type what it is" };
@@ -212,21 +228,22 @@ function parseNatural(text, iso, now) {
   || take(/\s(?:on\s+)?today(?=\s)/i, () => { day = today; })
   || take(/\s(?:on\s+)?(?:tomorrow|tmrw|tmr)(?=\s)/i, () => { day = addDays(today, 1); })
   || take(/\sin\s+(\d{1,3})\s*(days?|d|weeks?|w)(?=\s)/i, (m) => { day = addDays(today, Number(m[1]) * (/^w/i.test(m[2]) ? 7 : 1)); })
-  || take(/\s(?:on\s+)?(next\s+)?(sun|mon|tue|wed|thu|fri|sat)[a-z]*(?=\s)/i, (m) => {
-       const want = WEEKDAYS.findIndex((w) => w.startsWith(m[2].toLowerCase()));
+  || take(new RegExp("\\s(?:on\\s+)?(next\\s+)?(" + DAY_RE + ")(?=\\s)", "i"), (m) => {
+       const want = weekdayOf(m[2]);
+       if (want < 0) return false;
        let d = (want - today.getDay() + 7) % 7;
        if (d === 0) d = 7;
        if (m[1]) d += d < 7 ? 7 : 0;
        day = addDays(today, d);
      })
-  || take(/\s(?:on\s+)?([a-z]{3})[a-z]*\.?\s+(\d{1,2})(?:st|nd|rd|th)?(?=\s)/i, (m) => {
-       const mo = MONTH_WORDS.indexOf(m[1].toLowerCase());
+  || take(new RegExp("\\s(?:on\\s+)?(" + MONTH_RE + ")\\s+(\\d{1,2})(?:st|nd|rd|th)?(?=\\s)", "i"), (m) => {
+       const mo = monthOf(m[1]);
        if (mo < 0) return false;
        day = new Date(today.getFullYear(), mo, Number(m[2]));
        if (day < today) day = new Date(today.getFullYear() + 1, mo, Number(m[2]));
      })
-  || take(/\s(?:on\s+)?(\d{1,2})(?:st|nd|rd|th)?\s+([a-z]{3})[a-z]*\.?(?=\s)/i, (m) => {
-       const mo = MONTH_WORDS.indexOf(m[2].toLowerCase());
+  || take(new RegExp("\\s(?:on\\s+)?(\\d{1,2})(?:st|nd|rd|th)?\\s+(" + MONTH_RE + ")(?=\\s)", "i"), (m) => {
+       const mo = monthOf(m[2]);
        if (mo < 0) return false;
        day = new Date(today.getFullYear(), mo, Number(m[1]));
        if (day < today) day = new Date(today.getFullYear() + 1, mo, Number(m[1]));
@@ -246,6 +263,12 @@ function parseNatural(text, iso, now) {
   take(new RegExp("\\s(?:at\\s+|from\\s+)?" + T + "\\s*(?:-|–|to|until|till)\\s*" + T + "(?=\\s)", "i"), (m) => {
     t0 = clock(m[1], m[2], m[3], m[6]); t1 = clock(m[4], m[5], m[6], "");
     if (t0 < 0 || t1 < 0) return false;
+    // "11-1pm": the end's pm made the start 23:00; the other half of the
+    // day, when that is the one that comes before the end
+    if (!m[3] && m[6] && t0 >= t1) {
+      const alt = clock(m[1], m[2], m[6].toLowerCase() === "pm" ? "am" : "pm", "");
+      if (alt >= 0 && alt < t1) t0 = alt;
+    }
     if (t1 <= t0 && !m[6] && t1 + 720 > t0) t1 += 720;
   })
   || take(new RegExp("\\s(?:at|@)\\s+" + T + "(?=\\s)", "i"), (m) => { t0 = clock(m[1], m[2], m[3], ""); if (t0 < 0) return false; })

@@ -47,7 +47,7 @@ Item {
 
   // the ListView, GridView or Flickable this reports on — or anything that
   // answers a Flickable's questions (contentY, contentHeight, height,
-  // moving, cancelFlick…)
+  // moving, cancelFlick…; originY and the margins are taken as 0 if not)
   property var flick: null
   // false while its view is not the one on screen
   property bool on: true
@@ -72,21 +72,26 @@ Item {
   // Everything below is said along the bar: its length, the view's, the
   // content's, and where the view is in it. Upright, that is the plain
   // contentY it always was; on its side, contentX measured from where a
-  // sideways list really starts.
+  // sideways list really starts. Upright measured the same way since (audit
+  // 10-31), as Elastic.lo/hi are: a ListView whose originY drifted negative
+  // (delegates re-measured) had a thumb that never reached the bottom, and
+  // dragged to the top it set contentY 0, under the real top. With no
+  // margins and origin 0 it is the plain contentY still.
   readonly property real trackLen: root.horizontal ? root.width : root.height
   readonly property real viewLen: !root.flick ? 0
     : (root.horizontal ? root.flick.width : root.flick.height)
   readonly property real contentLen: !root.flick ? 0
     : (root.horizontal ? root.flick.contentWidth + root.flick.leftMargin + root.flick.rightMargin
-                       : root.flick.contentHeight)
-  readonly property real startAt: root.horizontal && root.flick
-    ? root.flick.originX - root.flick.leftMargin : 0
+                       : root.flick.contentHeight + (root.flick.topMargin || 0) + (root.flick.bottomMargin || 0))
+  readonly property real startAt: !root.flick ? 0
+    : (root.horizontal ? root.flick.originX - root.flick.leftMargin
+                       : (root.flick.originY || 0) - (root.flick.topMargin || 0))
   readonly property real pos: !root.flick ? 0
-    : (root.horizontal ? root.flick.contentX - root.startAt : root.flick.contentY)
+    : (root.horizontal ? root.flick.contentX : root.flick.contentY) - root.startAt
   function setPos(v) {
     const c = Math.max(0, Math.min(root.overflow, v));
     if (root.horizontal) { root.flick.cancelFlick(); root.flick.contentX = root.startAt + c; }
-    else root.flick.contentY = c;
+    else root.flick.contentY = root.startAt + c;
   }
 
   readonly property real overflow: root.flick ? Math.max(0, root.contentLen - root.viewLen) : 0

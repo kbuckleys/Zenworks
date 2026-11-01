@@ -11,6 +11,7 @@
 # Always through stdin, never argv: argv is readable in /proc by anything
 # running as you, and a secret starting with "-" would be taken for an option.
 
+import hashlib
 import shutil
 import subprocess
 import threading
@@ -32,7 +33,7 @@ def _sensitive():
 
 _SENSITIVE = None
 _clear_lock = threading.Lock()
-_clear_gen = [0]
+_clear_proc = [None]
 
 
 def copy(secret, clear_after=CLEAR_AFTER):
@@ -66,25 +67,30 @@ def copy(secret, clear_after=CLEAR_AFTER):
             except (OSError, subprocess.TimeoutExpired):
                 pass
         threading.Thread(target=scrub, daemon=True).start()
+    # THE CLEAR OUTLIVES THE DAEMON (audit 10-31). A thread here died with
+    # it: lockAll stops the daemon 3 s after a lock (os._exit), so a password
+    # copied just before Super+L stayed on the clipboard for good. A process
+    # of its own session instead, told the secret's hash only (argv is
+    # readable by anything running as you); a newer copy ends the last one,
+    # so a clear never takes what was copied since.
     with _clear_lock:
-        _clear_gen[0] += 1
-        gen = _clear_gen[0]
-
-    def clear():
-        time.sleep(clear_after)
-        with _clear_lock:
-            if gen != _clear_gen[0]:
-                return           # something newer was copied since
-        try:
-            now = subprocess.run(["wl-paste", "-n"], stdout=subprocess.PIPE,
-                                 stderr=subprocess.DEVNULL, timeout=5).stdout
-            if now == secret.encode():
-                subprocess.run(["wl-copy", "--clear"], stdout=subprocess.DEVNULL,
-                               stderr=subprocess.DEVNULL, timeout=5)
-        except (OSError, subprocess.TimeoutExpired):
-            pass
-    if clear_after > 0:
-        threading.Thread(target=clear, daemon=True).start()
+        if _clear_proc[0] is not None and _clear_proc[0].poll() is None:
+            try:
+                _clear_proc[0].kill()
+            except OSError:
+                pass
+        _clear_proc[0] = None
+        if clear_after > 0:
+            digest = hashlib.sha256(secret.encode()).hexdigest()
+            try:
+                _clear_proc[0] = subprocess.Popen(
+                    ["sh", "-c",
+                     'sleep "$1"; [ "$(wl-paste -n 2>/dev/null | sha256sum | cut -d" " -f1)" = "$2" ]'
+                     ' && wl-copy --clear', "calypso-clear", str(int(clear_after)), digest],
+                    stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL, start_new_session=True)
+            except OSError:
+                pass
     return {"clearsIn": clear_after}
 
 

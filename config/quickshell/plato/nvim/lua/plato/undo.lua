@@ -48,6 +48,9 @@ local function textsAt(seqs)
   pcall(vim.cmd, "silent undo " .. now)
   vim.o.eventignore = ei
   vim.fn.winrestview(view)
+  -- eventignore does not stop on_bytes: the walk's bytes are not the next
+  -- undo's to flash (audit 10-31)
+  pcall(function() require("plato.editing").forgetBytes(api.nvim_get_current_buf()) end)
   return out
 end
 

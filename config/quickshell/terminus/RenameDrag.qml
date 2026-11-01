@@ -8,9 +8,7 @@
 // one-line forwarder for each function here, so callers are unchanged.
 
 import QtQuick
-import Quickshell
 import "../morpheus"
-import "../picasso"
 import "terminus.js" as Terminus
 
 Item {
@@ -137,22 +135,6 @@ Item {
     const rows = term.acting();
     if (rows.length === 0) return;
     term.copyText(rows.map((r) => r.path).join("\n"), "path copied");
-  }
-  // Straight into picasso's own store, not a command. It is a singleton in
-  // this same shell, so setting a background from here is a property write and
-  // the daemon repaints from the same binding the picker uses — no file to
-  // hand over and nothing to keep in step.
-  function setWallpaper(screenName) {
-    const r = term.currentRow();
-    if (!r || r.isDir || !Terminus.isImage(r.name)) return;
-    if (screenName) { Picasso.setFor(screenName, r.path); return; }
-    // ACROSS EVERY MONITOR, as one picture (user, 2026-10-10): picasso's
-    // span, each monitor showing the slice that falls where it sits. One
-    // monitor is just the background, as before.
-    const names = [];
-    for (let i = 0; i < Quickshell.screens.length; ++i) names.push(Quickshell.screens[i].name);
-    if (names.length > 1) Picasso.setSpan(r.path, names);
-    else Picasso.setAll(r.path);
   }
   // Which rows a rubber band covers. Worked out from the geometry rather than
   // by asking each delegate whether it intersects: a ListView only realizes

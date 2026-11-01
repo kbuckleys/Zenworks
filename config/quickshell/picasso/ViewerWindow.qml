@@ -14,8 +14,8 @@
 // look shown through Scene — the same object and the same painter a
 // background wears, set with the same LookEditor — plus a turn, a mirror and
 // a crop. Saving grabs a Scene at the picture's own size, so the file is
-// what the preview showed. "Set as background" is the picker's own card,
-// opened on this picture with the edit staged. The directory listing, the image
+// what the preview showed. "Set as background" is the picker's own setter
+// (BackgroundSetter), in a sheet, on this picture with the edit staged. The directory listing, the image
 // test, the sort, the trash and the formatting are terminus.js'; the
 // thumbnails are morpheus/thumbs.js' shared pool.
 //
@@ -2557,25 +2557,30 @@ FloatingWindow {
   }
 
   // ── background ────────────────────────────────────────────────────────
-  // Through the picker's own card. A crop cannot travel as a look, so a
-  // cropped edit is rendered to a scratch png and the card opens on that —
-  // written into the background directory only if the card is APPLIED (see
-  // PicassoPopup.focusAdopt); closed, the render is thrown away and nothing
-  // was saved anywhere.
+  // Through the picker's own setter, in a sheet (bgBox). A crop cannot
+  // travel as a look, so a cropped edit is rendered to a scratch png and the
+  // setter opens on that — written into the background directory only if it
+  // is APPLIED (see BackgroundSetter.adopt); put away, the render is thrown
+  // away and nothing was saved anywhere.
   function toBackground() {
     if (win.path === "" || !win.loaded || !win.stillOnly()) return;
     if (win.crop) {
       if (win.fallback !== "") { win.say("This is a preview copy — the original cannot be edited here"); return; }
       win.grabEdit((tmp) => {
         if (tmp === "") { win.say("Could not render the selection"); return; }
-        Picasso.setAsWallpaper(tmp, {}, {
+        win.setBackground(tmp, {}, {
           dir: Picasso.dir,
           name: V.editedName(win.path, "background").replace(/\.[^.]+$/, ".png")
         });
       });
       return;
     }
-    Picasso.setAsWallpaper(win.path, Art.lookDiff(win.look));
+    win.setBackground(win.path, Art.lookDiff(win.look));
+  }
+  function setBackground(path, look, adopt) {
+    if (!path || path === "") return;
+    bgSetter.begin(path, look, adopt);
+    bgBox.open = true;
   }
 
   // ── saving the edit ───────────────────────────────────────────────────
@@ -2752,6 +2757,8 @@ FloatingWindow {
         return;
       }
       if (win.mode === "annotate" || confirm.open) return;
+      // the setter has every key while it is up (BackgroundSetter.key)
+      if (bgBox.open) { e.accepted = true; bgSetter.key(e); return; }
       if (propsBox.open) {
         e.accepted = true;
         if (e.key === Qt.Key_Escape) { if (propsCard.tab === 1) propsCard.tab = 0; else propsBox.open = false; }
@@ -3047,7 +3054,7 @@ FloatingWindow {
   // The sheet furthest in is the one the bar and the hole follow.
   readonly property var sheetUp: {
     let best = null;
-    for (const sh of [propsSheet, confirmSheet, bulkCard])
+    for (const sh of [propsSheet, bgSheet, confirmSheet, bulkCard])
       if (sh && sh.cardInk > 0.001 && (!best || sh.cardInk > best.cardInk)) best = sh;
     return best;
   }
@@ -3058,7 +3065,8 @@ FloatingWindow {
   readonly property bool sheetGlass: win.sheetInk > 0.001
   // hanging from the bar (not bulk's floating card): its hidden corners
   // are above the seam, and the hole stops there
-  readonly property bool sheetHangs: win.sheetUp === propsSheet || win.sheetUp === confirmSheet
+  readonly property bool sheetHangs: win.sheetUp === propsSheet || win.sheetUp === bgSheet
+    || win.sheetUp === confirmSheet
   readonly property real holeX: win.sheetUp ? win.sheetUp.drawnX : 0
   readonly property real holeY: win.sheetUp ? win.sheetUp.drawnY : 0
   readonly property real holeW: win.sheetUp ? win.sheetUp.drawnW : 0
@@ -6525,7 +6533,7 @@ FloatingWindow {
     case "saveNew": win.saveNew(); break;
     case "save": win.save(); break;
     case "background": win.toBackground(); break;
-    case "bgFile": Picasso.setAsWallpaper(p, {}); break;
+    case "bgFile": win.setBackground(p, {}); break;
     case "zoomSel": win.zoomToCrop(); break;
     case "clearSel": win.crop = null; win.cropping = false; break;
     case "copy": win.copyImage(); break;
@@ -6885,6 +6893,46 @@ FloatingWindow {
             : { text: r.label, hint: r.key || "", act: "fn", fn: r.act });
           win.showMenu(item.mapToItem(null, 0, item.height), "custom", "");
         }
+      }
+    }
+  }
+
+  // ── setting it as the background ──────────────────────────────────────
+  // The picker's own setter (BackgroundSetter), spliced out of the bar as
+  // the info sheet is: the same monitors, span, fit, look and slideshow
+  // that Quick Access' page and terminus' sheet offer.
+  Item {
+    id: bgBox
+    anchors.fill: parent
+    z: 10
+    property bool open: false
+    visible: bgBox.open || bgSheet.cardInk > 0.01
+    onOpenChanged: if (!bgBox.open) keys.forceActiveFocus()
+    InputShield { visible: bgBox.open; onClicked: bgBox.open = false }
+    Sheet {
+      id: bgSheet
+      // clear: the picture is cut away under it (see sheetUp)
+      ground: win.sheetGround
+      backdrop: win.sheetBackdrop   // the picture, frosted under the card
+      seamFrost: win.sheetSeam   // the bar's frost, carried over the seam
+      floating: true
+      splice: true
+      shown: bgBox.open
+      fromTop: bar.height
+      title: "Set as background"
+      glyph: "\uf108"
+      cardW: Math.min(980, win.width - 64)
+      cardH: bgSetter.implicitHeight
+      BackgroundSetter {
+        id: bgSetter
+        width: parent.width
+        height: parent.height
+        shown: bgBox.open
+        screen: win.screen
+        // the arrows browse the gallery's pictures, everything staged kept
+        list: bgBox.open ? win.rows.filter((r) => !Terminus.isVideo(r.name)) : []
+        onStepped: (d) => bgSetter.path = bgSetter.list[bgSetter.index + d].path
+        onDone: bgBox.open = false
       }
     }
   }

@@ -92,10 +92,13 @@ Item {
   // special as well, since it is not where you are. The area blinks for
   // those, and for a window of the special itself that is not the focused
   // one (Hyprland marks only unfocused windows; focusing it clears it).
+  // A suite window asked for again elsewhere is marked by the shell
+  // (morpheus/Attention: Hyprland has no way to be told), and asks the same.
   readonly property bool numberUrgent: Hyprland.workspaces.values.some(w =>
-    w.urgent === true && !String(w.name).startsWith("special:"))
+    (w.urgent === true || Attention.lit(w)) && !String(w.name).startsWith("special:"))
   readonly property bool specialUrgent: root.specialWorkspace !== null
-    && (root.specialWorkspace.urgent === true || (root.specialFocused && root.numberUrgent))
+    && (root.specialWorkspace.urgent === true || Attention.lit(root.specialWorkspace)
+        || (root.specialFocused && root.numberUrgent))
   property real specialFlash: 0
   SequentialAnimation on specialFlash {
     running: root.specialUrgent
@@ -262,7 +265,7 @@ Item {
 
           property bool isActive: modelData.focused
           // hyprland clears it the moment the workspace is visited
-          readonly property bool isUrgent: modelData.urgent === true && !btn.isActive
+          readonly property bool isUrgent: (modelData.urgent === true || Attention.lit(modelData)) && !btn.isActive
 
           // workspaces appear and vanish as they are used; ease the gap shut
           active: !String(modelData.name).startsWith("special:")

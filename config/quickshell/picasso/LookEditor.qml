@@ -4,7 +4,7 @@
 // https://github.com/kbuckleys/
 //
 // THE LOOK, as controls: what fills the space around a picture, then dim,
-// vignette, blur, color, light, contrast and tint. The focus card's Look
+// vignette, blur, color, light, contrast and tint. The background setter's Look
 // tab and the viewer's edit panel are both this, so a photo and a background
 // are edited with the same hands and the answers mean the same thing —
 // the look they produce is one picasso.js look, painted by one Scene.

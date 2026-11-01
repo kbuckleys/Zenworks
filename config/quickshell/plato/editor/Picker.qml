@@ -78,7 +78,7 @@ PlatoSheet {
   required property font face
   // what an action is run with — see actions.js
   property var ctx: null
-  // artemis (its ArtemisPopup), for the files mode; null leaves space f with
+  // artemis (its ArtemisIndex), for the files mode; null leaves space f with
   // an index of its own
   property var finder: null
   // the editor's face, for the preview
@@ -702,6 +702,7 @@ PlatoSheet {
       // query's letters picked out, both by artemis.js. The same row in both
       // places, because it is the same search.
       Text {
+        textFormat: Text.PlainText
         visible: picker.mode === "files"
         x: 14
         anchors.verticalCenter: parent.verticalCenter

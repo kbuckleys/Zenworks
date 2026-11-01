@@ -39,6 +39,16 @@ QtObject {
     return "'" + String(s ?? "").replace(/'/g, "'\\''") + "'";
   }
 
+  // WHICH OF THESE STILL EXIST, as one shell line for `sh -c`: each that does
+  // is printed with \036 after it, since a path may hold anything else. One
+  // process for the whole list rather than a stat per path (artemis' opened
+  // files, howler's captures).
+  function aliveCommand(paths) {
+    if (!paths || paths.length === 0) return "";
+    return "for p in " + paths.map((p) => root.shellQuote(p)).join(" ")
+      + "; do [ -e \"$p\" ] && printf '%s\\036' \"$p\"; done";
+  }
+
   // The palette as plain 6-digit hex strings, for the places that need color
   // as TEXT rather than as a color: rich-text markup, and terminus' translation
   // of bat's ANSI output. Zenon owns the values; this is only the form.

@@ -481,6 +481,37 @@ function tagFirst_(tags, path) {
 //
 // Returns "" when the current sort has no useful bands — which is every
 // sort over a listing of one thing.
+// ── A RESULTS PAGE, GROUPED BY WHERE (user, 2026-11-01) ─────────────────
+// The heading over a run of results: the directory they were found in, said
+// from the directory the search looked in ("fx", "fx/sub") — or whole, with
+// ~ for home, when it looked everywhere.
+function searchGroupLabel(path, root, home) {
+  const dir = dirname(path);
+  const h = String(home || "").replace(/\/+$/, "");
+  const tilde = (d) => h !== "" && (d === h || d.indexOf(h + "/") === 0) ? "~" + d.slice(h.length) : d;
+  const r = String(root || "");
+  if (r === "" || r === "/") return tilde(dir);
+  const top = r === h ? "~" : basename(r);
+  const rel = whereOf(path, r);
+  if (rel === ".") return top;
+  return rel.charAt(0) === "/" ? tilde(rel) : top + "/" + rel;
+}
+// Each directory's results together, the directories in the order of their
+// best-ranked result and each run in rank order: the search's ranking is kept
+// (see "SEARCH RESULTS ARE NOT SORTED"), only gathered.
+function groupByDir(rows) {
+  const order = [], runs = ({});
+  for (let i = 0; i < rows.length; ++i) {
+    const k = "k:" + dirname(rows[i].path);
+    if (!runs[k]) { runs[k] = []; order.push(k); }
+    runs[k].push(rows[i]);
+  }
+  if (order.length === rows.length) return rows;
+  const out = [];
+  for (const k of order) for (const r of runs[k]) out.push(r);
+  return out;
+}
+
 function groupLabel(row, key, tags, now, dirsFirst) {
   if (!row) return "";
   // A directory is its own band under every sort, because dirsFirst has
@@ -611,7 +642,39 @@ function fuzzyScore(hay, q) {
 // substring when there is one, otherwise each letter of the query picked up
 // in order — the same greedy walk the score makes, so what lights is what
 // matched. [] when nothing does.
+// A NAME SEARCH'S WORDS rather than a filter's letters (user, 2026-11-01:
+// "highlight matched words"): every place each typed word falls in the name,
+// any case — what findCommand asked fd/fzf for. Marked by WORDS_MARK at the
+// front of the mark so rows and tiles carry one string, not two properties.
+// The fuzzy walk stays as the fallback, as findCommand's second pass.
+var WORDS_MARK = "\u0001";
+function wordsMark(query) {
+  const q = String(query || "").trim();
+  return q === "" ? "" : WORDS_MARK + q;
+}
+function wordSpans_(name, query) {
+  const hay = String(name || "").toLowerCase();
+  if (hay.length !== String(name || "").length) return [];
+  const lit = new Array(hay.length).fill(false);
+  for (const w of String(query).toLowerCase().split(/\s+/)) {
+    if (w === "") continue;
+    for (let at = hay.indexOf(w); at >= 0; at = hay.indexOf(w, at + 1))
+      for (let k = at; k < at + w.length; ++k) lit[k] = true;
+  }
+  const out = [];
+  for (let k = 0; k < lit.length; ++k) {
+    if (!lit[k]) continue;
+    if (out.length > 0 && out[out.length - 1][1] === k) out[out.length - 1][1] = k + 1;
+    else out.push([k, k + 1]);
+  }
+  return out;
+}
 function matchSpans(name, query) {
+  if (String(query || "").charAt(0) === WORDS_MARK) {
+    const words = String(query).slice(1);
+    const spans = wordSpans_(name, words);
+    return spans.length > 0 ? spans : matchSpans(name, words.replace(/\s+/g, ""));
+  }
   const hay = String(name || "").toLowerCase(), q = String(query || "").toLowerCase();
   if (q === "" || hay.length !== String(name || "").length) return [];
   const at = hay.indexOf(q);
@@ -1602,6 +1665,23 @@ function firstPartition(dev) {
 // and pipes it to cryptsetup with printf (a builtin — no argv, nothing in
 // ps). The container is left open to be mounted when `o.mountAfter`, closed
 // otherwise; udisks names it luks-<uuid> as it does its own.
+// THE SYSTEM'S DISK REFUSED AS ROOT, before anything is written (audit
+// 10-31). The callers' gates looked at partitions' own mounts, so a system
+// disk under LVM, LUKS-in-LVM, swap or an unmounted EFI partition passed
+// them, and a whole-drive erase zeroed it. This asks the kernel's own tree:
+// every whole disk behind the mounts the system stands on (forge.py
+// SYSTEM_MOUNTS) and swap, against the disk(s) behind `qd`.
+function systemDiskGuard(qd) {
+  return "sysd=; for m in / /boot /boot/efi /efi /usr /var /home; do "
+    + "s=$(findmnt -rn -o SOURCE --mountpoint \"$m\" 2>/dev/null | head -n1); s=${s%%[*}; "
+    + "[ -b \"$s\" ] && sysd=\"$sysd $(lsblk -lnso NAME,TYPE \"$s\" 2>/dev/null | awk '$2==\"disk\"{print $1}')\"; done; "
+    + "for w in $(swapon --noheadings --raw --show=NAME 2>/dev/null); do "
+    + "[ -b \"$w\" ] || { w=$(findmnt -rn -o SOURCE --target \"$w\" 2>/dev/null | head -n1); w=${w%%[*}; }; "
+    + "[ -b \"$w\" ] && sysd=\"$sysd $(lsblk -lnso NAME,TYPE \"$w\" 2>/dev/null | awk '$2==\"disk\"{print $1}')\"; done; "
+    + "for t in $(lsblk -lnso NAME,TYPE " + qd + " 2>/dev/null | awk '$2==\"disk\"{print $1}'); do "
+    + "case \" $sysd \" in *\" $t \"*) echo 'That is the drive the system runs from'; exit 3;; esac; done\n";
+}
+
 function formatCommand(o) {
   const f = formatOf(o.fs);
   if (!f) return "";
@@ -1613,7 +1693,7 @@ function formatCommand(o) {
   const qa = args.map(Strings.shellQuote).join(" ");
   const qp = Strings.shellQuote(part);
   const qd = Strings.shellQuote(whole ? o.device : o.target);
-  let root = "";
+  let root = systemDiskGuard(qd);
   if (o.encrypt) root += "IFS= read -r PASS || :\n[ -n \"$PASS\" ] || { echo 'No passphrase was given'; exit 2; }\n";
   root += "set -e\n";
   if (o.zero)
@@ -1699,8 +1779,11 @@ function diskFacts(d) {
 // probably fine. `dev` is the whole device (/dev/sdb); `mounts` the partitions
 // of it that are mounted. The power-off only runs if every unmount worked —
 // a busy partition stops it there, with udisks' own reason.
-function ejectCommand(dev, mounts) {
-  const um = (mounts || []).map(p => "( " + unmountScript(Strings.shellQuote(p)) + " ) || exit 1\n").join("");
+// `locks`: unlocked LUKS containers, shut once their cleartext is unmounted
+// (a container left open keeps the drive in use for the power-off)
+function ejectCommand(dev, mounts, locks) {
+  const um = (mounts || []).map(p => "( " + unmountScript(Strings.shellQuote(p)) + " ) || exit 1\n").join("")
+    + (locks || []).map(p => "udisksctl lock -b " + Strings.shellQuote(p) + " >/dev/null || exit 1\n").join("");
   // Every partition is unmounted by now, so the data is on the disk whatever
   // the power-off says. Some USB bridges and card readers refuse it — that
   // used to read as Safely remove failing outright, with nothing unmounted

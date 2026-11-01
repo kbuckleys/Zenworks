@@ -51,8 +51,11 @@ if [ ${#files[@]} -gt 0 ]; then
     /^Hidden=true/ { hidden = 1 }
     /^Terminal=true/ { term = "true" }
     function flush() {
-      if (id == "" || hidden || (id in seen)) return
+      # a Hidden one still takes its id: a copy in your own directory saying Hidden=true
+      # hides the system one of the same id (audit 10-31)
+      if (id == "" || (id in seen)) return
       seen[id] = 1
+      if (hidden) return
       printf "app\t%s\t%s\t%s\t%s\t%s\t%s\n", id, (name == "" ? id : name), mime, cats, exe, term
     }
     END { flush() }

@@ -901,6 +901,7 @@ LayerPopup {
     popup.cpuLive = Zeus.liveCpu(sample, fresh ? prev : null);
     popup.procSample = sample;
     popup.rows = sample.rows;
+    popup.rowsAt = Date.now();
     // The first sample of an open has nothing to subtract from, so the second
     // is taken half a second later rather than a whole refresh later.
     if (!popup.cpuLive) quickSample.restart();
@@ -1287,6 +1288,12 @@ LayerPopup {
     popup.selected = Object.assign({}, popup.selected);   // retrigger bindings
   }
 
+  // when the rows were read: with each row's etimes, when its process began
+  property double rowsAt: 0
+  property var killStarts: ({})
+  // a mark the card made itself (Return with nothing marked): taken back
+  // when the card is left, or the next Return aimed the card at it again
+  property var autoMarked: []
   function selectedCount() {
     return Object.keys(popup.selected).length;
   }
@@ -1295,7 +1302,7 @@ LayerPopup {
   // `mode` is the card to open — "signal" from return, "nice" from Alt+N.
   function goToConfirm(mode) {
     if (popup.filtered.length === 0) return;
-    if (popup.selectedCount() === 0) toggleBallot();
+    if (popup.selectedCount() === 0) { toggleBallot(); popup.autoMarked = Object.keys(popup.selected); }
 
     // Only what is still in the list. A mark can outlive its row across a
     // refresh, and a pid that has exited may already belong to something
@@ -1306,6 +1313,9 @@ LayerPopup {
       .map((p) => parseInt(p, 10)).sort((a, b) => a - b);
     if (pids.length === 0) { popup.selected = {}; return; }
     popup.killPids = pids.map((p) => String(p));
+    const st = {};
+    for (const p of popup.killPids) st[p] = Math.round(popup.rowsAt / 1000) - (live[p].etimes || 0);
+    popup.killStarts = st;
 
     const first = live[popup.killPids[0]];
     const what = pids.length === 1 ? Zeus.procName(first.args) : pids.length + " processes";
@@ -1335,13 +1345,16 @@ LayerPopup {
 
   function actionScript() {
     return popup.cardMode === "nice"
-      ? Zeus.niceScript(popup.killPids, popup.niceTarget)
-      : Zeus.signalScript(popup.killPids, Zeus.SIGNALS[popup.sigIdx].sig);
+      ? Zeus.niceScript(popup.killPids, popup.niceTarget, popup.killStarts)
+      : Zeus.signalScript(popup.killPids, Zeus.SIGNALS[popup.sigIdx].sig, popup.killStarts);
   }
 
   // `asRoot` runs the same script through pkexec — the error view's offer,
   // for a process that is not yours or a priority below where it started.
   function executeKills(asRoot) {
+    // one at a time: a second Return or a double click queued a second run,
+    // which signaled the same pids again (audit 10-31)
+    if (killProc.running) return;
     const script = popup.actionScript();
     popup.lastAsRoot = !!asRoot;
     killProc.command = asRoot ? ["pkexec", "sh", "-c", script] : ["sh", "-c", script];
@@ -1357,6 +1370,7 @@ LayerPopup {
     let note = "";
     if (popup.lastAsRoot && code === 126) note = "Not authorized \u2014 the dialog was dismissed.";
     else if (popup.lastAsRoot && code === 127) note = "No polkit agent answered.";
+    popup.autoMarked = [];
     if (fails.length === 0 && note === "") {
       // A fresh list, and nothing else. This used to call openPopup(), which
       // also reset the view to the default, replayed the open animation and
@@ -1393,6 +1407,13 @@ LayerPopup {
   // ----------------------------------------------------------- keys --
 
   function goBack() {
+    if (popup.autoMarked.length > 0) {
+      const o = Object.assign({}, popup.selected);
+      for (const p of popup.autoMarked) delete o[p];
+      popup.selected = o;
+      popup.autoMarked = [];
+    }
+    popup.failList = [];
     popup.confirming = false;
     popup.mode = "list";
     popup.applyFilter();
@@ -1635,7 +1656,10 @@ LayerPopup {
           } else if (event.key === Qt.Key_PageDown) {
             event.accepted = true; popup.moveSoundSel(6);
           }
-        } else { // error
+        } else if (popup.mode === "error") {
+          // only the error view: graphs and net fell in here too, and Return
+          // there asked for root to signal the last failed pids again
+          // (audit 10-31)
           if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter)
               && !popup.lastAsRoot) {
             event.accepted = true;
@@ -3073,6 +3097,9 @@ LayerPopup {
                         onPressed: (m) => apply(m.x)
                         onPositionChanged: (m) => { if (pressed) apply(m.x); }
                         onWheel: (wheel) => {
+                          // a sideways swipe says nothing of up or down: it
+                          // lowered the volume (audit 10-31)
+                          if (wheel.angleDelta.y === 0) { wheel.accepted = false; return; }
                           popup.soundSel = soundRow.index;
                           sound.nudge(soundRow.node,
                             wheel.angleDelta.y > 0 ? 0.01 : -0.01);
@@ -3483,6 +3510,7 @@ LayerPopup {
               color: popup.errColor
 
               Text {
+                textFormat: Text.PlainText
                 anchors.centerIn: parent
                 text: popup.killLabel
                 color: Zenon.onAccent

@@ -19,14 +19,38 @@
 // daemon types and copies them itself.
 
 import QtQuick
-import Quickshell.Hyprland
 import "../morpheus"
 import "../terminus"
 import "../ceres"
 import "calypso.js" as C
 
-LayerPopup {
+// Since 2026-11-01 Quick Access is part of Cynosure's list: "pw …" in its
+// field hands the field to this, and its pages (the logins, a login's
+// actions, the unlock) are drawn from the top of Cynosure's panel with the
+// words as its filter, its keys its own, its hints in Cynosure's strip
+// (`embedded`). Backspace at its empty filter gives the field back.
+
+Item {
   id: popup
+
+  // ── THE VIEW CONTRACT ── how Cynosure loads it (cynosure/CynosurePopup.qml):
+  // `host` is Cynosure's window (its shown, its collapsing, the window a
+  // bubble hangs from); `dismissed` closes the panel, `backed` returns to
+  // its list. `closing` latches, so the close is done once however it
+  // arrives (Cynosure's grab, a click outside, a copy).
+  property var host: null
+  readonly property bool shown: !!popup.host && popup.host.shown
+  readonly property bool collapsing: !!popup.host && popup.host.collapsing
+  property bool nested: true
+  readonly property string escWord: "clear · close"
+  signal dismissed()
+  signal backed()
+  property bool closing: false
+  // bumped on each way in: rows that arrive one after another restart
+  // their entrance on it, as they did on the layer's own `opened`
+  property int opened: 0
+  // drawn in Cynosure's panel: its hint strips are Cynosure's
+  property bool embedded: false
 
   // handed in by shell.qml
   property var mgr: null
@@ -76,7 +100,8 @@ LayerPopup {
     { kind: "copytotp", col: 1, glyph: "\u{F097F}", label: "one-time code" },
   ]
 
-  readonly property int msgH: Zenon.hintBarH   // morpheus/HintBar's strip
+  // morpheus/HintBar's strip; Cynosure's says the keys when embedded
+  readonly property int msgH: popup.embedded ? 0 : Zenon.hintBarH
   readonly property int searchH: 36
   readonly property int emptyH: 64
   readonly property int lockH: 132
@@ -87,13 +112,7 @@ LayerPopup {
   readonly property int cols: 2
   readonly property int visibleRows: 8
 
-  focusable: true
 
-  HyprlandFocusGrab {
-    windows: [ popup ]
-    active: popup.shown
-    onCleared: popup.closePopup()
-  }
 
   // ── what is listed ─────────────────────────────────────────────────────
   // everything open; with nothing typed, what you used last comes first
@@ -147,9 +166,10 @@ LayerPopup {
   }
 
   // ── open, close ────────────────────────────────────────────────────────
-  function openPopup() {
-    popup.shown = true;
-    popup.collapsing = false;
+  // Cynosure's way in: a fresh open
+  function start() {
+    popup.closing = false;
+    popup.opened++;
     popup.query = "";
     filterInput.text = "";
     popup.sel = 0;
@@ -166,16 +186,26 @@ LayerPopup {
     }
     popup.settleMode();
     focusRetry.begin();
-    popup.playOpen();
     popup.syncFocus();
   }
-  function closePopup() {
-    actFlash.cancel();
-    popup.collapsing = true;
-    popup.playClose();
-    if (popup.mgr) popup.mgr.release("quick");
+  // the filter as if typed here ("pw …" in Cynosure)
+  function setLine(q) {
+    filterInput.text = q || "";
+    Qt.callLater(() => { filterInput.forceActiveFocus(); filterInput.cursorPosition = filterInput.text.length; });
   }
-  function toggle() { if (popup.shown) popup.closePopup(); else popup.openPopup(); }
+  function closePopup() {
+    if (popup.closing) return;
+    popup.closing = true;
+    actFlash.cancel();
+    if (popup.mgr) popup.mgr.release("quick");
+    popup.dismissed();
+  }
+  // backspace at an empty filter: Cynosure's list again
+  function leave() {
+    actFlash.cancel();
+    if (popup.mgr) popup.mgr.release("quick");
+    popup.backed();
+  }
   function settleMode() {
     if (!popup.mgr || popup.mgr.accounts.length === 0) popup.mode = "empty";
     // not answered for yet: the list's "reading the vaults…", not the lock
@@ -302,8 +332,8 @@ LayerPopup {
     if (popup.mode === "actions") return [["arrows", "choose"], ["return", "run"], ["alt o", "in calypso"], ["backspace", "back"]];
     if (popup.mode === "unlock")
       return (popup.lockAsks ? [["return", "unlock"]] : [["return", "open"]])
-        .concat(popup.lockedAccts.length > 1 ? [["tab", "account"]] : []).concat([["esc", "close"]]);
-    if (popup.mode === "empty") return [["return", "open calypso"], ["esc", "close"]];
+        .concat(popup.lockedAccts.length > 1 ? [["tab", "account"]] : []).concat([["esc", "clear · close"]]);
+    if (popup.mode === "empty") return [["return", "open calypso"], ["esc", "clear · close"]];
     if (popup.mode === "error") return [["return", "back"]];
     return [["type", "filter"], ["return", "actions"], ["alt o", "calypso"], ["alt g", "generator"], ["alt l", "lock"]]
       .concat(popup.lockedAccts.length > 0 ? [["alt u", "unlock more"]] : []);
@@ -332,13 +362,6 @@ LayerPopup {
     for (const e of popup.filtered.slice(0, 400)) most = Math.max(most, popup.rowTextW(e));
     return Math.max(popup.minW, Math.min(1000, (Math.ceil(most) + 8) * popup.effCols));
   }
-  readonly property int panelTarget: Zenon.layerWidth(popup.panelWidth)
-  property real liveWidth: (popup.morphMode && popup.statusbar && popup.statusbar.pillWidth > 0)
-    ? popup.statusbar.pillWidth : popup.panelTarget
-  Behavior on liveWidth {
-    enabled: !popup.morphMode
-    NumberAnimation { duration: Zenon.slow; easing.type: Zenon.ease }
-  }
   function listHeight() {
     if (popup.filtered.length === 0) return 0;
     return Math.max(1, Math.min(popup.gridRows, popup.visibleRows)) * popup.cellH;
@@ -356,21 +379,17 @@ LayerPopup {
 
 
   // ── the panel ──────────────────────────────────────────────────────────
-  MouseArea { anchors.fill: parent; z: 0; onClicked: popup.closePopup() }
 
-  LayerPanel {
+  Item {
     id: panel
-    host: popup
-    ground: bgRoot
-    width: Math.round(popup.liveWidth)
-    height: popup.calcHeight()
+    anchors.fill: parent
 
     // a rounded clip (Qt's own clip is the bounding box): the strips painted
     // to the panel's edge would fill the corners in
 
-    PanelGround {
+    Item {
       id: bgRoot
-      color: popup.bgColor
+      anchors.fill: parent
 
       // ── list ──────────────────────────────────────────────────────────
       Item {
@@ -534,6 +553,8 @@ LayerPopup {
 
           HintBar {
             id: listHints
+            visible: !popup.embedded
+            height: popup.msgH
             width: parent.width
             rows: popup.hints()
             // how many, at the right end, where ceres stands its buttons
@@ -720,7 +741,7 @@ LayerPopup {
               }
             }
           }
-          HintBar { width: parent.width; rows: popup.hints() }
+          HintBar { width: parent.width; visible: !popup.embedded; height: popup.msgH; rows: popup.hints() }
         }
       }
 
@@ -794,7 +815,7 @@ LayerPopup {
               }
             }
           }
-          HintBar { width: parent.width; rows: popup.hints() }
+          HintBar { width: parent.width; visible: !popup.embedded; height: popup.msgH; rows: popup.hints() }
         }
       }
 
@@ -829,7 +850,7 @@ LayerPopup {
               }
             }
           }
-          HintBar { width: parent.width; rows: popup.hints() }
+          HintBar { width: parent.width; visible: !popup.embedded; height: popup.msgH; rows: popup.hints() }
         }
       }
 
@@ -888,6 +909,11 @@ LayerPopup {
           return;
         }
         // the list
+        if (event.key === Qt.Key_Backspace && filterInput.text === "") {
+          event.accepted = true;
+          popup.leave();
+          return;
+        }
         if (event.key === Qt.Key_Escape) {
           event.accepted = true;
           if (filterInput.text !== "") filterInput.text = ""; else popup.closePopup();

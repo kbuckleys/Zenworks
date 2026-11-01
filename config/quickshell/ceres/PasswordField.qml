@@ -193,17 +193,17 @@ Item {
         // As many dots as fit the field, never more: a long passphrase ran
         // its dots out past the field's ends (calypso's lock, 2026-10-12).
         // Past that the row stays full and the caret keeps blinking.
-        Repeater {
-          model: field.busy ? 0 : Math.min(field.pw.length, field.maxDots)
-          delegate: Text {
-            anchors.verticalCenter: parent.verticalCenter
-            // U+F09DE, past the BMP, written as its surrogate pair
-            text: "󰧞"
-            color: Zenon.pink
-            font.family: Zenon.face
-            font.weight: Zenon.weight
-            font.pixelSize: Zenon.px(15) + field.grow
-          }
+        // morpheus' SecretDots: the lock screen's slide-in and swell.
+        SecretDots {
+          anchors.verticalCenter: parent.verticalCenter
+          // out of the row while empty, as the dots were, so the prompt
+          // and lock sit where they always have
+          visible: !field.busy && field.pw.length > 0
+          count: field.busy ? 0 : field.pw.length
+          max: field.maxDots
+          ink: Zenon.pink
+          size: Zenon.px(15) + field.grow
+          spacing: 5
         }
 
         // the shared caret, drawn after the dots. Told from out here: inside
@@ -249,12 +249,11 @@ Item {
       y: pwCol.y + pwRow.y + (pwRow.height - height) / 2
     }
 
-    SequentialAnimation {
-      running: field.failed
-      NumberAnimation { target: entry; property: "x"; to:  9; duration: Zenon.ms(55) }
-      NumberAnimation { target: entry; property: "x"; to: -7; duration: Zenon.ms(90) }
-      NumberAnimation { target: entry; property: "x"; to:  4; duration: Zenon.ms(80) }
-      NumberAnimation { target: entry; property: "x"; to:  0; duration: Zenon.ms(70) }
+    // the lock screen's refusal shake, morpheus' Shake
+    transform: Shake { id: shake; reach: 9 }
+    Connections {
+      target: field
+      function onFailedChanged() { if (field.failed) shake.run(); }
     }
   }
 }

@@ -394,8 +394,77 @@ def zone(name):
         return None
 
 
-def to_local(value, params):
-    """an ICS date or date-time → (local datetime or date, all_day)"""
+def file_zones(lines):
+    """the file's own VTIMEZONEs: TZID → [(month, byday, wall time, offset
+    to)] per yearly rule, for a TZID zoneinfo does not know (Outlook's
+    "Pacific Standard Time", a Mozilla-prefixed id)"""
+    out, tzid, sub, cur = {}, None, None, {}
+    for l in lines:
+        u = l.upper()
+        if u == "BEGIN:VTIMEZONE":
+            tzid, sub = "", None
+        elif u == "END:VTIMEZONE":
+            tzid = None
+        elif tzid is not None and u in ("BEGIN:STANDARD", "BEGIN:DAYLIGHT"):
+            sub, cur = True, {}
+        elif tzid is not None and u in ("END:STANDARD", "END:DAYLIGHT"):
+            sub = None
+            m = re.fullmatch(r"([+-])(\d{2})(\d{2})(\d{2})?", cur.get("TZOFFSETTO", ""))
+            if m:
+                off = (int(m.group(2)) * 60 + int(m.group(3))) * (-1 if m.group(1) == "-" else 1)
+                rule = dict(p.split("=", 1) for p in cur.get("RRULE", "").split(";") if "=" in p)
+                st = re.fullmatch(r"\d{8}T(\d{2})(\d{2})", cur.get("DTSTART", "")[:13])
+                out.setdefault(tzid, []).append((
+                    int(rule.get("BYMONTH", "0") or 0), rule.get("BYDAY", ""),
+                    (int(st.group(1)), int(st.group(2))) if st else (0, 0), off))
+        elif tzid is not None:
+            name, _, value = prop(l)
+            if sub is None and name == "TZID":
+                tzid = value.strip()
+            elif sub:
+                cur[name] = value.strip()
+    return out
+
+
+def _rule_day(year, month, byday):
+    """BYDAY like 2SU or -1SU in that month → that date"""
+    m = re.fullmatch(r"([+-]?\d)?(MO|TU|WE|TH|FR|SA|SU)", byday or "")
+    if not m or not 1 <= month <= 12:
+        return None
+    n, wd = int(m.group(1) or 1), ["MO", "TU", "WE", "TH", "FR", "SA", "SU"].index(m.group(2))
+    if n > 0:
+        d = datetime.date(year, month, 1)
+        d += datetime.timedelta(days=(wd - d.weekday()) % 7 + 7 * (n - 1))
+    else:
+        last = (datetime.date(year + (month == 12), month % 12 + 1, 1) - datetime.timedelta(days=1))
+        d = last - datetime.timedelta(days=(last.weekday() - wd) % 7 + 7 * (-n - 1))
+    return d if d.month == month else None
+
+
+def offset_in(rules, d):
+    """the UTC offset, in minutes, the rules give wall time `d`: the last
+    transition at or before it (one rule alone is a fixed offset)"""
+    best = None
+    for y in (d.year - 1, d.year):
+        for month, byday, (h, mi), off in rules:
+            day = _rule_day(y, month, byday) if month else datetime.date(1970, 1, 1)
+            if day is None:
+                continue
+            at = datetime.datetime(day.year, day.month, day.day, h, mi)
+            if at <= d and (best is None or at > best[0]):
+                best = (at, off)
+    if best is None and rules:
+        return rules[0][3]
+    return best[1] if best else None
+
+
+def to_local(value, params, zones=None):
+    """an ICS date or date-time → (local datetime or date, all_day)
+
+    A TZID zoneinfo cannot load is read through the file's own VTIMEZONE
+    (`zones`, file_zones) — taken as local wall time it opened at the wrong
+    hour, and any save (a colour, a move) wrote that hour back for good
+    (audit 10-31). A Mozilla-style id ends in the real one."""
     v = value.strip()
     if params.get("VALUE", "").upper() == "DATE" or re.fullmatch(r"\d{8}", v):
         return datetime.date(int(v[:4]), int(v[4:6]), int(v[6:8])), True
@@ -406,9 +475,20 @@ def to_local(value, params):
                           int(m.group(2)), int(m.group(3)), int(m.group(4) or 0))
     if m.group(5):
         return d.replace(tzinfo=datetime.timezone.utc).astimezone().replace(tzinfo=None), False
-    z = zone(params.get("TZID", "")) if params.get("TZID") else None
+    tzid = params.get("TZID", "")
+    z = zone(tzid) if tzid else None
+    if not z and tzid:
+        parts = [p for p in tzid.split("/") if p]
+        for k in (3, 2, 1):
+            z = zone("/".join(parts[-k:])) if len(parts) >= k else None
+            if z:
+                break
     if z:
         return d.replace(tzinfo=z).astimezone().replace(tzinfo=None), False
+    off = offset_in(zones.get(tzid) or [], d) if (tzid and zones) else None
+    if off is not None:
+        u = (d - datetime.timedelta(minutes=off)).replace(tzinfo=datetime.timezone.utc)
+        return u.astimezone().replace(tzinfo=None), False
     return d, False
 
 
@@ -493,6 +573,7 @@ def get(uid):
     start = end = None
     duration = None
     depth = 0
+    zones = file_zones(lines)
     for l in lines[span[0] + 1:span[1]]:
         u = l.upper()
         if u.startswith("BEGIN:"):
@@ -523,14 +604,20 @@ def get(uid):
                 ev["description"] = unesc(value)
             elif name == "RRULE":
                 ev["repeat"] = repeat_of(value)
+                # the rule itself, for a custom one written into a new file
+                # (a copy, an undone delete): event_lines
+                ev["rrule"] = value.strip()
             elif name == "DTSTART":
-                start, ev["allDay"] = to_local(value, params)
+                start, ev["allDay"] = to_local(value, params, zones)
             elif name == "DTEND":
-                end, _ = to_local(value, params)
+                end, _ = to_local(value, params, zones)
             elif name == "DURATION":
                 duration = value
         except ValueError as e:
             return {"error": str(e)}
+    # what the form was shown: given back unchanged, the file's own alarms
+    # stay as they are (save) — the form holds one, the file may hold more
+    ev["alertWas"] = ev["alert"]
     if start is None:
         return {"error": "That event has no start"}
     if end is None and duration:
@@ -582,11 +669,15 @@ def vtimezone(name, year):
         d = start + datetime.timedelta(days=i)
         o = off(d)
         if o != prev:
-            # to the hour it changed, in the old local time
-            h = d - datetime.timedelta(days=1)
-            while off(h + datetime.timedelta(hours=1)) == prev:
-                h += datetime.timedelta(hours=1)
-            changes.append((h.replace(minute=0, second=0) + datetime.timedelta(hours=1), prev, o))
+            # the instant it changed, found in UTC and said in the old local
+            # time: probed by wall clock, spring's 02:00 does not exist and
+            # came out as 03:00 (audit 10-31)
+            utc = datetime.timezone.utc
+            u = (d - datetime.timedelta(days=1)).replace(tzinfo=z).astimezone(utc)
+            while (u + datetime.timedelta(hours=1)).astimezone(z).utcoffset() == prev:
+                u += datetime.timedelta(hours=1)
+            at = (u + datetime.timedelta(hours=1) + prev).replace(tzinfo=None)
+            changes.append((at.replace(minute=0, second=0), prev, o))
             prev = o
     out = ["BEGIN:VTIMEZONE", "TZID:" + name]
     if not changes:
@@ -636,6 +727,9 @@ def event_lines(e, start, end, tzname, keep_rrule):
         out.append("DESCRIPTION:" + esc(e["description"]))
     if e.get("repeat") in REPEATS:
         out.append("RRULE:FREQ=" + e["repeat"].upper())
+    elif e.get("repeat") == "custom" and not keep_rrule and e.get("rrule"):
+        # into a new file: a copy of a custom repeat was a single event
+        out.append("RRULE:" + re.sub(r"[\r\n]", "", str(e["rrule"])))
     a = e.get("alert")
     if isinstance(a, (int, float)) and a >= 0:
         out += ["BEGIN:VALARM", "ACTION:DISPLAY", "DESCRIPTION:" + esc(e["title"]),
@@ -648,6 +742,32 @@ def write_atomic(path, text):
     with open(tmp, "w", newline="") as f:
         f.write(text)
     os.replace(tmp, path)
+
+
+def moved_value(value, minutes, all_day):
+    """an EXDATE/RDATE/RECURRENCE-ID value (a comma list of dates or
+    date-times) moved as its series was: minutes, or days for all-day"""
+    out = []
+    for v in value.split(","):
+        v = v.strip()
+        m = re.fullmatch(r"(\d{8})(T(\d{6})(Z?))?", v)
+        if not m:
+            out.append(v)
+            continue
+        if m.group(2):
+            d = datetime.datetime.strptime(m.group(1) + m.group(3), "%Y%m%d%H%M%S")
+            d += datetime.timedelta(minutes=minutes)
+            out.append(d.strftime("%Y%m%dT%H%M%S") + m.group(4))
+        else:
+            d = datetime.datetime.strptime(m.group(1), "%Y%m%d").date()
+            d += datetime.timedelta(days=minutes if all_day else minutes // 1440)
+            out.append(d.strftime("%Y%m%d"))
+    return ",".join(out)
+
+
+def moved_line(l, minutes, all_day):
+    v = prop(l)[2]
+    return l[:len(l) - len(v)] + moved_value(v, minutes, all_day)
 
 
 def save(raw):
@@ -693,6 +813,10 @@ def save(raw):
         if not span:
             return {"error": "That event's file holds no event"}
         a, b = span
+        # every VALARM kept when the alert was not touched: rewritten from the
+        # form's one, a second alarm, an absolute one or one before the end
+        # was dropped by a colour change (audit 10-31)
+        keep_alarms = "alertWas" in e and e.get("alert") == e.get("alertWas")
         body, depth, seq, kept = [], 0, 0, []
         for l in lines[a + 1:b]:
             u = l.upper()
@@ -705,7 +829,7 @@ def save(raw):
                 if u.startswith("END:"):
                     depth -= 1
                     if depth == 0:
-                        if not any(k.upper() == "BEGIN:VALARM" for k in kept):
+                        if keep_alarms or not any(k.upper() == "BEGIN:VALARM" for k in kept):
                             body += kept
                         kept = []
                 continue
@@ -715,6 +839,12 @@ def save(raw):
                 except ValueError:
                     seq = 1
                 continue
+            # the series moved (shift): its exceptions move with it, or the
+            # times taken out came back and the ones moved pointed at times
+            # it no longer has (audit 10-31)
+            if name in ("EXDATE", "RDATE") and e.get("_moved"):
+                body.append(moved_line(l, int(e["_moved"]), e["allDay"]))
+                continue
             if name == "RRULE":
                 if e.get("repeat") == "custom":
                     body.append(l)
@@ -723,9 +853,14 @@ def save(raw):
             if name in MANAGED or name == "UID":
                 continue
             body.append(l)
-        mine, needs_tz = event_lines(e, start, end, tzname, keep_rrule)
+        mine, needs_tz = event_lines(dict(e, alert=None) if keep_alarms else e, start, end, tzname, keep_rrule)
         vevent = ["BEGIN:VEVENT", "UID:" + uid, "SEQUENCE:%d" % seq] + mine + body + ["END:VEVENT"]
-        rest = lines[:a] + vevent + lines[b + 1:]
+        others = lines[:a] + ["\0"] + lines[b + 1:]
+        if e.get("_moved"):
+            others = [moved_line(l, int(e["_moved"]), e["allDay"]) if l.upper().startswith("RECURRENCE-ID") else l
+                      for l in others]
+        i = others.index("\0")
+        rest = others[:i] + vevent + others[i + 1:]
         if needs_tz and not any(l.upper() == "TZID:" + tzname.upper() for l in rest):
             i = next((k for k, l in enumerate(rest) if l.upper() == "BEGIN:VEVENT"), len(rest) - 1)
             rest = rest[:i] + vtimezone(tzname, start.year) + rest[i:]
@@ -769,16 +904,28 @@ def shift(uid, ds, de):
         if b <= a:
             b = a + datetime.timedelta(minutes=15)
         ev["start"], ev["end"] = stamp(a), stamp(b)
+    if ev.get("repeat"):
+        ev["_moved"] = ds
     r = save(json.dumps(ev))
     return dict(r, start=ev["start"], end=ev["end"]) if r.get("ok") else r
 
 
-def copy(uid, days=0):
+def copy(uid, days=0, occ=""):
+    """a new event `days` after the one copied. `occ`, the day of the
+    occurrence that was copied: a repeat is shifted from there, not from
+    the series' first start — the Oct 28 one of a series begun Jan 1,
+    pasted on Oct 30, began a series on Jan 3 (audit 10-31)"""
     ev = get(uid)
     if ev.get("error"):
         return ev
     ev["uid"] = ""
     d = int(days or 0)
+    if occ and ev.get("repeat"):
+        try:
+            first = parse_when(ev["start"], True)
+            d += (datetime.date.fromisoformat(str(occ)[:10]) - first).days
+        except ValueError:
+            pass
     if d:
         ad = ev["allDay"]
         ev["start"] = stamp(parse_when(ev["start"], ad) + datetime.timedelta(days=d))
@@ -794,19 +941,22 @@ def search(text):
     r = list_events((today - datetime.timedelta(days=365)).isoformat(), (today + datetime.timedelta(days=730)).isoformat())
     if r.get("error"):
         return r
-    found, seen = [], set()
+    # a repeat is one result: its next time from today, else its last (a
+    # series wholly past kept its first, a year back; audit 10-31)
+    now = today.isoformat()
+    pick = {}
     for e in r["events"]:
-        if t in (e["title"] + " " + e["location"] + " " + e["description"]).lower():
-            # a repeat is one result: its next time from today, else its last
-            k = e["uid"]
-            if k in seen and e["date"] < today.isoformat():
-                continue
-            if k in seen:
-                found = [x for x in found if x["uid"] != k or x["date"] >= today.isoformat()]
-                if any(x["uid"] == k for x in found):
-                    continue
-            seen.add(k)
-            found.append(e)
+        if t not in (e["title"] + " " + e["location"] + " " + e["description"]).lower():
+            continue
+        was = pick.get(e["uid"])
+        if was is None:
+            pick[e["uid"]] = e
+        elif e["date"] >= now:
+            if was["date"] < now or e["date"] < was["date"]:
+                pick[e["uid"]] = e
+        elif was["date"] < now and e["date"] > was["date"]:
+            pick[e["uid"]] = e
+    found = list(pick.values())
     found.sort(key=lambda e: (e["date"] < today.isoformat(), e["date"] if e["date"] >= today.isoformat() else "~" + str(9999 - int(e["date"][:4])) + e["date"]))
     return {"events": found[:200]}
 
@@ -1029,7 +1179,7 @@ def main():
     elif cmd == "shift" and len(a) >= 4:
         r = shift(a[1], a[2], a[3])
     elif cmd == "copy" and len(a) >= 2:
-        r = copy(a[1], a[2] if len(a) > 2 else 0)
+        r = copy(a[1], a[2] if len(a) > 2 else 0, a[3] if len(a) > 3 else "")
     elif cmd == "search" and len(a) >= 2:
         r = search(a[1])
     elif cmd == "newcal" and len(a) >= 2:

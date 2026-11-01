@@ -517,7 +517,18 @@ PlatoSheet {
       height: sl.height + 16
       onPressed: (m) => drag.apply(m.x)
       onPositionChanged: (m) => { if (drag.pressed) drag.apply(m.x); }
-      onWheel: (w) => { sheet.settings.nudge(sl.spec.key, w.angleDelta.y > 0 ? 1 : -1); w.accepted = true; }
+      // a step a notch (120): a touchpad's many small deltas ran it to the
+      // end, and a sideways swipe (y 0) lowered it (audit 10-31)
+      property real wheelAcc: 0
+      onWheel: (w) => {
+        if (w.angleDelta.y === 0) { w.accepted = false; return; }
+        drag.wheelAcc += w.angleDelta.y;
+        while (Math.abs(drag.wheelAcc) >= 120) {
+          sheet.settings.nudge(sl.spec.key, drag.wheelAcc > 0 ? 1 : -1);
+          drag.wheelAcc -= drag.wheelAcc > 0 ? 120 : -120;
+        }
+        w.accepted = true;
+      }
       function apply(mx) { sheet.settings.set(sl.spec.key, Ora.fromFraction(sl.spec, (mx - 6) / bar.width)); }
     }
   }

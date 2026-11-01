@@ -689,9 +689,14 @@ Scope {
         // session when "restore session" is off, and a clear that lands after
         // the navigation undoes it — `Terminus open ~/Documents` opened at
         // home. Asking for somewhere always beats the reset.
+        const was = w.shown;
         w.shown = true;
         w.goTo(path === "" ? Paths.home() : path);
         w.takeFocus();
+        // open already, maybe on another workspace: focused, or its
+        // workspace flashes (morpheus/Attention) — told apart by title, so
+        // only when it is the one terminus window up
+        if (was && mgr.wins.filter((x) => x.shown).length === 1) Attention.raise("terminus");
         return w.cwd;
       }
 

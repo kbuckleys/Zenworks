@@ -48,9 +48,12 @@ PanelWindow {
   function keep() {
     const t = field.text.replace(/\s+$/, "");
     if (t.trim() === "" || !cap.mgr) { cap.hide(); return; }
+    // where it goes, as chosen now: kept while the notebook loads, the card
+    // could be opened again and tabbed to the other place (audit 10-31)
+    const into = cap.into;
     const go = () => {
       const lines = t.split("\n").map((l) => N.block("body", N.escape(l)));
-      if (cap.into === "note") {
+      if (into === "note") {
         cap.mgr.newNote("", [N.block(cap.mgr.startWith, N.escape(t.split("\n")[0]))].concat(lines.slice(1)));
         cap.mgr.said("Kept as a note");
       } else cap.mgr.addToToday(lines);

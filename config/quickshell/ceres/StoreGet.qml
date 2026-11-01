@@ -46,6 +46,7 @@ Rectangle {
   Behavior on color { ColorAnimation { duration: Zenon.ms(110) } }
 
   Text {
+    textFormat: Text.PlainText
     id: getText
     anchors.centerIn: parent
     text: get.word

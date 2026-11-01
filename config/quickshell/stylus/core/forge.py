@@ -971,6 +971,16 @@ def unmount(conn, objs, t):
                 call(conn, p, UD + ".Encrypted", "Lock", none)
         if i.get(UD + ".Filesystem", {}).get("MountPoints"):
             call(conn, p, UD + ".Filesystem", "Unmount", none)
+    # a stick with no table: its filesystem (or LUKS) is on the drive itself,
+    # and left mounted the exclusive open failed as "busy" (audit 10-31)
+    w = objs.get(t.block, {})
+    for q, j in objs.items():
+        if j.get(UD + ".Block", {}).get("CryptoBackingDevice") == t.block:
+            if j.get(UD + ".Filesystem", {}).get("MountPoints"):
+                call(conn, q, UD + ".Filesystem", "Unmount", none)
+            call(conn, t.block, UD + ".Encrypted", "Lock", none)
+    if w.get(UD + ".Filesystem", {}).get("MountPoints"):
+        call(conn, t.block, UD + ".Filesystem", "Unmount", none)
 
 
 def open_target(conn, t):
@@ -1259,7 +1269,17 @@ def windows(iso, drive):
     _, GLib = gio()
     conn = bus()
     objs = objects(conn)
-    whole = block_of(objs, os.path.realpath(drive))
+    # the window names a drive by its udisks object, as `write` takes it;
+    # matched against Block.Device as a /dev path it was never found, and
+    # every Windows installer failed with "not there any more" (audit 10-31)
+    if drive.startswith("/org/"):
+        if UD + ".Block" not in objs.get(drive, {}):
+            raise Fail("removed", "It is not there any more")
+        whole = drive
+    else:
+        whole = block_of(objs, os.path.realpath(drive))
+    if UD + ".Partition" in objs[whole]:
+        raise Fail("source", "Write to the whole drive, not one partition")
     not_system(objs, whole)
     if objs[whole][UD + ".Block"].get("ReadOnly"):
         raise Fail("readonly", "The drive is read-only (a lock switch?)")

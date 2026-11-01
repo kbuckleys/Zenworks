@@ -29,13 +29,11 @@
 import QtQuick
 import Quickshell
 import Quickshell.Io
-import Quickshell.Hyprland
 import "../morpheus"
 import "../ceres"
 import "../terminus"
 import "../morpheus/lagnotes.js" as LagNotes
 import "delphi.js" as D
-import "../morpheus/hypr.js" as Hypr
 
 Scope {
   id: mgr
@@ -407,7 +405,7 @@ Scope {
       const was = !fresh && mgr.win.visible;
       fn(mgr.win, fresh);
       mgr.win.visible = true;
-      if (was) Hyprland.dispatch(Hypr.focusTitle("delphi"));
+      if (was) Attention.raise("delphi");
     });
   }
   function retire(w) {

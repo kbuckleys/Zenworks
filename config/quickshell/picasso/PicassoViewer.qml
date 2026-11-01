@@ -24,13 +24,11 @@
 
 import QtQuick
 import Quickshell
-import Quickshell.Hyprland
 import Quickshell.Io
 import "../morpheus"
 import "../morpheus/lagnotes.js" as LagNotes
 import "viewer.js" as V
 import "../morpheus/lru.js" as Lru
-import "../morpheus/hypr.js" as Hypr
 
 Scope {
   id: mgr
@@ -276,7 +274,7 @@ Scope {
     const last = views.length > 0 ? views[views.length - 1] : null;
     if (last && !last.busy) {
       last.load(list, mode);
-      Hyprland.dispatch(Hypr.focusTitle("picasso-view"));
+      Attention.raise("picasso-view");
       return;
     }
     mgr.spawn(list, mode, false);

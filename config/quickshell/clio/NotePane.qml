@@ -440,7 +440,8 @@ Item {
     onLinkClicked: (href) => {
       const id = N.noteLink(href);
       if (id) { pane.win.openNote(id); return; }
-      Quickshell.execDetached(["xdg-open", href]);
+      // the web only: a note's text can come from anywhere (audit 10-31)
+      Strings.openLink(href);
     }
     onNoteLinkAsked: { if (!pane.isSticky) pane.win.linkOpen = true; }
     onMathAsked: (seq, expr) => pane.mgr.math(expr, (r) => ed.mathAnswer(seq, r))
@@ -585,7 +586,10 @@ Item {
   function textUnder(k) {
     const b = ed.blockOf(k);
     if (!b) return;
+    const id = pane.note ? pane.note.id : "";
     const put = (t) => {
+      // read slowly: the note may have been left meanwhile
+      if (!pane.note || pane.note.id !== id || ed.indexOf(k) < 0) return;
       if (t === "") { pane.win.say("No words found in it", true); return; }
       ed.setOcr(b.src, t);
       ed.insertAt(ed.indexOf(k) + 1, t.split("\n").map((l) => N.block("body", N.escape(l))));
@@ -614,9 +618,21 @@ Item {
   }
   // the clipboard as words only (BlockEditor.pastePlainNow)
   function pastePlain() { ed.pastePlainNow(() => pane.win.say("No words on the clipboard", true)); }
-  function typeHere(t) {
+  // into the text the caret is in: a table's cell too, where focusEnd puts
+  // it back in the table and the retry went round forever (audit 10-31)
+  function typeHere(t, again) {
     const it = ed.current();
-    if (!it || !it.isText) { ed.focusEnd(false); Qt.callLater(() => pane.typeHere(t)); return; }
+    if (it && it.kind === "table" && it.table()) {
+      const tb = it.table(), cl = tb.cell(Math.min(tb.lastR, tb.nRows - 1), Math.min(tb.lastC, tb.nCols - 1));
+      if (cl) { cl.te.forceActiveFocus(); cl.te.insert(cl.te.cursorPosition, N.escape(t)); }
+      return;
+    }
+    if (!it || !it.isText) {
+      if (again) return;
+      ed.focusEnd(false);
+      Qt.callLater(() => pane.typeHere(t, true));
+      return;
+    }
     it.te.insert(it.te.cursorPosition, N.escape(t));
   }
   function lockMenu(x, y) {

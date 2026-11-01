@@ -451,6 +451,13 @@ function alsoShown(spec, get) {
 // setting a page has that is not listed here keeps its place at the end
 // (oracle/tests/oracle.js checks there is none).
 const PAGES = {
+  // the theme rows, then the background's (user, 2026-10-31: Background
+  // was a page of its own)
+  look: [
+    ["", ["theme", "themeDay", "themeNight", "accentColor", "actionSaveFollow",
+          "followVivid", "followMonitor", "followSlideshow"]],
+    ["Background", ["backgroundDir", "backgroundFit", "backgroundZoom", "wallpaperTint"]]
+  ],
   notify: [
     ["Timing", ["notifTimeout", "notifTimeoutLow", "notifCriticalSticky"]],
     ["Place and size", ["notifPosition", "notifMaxVisible", "notifWidth", "notifMaxWidth", "notifMinHeight",
@@ -461,7 +468,9 @@ const PAGES = {
     ["Quiet", ["notifSilent", "notifFocusTimers", "notifQuietFullscreen", "notifQuietHours", "notifQuietFrom", "notifQuietTo"]],
     ["History", ["notifHistoryCap", "notifTrackMusic", "notifBellAlways"]]
   ],
+  // the pill first, under no heading (BarSample.qml)
   bar: [
+    ["", ["barSample"]],
     ["Place", ["barPosition", "barMonitor", "barReserveSpace", "barAutohide", "barWindowGap"]],
     ["Size", ["barSlot", "barTextSize", "barGap", "barPadBar", "barPadModule"]],
     ["Look", ["barOpacity", "barBlur", "barTooltips"]],
@@ -475,14 +484,18 @@ const PAGES = {
     ["Home", ["menuShowHome", "menuShowHidden", "menuHomePlaces", "menuHomeRemember"]],
     ["Recent places", ["menuShowRecent", "menuRecentCount"]]
   ],
+  // the timeline first, under no heading (IdleTimeline.qml)
   idle: [
+    ["", ["idleTimeline"]],
     ["Away", ["idleEnabled", "idleLockSecs", "idleKeyboardSecs", "idleLightDevices", "idleInhibitPlayback"]],
     ["Lock screen", ["lockHideCursor", "lockShade", "lockFrost", "lockFailLimit", "lockWidgetMonitor",
                      "lockClockSize", "lockDateSize", "lockFieldWidth"]]
   ],
   // hyprland's own rows (HYPR_FIELDS, "hl:<name>") are added to their
   // parts by hyprPlace, after what is listed here
+  // the desk first, under no heading (WindowsDesk.qml)
   windows: [
+    ["", ["windowsDesk"]],
     ["Gaps and borders", ["hyprGapsOut", "hyprGapsIn", "hyprSpecialGaps", "hyprBorder"]],
     ["Resizing", ["hyprResizeBorder"]],
     ["Snapping", []],
@@ -507,13 +520,27 @@ const PAGES = {
     ["Screens", []],
     ["Layouts", []]
   ],
+  // the window first, under no heading (EffectsSample.qml)
   wineffects: [
+    ["", ["effectsSample"]],
     ["Blur", []],
     ["Glass", []],
     ["Shadow", []],
     ["Glow", []],
     ["Corners", []],
     ["Motion blur", []]
+  ],
+  // the desk first, edge to edge under no heading (ArrangeView.qml), then
+  // each monitor's own rows (made from what is plugged in, so a prefix:
+  // "display:*"), then what is every screen's (user, 2026-10-31)
+  display: [
+    ["", ["displayArrange"]],
+    ["", ["display:*"]],
+    ["All screens", ["mainMonitor", "actionDisplayScan", "infoMonitorsPath"]],
+    ["Screens off", ["idleScreenOffSecs", "wakeBy"]],
+    ["Smoothness", []],
+    ["Color", []],
+    ["Older apps", []]
   ],
   // the map first, under no heading (WorldMap.qml)
   datetime: [
@@ -544,19 +571,31 @@ const PAGES = {
 function pageLayout(section) { return PAGES[section] || null; }
 
 // rows of one page in its PAGES order, the first of each part carrying
-// `head` (a copy: the schema's own entries are left alone)
+// `head` (a copy: the schema's own entries are left alone). A key ending in
+// "*" holds every row its prefix starts, in the order they came.
 function laidOut(rows, page) {
-  const at = {}, heads = {};
+  const at = {}, heads = {}, prefixes = [];
   let n = 0;
   for (const [head, keys] of page) {
-    keys.forEach((k, i) => { at[k] = n++; if (i === 0) heads[k] = head; });
+    keys.forEach((k, i) => {
+      if (k.endsWith("*")) prefixes.push({ p: k.slice(0, -1), o: n, head: i === 0 ? head : undefined });
+      else if (i === 0) heads[k] = head;
+      at[k] = n++;
+    });
   }
-  const placed = rows.map((r, i) => ({ r: r, o: r.key in at ? at[r.key] : n + i }));
-  placed.sort((a, b) => a.o - b.o);
+  const slot = (key) => {
+    if (key in at) return at[key];
+    const hit = prefixes.find((x) => key.startsWith(x.p));
+    return hit ? hit.o : -1;
+  };
+  // stable: rows in one prefix's slot keep the order they came in
+  const placed = rows.map((r, i) => { const o = slot(r.key); return { r: r, o: o >= 0 ? o : n + i, i: i }; });
+  placed.sort((a, b) => a.o - b.o || a.i - b.i);
   const out = [];
   const seen = {};
   for (const p of placed) {
-    const h = heads[p.r.key];
+    const pre = prefixes.find((x) => p.r.key.startsWith(x.p) && !(p.r.key in at));
+    const h = pre ? pre.head : heads[p.r.key];
     // a head only once, on the first of its part that is here
     out.push(h && !seen[h] ? Object.assign({}, p.r, { head: h }) : p.r);
     if (h) seen[h] = true;
@@ -567,8 +606,8 @@ function laidOut(rows, page) {
 function filterSchema(schema, section, query) {
   const out = [];
   const q = String(query || "").trim();
-  // `alsoIn`: a second section shows the same row (Accent color, under
-  // Theme and again under Background) — one setting, counted in its own.
+  // `alsoIn`: a second section shows the same row (Keyboard & mouse's
+  // Window focus, again on Windows) — one setting, counted in its own.
   // There it stands after the row `alsoAfter` names, or last.
   const guests = [];
   for (let i = 0; i < schema.length; ++i) {
@@ -1090,7 +1129,7 @@ function parseMonitorRules(text) {
     let f;
     while ((f = fre.exec(m[1])) !== null) {
       const raw = f[2];
-      fields[f[1]] = f[3] !== undefined ? f[3].replace(/\\(.)/g, "$1")
+      fields[f[1]] = f[3] !== undefined ? luaUnescape(f[3])
         : raw === "true" ? true : raw === "false" ? false : Number(raw);
     }
     if (typeof fields.output !== "string") continue;
@@ -1142,6 +1181,13 @@ function isDefaultDisplay(v) {
 function luaString(s) {
   return "\"" + String(s).replace(/\\/g, "\\\\").replace(/"/g, "\\\"")
     .replace(/\n/g, "\\n").replace(/\r/g, "\\r") + "\"";
+}
+
+// what luaString wrote, read back the way Lua reads it: \n is a line
+// break, not an n (audit 10-31: a \t or \n in a startup command or a
+// rule's title came back changed and was written so)
+function luaUnescape(s) {
+  return String(s).replace(/\\(.)/g, (m, c) => c === "n" ? "\n" : c === "r" ? "\r" : c === "t" ? "\t" : c);
 }
 
 function ruleLine(output, fields) {
@@ -1629,7 +1675,7 @@ function parseDefaultsLua(text) {
   const src = stripLuaComments(text);
   const re = /([A-Za-z_]\w*)\s*=\s*"((?:[^"\\]|\\.)*)"/g;
   let m;
-  while ((m = re.exec(src)) !== null) out[m[1]] = m[2].replace(/\\(.)/g, "$1");
+  while ((m = re.exec(src)) !== null) out[m[1]] = luaUnescape(m[2]);
   return out;
 }
 
@@ -1945,6 +1991,10 @@ function inputDefault(key) {
   return undefined;
 }
 
+// settings hyprland has retired, which an older oracle wrote: never kept as
+// "written by hand" (base.lua skips them as well)
+const HYPR_RETIRED = ["dwindle:special_scale_factor"];
+
 // key = "text" | number | true | false, comments ignored. Anything else in
 // the file is a value this panel does not know, read the same way and kept.
 function parseInputLua(text) {
@@ -1955,7 +2005,7 @@ function parseInputLua(text) {
   while ((m = re.exec(src)) !== null) {
     const raw = m[2];
     if (HYPR_RETIRED.indexOf(m[1]) >= 0) continue;
-    out[m[1]] = m[3] !== undefined ? m[3].replace(/\\(.)/g, "$1")
+    out[m[1]] = m[3] !== undefined ? luaUnescape(m[3])
       : raw === "true" ? true : raw === "false" ? false : Number(raw);
   }
   return out;
@@ -2198,7 +2248,7 @@ function parseBindsLua(text) {
     const h = /^--\s*([A-Z][A-Z &]+)\s*$/.exec(line);
     if (h) { group = h[1].trim(); continue; }
     const m = re.exec(line);
-    if (m) out.push({ id: m[1], chord: normChord(m[2]), label: m[3].replace(/\\(.)/g, "$1"), group: group });
+    if (m) out.push({ id: m[1], chord: normChord(m[2]), label: luaUnescape(m[3]), group: group });
   }
   return out;
 }
@@ -2856,7 +2906,7 @@ const HYPR_FIELDS = [
     help: "A window being moved or resized smears a little behind it. Costs the graphics card." },
   { key: "decoration:motion_blur:samples", section: "wineffects", part: "Motion blur", def: 7, type: "int", min: 1, max: 32, step: 1,
     label: "Motion blur quality", alias: "motion blur samples",
-    help: "How many steps the smear is drawn in. More is smoother and costs more." },
+    help: "How many steps the smear is drawn in, with Motion blur on. More is smoother and costs more." },
 
   // ── Motion ──
   { key: "animations:workspace_wraparound", section: "motion", part: "Animations", def: false, type: "bool",
@@ -3035,10 +3085,6 @@ function hyprSanitize(raw) {
   return out;
 }
 
-// settings hyprland has retired, which an older oracle wrote: never kept as
-// "written by hand" (base.lua skips them as well)
-const HYPR_RETIRED = ["dwindle:special_scale_factor"];
-
 // ["a:b"] = "text" | number | true | false, comments ignored; anything this
 // list does not know is kept as it was, but for what hyprland has retired
 function parseHyprLua(text) {
@@ -3049,7 +3095,7 @@ function parseHyprLua(text) {
   while ((m = re.exec(src)) !== null) {
     const raw = m[2];
     if (HYPR_RETIRED.indexOf(m[1]) >= 0) continue;
-    out[m[1]] = m[3] !== undefined ? m[3].replace(/\\(.)/g, "$1")
+    out[m[1]] = m[3] !== undefined ? luaUnescape(m[3])
       : raw === "true" ? true : raw === "false" ? false : Number(raw);
   }
   return out;
@@ -3141,7 +3187,7 @@ function parseLuaRecords(text) {
       if (f[1] === undefined) continue;
       const v = f[2];
       rec[f[1]] = v === "true" ? true : v === "false" ? false
-        : v[0] === "\"" ? v.slice(1, -1).replace(/\\(.)/g, "$1") : Number(v);
+        : v[0] === "\"" ? luaUnescape(v.slice(1, -1)) : Number(v);
     }
     out.push(rec);
   }

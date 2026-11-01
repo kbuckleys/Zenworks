@@ -38,7 +38,6 @@ import Quickshell.Networking
 import Quickshell.Bluetooth
 import "../morpheus"
 import "../oracle"
-import "../morpheus/hypr.js" as Hypr
 import "../morpheus/lagnotes.js" as LagNotes
 import "../ceres"
 import "hermes.js" as H
@@ -624,7 +623,7 @@ Singleton {
       }
       const was = !fresh && root.win.visible;
       root.win.visible = true;
-      if (was) Hyprland.dispatch(Hypr.focusTitle("hermes"));
+      if (was) Attention.raise("hermes");
     });
   }
   function retire(w) {

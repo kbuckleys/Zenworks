@@ -124,6 +124,9 @@ module.exports = {
     t.has("an unknown signal falls back to TERM", Z.signalScript(["10"], "RM -RF"), "kill -s TERM");
     t.has("pids are numbers and nothing else", Z.signalScript(["10; reboot"], "TERM"), "for p in 10;");
     t.has("failures are reported per pid", Z.signalScript(["10"], "TERM"), 'echo "FAIL $p"');
+    t.has("with start times, each pid is checked first", Z.signalScript(["10"], "TERM", { "10": 1700000000 }), "for x in 10:1700000000;");
+    t.has("and one gone is said, not signaled", Z.signalScript(["10"], "TERM", { "10": 1 }), 'echo "GONE $p"');
+    t.has("start times keep pids numbers", Z.signalScript(["10; reboot"], "TERM", { "10; reboot": 5 }), "for x in 10:5;");
     t.has("renice", Z.niceScript(["10"], 5), "renice -n 5 -p");
     t.eq("nice is clamped low", Z.clampNice(-99), -20);
     t.eq("and high", Z.clampNice(40), 19);

@@ -187,6 +187,12 @@ FloatingWindow {
   property var editBox: null
 
   readonly property bool searching: popup.query !== ""
+  // ── A PICTURE PINNED OVER ITS PAGE (user, 2026-10-31: "sticky, since it
+  // reflects settings i'd have to scroll down for") ──────────────────────
+  // A spec with `pin` that opens its page is drawn above the list, edge to
+  // edge, and the rows scroll under it; its own row in the list folds to
+  // nothing. On a search it is an ordinary row again.
+  readonly property var pinned: !popup.searching && popup.rows.length > 0 && popup.rows[0].pin ? popup.rows[0] : null
 
   // ── THE DROPDOWN ──────────────────────────────────────────────────────
   // One card, shared by every enum row, opened where the row's control is.
@@ -435,7 +441,9 @@ FloatingWindow {
     Oracle.sections.forEach((sec, i) => { order[sec.id] = i; });
     const seen = ({}), out = [];
     for (const s of Oracle.schema) {
-      if (!Ora.stored(s) || s.display || Oracle.isDefault(s.key)) continue;
+      // the rule changedCounts uses: a system time row is the machine's, not
+      // a setting to reset — its reset ran timedatectl (audit 10-31)
+      if (!Ora.stored(s) || s.display || (s.sysTime && !s.sysDefault) || Oracle.isDefault(s.key)) continue;
       const row = s.within ? Oracle.spec(s.within) : s;
       if (!row || seen[row.key]) continue;
       seen[row.key] = true;
@@ -502,13 +510,30 @@ FloatingWindow {
   readonly property int frameRowH: 44
   // a group's head (Shortcuts' Shell, Audio…), between the two
   readonly property int groupHeadH: 48
-  // the Arrangement's picture of the desk
-  readonly property int arrangeH: 240
+  // the Arrangement's picture of the desk: first on Display and edge to
+  // edge, as the map is (user, 2026-10-31: it was too small)
+  readonly property int arrangeH: 340
   // Surfaces' sample (SurfaceSample)
   readonly property int sampleH: 150
   // Time & date's map (WorldMap): one height whatever the window's width —
   // the world wraps round instead (user, 2026-10-29: no stretching)
   readonly property int mapH: 380
+  // the Windows page's desk (WindowsDesk): first and edge to edge, as the
+  // Arrangement is
+  // pinned (popup.pinned), so kept short: the rows scroll under it
+  readonly property int deskH: 250
+  // the Bar page's pill (BarSample), the same way
+  readonly property int barSampleH: 130
+  // Idle & lock's timeline (IdleTimeline)
+  readonly property int idleH: 170
+  // the pictures drawn from a file of their own, by `sample`: the file
+  // (loaded by URL: no qmldir line, no restart) and its height
+  readonly property var pictures: ({
+    desk: { file: "WindowsDesk.qml", h: popup.deskH },
+    bar:  { file: "BarSample.qml", h: popup.barSampleH },
+    idle: { file: "IdleTimeline.qml", h: popup.idleH },
+    effects: { file: "EffectsSample.qml", h: popup.deskH }
+  })
   // ── CONTROLS HANG OFF THE RIGHT EDGE ──────────────────────────────────
   // Every control ENDS at the same x, hard against the scrollbar, and each
   // one takes only the width it actually needs. Two things follow from that,
@@ -674,6 +699,8 @@ FloatingWindow {
   }
 
   function goToSection(id) {
+    // Background was a page of its own until 2026-10-31: now Theme & color's
+    if (id === "paper") id = "look";
     // Mid-search, a tab narrows the results to its section and a second
     // click on it widens them back out. The query is left exactly as typed.
     if (popup.searching) {
@@ -1763,6 +1790,7 @@ FloatingWindow {
       Behavior on color { ColorAnimation { duration: Zenon.fast; easing.type: Zenon.ease } }
 
       Text {
+        textFormat: Text.PlainText
         id: verb
         anchors.centerIn: parent
         // A context action names the section it would act on. Generic rather
@@ -2104,10 +2132,12 @@ FloatingWindow {
                 // the one you are in is brought into view (a short screen,
                 // or ctrl+tab past the bottom)
                 onHereChanged: if (here) {
-                  const f = sideFlick, r = secRow;
+                  // held now: a reload can tear the window down before the
+                  // call lands, and an id read then is a ReferenceError
+                  const f = sideFlick, r = secRow, c = sideCol;
                   Qt.callLater(() => {
-                    if (!f || !r) return;
-                    const y = r.mapToItem(sideCol, 0, 0).y;
+                    if (!f || !r || !c) return;
+                    const y = r.mapToItem(c, 0, 0).y;
                     if (y < f.contentY) f.contentY = Math.max(0, y - 30);
                     else if (y + r.height > f.contentY + f.height)
                       f.contentY = Math.min(f.contentHeight - f.height, y + r.height - f.height + 12);
@@ -2427,12 +2457,41 @@ FloatingWindow {
             // and the margin goes with it. The list itself still runs to the
             // window's edge — each row is narrowed instead — so a monitor's
             // band can reach under the bar; z keeps the bar over it.
+            Item {
+              id: pinBox
+              anchors.top: confirmBar.bottom
+              anchors.left: parent.left
+              anchors.right: parent.right
+              height: popup.pinned && popup.pictures[popup.pinned.sample] ? popup.pictures[popup.pinned.sample].h : 0
+              visible: height > 0
+              Loader {
+                anchors.fill: parent
+                active: popup.pinned !== null
+                source: popup.pinned && popup.pictures[popup.pinned.sample] ? popup.pictures[popup.pinned.sample].file : ""
+                onLoaded: {
+                  item.face = Qt.binding(() => popup.face);
+                  item.fgColor = Qt.binding(() => popup.fgColor);
+                  item.dimColor = Qt.binding(() => popup.dimColor);
+                  item.highlight = Qt.binding(() => popup.highlight);
+                }
+              }
+              // the hairline the rows pass under, once they do
+              Rectangle {
+                anchors.bottom: parent.bottom
+                width: parent.width
+                height: 1
+                color: Zenon.border
+                opacity: list.contentY > list.originY - list.topMargin + 1 ? 1 : 0
+                Behavior on opacity { NumberAnimation { duration: Zenon.fast } }
+              }
+            }
+
             Scrollbar {
               id: scroller
               z: 1
               flick: list
               anchors.right: parent.right
-              anchors.top: confirmBar.bottom
+              anchors.top: pinBox.bottom
               anchors.bottom: parent.bottom
               anchors.topMargin: 2
               anchors.bottomMargin: 2
@@ -2445,7 +2504,7 @@ FloatingWindow {
               // rather than over it: it pins itself to the viewport.
               ElasticScroll { view: list }
               anchors.left: parent.left
-              anchors.top: confirmBar.bottom
+              anchors.top: pinBox.bottom
               anchors.bottom: parent.bottom
               anchors.right: parent.right
               // the first row's name `pad` from the top, as the labels are
@@ -2495,23 +2554,34 @@ FloatingWindow {
                 readonly property real gutter: scroller.scrollable && !Zenon.scrollAutohide ? scroller.thickness : 0
                 // a setting's own row, not a frame's, a group's head or the desk
                 readonly property bool plain: !settingRow.arrange && !settingRow.inGroup && !settingRow.groupHead
-                height: settingRow.tucked ? 0
+                height: settingRow.tucked || settingRow.pinnedAbove ? 0
                   : settingRow.arrange ? (settingRow.mapRow ? popup.mapH - settingRow.mapLift + settingRow.headH
-                    : settingRow.sampleRow ? popup.sampleH + settingRow.headH : popup.arrangeH)
+                    : settingRow.deskRow ? settingRow.wideH - settingRow.mapLift + settingRow.headH
+                    : settingRow.sampleRow ? popup.sampleH + settingRow.headH : popup.arrangeH - settingRow.mapLift)
                   : rowHead.y + rowHead.height + settingRow.frameBelow
                     + (settingRow.open ? foldBody.height : 0)
                 Behavior on height { NumberAnimation { duration: Zenon.menuFade; easing.type: Easing.OutCubic } }
                 clip: settingRow.fold || settingRow.inGroup
                 visible: height > 0
+                // the map's night runs on past its row (WorldMap `spill`):
+                // under the rows below it, never over them
+                z: settingRow.mapRow ? -1 : 0
 
                 readonly property var spec: settingRow.modelData
                 // a row that is a picture, wide and with no control: the
                 // desk's Arrangement, or Surfaces' sample
                 readonly property bool sampleRow: settingRow.spec.type === "sample"
                 readonly property bool mapRow: settingRow.sampleRow && settingRow.spec.sample === "map"
+                // a picture of its own file, edge to edge (popup.pictures):
+                // the Windows page's desk, the Bar page's pill, the idle line
+                readonly property var picture: settingRow.sampleRow ? popup.pictures[settingRow.spec.sample] || null : null
+                readonly property bool deskRow: settingRow.picture !== null
+                readonly property int wideH: settingRow.picture ? settingRow.picture.h : 0
                 // EDGE TO EDGE (user, 2026-10-29): first on its page, the map
                 // rises over the list's top margin to the window's edge
-                readonly property int mapLift: settingRow.mapRow && settingRow.index === 0 ? list.topMargin : 0
+                // the desk's Arrangement too (ArrangeView), on Display
+                readonly property int mapLift: (settingRow.mapRow || settingRow.deskRow || settingRow.spec.type === "arrange")
+                  && settingRow.index === 0 ? list.topMargin : 0
                 readonly property bool arrange: settingRow.spec.type === "arrange" || settingRow.sampleRow
 
                 // ── A ROW THAT FOLDS OPEN ────────────────────────────────
@@ -2532,6 +2602,8 @@ FloatingWindow {
                 readonly property bool groupOpen: settingRow.groupHead
                   && popup.openGroups[settingRow.spec.foldGroup] === true
                 readonly property bool inGroup: !!settingRow.spec.inGroup
+                // drawn above the list instead (popup.pinned)
+                readonly property bool pinnedAbove: popup.pinned !== null && popup.pinned.key === settingRow.spec.key
                 readonly property bool tucked: settingRow.inGroup && !popup.searching
                   && popup.openGroups[settingRow.spec.inGroup] !== true
 
@@ -2667,7 +2739,7 @@ FloatingWindow {
                 }
 
                 SurfaceSample {
-                  visible: settingRow.sampleRow && !settingRow.mapRow
+                  visible: settingRow.sampleRow && !settingRow.mapRow && !settingRow.deskRow
                   x: popup.pad
                   // rowPad above and below, as every row has
                   y: settingRow.headH + popup.rowPad
@@ -2689,10 +2761,26 @@ FloatingWindow {
                     item.highlight = Qt.binding(() => popup.highlight);
                   }
                 }
+                // the Windows page's desk and the Bar page's pill, by URL too
+                Loader {
+                  active: settingRow.deskRow && !settingRow.pinnedAbove
+                  y: settingRow.headH - settingRow.mapLift
+                  width: list.width
+                  height: settingRow.wideH
+                  source: settingRow.picture ? settingRow.picture.file : ""
+                  onLoaded: {
+                    item.face = Qt.binding(() => popup.face);
+                    item.fgColor = Qt.binding(() => popup.fgColor);
+                    item.dimColor = Qt.binding(() => popup.dimColor);
+                    item.highlight = Qt.binding(() => popup.highlight);
+                  }
+                }
                 ArrangeView {
-                  anchors.fill: parent
-                  anchors.rightMargin: settingRow.gutter
+                  y: -settingRow.mapLift
+                  width: list.width
+                  height: popup.arrangeH
                   visible: settingRow.arrange && !settingRow.sampleRow
+                  onPicked: (name) => popup.reveal("display:" + name + ":about")
                   face: popup.face
                   fgColor: popup.fgColor
                   dimColor: popup.dimColor

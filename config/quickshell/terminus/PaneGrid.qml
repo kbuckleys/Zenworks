@@ -165,7 +165,9 @@ GridView {
     width: pgrid.cellWidth
     height: pgrid.cellHeight
     // the filter's letters, lit in the name
-    mark: pgrid.pane.query
+    // the filter's letters, or a names search's words
+    mark: pgrid.pane.query !== "" ? pgrid.pane.query
+      : pgrid.pane === pgrid.term.act ? pgrid.term.searchMark : ""
     // from its old cell to this one, on a reorder — see Pane.reflow
     Glide { id: tileGlide; limit: pgrid.height }
     function glideCheck() {

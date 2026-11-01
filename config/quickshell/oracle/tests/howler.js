@@ -89,6 +89,11 @@ module.exports = {
       "file:///k.png,file:///v.jpg");
     t.eq("an ordinary row has none", H.capturePictures({ image: "x" }).length, 0);
     t.eq("nor does a capture with no path", H.capturePictures({ capture: "shot" }).length, 0);
+    t.eq("a picture found gone is left out",
+      H.capturePictures({ capture: "video", captureKept: "/k.png", capturePicture: "/v.jpg" },
+                        { "/k.png": true }).join(), "file:///v.jpg");
+    t.eq("and a deleted screenshot leaves none",
+      H.capturePictures(shot, { "/home/u/Pictures/s.png": true }).length, 0);
 
     // ── the parse contract ────────────────────────────────────────────────
     t.eq("empty text is an empty history", H.parse("").length, 0);

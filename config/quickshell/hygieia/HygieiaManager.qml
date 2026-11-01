@@ -23,10 +23,8 @@
 import QtQuick
 import Quickshell
 import Quickshell.Io
-import Quickshell.Hyprland
 import "../morpheus"
 import "../morpheus/lagnotes.js" as LagNotes
-import "../morpheus/hypr.js" as Hypr
 import "../ceres"
 import "hygieia.js" as H
 
@@ -147,7 +145,7 @@ Scope {
       }
       const was = !fresh && mgr.win.visible;
       mgr.win.visible = true;
-      if (was) Hyprland.dispatch(Hypr.focusTitle("hygieia"));
+      if (was) Attention.raise("hygieia");
     });
   }
   function retire(w) {

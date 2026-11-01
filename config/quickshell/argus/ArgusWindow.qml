@@ -15,10 +15,16 @@
 // Save puts it beside the original ("…-cut.mp4"); Save as… asks terminus'
 // picker. Done, howler says so with the same card a recording gets.
 //
+// FRAMES, as pictures (2026-11-01): the one under the playhead beside the
+// original ("…-01m23.450s.png"), or a run of the kept part — all, one every
+// N seconds, every Nth, or N in all — into a new directory inside one the
+// picker asks for. PNG, JPEG or WebP; full size, a crop still applies.
+//
 //   space  play, pause (inside the cut)    i  o   in, out at the playhead
 //   ← →    a second ( shift: a tenth )     [  ]   to the in, to the out
 //   1 2 3  MP4 · GIF · WebM                m      mute
 //   ctrl s save    ctrl shift s  save as…  esc    stops a save, or a crop
+//   f      save this frame                 shift f  save frames…
 
 import QtQuick
 import Quickshell
@@ -70,6 +76,9 @@ FloatingWindow {
     aw.cropping = false;
     aw.probeW = 0;
     aw.probeH = 0;
+    aw.probeFps = 0;
+    aw.startSec = 0;
+    aw.savedDir = false;
     // the same file again: its length does not change, so the cut and the
     // strip would wait on onDurationChanged for good (0→0, no frames;
     // audit 2026-10-28d)
@@ -77,7 +86,7 @@ FloatingWindow {
     player.source = Strings.fileUrl(p);
     if (again) { aw.outMs = player.duration; aw.makeStrip(); }
     factsProc.command = ["ffprobe", "-v", "error", "-select_streams", "v:0",
-      "-show_entries", "stream=width,height,r_frame_rate:format=size,duration", "-of", "json", p];
+      "-show_entries", "stream=width,height,r_frame_rate:format=size,duration,start_time", "-of", "json", p];
     factsProc.running = true;
   }
   // the length arrives with the media: the cut starts as all of it
@@ -119,7 +128,9 @@ FloatingWindow {
           aw.probeW = Number(st.width) || 0;
           aw.probeH = Number(st.height) || 0;
           const fr = String(st.r_frame_rate || "").split("/");
-          const fps = fr.length === 2 && Number(fr[1]) > 0 ? Math.round(Number(fr[0]) / Number(fr[1])) : 0;
+          aw.probeFps = fr.length === 2 && Number(fr[1]) > 0 ? Number(fr[0]) / Number(fr[1]) : 0;
+          aw.startSec = Number((j.format || {}).start_time) || 0;
+          const fps = Math.round(aw.probeFps);
           const mb = (Number((j.format || {}).size) || 0) / 1048576;
           aw.facts = [st.width && st.height ? st.width + "×" + st.height : "", fps ? fps + " fps" : "",
                       mb ? (mb >= 10 ? Math.round(mb) : mb.toFixed(1)) + " MB" : ""].filter((x) => x).join("  ·  ");
@@ -156,9 +167,13 @@ FloatingWindow {
   // ── SAVING ─────────────────────────────────────────────────────────────
   readonly property var opts: aw.mgr ? aw.mgr.settings : A.defaults()
   property bool saving: false
+  // a save or a run of frames: one thing at a time writes
+  readonly property bool busy: aw.saving || aw.framing
   property real progress: 0
   property string savingTo: ""
   property string savedTo: ""
+  // what was saved is a directory (a run of frames): no Share for it
+  property bool savedDir: false
   function say(t, bad) { saidBox.say(t, bad); }
 
   // ── THE CROP (user, 2026-10-21: "so many memes on the fly") ─────────
@@ -199,7 +214,7 @@ FloatingWindow {
 
   // `fresh`: `to` is not the name the picker showed, so not one you agreed to replace
   function save(to, fresh) {
-    if (aw.saving || aw.path === "" || aw.dur <= 0) return;
+    if (aw.busy || aw.path === "" || aw.dur <= 0) return;
     aw.cropping = false;
     const out = to || "";
     aw.savingTo = out;
@@ -243,7 +258,7 @@ FloatingWindow {
     saveProc.running = true;
   }
   function saveAs() {
-    if (aw.saving || !aw.mgr || !aw.mgr.fileManager) return;
+    if (aw.busy || !aw.mgr || !aw.mgr.fileManager) return;
     const suggested = A.outPath(aw.path, aw.opts.format).replace(/.*\//, "");
     aw.mgr.fileManager.choose(false, A.dirOf(aw.path), (paths) => {
       if (!paths || paths.length === 0) return;
@@ -255,13 +270,14 @@ FloatingWindow {
   }
   // any video, from anywhere — not only the captures directory
   function openAsk() {
-    if (aw.saving || !aw.mgr || !aw.mgr.fileManager) return;
+    if (aw.busy || !aw.mgr || !aw.mgr.fileManager) return;
     aw.mgr.fileManager.choose(false, aw.path !== "" ? A.dirOf(aw.path) : "", (paths) => {
       if (paths && paths.length > 0) aw.load(paths[0]);
     });
   }
   function stopSave() {
     if (saveProc.running) { saveProc.stopped = true; saveProc.signal(15); }
+    aw.stopFrames();
   }
   Process {
     id: saveProc
@@ -286,19 +302,172 @@ FloatingWindow {
       }
       if (code !== 0) { aw.say("Could not save: " + (saveProc.tail || "ffmpeg failed"), true); return; }
       aw.savedTo = aw.savingTo;
+      aw.savedDir = false;
       aw.say("Saved " + aw.savingTo.replace(/.*\//, ""));
-      aw.announce(aw.savingTo);
+      aw.announce(aw.savingTo, "Cut saved");
     }
   }
   // howler's capture card, as a recording gets: a frame of it, its file
-  function announce(file) {
-    const gif = /\.gif$/i.test(file);
+  function announce(file, title) {
+    // a GIF or a frame is a picture to howler, not a video
+    const still = /\.(gif|png|jpe?g|webp)$/i.test(file);
     Quickshell.execDetached(["sh", "-c",
       "f=$1; t=\"${XDG_RUNTIME_DIR:-/tmp}/howler-capture-$(basename \"$f\").png\"; rm -f \"$t\"; "
       + "ffmpeg -nostdin -loglevel quiet -y -i \"$f\" -frames:v 1 \"$t\"; "
-      + "if [ -s \"$t\" ]; then notify-send -a argus -i \"$t\" -h string:x-howler-capture:" + (gif ? "shot" : "video")
-      + " -h \"string:x-howler-file:$f\" -h \"string:x-howler-picture:$t\" \"\u{F0190} Cut saved\" \"$f\"; "
-      + "else notify-send -a argus \"\u{F0190} Cut saved\" \"$f\"; fi", "sh", file]);
+      + "if [ -s \"$t\" ]; then notify-send -a argus -i \"$t\" -h string:x-howler-capture:" + (still ? "shot" : "video")
+      + " -h \"string:x-howler-file:$f\" -h \"string:x-howler-picture:$t\" \"\u{F0190} $2\" \"$f\"; "
+      + "else notify-send -a argus \"\u{F0190} $2\" \"$f\"; fi", "sh", file, title]);
+  }
+
+  // ── FRAMES, AS PICTURES (2026-11-01) ───────────────────────────────────
+  // `frameRun` tags each one: a step that answers for a run already stopped
+  // (a killed Process still streams) is ignored
+  property bool framing: false
+  property bool frameOne: false
+  property int frameRun: 0
+  property string framesTo: ""
+  property int framesMade: 0
+  property real probeFps: 0
+  property real startSec: 0
+  readonly property var framesOpts: Object.assign({}, aw.opts, { inMs: aw.inMs, outMs: aw.outMs })
+  readonly property int framesEst: aw.dur > 0 ? A.framesEstimate(aw.framesOpts, aw.probeFps) : 0
+
+  // The frame under the playhead, beside the original: which frame is
+  // showing asked of the file first (A.pickArgs), then a free name, then it
+  function saveFrame() {
+    if (aw.busy || aw.asking() || aw.path === "" || aw.dur <= 0) return;
+    aw.cropping = false;
+    const ms = Math.max(0, player.position);
+    aw.beginFrames(true);
+    pickProc.run = aw.frameRun;
+    pickProc.command = A.pickArgs(aw.path, ms / 1000 + aw.startSec);
+    pickProc.fallback = ms / 1000;
+    pickProc.running = true;
+  }
+  // a run of the kept part, into a new directory inside the one picked
+  function saveFramesAsk() {
+    if (aw.busy || !aw.mgr || !aw.mgr.fileManager || aw.dur <= 0) return;
+    aw.cropping = false;
+    aw.mgr.fileManager.choose(true, A.dirOf(aw.path), (paths) => {
+      if (paths && paths.length > 0) aw.saveFrames(paths[0]);
+    });
+  }
+  function saveFrames(picked) {
+    if (aw.busy || aw.asking() || aw.path === "" || aw.dur <= 0) return;
+    aw.beginFrames(false);
+    // mkdir, not a test: the first name made is ours, nobody else's frames in it
+    spotProc.run = aw.frameRun;
+    spotProc.command = ["sh", "-c", "for p in \"$@\"; do mkdir -- \"$p\" 2>/dev/null && { printf '%s' \"$p\"; exit 0; }; done",
+      "sh"].concat(A.variants(A.framesDir(picked, aw.path)));
+    spotProc.running = true;
+  }
+  // a stopped run's question still out: a new one would be queued behind
+  // it and take its answer
+  function asking() { return pickProc.running || spotProc.running; }
+  function beginFrames(one) {
+    aw.frameRun++;
+    aw.frameOne = one;
+    aw.framing = true;
+    aw.framesTo = "";
+    aw.framesMade = 0;
+    aw.progress = 0;
+  }
+  function stopFrames() {
+    if (frameProc.running) { frameProc.stopped = true; frameProc.signal(15); return; }
+    // still asking which frame, or for a name: forget the answer
+    if (aw.framing) { aw.frameRun++; aw.framing = false; }
+  }
+  function runFrames(out, o) {
+    aw.framesTo = out;
+    frameProc.run = aw.frameRun;
+    frameProc.lenMs = Math.max(1, aw.outMs - aw.inMs);
+    frameProc.command = aw.frameOne ? A.frameArgs(aw.path, out, o) : A.framesArgs(aw.path, out, o);
+    frameProc.running = true;
+  }
+  Process {
+    id: pickProc
+    property int run: 0
+    property real fallback: 0
+    stdout: StdioCollector {
+      id: pickOut
+      waitForEnd: true
+      onStreamFinished: {
+        if (pickProc.run !== aw.frameRun || !aw.framing) return;
+        // the frame's own time, else the playhead's (exact -ss, at or after it)
+        const t = Number(pickOut.text.trim());
+        const seek = pickOut.text.trim() !== "" && isFinite(t) ? Math.max(0, t - aw.startSec) : pickProc.fallback;
+        spotProc.run = aw.frameRun;
+        spotProc.seek = seek;
+        spotProc.command = ["sh", "-c", "for p in \"$@\"; do [ -e \"$p\" ] || { printf '%s' \"$p\"; exit 0; }; done", "sh"]
+          .concat(A.variants(A.framePath(aw.path, seek * 1000, aw.opts.frameFormat, aw.dur >= 3600000)));
+        Qt.callLater(() => { if (spotProc.run === aw.frameRun && aw.framing) spotProc.running = true; });
+      }
+    }
+  }
+  // the first free name for a frame, or the run's new directory
+  Process {
+    id: spotProc
+    property int run: 0
+    property real seek: 0
+    stdout: StdioCollector {
+      id: spotOut
+      waitForEnd: true
+      onStreamFinished: {
+        if (spotProc.run !== aw.frameRun || !aw.framing) return;
+        const p = spotOut.text.trim();
+        if (p === "") {
+          aw.framing = false;
+          aw.say(aw.frameOne ? "No free name beside the original for the frame" : "Could not make a directory for the frames there", true);
+          return;
+        }
+        const o = Object.assign({}, aw.framesOpts, { format: aw.opts.frameFormat, startSec: aw.startSec,
+                                                     seekSec: spotProc.seek, crop: aw.cropNow });
+        aw.runFrames(p, o);
+      }
+    }
+  }
+  Process {
+    id: frameProc
+    property int run: 0
+    property real lenMs: 1
+    property bool stopped: false
+    property string tail: ""
+    stdout: SplitParser {
+      splitMarker: "\n"
+      onRead: (line) => {
+        if (frameProc.run !== aw.frameRun) return;
+        const n = A.framesDone(line);
+        if (n >= 0) aw.framesMade = n;
+        else if (/^out_time_(us|ms)=/.test(line)) aw.progress = A.progressOf(line, frameProc.lenMs);
+      }
+    }
+    stderr: SplitParser {
+      splitMarker: "\n"
+      onRead: (line) => { frameProc.tail = line; }
+    }
+    onExited: (code) => {
+      const stopped = frameProc.stopped;
+      frameProc.stopped = false;
+      if (frameProc.run !== aw.frameRun) return;
+      aw.framing = false;
+      const to = aw.framesTo, name = to.replace(/.*\//, "");
+      if (aw.frameOne) {
+        if (stopped) { Quickshell.execDetached(["rm", "-f", "--", to]); aw.say("Stopped"); return; }
+        if (code !== 0) { aw.say("Could not save the frame: " + (frameProc.tail || "ffmpeg failed"), true); return; }
+        aw.savedTo = to;
+        aw.savedDir = false;
+        aw.say("Saved " + name);
+        aw.announce(to, "Frame saved");
+        return;
+      }
+      // what was made is kept, stopped or not, under its time in the video
+      Quickshell.execDetached(A.framesRenameArgs(to, aw.path, aw.opts.frameFormat, aw.dur >= 3600000));
+      const made = aw.framesMade + (aw.framesMade === 1 ? " frame" : " frames");
+      if (stopped) aw.say("Stopped  ·  " + made + " kept in " + name);
+      else if (code !== 0) { aw.say("Could not save the frames: " + (frameProc.tail || "ffmpeg failed"), true); return; }
+      else aw.say("Saved " + made + " to " + name);
+      if (aw.framesMade > 0) { aw.savedTo = to; aw.savedDir = true; }
+    }
   }
 
   // ── KEYS ───────────────────────────────────────────────────────────────
@@ -310,11 +479,12 @@ FloatingWindow {
       e.accepted = true;
       // never the window (user, 2026-10-25: a stray esc lost the cut being
       // made) — it is closed as any window is
-      if (e.key === Qt.Key_Escape) { if (aw.saving) aw.stopSave(); else if (aw.cropping) aw.cropping = false; return; }
+      if (e.key === Qt.Key_Escape) { if (aw.busy) aw.stopSave(); else if (aw.cropping) aw.cropping = false; return; }
       if (e.key === Qt.Key_C && !ctrl) { aw.toggleCrop(); return; }
       if (aw.cropping && (e.key === Qt.Key_Return || e.key === Qt.Key_Enter)) { aw.cropping = false; return; }
       if (ctrl && e.key === Qt.Key_O) { aw.openAsk(); return; }
       if (ctrl && e.key === Qt.Key_S) { if (shift) aw.saveAs(); else aw.save(""); return; }
+      if (e.key === Qt.Key_F && !ctrl) { if (shift) aw.saveFramesAsk(); else aw.saveFrame(); return; }
       if (e.key === Qt.Key_Space) { aw.toggle(); return; }
       if (e.key === Qt.Key_I) { aw.setIn(player.position); return; }
       if (e.key === Qt.Key_O) { aw.setOut(player.position); return; }
@@ -393,7 +563,7 @@ FloatingWindow {
         // the cut just saved, out to something else (morpheus/Share)
         DialogButton {
           id: shareBtn
-          visible: aw.savedTo !== ""
+          visible: aw.savedTo !== "" && !aw.savedDir
           label: "Share \u25BE"
           onClicked: {
             const at = shareBtn.mapToItem(shareMenu, 0, shareBtn.height + 4);
@@ -403,19 +573,19 @@ FloatingWindow {
         }
         DialogButton {
           label: "Open…"
-          ready: !aw.saving && !!aw.mgr && !!aw.mgr.fileManager
+          ready: !aw.busy && !!aw.mgr && !!aw.mgr.fileManager
           onClicked: aw.openAsk()
         }
         DialogButton {
           label: "Save as…"
-          ready: !aw.saving && !!aw.mgr && !!aw.mgr.fileManager && aw.dur > 0
+          ready: !aw.busy && !!aw.mgr && !!aw.mgr.fileManager && aw.dur > 0
           onClicked: aw.saveAs()
         }
         BusyButton {
           label: "Save"
           ink: Zenon.yellow
           primary: true
-          ready: !aw.saving && aw.dur > 0
+          ready: !aw.busy && aw.dur > 0
           busy: aw.saving
           busyText: Math.round(aw.progress * 100) + "%"
           onClicked: aw.save("")
@@ -586,6 +756,8 @@ FloatingWindow {
       Flickable {
         id: sideFlick
         anchors.fill: parent
+        // clear of the readout below while something saves
+        anchors.bottomMargin: aw.busy ? busyCol.height + 28 : 0
         contentWidth: width
         contentHeight: sideCol.implicitHeight + 40
         boundsBehavior: Flickable.StopAtBounds
@@ -775,6 +947,79 @@ FloatingWindow {
           horizontalAlignment: Text.AlignLeft
           text: "beside the original; Save as… puts it anywhere"
         }
+
+        // ── frames, as pictures ───────────────────────────────────────
+        Item { width: 1; height: 6 }
+        SectionLabel { text: "Frames" }
+        Segments {
+          width: parent.width
+          even: true
+          options: A.FRAME_FORMATS.map((f) => [f.id, f.label])
+          current: aw.opts.frameFormat
+          onChose: (v) => { if (aw.mgr) aw.mgr.set("frameFormat", v); }
+        }
+        DialogButton {
+          label: "Save this frame"
+          ready: !aw.busy && aw.dur > 0
+          onClicked: aw.saveFrame()
+        }
+        EmptyState {
+          width: parent.width
+          horizontalAlignment: Text.AlignLeft
+          text: "f  ·  the one under the playhead, full size, beside the original"
+        }
+        Segments {
+          width: parent.width
+          even: true
+          options: A.FRAME_MODES
+          current: aw.opts.framesMode
+          onChose: (v) => { if (aw.mgr) aw.mgr.set("framesMode", v); }
+        }
+        Flow {
+          visible: aw.opts.framesMode !== "all"
+          width: parent.width
+          spacing: 6
+          Repeater {
+            readonly property string key: aw.opts.framesMode === "secs" ? "framesSecs" : aw.opts.framesMode === "nth" ? "framesNth" : "framesCount"
+            id: everyRep
+            model: aw.opts.framesMode === "secs" ? A.FRAME_SECS : aw.opts.framesMode === "nth" ? A.FRAME_NTH : A.FRAME_COUNTS
+            delegate: Rectangle {
+              required property real modelData
+              readonly property bool on: aw.opts[everyRep.key] === modelData
+              width: (aw.sideW - 40 - 18) / 4
+              height: 30
+              radius: Zenon.radiusControl
+              color: evPress.pressed ? Zenon.pressTile(on) : on ? Zenon.alpha(Zenon.yellow, 0.18) : Zenon.wash(0.05)
+              border.width: 1
+              border.color: on ? Zenon.alpha(Zenon.yellow, 0.6) : Zenon.border
+              Text {
+                textFormat: Text.PlainText
+                anchors.centerIn: parent
+                text: everyRep.key === "framesSecs" ? modelData + " s" : everyRep.key === "framesNth" ? "1 in " + modelData : String(modelData)
+                color: parent.on ? Zenon.yellow : Zenon.ink
+                font.family: Zenon.face
+                font.weight: Zenon.weight
+                font.pixelSize: Zenon.px(14)
+              }
+              MouseArea { id: evPress; anchors.fill: parent; onClicked: if (aw.mgr) aw.mgr.set(everyRep.key, modelData) }
+            }
+          }
+        }
+        EmptyState {
+          width: parent.width
+          horizontalAlignment: Text.AlignLeft
+          text: aw.dur <= 0 ? "a run of them from the kept part"
+            : (aw.opts.framesMode === "all" || aw.opts.framesMode === "nth" ? "About " : "") + aw.framesEst
+              + (aw.framesEst === 1 ? " frame" : " frames") + " from the " + (A.whole(aw.inMs, aw.outMs, aw.dur) ? "whole video" : "kept part")
+              + ", into a new directory"
+        }
+        BusyButton {
+          label: "Save frames…"
+          ready: !aw.busy && !!aw.mgr && !!aw.mgr.fileManager && aw.dur > 0
+          busy: aw.framing && !aw.frameOne
+          busyText: aw.framesMade + (aw.framesMade === 1 ? " frame" : " frames")
+          onClicked: aw.saveFramesAsk()
+        }
       }
       }
       ElasticScroll { anchors.fill: sideFlick; view: sideFlick }
@@ -782,14 +1027,17 @@ FloatingWindow {
 
       // a save under way
       Column {
+        id: busyCol
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom
         anchors.margins: 20
         spacing: 8
-        visible: aw.saving
+        visible: aw.busy
         Text {
-          text: aw.savingTo === "" ? "Saving…" : "Saving " + aw.savingTo.replace(/.*\//, "") + "…"
+          text: aw.framing ? (aw.frameOne ? "Saving the frame…"
+                              : "Saving frames" + (aw.framesTo !== "" ? " to " + aw.framesTo.replace(/.*\//, "") : "") + "…  " + aw.framesMade)
+            : aw.savingTo === "" ? "Saving…" : "Saving " + aw.savingTo.replace(/.*\//, "") + "…"
           width: parent.width
           elide: Text.ElideMiddle
           color: Zenon.ink
@@ -821,10 +1069,10 @@ FloatingWindow {
       anchors.bottom: parent.bottom
       anchors.left: parent.left
       anchors.right: parent.right
-      rows: aw.saving ? [["esc", "stop saving"]]
+      rows: aw.busy ? [["esc", "stop saving"]]
         : aw.cropping ? [["drag", "the box"], ["shift", "square"], ["return", "done"], ["esc", "done"]]
         : [["space", "play"], ["i o", "in, out"], ["c", "crop"], ["← →", "seek"], ["[ ]", "to in, out"], ["1 2 3", "format"],
-           ["ctrl s", "save"], ["ctrl shift s", "save as"]]
+           ["ctrl s", "save"], ["ctrl shift s", "save as"], ["f", "save frame"], ["shift f", "save frames"]]
     }
   }
 

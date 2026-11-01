@@ -560,6 +560,7 @@ Item {
           }
 
           Text {
+            textFormat: Text.PlainText
             anchors.centerIn: parent
             visible: !propShotClip.visible
             readonly property bool specimen: propFace.status === FontLoader.Ready

@@ -35,4 +35,7 @@ return {
 	{ shipped = "terminus-picker", name = "Terminus picker", class = "org.quickshell", title = "terminus-picker", float = true, persistent_size = true },
 	{ shipped = "steam-settings", name = "Steam", class = "steam", title = "Steam Settings", float = true, persistent_size = true },
 	{ shipped = "mpv", name = "mpv", class = "mpv", float = true },
+	-- every Steam game (rules.lua matches steam_app_<appid>): opens truly
+	-- full screen, not zoomed, as a game set to full screen expects
+	{ shipped = "steam-games", name = "Steam games", class = "steam_app", open = "fullscreen" },
 }

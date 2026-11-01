@@ -31,7 +31,9 @@ Item {
   function absOf(rel) {
     if (rel === "oracle.json") return Oracle.statePath;
     if (rel.startsWith("hypr/")) return Oracle.hyprLuaDir + "/" + rel.slice(5);
-    if (rel.startsWith("themes/")) return Quickshell.shellDir + "/" + rel;
+    // a custom theme is the user's (Oracle.themesDir), never the shipped
+    // directory: export found none there, and import wrote into it (audit 10-31)
+    if (rel.startsWith("themes/")) return Oracle.themesDir + "/" + rel.slice(7);
     return "";
   }
   // what was done, said as a toast: the window has no line of its own
@@ -46,7 +48,7 @@ Item {
   }
   // what is here now, as a bundle's files
   function current() {
-    const rels = ["oracle.json", "hypr/keys.lua", "hypr/wake.lua", "hypr/effects.lua", "hypr/defaults.lua", "hypr/input.lua", "hypr/inputmethod.lua", "hypr/windows.lua", "hypr/startup.lua", "hypr/monitors.lua"]
+    const rels = ["oracle.json", "hypr/keys.lua", "hypr/wake.lua", "hypr/effects.lua", "hypr/defaults.lua", "hypr/input.lua", "hypr/inputmethod.lua", "hypr/windows.lua", "hypr/startup.lua", "hypr/monitors.lua", "hypr/hyprland.lua"]
       .concat(Oracle.themeOptions.filter((o) => o.custom).map((o) => "themes/" + o.value + ".json"));
     const files = {};
     for (const rel of rels) {

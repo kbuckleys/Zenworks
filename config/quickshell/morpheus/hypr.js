@@ -60,6 +60,10 @@ function toggleSpecial(name) { return "hl.dsp.workspace.toggle_special(" + lua(n
 
 // ── the active window, or the one a selector names ──────────────────────
 function fullscreen() { return "hl.dsp.window.fullscreen()"; }
+// these three act on the active window: focus the one meant first
+function floatToggle() { return "hl.dsp.window.float({ action = \"toggle\" })"; }
+function center() { return "hl.dsp.window.center()"; }
+function moveToWorkspace(name) { return "hl.dsp.window.move({ workspace = " + lua(name) + " })"; }
 // closed as its own close button would (not killed): the app may ask first
 function closeWindow(selector) { return "hl.dsp.window.close({ window = " + lua(selector) + " })"; }
 

@@ -85,7 +85,16 @@ FloatingWindow {
       if (want) { sw.choose(want); sw.wantDev = ""; }
       // the one chosen went: the first there is (a new one plugged in
       // while nothing was chosen is chosen)
-      else if (!sw.drive) { const o = S.ordered(ds); sw.sel = o.length ? o[0].block : ""; sw.part = ""; }
+      else if (!sw.drive) {
+        // a sheet open for the drive that went goes with it: left open, its
+        // targets re-bound to the first drive there is — an internal disk —
+        // and Return wrote that (audit 10-31)
+        if (sw.sheetOpen && !sw.busy) sw.closeSheet();
+        if (sw.partOpen) sw.closePartition();
+        if (sw.renameOpen) sw.closeRename();
+        if (tool.open) sw.closeTool();
+        const o = S.ordered(ds); sw.sel = o.length ? o[0].block : ""; sw.part = "";
+      }
       // a volume that went: its drive
       else if (sw.part !== "" && !S.partOf(sw.drive, sw.part)) sw.part = "";
       const p = {};
@@ -208,17 +217,24 @@ FloatingWindow {
   }
   function runSums(p) {
     sw.sumsCheck = { running: true };
+    sumsProc.asked = sumsProc.asked.concat([p]);
     sumsProc.command = ["python3", "-I", sw.mgr.core, "sums", p];
     sumsProc.running = true;
   }
   function stopSums() { if (sumsProc.running) sumsProc.signal(15); sw.sumsCheck = null; }
+  // each run's own path, in the order asked: a run stopped for a new image
+  // still streams its "cancelled" done, which was taken for the new one's
+  // answer (audit 10-31); the lines are the oldest run's until it exits
   Process {
     id: sumsProc
+    property var asked: []
+    onExited: sumsProc.asked = sumsProc.asked.slice(1)
     stdout: SplitParser {
       splitMarker: "\n"
       onRead: (line) => {
         const e = S.parseEvent(line);
-        if (e && e.ev === "done" && sw.sumsCheck) sw.sumsCheck = { done: e };
+        const mine = sumsProc.asked.length > 0 && sumsProc.asked[0] === sw.path;
+        if (mine && e && e.ev === "done" && sw.sumsCheck) sw.sumsCheck = { done: e };
       }
     }
   }
@@ -307,7 +323,12 @@ FloatingWindow {
       });
       return;
     }
-    ejectProc.command = ["sh", "-c", Terminus.ejectCommand(d.dev, d.parts.filter((q) => q.mounts.length > 0).map((q) => q.dev))];
+    // an unlocked one is mounted as its cleartext: that is unmounted, and the
+    // container shut (its own device is no filesystem: udisksctl refused it
+    // and every eject of an open encrypted stick stopped; audit 10-31)
+    const mounted = d.parts.filter((q) => q.mounts.length > 0).map((q) => q.inner ? q.inner.dev : q.dev);
+    const open = d.parts.filter((q) => q.encrypted && q.inner).map((q) => q.dev);
+    ejectProc.command = ["sh", "-c", Terminus.ejectCommand(d.dev, mounted, open)];
     ejectProc.running = true;
   }
   Process {

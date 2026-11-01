@@ -25,10 +25,8 @@
 import QtQuick
 import Quickshell
 import Quickshell.Io
-import Quickshell.Hyprland
 import "../morpheus"
 import "../morpheus/lagnotes.js" as LagNotes
-import "../morpheus/hypr.js" as Hypr
 import "chronos.js" as Chr
 
 Item {
@@ -99,7 +97,7 @@ Item {
       fn(mgr.win);
       mgr.win.visible = true;
       mgr.win.refocus();
-      if (was) Hyprland.dispatch(Hypr.focusTitle("chronos"));
+      if (was) Attention.raise("chronos");
     });
   }
   function retire(w) {

@@ -55,7 +55,9 @@ function keepable(row) {
 // away), so this is a LIST to try in order, and the panel falls back to the
 // row's icon once it runs out. A recording's frame is the copy howler kept
 // first (Howler.keepFrame), then the recorder's own, which lasts until logout.
-function capturePictures(row) {
+// A path in `gone` (Howler.capturesGone: checked and not there) is left out,
+// so a deleted screenshot is never handed to an Image to fail on.
+function capturePaths(row) {
   if (!row) return [];
   const k = String(row.capture || "");
   const fs = k === "shot" ? [row.captureFile]
@@ -63,9 +65,12 @@ function capturePictures(row) {
   const out = [];
   for (let i = 0; i < fs.length; ++i) {
     const f = String(fs[i] || "");
-    if (f.charAt(0) === "/") out.push("file://" + f);
+    if (f.charAt(0) === "/") out.push(f);
   }
   return out;
+}
+function capturePictures(row, gone) {
+  return capturePaths(row).filter((f) => !(gone && gone[f])).map((f) => "file://" + f);
 }
 
 // A body as StyledText may show it. A notification's body is whatever the

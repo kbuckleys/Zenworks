@@ -461,6 +461,7 @@ Scope {
       border.width: 1
       border.color: Zenon.border
       Text {
+        textFormat: Text.PlainText
         id: sizeText
         anchors.centerIn: parent
         text: Math.round(region.sel.w * region.dpr) + " × " + Math.round(region.sel.h * region.dpr)

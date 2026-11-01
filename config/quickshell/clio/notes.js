@@ -642,7 +642,10 @@ function markdownOf(blocks, base) {
     if (out.length && !(list && prevList)) out.push("");
     prevList = list;
     var pad = "  ".repeat(b.l || 0);
-    var src = b.src ? (base ? base + "/" : "") + b.src : "";
+    // `base` comes already encoded (encodeURIComponent): only the
+    // attachment's own path is, here — encodeURI over both made "My Note"
+    // My%2520Note (audit 10-31)
+    var src = b.src ? (base ? base + "/" : "") + encodeURI(b.src) : "";
     switch (b.k) {
       case "title": out.push("# " + mdInline(b.h)); break;
       case "heading": out.push("## " + mdInline(b.h)); break;
@@ -654,8 +657,8 @@ function markdownOf(blocks, base) {
       case "number": out.push(pad + nums[i] + ". " + mdInline(b.h)); break;
       case "check": out.push(pad + "- [" + (b.c ? "x" : " ") + "] " + mdInline(b.h)); break;
       case "rule": out.push("---"); break;
-      case "image": case "sketch": out.push("![" + (b.name || "") + "](" + encodeURI(src) + ")"); break;
-      case "file": out.push("[" + (b.name || "file") + "](" + encodeURI(src) + ")"); break;
+      case "image": case "sketch": out.push("![" + (b.name || "") + "](" + src + ")"); break;
+      case "file": out.push("[" + (b.name || "file") + "](" + src + ")"); break;
       case "table":
         var rows = b.rows;
         out.push("| " + rows[0].map(cellMd).join(" | ") + " |");
@@ -1099,7 +1102,9 @@ function insights(list, now) {
   }
   var streak = 0;
   var t = dayStart(now);
-  if (!days[dayKey(t)]) t -= 86400000;
+  // a day back by its calendar, as the loop goes: 24 h before midnight on
+  // the day after spring-forward is two days back (audit 10-31)
+  if (!days[dayKey(t)]) t = dayStart(t - 43200000);
   while (days[dayKey(t)]) { streak++; t = dayStart(t - 43200000); }
   var keys = Object.keys(days).map(function (k) { var p = k.split("-"); return new Date(+p[0], +p[1] - 1, +p[2]).getTime(); })
     .sort(function (a, b) { return a - b; });

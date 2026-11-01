@@ -990,23 +990,13 @@ Scope {
           //   itself paints nothing at all — only what is in it.
 
           // a rejected password shoves the field aside rather than just
-          // swapping a glyph; it is the one interaction that has to be felt
-          // without being read
-          transform: Translate { id: shake }
-
-          SequentialAnimation {
-            id: shakeAnim
-            NumberAnimation { target: shake; property: "x"; to:  11; duration: Zenon.ms(55); easing.type: Easing.OutSine }
-            NumberAnimation { target: shake; property: "x"; to: -11; duration: Zenon.ms(90); easing.type: Easing.InOutSine }
-            NumberAnimation { target: shake; property: "x"; to:   7; duration: Zenon.ms(80); easing.type: Easing.InOutSine }
-            NumberAnimation { target: shake; property: "x"; to:  -4; duration: Zenon.ms(70); easing.type: Easing.InOutSine }
-            NumberAnimation { target: shake; property: "x"; to:   0; duration: Zenon.ms(60); easing.type: Easing.OutSine }
-          }
+          // swapping a glyph — morpheus' Shake, every password field's
+          transform: Shake { id: shake }
 
           Connections {
             target: root
             function onPhaseChanged() {
-              if (root.phase === "fail") shakeAnim.restart();
+              if (root.phase === "fail") shake.run();
             }
           }
 
@@ -1155,75 +1145,24 @@ Scope {
             font.pixelSize: field.height * root.glyphScale
           }
 
-          Row {
+          // The dots, sliding in and swelling on each keystroke: morpheus'
+          // SecretDots, which every password field in the shell types with.
+          SecretDots {
             id: dots
             anchors.centerIn: parent
             opacity: (root.phase === "input" && root.pw.length > 0) ? 1 : 0
             visible: opacity > 0.01
             Behavior on opacity { NumberAnimation { duration: Zenon.ms(140); easing.type: Easing.OutQuint } }
-
-            // The whole row breathes on each keystroke — a quick swell and
-            // settle so feedback carries even when the row is long and one
-            // more dot at the end is easy to miss. Backspace triggers it too.
-            property real kick: 1
-            scale: dots.kick
-            // keep the row crisp while it scales
-            transformOrigin: Item.Center
-
-            SequentialAnimation {
-              id: kickAnim
-              NumberAnimation { target: dots; property: "kick"; to: 1.10; duration: Zenon.ms(85); easing.type: Easing.OutQuad }
-              NumberAnimation { target: dots; property: "kick"; to: 1.0;  duration: Zenon.ms(260); easing.type: Easing.OutCubic }
-            }
-
-            Connections {
-              target: root
-              function onPwChanged() {
-                if (root.pw.length > 0) kickAnim.restart();
-              }
-            }
+            count: root.pw.length
+            //   dots_text_format
+            glyph: root.dotGlyph
+            ink: root.fg
+            family: root.fontFamily
+            weight: root.fontWeight
+            //   dots_size = 0.2 of the field height
+            size: field.height * root.dotsSize
             //   dots_spacing = 0.4, relative to the dot size
             spacing: field.height * root.dotsSize * root.dotsSpacing
-
-            Repeater {
-              model: root.pw.length
-
-              delegate: Text {
-                id: dot
-                required property int index
-                //   dots_text_format
-                text: root.dotGlyph
-                color: root.fg
-                font.family: root.fontFamily
-                font.weight: root.fontWeight
-                //   dots_size = 0.2 of the field height
-                font.pixelSize: field.height * root.dotsSize
-
-                // Horizontal fade-slide-bounce: each dot slides in from the
-                // left with a single OutBack overshoot (one bounce, no
-                // rebound/oscillation) while fading in — crisp horizontal
-                // motion instead of the previous vertical drop. Uses a
-                // Translate so Row's own x layout is not fought.
-                property real tx: -field.height * root.dotsSize * 0.85
-                transform: Translate { x: dot.tx }
-                scale: 0.7
-                opacity: 0
-                Component.onCompleted: {
-                  Qt.callLater(() => {
-                    dot.scale = 1;
-                    dot.opacity = 1;
-                    dot.tx = 0;
-                  });
-                }
-                Behavior on scale {
-                  NumberAnimation { duration: Zenon.ms(300); easing.type: Easing.OutBack; easing.overshoot: 1.4 }
-                }
-                Behavior on opacity { NumberAnimation { duration: Zenon.ms(150); easing.type: Easing.OutQuad } }
-                Behavior on tx {
-                  NumberAnimation { duration: Zenon.ms(320); easing.type: Easing.OutBack; easing.overshoot: 1.3 }
-                }
-              }
-            }
           }
         }
 

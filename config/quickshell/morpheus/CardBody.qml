@@ -211,20 +211,18 @@ Item {
                 font.pixelSize: Zenon.px(16)
               }
 
-              // A row's `hint`: the keys that do the same thing, muted at the
-              // right edge — so a menu teaches the keyboard as it is used
-              // (plato's context menu).
-              Text {
+              // A row's `hint`: the keys that do the same thing, at the right
+              // edge — so a menu teaches the keyboard as it is used (plato's
+              // context menu). On a key cap, as every key the shell shows
+              // is (user, 2026-11-01: "keybinds need chips").
+              KeyCap {
                 id: keyHint
                 anchors.right: tail.left
                 anchors.rightMargin: tail.width > 0 && width > 0 ? 8 : 0
                 anchors.verticalCenter: parent.verticalCenter
-                width: text === "" ? 0 : implicitWidth
-                text: row.modelData.hint || ""
-                color: Zenon.accentMuted
-                font.family: Zenon.face
-                font.weight: Zenon.weight
-                font.pixelSize: Zenon.px(13)
+                width: label === "" ? 0 : implicitWidth
+                fontSize: 12
+                label: row.modelData.hint || ""
               }
 
               // The chevron on a row that has children, or the tick on one that

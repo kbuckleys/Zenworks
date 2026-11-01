@@ -44,13 +44,26 @@ Rectangle {
   // The glyph (nf-fa-times) was centered by its line box, not its ink, so
   // the × sat off the disc's middle — worst at the tabs' size. Two strokes
   // crossing at the disc's center cannot miss it.
+  // WHOLE PIXELS, OF THE DISC'S OWN PARITY (user, 2026-11-02: "the + is
+  // misaligned with its chip"). A fractional stroke on a whole disc was
+  // rounded into place by centerIn, the flat and the upright stroke each
+  // their own way, so the + sat half a pixel up and left of the middle.
+  // Odd against odd, even against even, the middle is exact.
+  function fit(want) {
+    let r = Math.max(1, Math.round(want));
+    if ((chip.width - r) % 2 !== 0) r += (want > r || r === 1) ? 1 : -1;
+    return r;
+  }
+  readonly property int armLen: chip.fit(chip.size * 0.575)
+  readonly property int armThick: chip.fit(Math.max(1.5, chip.size / 10))
   Repeater {
     model: chip.strokes
     Rectangle {
       required property var modelData
       anchors.centerIn: parent
-      width: Math.round(chip.size * 0.575)
-      height: Math.max(1.5, chip.size / 10)
+      anchors.alignWhenCentered: false
+      width: chip.armLen
+      height: chip.armThick
       radius: height / 2
       rotation: modelData
       antialiasing: true

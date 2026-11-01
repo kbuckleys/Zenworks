@@ -68,6 +68,7 @@ Item {
               }
             }
             Text {
+              textFormat: Text.PlainText
               anchors.horizontalCenter: parent.horizontalCenter
               text: stat.modelData.word
               color: Zenon.accentMuted
@@ -197,6 +198,7 @@ Item {
           font.letterSpacing: Zenon.labelSpacing
         }
         Text {
+          textFormat: Text.PlainText
           width: parent.width
           elide: Text.ElideRight
           text: past.hits.length ? N.titleOf(past.hits[0].n, N.dateLong(past.hits[0].n.date)) : ""

@@ -5,54 +5,91 @@
 //
 // CYNOSURE — the launcher. Ursa Minor, and the star at the end of its tail
 // that everything else in the sky turns around: what you look up to find
-// your bearings. Super+Space, one line, and you are pointed at the thing you
+// your bearings. Super+Space, one field, and you are pointed at the thing you
 // meant to open.
+//
+// EVERY QUICK PANEL, IN ONE (2026-11-01). It was a one-line strip that was
+// the pill itself, with a popup of its own for each of the others; it is
+// one panel now, out of the pill like every layer, with a field over a list
+// in sections and the keys in a strip at its foot — and the others are in
+// it, as Raycast has them:
+//
+//   Applications · Commands · Files · Clipboard · Snippets · Emoji ·
+//   History · Run       the list; files from artemis' index (ArtemisIndex),
+//                       clips and snippets from folio, emoji from ideo, each
+//                       loaded unseen the first time the line could want it
+//   a sum, "calc …"     metis takes the field: its own line, answer, chips
+//                       and tape (MetisView)
+//   "def …", "tr …"     lexi takes the field: the dictionary or translator
+//   "pw …"              calypso's Quick Access takes the field
+//   "f …", "cb …",      the list as only files, clips, emoji or glyphs
+//   "em …", "nf …"
+//
+// What takes the field is drawn from the top of the panel, its keys its own
+// and its hints in this strip; backspace at its empty line gives the field
+// back. Esc clears the line, and on an empty one closes (user, 2026-11-01).
+// Each app's part is still written once, in its own directory.
+//
+// A steady size while the list is up: a panel that changes shape as you
+// type is one you cannot read while it is doing it.
 
 import QtQuick
 import Quickshell
 import Quickshell.Io
 import Quickshell.Hyprland
-import Quickshell.Wayland
 // a library; its markup escaping is morpheus Strings'
 import "cynosure.js" as Cynosure
+import "../folio/folio.js" as Folio
+import "../metis/metis.js" as Metis
+import "answers.js" as Answers
+import "../chronos/weather.js" as Wx
+import "../chronos/chronos.js" as Chr
+import "../morpheus/hypr.js" as Hypr
+import "../oracle/oracle.js" as Ora
+import "../morpheus/offspecial.js" as Off
+import "../terminus/terminus.js" as Terminus
 import "../morpheus/icons.js" as Icons
 import "../morpheus"
 import "../morpheus/gridnav.js" as Nav
 import "../chronos"
 import "../oracle"
+import "../ceres"
+import "../ceres/ceres.js" as Cer
+import "../clio"
 import "../hermes"
+// terminus' open-with card, for a file nothing opens
+import "../terminus" as Term
+// The directories of what this loads by Loader (metis, lexi, folio, ideo,
+// calypso), imported by name: under quickshell's own scheme a directory's
+// types are made only when something imports it, and a file loaded by URL
+// out of one that nothing imports cannot find its siblings ("MetisTip is
+// not a type", 2026-11-01). Qualified, so none of their names reach here.
+// qmllint disable unused-imports
+import "../metis" as MetisDir
+import "../lexi" as LexiDir
+import "../lexi/lexi.js" as Lexicon
+import "../folio" as FolioDir
+import "../ideo" as IdeoDir
+import "../calypso" as CalypsoDir
+// qmllint enable unused-imports
 
-PanelWindow {
+LayerPopup {
   id: popup
 
-  WlrLayershell.layer: WlrLayer.Overlay
+  focusable: true
 
-  property bool shown: false
-  property bool morphMode: false
-  // 0..1, driven by shell.qml, which owns the crossfade schedule: 0 until the
-  // pill's own row has finished clearing, then rising to 1 as the pill
-  // finishes taking this layer's shape
-  property real morphFade: 1
+  // the quick panels, which are the list: their word typed is all it takes ("f
+  // report", "calc 2^10", "def serendipity"), so their command row only
+  // types it
+  readonly property var inList: ({ artemis: "f", metis: "calc", "lexi:dict": "def", "lexi:trans": "tr",
+    folio: "cb", "ideo:emoji": "em", "ideo:nerd": "nf", calypso: "pw" })
 
-  property real showFactor: popup.shown ? 1 : 0
-  Behavior on showFactor { NumberAnimation { duration: Zenon.slow; easing.type: Zenon.ease } }
-  // Standalone — off the pill's monitor — it comes and goes as the pill
-  // does when it autohides: the arrival's fade and short lift, quickly
-  // (Zenon.tuck), rather than sliding its whole height out of the edge.
-  // Its own clock, since showFactor also times the morph's content fade.
-  property real spawnFactor: popup.shown ? 1 : 0
-  Behavior on spawnFactor { NumberAnimation { duration: Zenon.tuck; easing.type: Easing.OutQuint } }
-  // Morphed, the handover is timed off the PILL's progress rather than this
-  // window's own showFactor, so the rows can't fade up over a morpheus row
-  // that is still on screen.
-  // Math.min, not morphFade alone. Handing the pill straight to another
-  // layer leaves morphFade pinned at 1 — the pill never un-morphs, so there
-  // is nothing to ease it down — and this layer stayed fully opaque until its
-  // window simply blinked out. Its own closeAnim is already easing
-  // showFactor to 0, so taking the lower of the two fades it out on the way
-  // between layers while leaving the normal open schedule untouched.
-  readonly property real contentFade: popup.morphMode
-    ? Math.min(popup.morphFade, popup.showFactor) : popup.showFactor
+  // calypso's manager (shell.qml): Quick Access is drawn from it
+  property var passwords: null
+
+  // artemis' index (shell.qml): the Files section asks it, and opens through it
+  property var finder: null
+
   property string mode: "search"
   property string query: ""
   property var histLines: []
@@ -60,11 +97,14 @@ PanelWindow {
   property var appsSnapshot: []
   property var rows: []
   property var filtered: []
+  property string filteredSig: ""
   property int sel: 0
+  // the calculator's answer to the line, or null: { question, answer }
+  property var calc: null
 
   // The session verb waiting on "Reboot?" — see Cynosure.SHELL_ACTIONS. The
-  // picker is the confirm: it already is the second step for a typed
-  // command, so a verb that must ask reuses it rather than growing a third.
+  // picker is the confirm: the list turns into its two answers and the field
+  // into the question, rather than a dialog over the panel.
   property var pending: null
   // A session verb asking "Reboot?" sets the question on red — one rule for
   // every `confirm` verb, keyed off the flag, never a color per verb.
@@ -77,97 +117,134 @@ PanelWindow {
   // A verb that has to ask WHICH (see `choose` in Cynosure.SHELL_ACTIONS)
   // puts its answers here, and the picker offers them ahead of Back.
   property var choices: null
-  readonly property var pickerRows: popup.choices ? popup.choices.concat([
+  readonly property var pickerRows: (popup.choices ? popup.choices.concat([
     { key: "Back", label: Cynosure.ICON_B + "  Back" },
-  ]) : popup.pending ? [
-    { key: "Confirm", label: "\uF00C  Confirm" },
+  ]) : [
+    { key: "Confirm", label: "  Confirm" },
     { key: "Back", label: Cynosure.ICON_B + "  Back" },
-  ] : [
-    { key: "Terminal", label: Cynosure.ICON_T + "  Terminal" },
-    { key: "Process", label: Cynosure.ICON_P + "  Process" },
-    { key: "Back", label: Cynosure.ICON_B + "  Back" },
-  ]
+  ]).map((r) => Object.assign({ kind: "pick" }, r, Cynosure.splitGlyph(r.label)))
 
-  // stay mapped through the whole morph-out, not just while `shown`:
-  // closeCynosure() drops `shown` on frame one so the pill can start
-  // collapsing, but the rows still have to fade out on the way down
-  visible: popup.shown || popup.contentFade > 0.01 || popup.showFactor > 0.01
-    || (!popup.morphMode && popup.spawnFactor > 0.01)
-  color: "transparent"
-  // Fixed-size surface, spanning the screen. The strip inside it is what
-  // changes width. Cynosure used to animate the WINDOW: implicitWidth and both
-  // side margins were driven off liveWidth, so every keystroke that changed
-  // the content width renegotiated the wayland surface with the compositor
-  // once per frame for the length of the ease. That is a resize storm, and no
-  // amount of easing makes a resize storm smooth — every other layer here
-  // already uses a fixed surface with a moving panel inside it.
-  anchors { left: true; right: true
-            bottom: !Zenon.barTop; top: Zenon.barTop }
-  // contentWidth is the target; liveWidth is the value actually on screen.
-  // The pill eases toward the same target on the same Zenon.slow curve,
-  // so easing here — rather than snapping the window and letting the
-  // background catch up inside it — is what keeps the rows sitting still
-  // relative to the pill they are painted on.
-  // THE PILL'S WIDTH, NOT THE SURFACE'S. These were the same number until
-  // the bar's surface stopped being the pill: the surface now holds both
-  // states and snaps between them in one step, so following it would snap
-  // this too — which is exactly the jerk filtering used to have.
-  // pillWidth is the rectangle that actually travels.
+  readonly property var current: popup.mode === "picker"
+    ? (popup.pickerRows[popup.sel] || null) : (popup.filtered[popup.sel] || null)
+
+  // ── ITS SIZE ──────────────────────────────────────────────────────────
+  // the hint strip's height (user, 2026-11-01): the panel's top and foot match
+  readonly property int fieldH: Zenon.hintBarH
+  // the field's and the strip's height too (user, 2026-11-01): one line height
+  readonly property int rowH: Zenon.hintBarH
+  readonly property int sectionH: Zenon.px(30)
+  readonly property int listH: popup.rowH * 9
+  // the calculator's card (its heading and itself) when it is up
+  readonly property int metisH: popup.metis ? popup.metis.calcHeight() : 0
+  // the calculator's card under the field: its heading, then metis
+  readonly property int calcBoxH: (popup.calcShown ? popup.cardTop + popup.metisH : 0) + popup.answerBoxH
+    + popup.lexiBoxH
+  // the dictionary's or the translator's card: its heading, then itself
+  readonly property int lexiBoxH: popup.lexiShown ? popup.cardTop + lexiCard.want : 0
+  // a card's heading is in the field now (fieldTag): a breath of space over
+  // the card is all that is left of the row it had
+  readonly property int cardTop: Zenon.px(6)
+  // WHAT THE LINE IS BEING READ AS, in the field (user, 2026-11-01: "inline
+  // inside the search bar … for all keywords", as metis' line shows the
+  // measure): its glyph in place of the magnifier and its name at the right,
+  // where a heading over the card or the list used to say it. Null for a
+  // plain search.
+  readonly property var fieldTag: popup.mode !== "search" || popup.editing || popup.taken ? null
+    : popup.lexiShown ? (popup.lexiMode === "dict" ? { glyph: "\uF02D", text: "Dictionary" } : { glyph: "\uF1AB", text: "Translate" })
+    : popup.calcShown ? { glyph: Metis.glyphFor(popup.metis.resultShown && !popup.metis.shownBad ? popup.metis.shownKind : "Calc",
+        popup.metis.shownResult), text: "Calculator" }
+    : popup.answerShown ? { glyph: "", text: popup.wxAsk ? "Weather" : Answers.titleOf(popup.answer ? popup.answer.kind : "") }
+    : popup.filesScoped ? { glyph: "\uF114", text: "Files" }
+    : popup.clipsScoped ? { glyph: "\uF0EA", text: "Clipboard" }
+    : popup.glyphsScoped ? (popup.glyphNerd ? { glyph: "\uF031", text: "Nerd glyphs" } : { glyph: "\uF118", text: "Emoji" })
+    : popup.winsScoped ? { glyph: "\uF2D2", text: "Windows" }
+    : popup.settingsScoped ? { glyph: "\uF013", text: "Settings" }
+    : popup.storeScoped ? { glyph: "\uF07A", text: "Store" }
+    : popup.pkgScoped ? { glyph: "\uF187", text: "Packages" }
+    : popup.eventScoped ? { glyph: "\uF073", text: "New event" }
+    : popup.notesScoped ? { glyph: "\uE678", text: "Notes" }
+    : popup.newNoteScoped ? { glyph: "\uE678", text: "New note" }
+    : null
+  // a smart answer's card: its heading, then the weather's taller card or
+  // an answer's two lines
+  readonly property int answerBoxH: !popup.answerShown ? 0
+    : popup.cardTop + (popup.wxAsk ? Zenon.px(168) : Zenon.px(92))
+  readonly property int topH: popup.folioEditing ? popup.folioH
+    : popup.pwMode ? popup.pwH : popup.fieldH
+  // something has the field (the calculator, the dictionary, a snippet
+  // being written)
+  readonly property bool taken: popup.folioEditing
+    || popup.pwMode
+  onTakenChanged: popup.applyFilter()
+  // the whole panel: the list's nine rows under the field, or what took the
+  // field with two rows of list under it, whichever is taller — and with
+  // nothing in the list under what took the field, that alone
+  // A SESSION VERB'S CONFIRM, ON ONE LINE (user, 2026-11-01): "Shutdown?"
+  // on its red with Confirm and Back beside it, and the panel only as wide
+  // and as tall as that — no list under it, no strip of keys
+  readonly property bool confirmLine: popup.mode === "picker" && !popup.choices
+    && !!popup.pending && !!popup.pending.confirm
+  // where the question's red ends: its glyph, its words, and room each side
+  readonly property int questionW: 20 + Zenon.px(22) + 14 + Math.ceil(question.implicitWidth) + 28
+  // the pill's own height: the strip is a line, not a panel
+  readonly property int confirmH: Zenon.slot
+  readonly property int rootH: popup.confirmLine ? popup.confirmH
+    : popup.editing ? popup.fieldH + Zenon.hintBarH
+    : popup.taken && popup.filtered.length === 0
+    ? popup.topH + Zenon.hintBarH
+    : popup.topH + popup.calcBoxH + popup.listFit + Zenon.hintBarH
+  // AUTOFIT (user, 2026-11-01: "autofit is really important"): the list is
+  // only as tall as its rows and headings, up to the nine rows' room under
+  // the field — less what the cards above it take, but never under two rows
+  // while it has any. A list of one kind with its detail pane keeps the full
+  // room, which the preview needs.
+  readonly property int listNeed: {
+    const rows = popup.mode === "picker" ? popup.pickerRows : popup.filtered;
+    let h = 0, sec = "";
+    for (const r of rows || []) {
+      if (r.section && r.section !== sec && !(popup.fieldTag && r.section === popup.fieldTag.text)) h += popup.sectionH;
+      sec = r.section || "";
+      h += r.kind === "clipimg" ? popup.rowH * 2 : r.kind === "glyphs" ? popup.glyphRowH
+        : r.kind === "pics" ? popup.picRowH : popup.rowH;
+      if (h > popup.listH) break;
+    }
+    return h;
+  }
+  readonly property int listFit: {
+    const room = Math.max(popup.rowH * 2, popup.fieldH + popup.listH - popup.topH - popup.calcBoxH);
+    if (popup.paneOn) return room;
+    return Math.min(popup.listNeed, room);
+  }
+  // A view is shown at its own size, the one it had as a panel of its own
+  // (metis shrink-wraps its line): the pill carries the panel from the
+  // list's shape to the view's and back.
+  readonly property int panelWidth: popup.confirmLine
+    ? popup.questionW + Math.ceil(answers.implicitWidth)
+    : popup.paneOn ? (popup.glyphsScoped ? 880 : 1000) : 760
+  readonly property int panelTarget: Zenon.layerWidth(popup.panelWidth)
+  function calcHeight() {
+    return popup.rootH;
+  }
+
+  // WHAT IS ON SCREEN, which is not the target while the pill is moving.
+  // Morphed, the pill's own animated width IS the value; standalone there is
+  // no pill to follow, so the ease lives here (ideo, folio and artemis do
+  // the same).
   property real liveWidth: (popup.morphMode && popup.statusbar
       && popup.statusbar.pillWidth > 0)
-    ? popup.statusbar.pillWidth : popup.contentWidth
-  // Morphed, liveWidth already IS the pill's live animated width, so the two
-  // are locked frame-for-frame by construction. A Behavior on top of that
-  // would be a second easing chasing an easing source — guaranteed lag.
-  // Standalone there is no pill to follow, so the ease stays.
+    ? popup.statusbar.pillWidth : popup.panelTarget
   Behavior on liveWidth {
     enabled: !popup.morphMode
     NumberAnimation { duration: Zenon.slow; easing.type: Zenon.ease }
   }
-  // the pill's own slot height, not a literal: cynosure is a one-liner that
-  // morphs INTO the pill, so a 32 here went 2px short the moment the slot
-  // grew to 34 and the strip stopped lining up with the thing it becomes
-  // ── PLUS ROOM FOR THE SHADOW TO FALL INTO ────────────────────────
-  // The surface was exactly one slot tall and the strip filled it, so
-  // the shadow had nowhere to go and was cut off at the panel's own
-  // edge. Grown INWARD only: sideways there is already the whole width
-  // to spill into, and the outward side is against the screen edge,
-  // where a shadow has nothing to fall on anyway.
-  //
-  // BOTH SIDES. Padding only inwards left the shadow cut off along the
-  // bottom, because standalone this strip floats a whole pill-height
-  // clear of the screen edge — see Zenon.edgeLift — so there is real
-  // space under it for a shadow to fall into, and the surface ended
-  // exactly where the strip did.
-  //
-  // A constant, not a per-frame size — this surface must never animate
-  // its own geometry, which is the whole reason the strip inside it is
-  // what moves.
-  implicitHeight: Zenon.slot + Zenon.shadowPad * 2
-
-  // How far the strip floats off the screen edge. The surface now takes
-  // `shadowPad` of that out of its own margin and the strip puts it back
-  // as an inset, so the strip lands in exactly the same place and the
-  // difference is room for the shadow. Clamped at zero rather than going
-  // negative: a layer surface pushed off the edge is at the compositor's
-  // mercy, and morphed — where the lift is smallest — the shadow is
-  // suppressed anyway.
-  readonly property real lift:
-    Zenon.edgeLift(popup.morphMode, popup.screen, popup.statusbar)
-  readonly property real liftOut: Math.max(0, popup.lift - Zenon.shadowPad)
-  readonly property real liftIn: Math.min(Zenon.shadowPad, popup.lift)
-  exclusionMode: ExclusionMode.Ignore
-  // the surface is screen-wide now, so say what part of it is actually there
-  // The rectangle, not `item:` — the item has a transform, and a Region
-  // following an item re-reads it only when its geometry changes, not
-  // when the transform moves (see the bar's mask in shell.qml).
-  mask: Region { x: strip.x; y: strip.y; width: strip.width; height: strip.height }
-  focusable: true
 
   HyprlandFocusGrab {
     id: grab
     windows: [ popup ]
-    active: popup.shown
+    // let go the moment the close begins: a quick panel this one handed the
+    // pill to is taking its own grab in the same frame
+    // nor while something is being dragged out to another app
+    active: popup.shown && !popup.collapsing && !popup.dragging
     onCleared: popup.closeCynosure()
   }
 
@@ -176,37 +253,60 @@ PanelWindow {
     function toggle() {
       popup.toggle();
     }
+    // a hotkey of yours (binds.lua, from hotkeys.lua): the row it was given to
+    function hotkey(chord: string): string {
+      return popup.runHotkey(chord);
+    }
   }
-
-property var statusbar: null
-
-  // every rounded corner in cynosure, in one place — single token in Zenon
-  readonly property real corner: Zenon.pillRadius
-  // the pill's live corner radius, handed down by shell.qml (also Zenon.pillRadius)
-  property real morphRadius: Zenon.pillRadius
-  // The radius of the corner a row is actually sitting in. Standalone that is
-  // cynosure's own background; morphed cynosure IS the pill, so it is the
-  // pill's — and the pill's is easing, so a row that rounded to cynosure's
-  // own 5 cut a visible notch across a 12px pill corner.
-  readonly property real edgeCorner: popup.morphMode ? popup.morphRadius : popup.corner
-  // The panel's stroke — the pill's own when morphed, since bg goes
-  // transparent and the pill is what you are actually seeing. A highlight
-  // drawn flush to the panel's bounds sits ON that 1px line with its corner
-  // struck at the OUTER radius, so the two arcs never nest and the row reads
-  // as stepping outside the panel it is in.
-  readonly property real edgeInset: 1
-  readonly property real innerCorner: Math.max(0, popup.edgeCorner - popup.edgeInset)
-
-  property string processIcon: "\uEB7F"
-  property string terminalIcon: "\uEA85"
-
-  // A binding, not an imperative call from openCynosure(). openCynosure() ran
-  // BEFORE `shown` flipped, so morphMode was still false when it fired and the
-  // morphed cynosure was stacked a bar-height above the pill it is supposed to
-  // be sitting inside. Cynosure puts it on the window rather than an inner
-  // panel, but the number is the same one every layer uses.
-  margins.bottom: popup.liftOut
-  margins.top: popup.liftOut
+  // The names the quick panels answered to before they moved in here, kept
+  // so a bind or a script that calls them still lands: each one is now a
+  // view of this panel.
+  IpcHandler {
+    target: "Metis"
+    function toggle(): string { return popup.toggleLine("calc "); }
+  }
+  IpcHandler {
+    target: "Lexi"
+    function toggle(): string { return popup.toggleLine("def "); }
+    function translate(): string { return popup.toggleLine("tr "); }
+    // the translator, onto words already chosen (minerva's look-up card)
+    function translateText(text: string): string {
+      const t = String(text || "").trim();
+      popup.lookUp("trans", t);
+      return t === "" ? "empty" : "translating";
+    }
+    // open onto a word without typing it — for a script, a menu entry, or
+    // anything else that already knows what it wants defined
+    function define(word: string): string {
+      const w = String(word || "").trim();
+      if (w === "") return "empty";
+      popup.lookUp("dict", w);
+      return "defining " + w;
+    }
+  }
+  IpcHandler {
+    target: "Folio"
+    function toggle(): string { return popup.toggleLine("cb "); }
+  }
+  IpcHandler {
+    target: "Ideo"
+    function toggle(): string { return popup.toggleLine("em "); }
+    function emoji(): string { return popup.toggleLine("em "); }
+    function nerd(): string { return popup.toggleLine("nf "); }
+  }
+  // open with a word already typed ("calc ", "f "): the list as that word
+  // makes it; closes if it is already what is up
+  function toggleLine(line) {
+    if (popup.shown && !popup.collapsing && popup.query === line) {
+      popup.closeCynosure();
+      return "closed";
+    }
+    popup.openCynosure();
+    popup.untake();
+    input.text = line;
+    input.cursorPosition = input.text.length;
+    return "ok";
+  }
 
   Repeater {
     id: appLoader
@@ -232,7 +332,202 @@ property var statusbar: null
     }
   }
 
-  property int pendingLoad: 2
+  // your own words for things (Cynosure.aliasPath): a missing file is none
+  property var aliases: ({})
+  Cat {
+    id: aliasCat
+    path: Cynosure.aliasPath()
+    onDone: (text) => {
+      popup.aliases = Cynosure.parseAliases(text);
+      popup.loadTick();
+    }
+  }
+  // ── HOTKEYS (2026-11-01) ─────────────────────────────────────────────
+  // A chord for a row (Raycast's), set from its actions: the line becomes
+  // "Hotkey for X" and waits for the keys, hyprland held in oracle's empty
+  // "oracle-keys" submap meanwhile so Super+anything reaches here (Oracle's
+  // Shortcuts does the same). A chord something else answers is refused,
+  // saying whose. Kept in cynosure-hotkeys.json and written to hotkeys.lua.
+  property var hotkeys: []
+  Cat {
+    id: hotkeysCat
+    path: Cynosure.hotkeysPath()
+    onDone: (text) => { popup.hotkeys = Cynosure.parseHotkeys(text); }
+  }
+  property var hotkeyRow: null
+  property var liveBinds: []
+  Process {
+    id: liveBindsProc
+    command: ["hyprctl", "binds", "-j"]
+    stdout: StdioCollector {
+      id: liveBindsOut
+      onStreamFinished: {
+        try { popup.liveBinds = JSON.parse(liveBindsOut.text); } catch (e) { popup.liveBinds = []; }
+      }
+    }
+  }
+  function askHotkey(row) {
+    popup.hotkeyRow = row;
+    popup.aliasNote = "";
+    popup.aliasWas = popup.query;
+    popup.mode = "hotkey";
+    input.text = "";
+    input.readOnly = true;
+    if (!liveBindsProc.running) liveBindsProc.running = true;
+    Hyprland.dispatch(Hypr.submap("oracle-keys"));
+    hotkeyTimeout.restart();
+    Qt.callLater(() => input.forceActiveFocus());
+  }
+  Timer {
+    id: hotkeyTimeout
+    interval: 10000
+    onTriggered: popup.endHotkey()
+  }
+  function hotkeyKey(event) {
+    event.accepted = true;
+    if (event.key === Qt.Key_Escape && !(event.modifiers & (Qt.MetaModifier | Qt.ControlModifier | Qt.AltModifier))) {
+      popup.endHotkey();
+      return;
+    }
+    const chord = Ora.chordFromKey(event.key, event.modifiers, event.text);
+    if (chord === "") return;
+    hotkeyTimeout.restart();
+    // a key alone, or with only Shift, would be taken from every app
+    if (!/\b(SUPER|CONTROL|ALT)\b/.test(chord)) {
+      popup.aliasNote = "Hold Super, Ctrl or Alt with the key";
+      return;
+    }
+    // this row's own chord is free to give it again
+    const mine = Cynosure.hotkeyOf(popup.hotkeys, popup.hotkeyRow) !== ""
+      ? Cynosure.hotkeyLabel({ row: popup.hotkeyRow }) : "";
+    const live = popup.liveBinds.filter((b) => mine === "" || b.description !== mine);
+    const taken = Ora.chordTaken(chord, "", [], ({}), live);
+    if (taken !== "") { popup.aliasNote = "Taken by " + taken; return; }
+    popup.hotkeys = Cynosure.setHotkey(popup.hotkeys, chord, popup.hotkeyRow);
+    popup.writeHotkeys();
+    popup.endHotkey();
+  }
+  // a chord as the hints write keys: "super shift f", on one cap
+  function chordWords(chord) {
+    return Ora.chordCaps(chord).join(" ").toLowerCase();
+  }
+  function dropHotkey(row) {
+    popup.hotkeys = Cynosure.dropHotkey(popup.hotkeys, row);
+    popup.writeHotkeys();
+  }
+  function writeHotkeys() {
+    writer.write(Cynosure.hotkeysPath(), Cynosure.serializeHotkeys(popup.hotkeys));
+    writer.write(Cynosure.hotkeysLuaPath(), Cynosure.renderHotkeysLua(popup.hotkeys), () => hyprReload.restart());
+  }
+  Timer {
+    id: hyprReload
+    interval: 150
+    onTriggered: Quickshell.execDetached(["hyprctl", "reload"])
+  }
+  function endHotkey() {
+    if (popup.mode !== "hotkey") return;
+    hotkeyTimeout.stop();
+    Hyprland.dispatch(Hypr.submap("reset"));
+    popup.hotkeyRow = null;
+    popup.aliasNote = "";
+    input.readOnly = false;
+    popup.mode = "search";
+    input.text = popup.aliasWas;
+    input.cursorPosition = input.text.length;
+    popup.rebuild();
+  }
+  // the chord pressed: its row, as fresh as the list has it, else as kept
+  function runHotkey(chord) {
+    const n = Ora.normChord(chord);
+    const h = popup.hotkeys.find((x) => Ora.normChord(x.chord) === n);
+    if (!h) return "unknown";
+    const t = Cynosure.hotkeyTarget(h.row);
+    const row = h.row.kind === "file" ? h.row
+      : popup.rows.find((r) => Cynosure.hotkeyTarget(r) === t) || h.row;
+    // a verb that asks first, or opens a view, does it in the panel
+    if (row.kind === "shell" && row.action && (row.action.confirm || row.action.choose
+        || row.action.view || row.action.line || row.action.inline)) {
+      if (!popup.shown) popup.toggle();
+      Qt.callLater(() => popup.runRow(row));
+      return "asked";
+    }
+    popup.runRow(row);
+    return "ran";
+  }
+
+  function writeAliases() {
+    writer.write(Cynosure.aliasPath(), Cynosure.serializeAliases(popup.aliases));
+  }
+
+  // your scripts (Cynosure.scriptsDir), read again on every open: a file
+  // added or changed since is there the next time
+  property var scripts: []
+  Process {
+    id: scriptsProc
+    command: ["sh", "-c", Cynosure.scriptsListCommand(), "cynosure", Cynosure.scriptsDir()]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: { popup.scripts = Cynosure.parseScripts(text); popup.rebuild(); }
+    }
+  }
+  // run by its @mode: in the background, in your terminal, or what it
+  // prints said as a notification. Run with sh when it is not executable.
+  function runScript(sc, arg) {
+    const args = arg ? [arg] : [];
+    if (sc.mode === "terminal") {
+      Quickshell.execDetached(["sh", "-c", Cynosure.terminalCommand(
+        Strings.shellQuote(sc.path) + (arg ? " " + Strings.shellQuote(arg) : ""), Oracle.terminal)]);
+    } else if (sc.mode === "output") {
+      Quickshell.execDetached(["sh", "-c",
+        "out=$( (if [ -x \"$1\" ]; then \"$@\"; else sh \"$@\"; fi) 2>&1 | head -c 2000 ); "
+        + "notify-send -a Cynosure -- \"$0\" \"${out:-Done}\"", sc.title, sc.path].concat(args));
+    } else {
+      Quickshell.execDetached(["setsid", "-f", "sh", "-c",
+        "if [ -x \"$1\" ]; then exec \"$@\"; else exec sh \"$@\"; fi", "cynosure", sc.path].concat(args));
+    }
+    popup.closeCynosure();
+  }
+
+  // your quick links (Cynosure.linksPath), the built-ins under them
+  property var ownLinks: []
+  readonly property var links: Cynosure.allLinks(popup.ownLinks)
+  Cat {
+    id: linkCat
+    path: Cynosure.linksPath()
+    onDone: (text) => {
+      popup.ownLinks = Cynosure.parseLinks(text);
+      popup.loadTick();
+    }
+  }
+  function writeLinks() {
+    writer.write(Cynosure.linksPath(), Cynosure.serializeLinks(popup.ownLinks));
+  }
+
+  // what you searched, newest first (Cynosure.queriesPath): up on an empty
+  // line brings it back, a shell's history
+  property var queries: []
+  Cat {
+    id: queriesCat
+    path: Cynosure.queriesPath()
+    onDone: (text) => {
+      popup.queries = Cynosure.parseQueries(text);
+      popup.loadTick();
+    }
+  }
+  // how far back up has gone; -1 is the line as typed
+  property int recallAt: -1
+  property bool recalling: false
+  function recall(at) {
+    popup.recallAt = at;
+    popup.recalling = true;
+    input.text = at >= 0 ? popup.queries[at] : "";
+    input.cursorPosition = input.text.length;
+    popup.recalling = false;
+  }
+  // Alt held: the first nine rows say their number (alt 1–9 opens them)
+  property bool altHeld: false
+
+  property int pendingLoad: 5
 
   // The first load waits for both files; every re-read after it (the
   // history is read again on each open) rebuilds on its own. It only ever
@@ -259,8 +554,9 @@ property var statusbar: null
     for (let i = 0; i < vals.length; ++i) {
       const e = vals[i];
       // its generic name and keywords too, so "font" finds Alexandria and
-      // "editor" finds Plato
+      // "editor" finds Plato; the generic name is also the row's second line
       if (e) snapshot.push({ name: e.name, exec: e.execString, id: e.id, icon: e.icon,
+                             generic: e.genericName || "",
                              words: [e.genericName || ""].concat(Array.from(e.keywords || [])).join(" ") });
     }
     popup.appsSnapshot = snapshot;
@@ -278,22 +574,339 @@ property var statusbar: null
   onActionStatesChanged: if (popup.shown) popup.rebuild()
   function rebuild() {
     const apps = Cynosure.getApps(popup.appsSnapshot);
-    popup.rows = Cynosure.buildRows(apps, popup.histLines || [], popup.freqMap || {},
-      Cynosure.SHELL_ACTIONS, popup.actionStates, Icons.appGlyph);
+    popup.rows = Cynosure.withAliases(Cynosure.buildRows(apps, popup.histLines || [], popup.freqMap || {},
+      Cynosure.SHELL_ACTIONS.concat(Cynosure.linkActions(popup.links), Cynosure.scriptActions(popup.scripts)),
+      popup.actionStates, Icons.appGlyph),
+      popup.aliases);
     popup.applyFilter();
   }
 
-  function applyFilter() {
-    popup.filtered = Cynosure.filterRows(popup.rows, popup.query);
-    fitTimer.restart();
-    popup.sel = Nav.clamp(popup.sel, popup.filtered.length);
+  // SNAPPIER (user, 2026-11-02: "can we make it snappier?"): every source
+  // that changes the list asks for it again — a key asked three times, each
+  // a rebuild and every row drawn anew. Asked any number of times in one
+  // turn of the event loop, it is built once (Qt.callLater keeps one call),
+  // and a list that came out the same is not handed to the view again.
+  function applyFilter() { Qt.callLater(popup.filterNow); }
+  function filterNow() {
+    // what has taken the field has the panel: no list under it
+    const next = popup.taken ? [] : Cynosure.rootRows(popup.rows, popup.query, popup.freqMap || {},
+      Cynosure.SHELL_ACTIONS, { files: popup.fileRows, filesOnly: popup.filesScoped,
+        links: popup.links,
+        scripts: popup.scripts,
+        windows: Cynosure.windowRows(popup.openWindows(), popup.winLine, popup.winsScoped, Icons.appGlyph),
+        windowsOnly: popup.winsScoped,
+        command: popup.cmdRow,
+        aliasFiles: Cynosure.aliasFiles(popup.aliases, popup.query, Quickshell.env("HOME"), Icons.glyphFor),
+        fileFreq: popup.finder ? popup.finder.freq : ({}),
+        clips: popup.clipRows, clipsOnly: popup.clipsScoped,
+        glyphs: popup.glyphRows, glyphsOnly: popup.glyphsScoped,
+        settings: popup.settingsWanted ? Cynosure.settingsRows(Oracle.schema, Oracle.sections, popup.settingsLine, popup.settingsScoped) : [],
+        settingsOnly: popup.settingsScoped,
+        store: popup.storeScoped ? Cynosure.storeRows(popup.storeApps, popup.storeLine, Icons.appGlyph) : [],
+        storeOnly: popup.storeScoped,
+        notes: popup.notesWanted ? Cynosure.noteRows(popup.clioNotes, popup.notesLine, popup.notesScoped) : [],
+        newNote: popup.newNoteScoped ? Cynosure.newNoteRow(popup.notesLine) : null,
+        notesOnly: popup.notesScoped || popup.newNoteScoped,
+        packages: popup.pkgScoped ? Cynosure.packageRows(popup.pkgFound) : [],
+        packagesOnly: popup.pkgScoped,
+        event: popup.eventScoped ? Cynosure.eventRow(popup.eventLine, Chr.isoOf(new Date()), new Date()) : null,
+        eventOnly: popup.eventScoped });
+    // the same rows as now: the view keeps the ones it drew
+    const sig = JSON.stringify(next);
+    if (sig !== popup.filteredSig) {
+      popup.filteredSig = sig;
+      popup.filtered = next;
+    }
+    if (popup.sel >= 0 || !popup.cardUp) popup.sel = Nav.clamp(popup.sel, popup.filtered.length);
     popup.followSelection();
+  }
+
+  // ── SETTINGS, IN THE LIST ─────────────────────────────────────────────
+  // Oracle's pages and rows (Cynosure.settingsRows): the few whose name the
+  // line starts for any line, every match for "settings …"; return opens
+  // Oracle there (its own IPC, show <key> / at <page>)
+  readonly property bool settingsScoped: /^\s*settings\s/i.test(popup.query)
+  readonly property string settingsLine: popup.settingsScoped
+    ? popup.query.replace(/^\s*settings\s+/i, "") : popup.query
+  readonly property bool settingsWanted: popup.mode === "search" && !popup.taken && !popup.calcShown
+    && !popup.lexiAsk && (popup.settingsScoped || popup.settingsLine.trim().length >= 3)
+  function openSetting(row) {
+    popup.closeThen(() => Quickshell.execDetached(["qs", "ipc", "call", "Oracle", row.spec ? "setting" : "at", row.spec || row.page]));
+  }
+
+  // ── A WINDOW OPENED FROM HERE, AFTER HERE HAS GONE ────────────────────
+  // Oracle, Ceres, Clio, the calendar asked to open while this panel still
+  // held the keyboard: one already open was only raised, and the raise was
+  // refused under the grab — "Layout and Tiling layout don't do anything"
+  // (user, 2026-11-01). The ask now waits for the panel to finish closing
+  // (sequence, not race), or runs at once with the panel already shut (a
+  // hotkey). A beat past the close at most, should it never say it ended.
+  property var afterClose: []
+  function closeThen(fn) {
+    if (!popup.shown) { fn(); return; }
+    popup.afterClose = popup.afterClose.concat([fn]);
+    afterCloseLate.restart();
+    popup.closeCynosure();
+  }
+  function runAfterClose() {
+    afterCloseLate.stop();
+    const q = popup.afterClose;
+    popup.afterClose = [];
+    for (const f of q) f();
+  }
+  Timer { id: afterCloseLate; interval: 900; onTriggered: popup.runAfterClose() }
+
+  // ── THE STORE, IN THE LIST ────────────────────────────────────────────
+  // "store …" / "install …": Ceres' catalog (its own ceres-store list, read
+  // once a shell session, the first time it is asked for), ranked by Ceres'
+  // search; return opens the app's page in Ceres (Ceres.openApp)
+  readonly property bool storeScoped: /^\s*(store|install)\s/i.test(popup.query)
+  readonly property string storeLine: popup.storeScoped ? popup.query.replace(/^\s*(store|install)\s+/i, "") : ""
+  property var storeApps: []
+  onStoreScopedChanged: if (popup.storeScoped && popup.storeApps.length === 0 && !storeProc.running) storeProc.running = true
+  Process {
+    id: storeProc
+    command: [Quickshell.shellDir + "/ceres/bin/ceres-store", "list"]
+    stdout: StdioCollector {
+      id: storeOut
+      onStreamFinished: {
+        try { popup.storeApps = JSON.parse(storeOut.text).apps || []; } catch (e) { popup.storeApps = []; }
+        popup.applyFilter();
+      }
+    }
+  }
+  function openStoreApp(row) {
+    popup.closeThen(() => Ceres.openApp(row.app));
+  }
+
+  // a scope word of its own (settings, store, notes): no files under it
+  readonly property bool otherScoped: popup.settingsScoped || popup.storeScoped || popup.notesScoped || popup.newNoteScoped
+    || popup.pkgScoped || popup.eventScoped
+
+  // ── PACKAGES, IN THE LIST ─────────────────────────────────────────────
+  // "pkg …": every repo package and the AUR, by Ceres' own search (its
+  // ceres.sh search, the Packages tab's), asked a beat after the last key;
+  // return hands the change to Ceres' confirm sheet (Ceres.changePackage)
+  readonly property bool pkgScoped: /^\s*pkg\s/i.test(popup.query)
+  readonly property string pkgLine: popup.pkgScoped ? popup.query.replace(/^\s*pkg\s+/i, "").trim() : ""
+  property var pkgFound: []
+  onPkgLineChanged: { if (popup.pkgLine === "") { popup.pkgFound = []; popup.applyFilter(); } else pkgLater.restart(); }
+  Timer { id: pkgLater; interval: 220; onTriggered: popup.askPackages() }
+  function askPackages() {
+    if (pkgProc.running) { pkgProc.again = true; return; }
+    pkgProc.asked = popup.pkgLine;
+    pkgProc.command = ["sh", "-c", Cer.searchCommand(Quickshell.shellDir + "/scripts/ceres.sh", false, popup.pkgLine)];
+    pkgProc.running = true;
+  }
+  Process {
+    id: pkgProc
+    property string asked: ""
+    property bool again: false
+    onExited: if (pkgProc.again) { pkgProc.again = false; Qt.callLater(popup.askPackages); }
+    stdout: StdioCollector {
+      id: pkgOut
+      onStreamFinished: {
+        if (pkgProc.asked !== popup.pkgLine) return;
+        popup.pkgFound = Cer.parseRows(pkgOut.text);
+        popup.applyFilter();
+      }
+    }
+  }
+  function changePackage(row) {
+    popup.closeThen(() => Ceres.changePackage(row.pkg));
+  }
+
+  // ── A CALENDAR EVENT, FROM THE LINE ───────────────────────────────────
+  // "event lunch friday 1pm": one row saying how Chronos reads it; return
+  // adds it (Chronos.addQuick), and says so in a toast once it is kept
+  readonly property bool eventScoped: /^\s*event\s/i.test(popup.query)
+  readonly property string eventLine: popup.eventScoped ? popup.query.replace(/^\s*event\s+/i, "") : ""
+  function addEvent(row, show) {
+    if (row.bad) return;
+    Chronos.addQuick(row.text, Chr.isoOf(new Date()), (ok, words) => {
+      Quickshell.execDetached(["notify-send", "-a", "chronos", "-i", "x-office-calendar", "--",
+        ok ? words : "The event was not added", ok ? "" : words]);
+    });
+    const q = Chr.parseNatural(row.text, Chr.isoOf(new Date()));
+    popup.closeThen(() => { if (show) Quickshell.execDetached(["qs", "ipc", "call", "Calendar", "day", q.iso || ""]); });
+  }
+
+  // ── CLIO'S NOTES, IN THE LIST ─────────────────────────────────────────
+  // "notes …" searches the notebook (Cynosure.noteRows), "note …" makes one
+  // of the words; once the notebook is read (the first "notes"), any line
+  // shows the few whose title it starts. Return opens the note in Clio.
+  readonly property bool notesScoped: /^\s*notes\s/i.test(popup.query)
+  readonly property bool newNoteScoped: /^\s*note\s/i.test(popup.query)
+  readonly property string notesLine: popup.notesScoped || popup.newNoteScoped
+    ? popup.query.replace(/^\s*notes?\s+/i, "") : popup.query
+  readonly property var clioNotes: Clio.app ? Clio.app.notes : []
+  readonly property bool notesWanted: popup.mode === "search" && !popup.taken && !popup.calcShown && !popup.lexiAsk
+    && !popup.newNoteScoped && !!Clio.app && (popup.notesScoped || (Clio.app.loaded && popup.notesLine.trim().length >= 3))
+  onNotesScopedChanged: if (popup.notesScoped && Clio.app && !Clio.app.loaded) Clio.app.whenLoaded(() => popup.applyFilter())
+  onClioNotesChanged: if (popup.shown && popup.notesWanted) popup.applyFilter()
+  function openNote(row) {
+    popup.closeThen(() => { if (Clio.app) Clio.app.openAt(row.id, ""); });
+  }
+  function saveNote(words, show) {
+    popup.closeThen(() => { if (Clio.app) Clio.app.quickNote(words, show); });
+  }
+
+  // ── FILES, IN THE LIST ────────────────────────────────────────────────
+  // artemis' index, asked a beat after the last key: a few under the
+  // others for any line of two letters or more, all of them for "f …"
+  // (and, with nothing after it, the files most opened).
+  readonly property bool filesScoped: /^\s*f\s/i.test(popup.query)
+  readonly property string fileLine: popup.filesScoped
+    ? popup.query.replace(/^\s*f\s+/i, "").trim() : popup.query.trim()
+  readonly property bool filesWanted: !!popup.finder && popup.mode === "search" && !popup.taken
+    && !popup.calcShown && !popup.otherScoped && !popup.lexiAsk && (popup.filesScoped
+      || (popup.fileLine.length >= 2 && !Cynosure.scopedRow(Cynosure.SHELL_ACTIONS, popup.query)))
+  property var fileRows: []
+  Timer {
+    id: fileAsk
+    interval: 120
+    onTriggered: if (popup.finder) popup.finder.search(popup.filesWanted ? popup.fileLine : "")
+  }
+  onFileLineChanged: fileAsk.restart()
+  onFilesWantedChanged: { fileAsk.restart(); popup.takeFiles(); }
+  Connections {
+    target: popup.finder
+    function onRowsChanged() { popup.takeFiles(); }
+    function onNoHandler(path) { popup.opening = false; openWith.ask(path); }
+    function onOpened() { if (popup.opening) { popup.opening = false; popup.closeCynosure(); } }
+  }
+  // ── THE CLIPBOARD, IN THE LIST ────────────────────────────────────────
+  // folio (folio/FolioView.qml, `embedded`), loaded unseen the first time
+  // the line could want a clip and kept while the panel is up: its
+  // entries, pictures, stamps and snippets are the Clipboard and Snippets
+  // sections, and the rows act through it. Its snippet page alone is drawn
+  // (from the top, like the dictionary) while a snippet is written.
+  readonly property bool clipsScoped: /^\s*cb\s/i.test(popup.query)
+  readonly property string clipLine: popup.clipsScoped
+    ? popup.query.replace(/^\s*cb\s+/i, "") : popup.query
+  readonly property bool clipsWanted: popup.mode === "search" && !popup.taken
+    && (popup.clipsScoped || popup.clipLine.trim().length >= 2)
+  property bool folioLatched: false
+  onClipsWantedChanged: { if (popup.clipsWanted) popup.folioLatched = true; popup.takeClips(); }
+  onClipLineChanged: popup.takeClips()
+  readonly property var folio: folioLoader.item
+  readonly property bool folioEditing: !!popup.folio && popup.folio.editing
+  readonly property int folioH: popup.folioEditing ? popup.folio.calcHeight() : 0
+  onFolioEditingChanged: if (!popup.folioEditing) Qt.callLater(() => input.forceActiveFocus())
+  property var clipRows: []
+  function takeClips() {
+    const f = popup.folio;
+    popup.clipRows = f && popup.clipsWanted
+      ? Cynosure.clipRows(f.entries, f.imageIds, f.snippets, popup.clipLine, popup.clipsScoped,
+          (id) => f.stampText(id),
+          (id) => f.thumbsReady[id] ? Folio.thumbDir() + "/" + id + ".png" : "", popup.picsPer)
+      : [];
+    popup.applyFilter();
+  }
+  Connections {
+    target: popup.folio
+    function onEntriesChanged() { popup.takeClips(); }
+    function onSnippetsChanged() { popup.takeClips(); }
+    function onThumbsReadyChanged() { popup.takeClips(); }
+  }
+
+  // ── EMOJI AND NERD GLYPHS, IN THE LIST ────────────────────────────────
+  // ideo (ideo/IdeoCore.qml), loaded unseen like folio: its two
+  // sets are strips of cells in the list (an Emoji strip for any line, "em
+  // …" / "nf …" for them alone). The chosen strip's cell is `cellSel`,
+  // moved with left and right; return pastes an emoji, copies a glyph.
+  readonly property bool glyphsScoped: /^\s*(em|nf)\s/i.test(popup.query)
+  readonly property bool glyphNerd: /^\s*nf\s/i.test(popup.query)
+  readonly property string glyphLine: popup.glyphsScoped
+    ? popup.query.replace(/^\s*(em|nf)\s+/i, "") : popup.query
+  readonly property bool glyphsWanted: popup.mode === "search" && !popup.taken
+    && (popup.glyphsScoped || popup.glyphLine.trim().length >= 2)
+  readonly property int glyphsPer: 11
+  // the pictures' grid: four to a row, tall enough to see what each is
+  readonly property int picsPer: 4
+  readonly property int picRowH: Zenon.px(150)
+  readonly property int glyphRowH: Math.round(popup.rowH * 1.3)
+  property bool ideoLatched: false
+  onGlyphsWantedChanged: { if (popup.glyphsWanted) popup.ideoLatched = true; popup.takeGlyphs(); }
+  onGlyphLineChanged: popup.takeGlyphs()
+  onGlyphNerdChanged: popup.takeGlyphs()
+  readonly property var ideo: ideoLoader.item
+  property var glyphRows: []
+  property int cellSel: 0
+  function takeGlyphs() {
+    const g = popup.ideo;
+    if (g && popup.glyphsWanted) g.load(popup.glyphNerd ? "nerd" : "emoji");
+    popup.glyphRows = g && popup.glyphsWanted
+      ? Cynosure.glyphRows(popup.glyphNerd ? g.nerdCache : g.emojiCache, popup.glyphLine,
+          popup.glyphNerd, popup.glyphsScoped, popup.glyphsPer,
+          popup.glyphNerd ? popup.recentGlyphs.nerd : popup.recentGlyphs.emoji)
+      : [];
+    popup.applyFilter();
+  }
+  // the emoji and glyphs last used (Cynosure.glyphsPath), leading the strips
+  property var recentGlyphs: ({ emoji: [], nerd: [] })
+  Cat {
+    id: glyphsCat
+    path: Cynosure.glyphsPath()
+    onDone: (text) => { popup.recentGlyphs = Cynosure.parseGlyphs(text); popup.takeGlyphs(); }
+  }
+  function noteGlyph(ch, nerd) {
+    popup.recentGlyphs = Cynosure.addGlyph(popup.recentGlyphs, ch, nerd);
+    writer.write(Cynosure.glyphsPath(), JSON.stringify(popup.recentGlyphs));
+  }
+  Connections {
+    target: popup.ideo
+    function onEmojiCacheChanged() { popup.takeGlyphs(); }
+    function onNerdCacheChanged() { popup.takeGlyphs(); }
+  }
+  onSelChanged: {
+    Qt.callLater(popup.placeCellCursor);
+    const c = popup.current;
+    if (c && c.cells) popup.cellSel = Math.min(popup.cellSel, c.cells.length - 1);
+  }
+  // left and right along a strip, on into the strip before or after it
+  function moveCell(d) {
+    const c = popup.current;
+    const i = popup.cellSel + d;
+    if (i >= 0 && i < c.cells.length) { popup.cellSel = i; return; }
+    const next = popup.filtered[popup.sel + d];
+    if (!next || !next.cells) return;
+    popup.sel += d;
+    popup.cellSel = d > 0 ? 0 : next.cells.length - 1;
+    popup.followSelection();
+  }
+
+  function takeFiles() {
+    const f = popup.finder;
+    let paths = [];
+    if (popup.filesWanted && f) {
+      if (popup.filesScoped && popup.fileLine === "")
+        paths = f.frequent(30).map((r) => r.path);
+      else if (f.answered === popup.fileLine)
+        paths = f.rows.map((r) => r.path);
+    }
+    popup.fileRows = Cynosure.fileRows(paths.slice(0, popup.filesScoped ? 50 : 5),
+      Quickshell.env("HOME"), Icons.glyphFor);
+    popup.applyFilter();
+  }
+  // an open is out: the panel waits to hear whether anything opened it
+  property bool opening: false
+  // terminus' open-with card, for a file nothing opens — over the panel,
+  // which dims under it; what is chosen on it is registered for the type
+  Term.OpenWithLayer {
+    id: openWith
+    z: 50
+    dim: panel
+    onOpened: popup.closeCynosure()
+    onCancelled: if (popup.shown) input.forceActiveFocus()
   }
 
   function followSelection() {
     Qt.callLater(() => {
-      list.positionViewAtIndex(popup.sel, ListView.Contain);
-      pickerList.positionViewAtIndex(popup.sel, ListView.Contain);
+      // the first row's heading is above it: Beginning, not Contain, keeps
+      // it in sight when the cursor goes back to the top
+      if (popup.sel === 0) list.positionViewAtBeginning();
+      else list.positionViewAtIndex(popup.sel, ListView.Contain);
     });
   }
 
@@ -305,8 +918,703 @@ property var statusbar: null
     popup.rebuild();
   }
 
+  // ── THE CALCULATOR, IN THE LIST ───────────────────────────────────────
+  // Metis whole (metis/MetisView.qml, `embedded`): made the first time the
+  // line looks like a sum (or "calc …", "=…"), kept while the panel is up,
+  // dropped when it closes. It works out THIS field's line as it is typed and
+  // answers under a "Calculator" heading with its own answer block — the
+  // reading, the answer large, its chips and strips (the user kept this over
+  // a Raycast two-box card, 2026-11-01). The answer is the chosen row (sel
+  // -1) whenever it is up, and while it is, return, ctrl+return, tab (its
+  // chips), ctrl+e, ctrl+h and ctrl+r are the calculator's; down goes on
+  // into the list.
+  readonly property string calcLine: {
+    const m = /^\s*calc\s+(.*)$/i.exec(popup.query);
+    return m ? m[1].trim() : Cynosure.calcQuestion(popup.query);
+  }
+  // asked on purpose: "calc …" or a leading =; then even a line it cannot
+  // read, or none (its recents and examples), is shown
+  readonly property bool calcAsked: /^\s*(calc\s|=)/i.test(popup.query)
+  // what metis' own front end makes of the line (pure: no process), for
+  // the questions without a digit in them ("time in syd", "usd to eur")
+  readonly property string calcKind: popup.calcLine.trim() === "" ? ""
+    : Metis.prepare(popup.calcLine, { ans: "", vars: {} }).kind || ""
+  // a question in plain words is answered by name, not by the calculator
+  // ("#ff8800" is a color before it is a hex number)
+  readonly property bool calcWanted: popup.mode === "search" && !popup.ask && !popup.cmd && !popup.lexiAsk
+    && (popup.calcAsked || Cynosure.wantsCalc(popup.query, popup.calcKind))
+  property bool calcLatched: false
+  onCalcWantedChanged: {
+    if (popup.calcWanted) popup.calcLatched = true;
+    // the line, both ways: a calculator kept from the last open has no
+    // onLoaded to hand it over (and the line changed before this did)
+    if (popup.metis) popup.metis.setLine(popup.calcWanted ? popup.calcLine : "");
+  }
+  readonly property var metis: metisLoader.item
+  // up while the line wants it and there is an answer (the last one stays,
+  // dimmed, while the next is worked out) — or always, asked for by name
+  readonly property bool calcShown: !!popup.metis && popup.calcWanted && !popup.taken
+    && (popup.calcAsked || popup.metis.tapeMode || popup.metis.shownResult !== "")
+  // a card is up over the list — the calculator's, or a smart answer's —
+  // and while it is, it is the chosen row (sel -1) until the list is moved to
+  readonly property bool cardUp: popup.calcShown || popup.answerShown || popup.lexiShown
+  readonly property bool cardSel: popup.cardUp && popup.sel === -1
+  onCardUpChanged: {
+    if (popup.cardUp) popup.sel = -1;
+    else if (popup.sel < 0) popup.sel = 0;
+  }
+
+  // ── COMMANDS THAT TAKE AN ARGUMENT ────────────────────────────────────
+  // "volume 30", "brightness up", "timer 25m tea", "wifi off", "kill
+  // firefox", "workspace 3", "next", an address (answers.js parseCommand):
+  // a row first in the list saying what it will do and how things are now;
+  // return does it through the app that owns it (Volume, Hermes, Chronos,
+  // Howler's quiet, the player, Hyprland). Ending processes asks first.
+  readonly property var cmd: popup.mode === "search" && !popup.taken ? Answers.parseCommand(popup.query) : null
+  readonly property var cmdRow: {
+    const c = popup.cmd;
+    if (!c) return null;
+    const onOff = (on) => on ? "On now" : "Off now";
+    let label = "", glyph = "\uF0AD", sub = "";
+    switch (c.kind) {
+    case "volume":
+      label = c.pct !== undefined ? "Set the volume to " + c.pct + "%" : c.step > 0 ? "Turn the volume up" : "Turn the volume down";
+      glyph = "\uF028"; sub = Volume.ready ? (Volume.muted ? "Muted now" : "Now " + Volume.percent + "%") : "No sound device";
+      break;
+    case "mute":
+      label = c.on ? "Mute" : "Unmute"; glyph = c.on ? "\uF6A9" : "\uF028";
+      sub = Volume.ready ? (Volume.muted ? "Muted now" : "Now " + Volume.percent + "%") : "No sound device";
+      break;
+    case "brightness":
+      label = c.pct !== undefined ? "Set the brightness to " + c.pct + "%" : c.step > 0 ? "Brighter" : "Dimmer";
+      glyph = "\uF185"; sub = Hermes.screens.length > 0 ? "Now " + Hermes.screens[0].pct + "%" : "No screen that dims";
+      break;
+    case "wifi":
+      label = "Turn Wi-Fi " + (c.on ? "on" : "off"); glyph = "\uF1EB";
+      sub = Hermes.wifiReady ? onOff(Hermes.wifiOn) : "No Wi-Fi here";
+      break;
+    case "bluetooth":
+      label = "Turn Bluetooth " + (c.on ? "on" : "off"); glyph = "\uF293";
+      sub = Hermes.btReady ? onOff(Hermes.btOn) : "No Bluetooth here";
+      break;
+    case "night":
+      label = "Turn the night light " + (c.on ? "on" : "off"); glyph = "\u{F0594}"; sub = onOff(Hermes.nightWanted);
+      break;
+    case "dnd":
+      label = "Turn do not disturb " + (c.on ? "on" : "off"); glyph = "\uF1F6"; sub = onOff(Oracle.notifSilent);
+      break;
+    case "media":
+      label = { play: "Play", pause: "Pause", next: "Next track", previous: "Previous track" }[c.act];
+      glyph = { play: "\uF04B", pause: "\uF04C", next: "\uF051", previous: "\uF048" }[c.act];
+      sub = NowPlaying.active && NowPlaying.title !== "" ? NowPlaying.title : "Nothing playing";
+      break;
+    case "workspace":
+      label = "Go to workspace " + c.n; glyph = "\uF2D2";
+      break;
+    case "kill":
+      label = (c.force ? "Force quit " : "Quit ") + c.name; glyph = "\uF00D";
+      sub = c.force ? "Ends every process by that name, at once" : "Asks every process by that name to end";
+      break;
+    case "timer": {
+      const m = c.minutes > 0 ? c.minutes : Chronos.defaultMinutes;
+      label = "Start a " + Answers.minutesText(m) + " timer"; glyph = "\uF017"; sub = c.label;
+      break;
+    }
+    case "url":
+      label = "Open " + c.url.replace(/^https?:\/\//i, ""); glyph = "\uF0AC"; sub = "In the browser";
+      break;
+    }
+    return { kind: "argcmd", key: "cmd:" + c.kind, cmd: c, text: label, label, sub, glyph, section: "Command" };
+  }
+  function runCmd(c) {
+    switch (c.kind) {
+    case "volume":
+      if (!Volume.ready) return;
+      Volume.audio.muted = false;
+      Volume.audio.volume = c.pct !== undefined ? c.pct / 100 : Math.max(0, Math.min(1, Volume.level + c.step / 100));
+      break;
+    case "mute": if (Volume.ready) Volume.audio.muted = c.on; break;
+    case "brightness":
+      if (c.pct !== undefined) for (const s of Hermes.screens) Hermes.setBrightness(s, c.pct);
+      else Hermes.stepBrightness(c.step);
+      break;
+    case "wifi": if (Hermes.wifiReady && Hermes.wifiOn !== c.on) Hermes.setWifi(c.on); break;
+    case "bluetooth": if (Hermes.btReady && Hermes.btOn !== c.on) Hermes.setBluetooth(c.on); break;
+    case "night": Hermes.setNight(c.on); break;
+    case "dnd": Oracle.set("notifSilent", c.on); break;
+    case "media": {
+      const p = NowPlaying.player;
+      if (!p) break;
+      if (c.act === "play") p.play(); else if (c.act === "pause") p.pause();
+      else if (c.act === "next") p.next(); else p.previous();
+      break;
+    }
+    case "workspace": Hyprland.dispatch(Hypr.focusWorkspace(String(c.n))); break;
+    case "timer": {
+      const m = c.minutes > 0 ? c.minutes : Chronos.defaultMinutes;
+      if (Chronos.add(c.label, m)) Chronos.toggle(Chronos.timers.length - 1);
+      break;
+    }
+    case "url": Strings.openLink(c.url); break;
+    }
+    popup.closeCynosure();
+  }
+
+  // ── OPEN WINDOWS ──────────────────────────────────────────────────────
+  // Hyprland's toplevels as rows to go to (cynosure.js windowRows): a few
+  // for a line that names them, every one for "win …". Return focuses and
+  // raises it, the window switcher's way (through offspecial, so one on the
+  // special workspace comes out to be gone to).
+  readonly property bool winsScoped: /^\s*win\s/i.test(popup.query)
+  readonly property string winLine: popup.winsScoped ? popup.query.replace(/^\s*win\s+/i, "") : popup.query
+  function openWindows() {
+    const active = Hyprland.activeToplevel;
+    const hereWs = popup.hereWorkspace();
+    return Hyprland.toplevels.values.filter((t) => t.wayland).map((t) => {
+      const app = String(t.wayland.appId || "");
+      return { address: t.address, title: String(t.title || ""), app,
+        // the suite's own windows share quickshell's app id
+        name: app === "org.quickshell" ? "Zenworks" : app,
+        ws: t.workspace ? String(t.workspace.name) : "", focused: t === active,
+        here: !!t.workspace && String(t.workspace.name) === hereWs };
+    });
+  }
+  Connections {
+    target: Hyprland.toplevels
+    function onValuesChanged() { if (popup.shown) popup.applyFilter(); }
+  }
+  function hereWorkspace() {
+    const m = Hyprland.focusedMonitor;
+    return m && m.activeWorkspace ? String(m.activeWorkspace.name) : "";
+  }
+  // the window actions (float, center, fullscreen, move here) act on the
+  // active window, so the one meant is focused first; "move here" is read
+  // before that focus can take the workspace with it
+  function windowDo(address, what) {
+    const sel = Hypr.byAddress(address);
+    const ws = popup.hereWorkspace();
+    const then = what === "here" ? (ws !== "" ? Hypr.moveToWorkspace(ws) : "")
+      : what === "float" ? Hypr.floatToggle()
+      : what === "center" ? Hypr.center() : Hypr.fullscreen();
+    if (then === "") return;
+    const steps = [Hypr.focusWindow(sel), Hypr.raiseWindow(sel)];
+    Quickshell.execDetached(Off.wanted(steps.concat([then])));
+    popup.closeCynosure();
+  }
+  function goToWindow(address) {
+    Quickshell.execDetached(Off.wanted([Hypr.focusWindow(Hypr.byAddress(address)),
+                                        Hypr.raiseWindow(Hypr.byAddress(address))]));
+    popup.closeCynosure();
+  }
+
+  // ── THE DETAIL PANE ───────────────────────────────────────────────────
+  // In a list of one kind ("f …", "cb …", "em …", "nf …") the chosen row is
+  // shown beside the list, Raycast's way: a preview over the facts about it.
+  // Read a beat after the cursor stops, newest asking only.
+  readonly property bool paneOn: popup.mode === "search" && !popup.taken
+    && (popup.filesScoped || popup.clipsScoped || popup.glyphsScoped)
+  // { kind, image, glyph, nerd, rich, text, mono, icon, busy, facts: [[k, v]] }
+  property var detail: null
+  property int detailSeq: 0
+  property string picSize: ""
+  Timer { id: detailLater; interval: 120; onTriggered: popup.loadDetail() }
+  onCurrentChanged: if (popup.paneOn) detailLater.restart()
+  onCellSelChanged: {
+    if (popup.paneOn) detailLater.restart();
+    Qt.callLater(popup.placeCellCursor);
+  }
+  onPaneOnChanged: if (popup.paneOn) detailLater.restart(); else popup.detail = null
+  function setDetail(seq, more) {
+    if (seq !== popup.detailSeq) return;
+    popup.detail = Object.assign({}, popup.detail || {}, more);
+  }
+  function loadDetail() {
+    const seq = ++popup.detailSeq;
+    const r = popup.current;
+    popup.picSize = "";
+    if (!r) { popup.detail = null; return; }
+    if (r.kind === "file") {
+      popup.detail = { kind: "file", icon: r.glyph || "\uF15B", busy: true,
+        facts: [["Where", r.sub !== "" ? r.sub : "/"]] };
+      statProc.seq = seq;
+      statProc.row = r;
+      statProc.command = Terminus.statArgv([r.path.replace(/\/$/, "")]);
+      statProc.running = true;
+      const name = Terminus.basename(r.path);
+      if (r.isDir) {
+        lookProc.seq = seq; lookProc.shows = "list";
+        lookProc.command = ["sh", "-c", "ls -1Ap -- \"$1\" 2>/dev/null | head -40", "cynosure", r.path];
+        lookProc.running = true;
+      } else if (Terminus.isImage(name)) {
+        popup.setDetail(seq, { image: "file://" + r.path, busy: false });
+      } else if (Terminus.kindOf(name) === "text" || Terminus.isText(name)) {
+        lookProc.seq = seq; lookProc.shows = "code";
+        lookProc.command = ["sh", "-c", Terminus.previewCommand(r.path, null)];
+        lookProc.running = true;
+      } else popup.setDetail(seq, { busy: false });
+      return;
+    }
+    if (r.kind === "clip") {
+      popup.detail = { kind: "clip", busy: true, facts: [["Copied", r.sub || ""]] };
+      popup.folio.decodeText(r.id, (t) => {
+        const words = t.trim() === "" ? 0 : t.trim().split(/\s+/).length;
+        popup.setDetail(seq, { text: t, busy: false, facts: [["Copied", r.sub || ""],
+          ["Lines", String(t.split("\n").length)], ["Words", String(words)],
+          ["Characters", String(Array.from(t).length)]] });
+      });
+      return;
+    }
+    if (r.kind === "pics") {
+      const c = popup.chosenCell(r);
+      if (!c) { popup.detail = null; return; }
+      popup.detail = { kind: "pics", image: c.thumb ? "file://" + c.thumb : "", busy: !c.thumb,
+        facts: [["Copied", c.stamp || ""]] };
+      // the picture whole, written out as a drag writes it, over its thumbnail
+      popup.folio.dragDecode(c.id, (f) => { if (f !== "") popup.setDetail(seq, { image: "file://" + f, busy: false }); });
+      return;
+    }
+    if (r.kind === "snip") {
+      popup.detail = { kind: "snip", text: r.content || "", facts: [["Name", r.label], ["File", r.path]] };
+      return;
+    }
+    if (r.kind === "glyphs") {
+      const c = popup.chosenCell(r);
+      if (!c) { popup.detail = null; return; }
+      // by code point, not by UTF-16 unit: an emoji is two of those
+      const cps = [];
+      for (let i = 0; i < c.char.length;) {
+        const cp = c.char.codePointAt(i);
+        i += cp > 0xFFFF ? 2 : 1;
+        if (cp !== 0xFE0F) cps.push("U+" + cp.toString(16).toUpperCase().padStart(4, "0"));
+      }
+      const code = cps.join(" ");
+      popup.detail = { kind: "glyphs", glyph: c.char, nerd: r.nerd,
+        facts: [[r.nerd ? "Class" : "Name", c.name], ["Codepoint", code]] };
+      return;
+    }
+    popup.detail = null;
+  }
+  Process {
+    id: statProc
+    property int seq: 0
+    property var row: null
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        const f = Terminus.parseStat(text)[0];
+        const r = statProc.row;
+        if (!f || !r) return;
+        const kind = r.isDir ? "Folder" : Terminus.kindOf(f.name);
+        const facts = [["Kind", kind.charAt(0).toUpperCase() + kind.slice(1)]];
+        if (!r.isDir) facts.push(["Size", Terminus.formatSize(f.size)]);
+        const when = new Date(f.mtime * 1000);
+        facts.push(["Modified", Terminus.formatTime(f.mtime) + " · " + when.toLocaleDateString(Qt.locale(), Locale.ShortFormat)]);
+        facts.push(["Where", r.sub !== "" ? r.sub : "/"]);
+        popup.setDetail(statProc.seq, { facts });
+      }
+    }
+  }
+  Process {
+    id: lookProc
+    property int seq: 0
+    property string shows: ""
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        if (lookProc.shows === "code")
+          popup.setDetail(lookProc.seq, { rich: String(text).trim() === "" ? "" : Terminus.ansiToRich(text, Zenon.faceCode), busy: false });
+        else popup.setDetail(lookProc.seq, { text: String(text).trim() === "" ? "Empty" : text, mono: true, busy: false });
+      }
+    }
+  }
+
+  // ── SMART ANSWERS ─────────────────────────────────────────────────────
+  // A line in plain words answered in a card over the list (answers.js reads
+  // it): the weather here or anywhere ("cairo weather", "will it rain
+  // tomorrow", "sunset"), the time and date, the battery, the addresses,
+  // the uptime, a coin, dice, a number, a uuid. Arithmetic is answered on
+  // the spot; the machine and the weather a beat after the last key.
+  readonly property bool answering: popup.mode === "search" && !popup.taken
+  readonly property var ask: popup.answering && !popup.calcAsked ? Answers.parseAsk(popup.query) : null
+  readonly property var wxAsk: popup.answering && !popup.ask && !popup.calcShown ? Answers.parseWeather(popup.query) : null
+  // { kind, big, small } for every answer but the weather's
+  property var answer: null
+  // the weather's: { name, current, days, offset, focus, here }
+  property var wx: null
+  readonly property bool answerShown: (!!popup.ask && !!popup.answer) || (!!popup.wxAsk && !!popup.wx)
+  property int askSeq: 0
+  onAskChanged: popup.takeAsk()
+  onWxAskChanged: popup.takeAsk()
+  Timer { id: askLater; interval: 300; onTriggered: popup.askWorld() }
+  function takeAsk() {
+    popup.askSeq++;
+    const a = popup.ask;
+    if (a && a.kind === "define") { popup.answer = null; return; }   // lexi's card has it (lexiAsk)
+    const now = a ? Answers.answerOf(a, new Date(), Oracle.clock24h) : null;
+    if (now) { popup.answer = Object.assign({ kind: a.kind }, now); popup.wx = null; return; }
+    if (!a) popup.answer = null;
+    if (!popup.wxAsk) popup.wx = null;
+    if (a || popup.wxAsk) askLater.restart();
+  }
+  // the machine and the weather, asked once the line has settled
+  function askWorld() {
+    const seq = popup.askSeq;
+    const a = popup.ask;
+    if (a) {
+      // what is playing is the shell's own to say (morpheus/NowPlaying)
+      if (a.kind === "playing") {
+        popup.answer = NowPlaying.active && NowPlaying.title !== ""
+          ? { kind: "playing", big: NowPlaying.title, small: (NowPlaying.artist || "")
+              + (NowPlaying.playing ? "" : (NowPlaying.artist ? " · " : "") + "Paused") }
+          : { kind: "playing", big: "Nothing playing", small: "No player has anything on" };
+        return;
+      }
+      // the calendar: chronos' cal.py, over the days asked about
+      if (a.kind === "cal") {
+        const r = Answers.calRange(a, new Date());
+        askProc.seq = seq;
+        askProc.kind = "cal";
+        askProc.command = ["python3", "-I", Chronos.calCore, "list", r.from, r.to];
+        askProc.running = true;
+        return;
+      }
+      const cmd = a.kind === "battery"
+        ? "for b in /sys/class/power_supply/BAT*; do [ -e \"$b/capacity\" ] && echo \"$(cat \"$b/capacity\") $(cat \"$b/status\")\" && break; done"
+        : a.kind === "ip" ? "ip -4 -o addr show scope global"
+        : a.kind === "uptime" ? "cut -d' ' -f1 /proc/uptime"
+        : a.kind === "memory" ? "cat /proc/meminfo"
+        : a.kind === "disk" ? "df -kP \"$HOME\""
+        : a.kind === "cpu" ? "cat /proc/loadavg; nproc"
+        : a.kind === "kernel" ? "uname -sr"
+        : a.kind === "hostname" ? "cat /etc/hostname 2>/dev/null || uname -n"
+        : a.kind === "wifi" ? "nmcli -t -f active,ssid dev wifi 2>/dev/null | grep '^yes:' | cut -d: -f2-"
+        // the words to hash go as an argument, never into the script
+        : a.kind === "hash" ? "printf '%s' \"$1\" | " + a.algo + "sum | cut -d' ' -f1" : "";
+      if (cmd === "") return;
+      askProc.seq = seq;
+      askProc.kind = a.kind;
+      askProc.command = ["sh", "-c", cmd, "cynosure", a.text || ""];
+      askProc.running = true;
+      return;
+    }
+    const w = popup.wxAsk;
+    if (!w) return;
+    const offset = Answers.dayOffset(w.day, new Date());
+    // here: chronos' own forecast, already fetched
+    if (w.place === "") {
+      if (!Weather.ready) { Weather.refreshIfStale(); return; }
+      popup.wx = { name: Weather.place !== "" ? Weather.place : "Here", current: Weather.current,
+        days: Weather.days, offset, focus: w.focus, here: true };
+      return;
+    }
+    const hit = popup.wxCache[w.place];
+    if (hit) { popup.wx = Object.assign({}, hit, { offset, focus: w.focus, here: false }); return; }
+    Net.request("GET", Answers.geocodeUrl(w.place), { timeout: 8 }, (st, body) => {
+      if (seq !== popup.askSeq) return;
+      const g = st === 200 ? Answers.parseGeocode(body) : null;
+      if (!g) { popup.wx = null; return; }
+      Net.request("GET", Wx.forecastUrl(g.lat, g.lon), { timeout: 10 }, (st2, body2) => {
+        if (seq !== popup.askSeq || st2 !== 200) return;
+        try {
+          const f = Wx.parseForecast(body2);
+          const got = { name: g.name, current: f.current, days: f.days };
+          popup.wxCache[w.place] = got;
+          popup.wx = Object.assign({}, got, { offset, focus: w.focus, here: false });
+        } catch (e) { popup.wx = null; }
+      });
+    });
+  }
+  // places already asked about, for as long as the shell runs
+  property var wxCache: ({})
+  Connections {
+    target: Weather
+    function onCurrentChanged() { if (popup.wxAsk && popup.wxAsk.place === "") popup.askWorld(); }
+  }
+  Process {
+    id: askProc
+    property int seq: 0
+    property string kind: ""
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        if (askProc.seq !== popup.askSeq) return;
+        const k = askProc.kind;
+        let a = null;
+        if (k === "cal") a = popup.ask ? Answers.calAnswer(text, popup.ask, new Date()) : null;
+        else if (k === "battery") a = Answers.parseBattery(text) || { big: "No battery", small: "On mains power" };
+        else if (k === "ip") {
+          const addrs = Answers.parseAddrs(text);
+          a = addrs.length ? { big: addrs.map((x) => x.addr).join("  ·  "), small: addrs.map((x) => x.dev).join(" · ") }
+            : { big: "Offline", small: "No address on any network" };
+        } else if (k === "uptime") a = { big: Answers.uptimeText(text), small: "Since this computer started" };
+        else if (k === "memory") a = Answers.parseMem(text);
+        else if (k === "disk") a = Answers.parseDf(text);
+        else if (k === "cpu") a = Answers.parseLoad(text);
+        else if (k === "kernel") a = { big: text.trim(), small: "The kernel running now" };
+        else if (k === "hostname") a = { big: text.trim(), small: "This computer's name" };
+        else if (k === "wifi") a = text.trim() !== "" ? { big: text.trim(), small: "The Wi-Fi network you are on" }
+          : { big: "Not on Wi-Fi", small: "No wireless network joined" };
+        else if (k === "hash") a = { big: text.trim(), small: popup.ask ? popup.ask.algo.toUpperCase() + " of \u201C"
+          + (popup.ask.text.length > 30 ? popup.ask.text.slice(0, 29) + "\u2026" : popup.ask.text) + "\u201D" : "" };
+        popup.answer = a ? Object.assign({ kind: k }, a) : null;
+      }
+    }
+  }
+  // the day the weather card is about, and the line it is copied as
+  readonly property var wxDay: popup.wx && popup.wx.days ? (popup.wx.days[popup.wx.offset] || null) : null
+  function wxSummary() {
+    const w = popup.wx;
+    if (!w) return "";
+    const d = popup.wxDay;
+    const t = (c) => Weather.fmt(c) + Weather.unit;
+    if (w.offset === 0 && w.current)
+      return w.name + ": " + t(w.current.temp) + ", " + Wx.label(w.current.code)
+        + (d ? " (high " + t(d.hi) + ", low " + t(d.lo) + ")" : "");
+    return d ? w.name + ", " + popup.dayName(w.offset) + ": " + Wx.label(d.code) + ", " + t(d.hi) + " / " + t(d.lo) : w.name;
+  }
+  function dayName(offset) {
+    if (offset === 0) return "Today";
+    if (offset === 1) return "Tomorrow";
+    const d = new Date(); d.setDate(d.getDate() + offset);
+    return ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][d.getDay()];
+  }
+  function answerText() {
+    return popup.wxAsk && popup.wx ? popup.wxSummary() : popup.answer ? popup.answer.big : "";
+  }
+  onCalcLineChanged: if (popup.metis && popup.calcWanted) popup.metis.setLine(popup.calcLine)
+  // this field's text set without it counting as typing
+  property bool feedingLine: false
+  function feedLine(t) {
+    popup.feedingLine = true;
+    input.text = t;
+    popup.feedingLine = false;
+  }
+
+  // ── THE DICTIONARY AND THE TRANSLATOR, AS CARDS ────────────────────
+  // Lexi under the field the way the calculator is (user, 2026-11-01: "both
+  // lexi's modes in base panel just like metis", stylized cards): the line
+  // keeps its own field, and "define …", "… meaning", "tr …", "hello in
+  // spanish" (Cynosure.parseLexi) put a Dictionary or a Translate card over
+  // the list. Lexi (lexi/LexiCore.qml, loaded unseen) does the asking, with
+  // its caches and histories; this draws the card. Its pages are not shown.
+  readonly property var lexiAsk: popup.mode === "search" && !popup.taken ? Cynosure.parseLexi(popup.query) : null
+  property bool lexiLatched: false
+  readonly property var lexi: lexiLoader.item
+  onLexiAskChanged: {
+    if (popup.lexiAsk) popup.lexiLatched = true;
+    popup.lexiChip = -1;
+    lexiAskLater.restart();
+  }
+  // asked once the line rests: both answers come off the network
+  Timer { id: lexiAskLater; interval: 350; onTriggered: popup.askLexi() }
+  function askLexi() {
+    const a = popup.lexiAsk, x = popup.lexi;
+    if (!a || !x) return;
+    if (a.mode === "dict") x.cardDefine(a.word, a.lang);
+    else x.cardTranslate(a.text, a.to ? a.to.code : "en", a.from ? a.from.code : null);
+  }
+  readonly property bool lexiShown: !!popup.lexi && !!popup.lexiAsk && popup.lexi.cardInit
+  readonly property string lexiMode: popup.lexiShown && popup.lexiAsk ? popup.lexiAsk.mode : ""
+  // nothing after "def" or "tr": the card is the recents, as chips
+  readonly property bool lexiBare: popup.lexiShown && !!popup.lexiAsk
+    && (popup.lexiAsk.mode === "dict" ? popup.lexiAsk.word.trim() === "" : popup.lexiAsk.text.trim() === "")
+  readonly property var lexiTr: popup.lexiMode === "trans" && popup.lexi ? popup.lexi.cardTr : null
+  // the chips under the card: { label, sub, glyph, line } — the line they set
+  readonly property var lexiChips: {
+    const x = popup.lexi, a = popup.lexiAsk;
+    if (!popup.lexiShown || !a || !x) return [];
+    const out = [];
+    if (a.mode === "dict") {
+      if (popup.lexiBare) {
+        for (const w of x.dictHist.slice(0, popup.lexiChipMax)) out.push({ label: w, glyph: "\uF1DA", line: "def " + w });
+        return out;
+      }
+      for (const o of x.dictSuggest.slice(0, popup.lexiChipMax))
+        out.push(o.kind === "lang"
+          ? { label: o.text, glyph: "\uF1AB", line: "def " + x.dictQuery + " in " + o.en }
+          : { label: o.text, glyph: "\uF002", line: "def " + o.text });
+      if (out.length) return out;
+      for (const w of x.dictAlso) out.push({ label: w, glyph: "\uF002", line: "def " + w });
+      const r = x.dictResult;
+      if (r && r.synonyms) for (const w of r.synonyms.slice(0, Math.max(0, popup.lexiChipMax - out.length))) out.push({ label: w, glyph: "", line: "def " + w });
+      return out;
+    }
+    if (popup.lexiBare) {
+      for (const e of x.transHist.slice(0, popup.lexiChipMax))
+        out.push({ label: e.translation || e.text, sub: e.text, glyph: "\uF1AB",
+          line: "tr " + e.text + " in " + Lexicon.langEnName(e.code) });
+      return out;
+    }
+    // the languages, most used first: a chip translates into that one
+    const to = popup.lexiTr ? popup.lexiTr.to : "";
+    for (const l of x.langRows) {
+      if (l.code === to) continue;
+      out.push({ label: Lexicon.langEnName(l.code), sub: "",
+        glyph: "", line: "tr " + a.text + (a.from ? " from " + a.from.en : "") + " in " + Lexicon.langEnName(l.code) });
+      // few enough to sit centered under the answer, as the card's every
+      // line does (user, 2026-11-01); any other is "… in <language>"
+      if (out.length >= popup.lexiChipMax) break;
+    }
+    return out;
+  }
+  readonly property int lexiChipMax: 6
+  // the chip tab has moved onto, or -1
+  property int lexiChip: -1
+  function lexiTakeChip(i) {
+    const c = popup.lexiChips[i];
+    if (!c) return;
+    popup.feedLine(c.line);
+    popup.sel = -1;
+  }
+  // what return copies, and the translation kept in Lexi's history with it
+  function lexiCopy() {
+    const x = popup.lexi;
+    if (!x) return;
+    const t = x.cardText(popup.lexiMode);
+    if (t === "") return;
+    x.cardKeep();
+    popup.copyText(t);
+    popup.closeCynosure();
+  }
+  // the other way round: the translation becomes the words, into what they
+  // were written in
+  function lexiSwap() {
+    const c = popup.lexiTr;
+    if (!c || !c.translation || !c.source) return;
+    popup.feedLine("tr " + c.translation + " in " + Lexicon.langEnName(c.source));
+  }
+  // the card's own keys while it is the chosen row; true when one was used
+  function lexiKey(event) {
+    const k = event.key, alt = event.modifiers & Qt.AltModifier;
+    const n = popup.lexiChips.length;
+    if (k === Qt.Key_Tab || k === Qt.Key_Backtab) {
+      if (n === 0) return false;
+      event.accepted = true;
+      const d = k === Qt.Key_Backtab || (event.modifiers & Qt.ShiftModifier) ? -1 : 1;
+      // round the chips and back off them (-1, the card itself)
+      popup.lexiChip = (popup.lexiChip + 1 + d + n + 1) % (n + 1) - 1;
+      popup.revealLexiChip();
+      return true;
+    }
+    if ((k === Qt.Key_Left || k === Qt.Key_Right) && popup.lexiChip >= 0) {
+      event.accepted = true;
+      popup.lexiChip = Math.max(0, Math.min(n - 1, popup.lexiChip + (k === Qt.Key_Left ? -1 : 1)));
+      popup.revealLexiChip();
+      return true;
+    }
+    if ((k === Qt.Key_Return || k === Qt.Key_Enter) && !(event.modifiers & Qt.ShiftModifier)) {
+      event.accepted = true;
+      if (popup.lexiChip >= 0) popup.lexiTakeChip(popup.lexiChip);
+      else popup.lexiCopy();
+      return true;
+    }
+    if (alt && k === Qt.Key_P) { event.accepted = true; popup.lexi.cardSpeak(popup.lexiMode); return true; }
+    if (alt && k === Qt.Key_E && popup.lexiMode === "dict") { event.accepted = true; popup.lexi.cardMore(); return true; }
+    if (alt && k === Qt.Key_S && popup.lexiMode === "trans") { event.accepted = true; popup.lexiSwap(); return true; }
+    return false;
+  }
+  // the chosen chip scrolled into sight, as metis' are
+  function revealLexiChip() {
+    const i = popup.lexiChip;
+    if (i >= 0) Qt.callLater(() => lexiStrip.reveal(lexiChipRep.itemAt(i)));
+  }
+  // opened onto words already chosen (Lexi's IPC: minerva's look-up card)
+  function lookUp(mode, words) {
+    popup.toggleLine((mode === "trans" ? "tr " : "def ") + words);
+  }
+
+  // ── PASSWORDS, IN THE LIST ────────────────────────────────────────────
+  // Calypso's Quick Access whole (calypso/CalypsoView.qml, `embedded`): "pw
+  // …" hands it the field, and its pages (the logins, a login's actions, the
+  // unlock) are drawn from the top with the words as its filter; backspace
+  // at its empty filter gives the field back. The manager knows it as
+  // `quickAccess` (shown only while it is up).
+  property bool pwMode: false
+  property bool pwLatched: false
+  property var pwPending: null
+  readonly property var calypso: calypsoLoader.item
+  readonly property int pwH: popup.calypso && popup.pwMode ? popup.calypso.calcHeight() : 0
+  readonly property QtObject quickAccess: QtObject {
+    readonly property bool shown: popup.shown && !popup.collapsing && popup.pwMode
+    function closePopup() { if (popup.pwMode) popup.closeCynosure(); }
+    function toggle() { popup.toggleLine("pw "); }
+  }
+  function maybeEnterPw() {
+    if (popup.pwMode || popup.taken || popup.mode !== "search") return;
+    const m = /^\s*pw\s(.*)$/i.exec(popup.query);
+    if (!m) return;
+    popup.pwPending = m[1];
+    popup.pwMode = true;
+    if (popup.calypso) popup.startPw();
+    else popup.pwLatched = true;
+  }
+  function startPw() {
+    if (popup.pwPending === null || !popup.calypso) return;
+    const rest = popup.pwPending;
+    popup.pwPending = null;
+    popup.calypso.start();
+    popup.calypso.setLine(rest);
+  }
+  function exitPw() {
+    popup.pwMode = false;
+    popup.feedLine("");
+    Qt.callLater(() => input.forceActiveFocus());
+  }
+
+
+  // ── A QUICK PANEL'S ROW ───────────────────────────────────────────────
+  // `view` is a verb's ("folio", "lexi:trans", "ideo:emoji"), `q` what goes
+  // after its word: the word typed into the field, which makes the list (or
+  // hands the field) as that panel has it.
+  // a verb of Cynosure's own: a line typed for you, or a page of a panel
+  // that lives in the list (folio's snippet page, made first if need be)
+  property bool snippetAsked: false
+  function runInline(a) {
+    if (a.line) {
+      popup.untake();
+      input.text = a.line;
+      input.cursorPosition = input.text.length;
+      return;
+    }
+    if (a.inline === "newLink") { popup.askLink(); return; }
+    if (a.inline === "script") { popup.runScript(a.script, ""); return; }
+    if (a.inline === "newScript") {
+      // a starter written under the next free name, opened in plato
+      Quickshell.execDetached(["sh", "-c", "mkdir -p \"$1\" && f=\"$1/new-script.sh\" && n=1 && "
+        + "while [ -e \"$f\" ]; do n=$((n+1)); f=\"$1/new-script-$n.sh\"; done && "
+        + "printf '%s' \"$2\" > \"$f\" && chmod +x \"$f\" && qs ipc call Plato open \"$f\"",
+        "cynosure", Cynosure.scriptsDir(), Cynosure.scriptTemplate()]);
+      popup.closeCynosure();
+      return;
+    }
+    if (a.inline === "scriptsDir") {
+      Quickshell.execDetached(["sh", "-c", "mkdir -p \"$1\" && qs ipc call Terminus open \"$1\"", "cynosure",
+        Cynosure.scriptsDir()]);
+      popup.closeCynosure();
+      return;
+    }
+    if (a.inline === "newSnippet") {
+      if (popup.folio) popup.folio.editSnippetAt("", "", "");
+      else { popup.snippetAsked = true; popup.folioLatched = true; }
+    }
+  }
+
+  // whatever has the field gives it back, for a line set from outside
+  function untake() {
+    popup.pwMode = false;
+    if (popup.folio && popup.folio.editing) popup.folio.cancelEdit();
+  }
+  function handOff(view, q, action) {
+    const parts = String(view).split(":");
+    const word = popup.inList[view] !== undefined ? popup.inList[view] : popup.inList[parts[0]];
+    if (word === undefined) { if (action) popup.runAction(action); return; }
+    popup.untake();
+    input.text = word + " " + (q || "");
+    input.cursorPosition = input.text.length;
+  }
+
   function runCommand(cmd, mode) {
-    const icon = mode === "Terminal" ? popup.terminalIcon : popup.processIcon;
+    const icon = mode === "Terminal" ? Cynosure.ICON_T : Cynosure.ICON_P;
     popup.histLines = Cynosure.addHistory(popup.histLines, cmd, mode, icon);
     popup.bump(cmd);
     popup.writeHistory();
@@ -318,25 +1626,25 @@ property var statusbar: null
     popup.closeCynosure();
   }
 
-  // THE ROW FLASHES, THEN IT RUNS (user, 2026-10-21) — the suite's menus'
-  // ChosenFlash, on the sliding cursor. Not for a row that only opens the
-  // picker: nothing has happened yet (ChosenFlash's own rule).
+  // THE ROW FLASHES, THEN IT RUNS (user, 2026-10-21) — the suite's list
+  // flash, RowFlash. Not for a row that only opens the picker: nothing has
+  // happened yet.
+  RowFlash { id: rowFlash }
   function confirm() {
     const idx = popup.sel;
-    // the views' own highlight items: an id inside `highlight:` is in the
-    // component's context, not this file's
-    const bar = (popup.mode === "picker" ? pickerList.highlightItem : list.highlightItem) as SelBar;
-    if (bar && bar.flash.running) return;
-    if (!bar || !bar.cur || !popup.acts(idx)) { popup.confirmAt(idx); return; }
-    bar.flash.fire(() => popup.confirmAt(idx));
+    if (rowFlash.running) return;
+    if (idx < 0) return;
+    if (!popup.acts(idx)) { popup.confirmAt(idx); return; }
+    rowFlash.flashThen(idx, () => popup.confirmAt(idx), () => popup.sel);
   }
   function acts(idx) {
     if (popup.mode === "picker") {
       const r = popup.pickerRows[idx];
-      return !!r && (r.key.startsWith("timer:") || r.key === "Confirm" || r.key === "Terminal" || r.key === "Process");
+      return !!r && (r.key.startsWith("timer:") || r.key === "Confirm");
     }
     const row = popup.filtered[idx];
     if (!row) return false;
+    if (row.kind === "argcmd") return row.cmd.kind !== "kill";
     if (row.kind !== "shell") return true;
     if (row.action.confirm) return false;
     return !(row.action.choose === "timer" && Cynosure.timerChoices(Chronos.timers).length > 1);
@@ -346,36 +1654,96 @@ property var statusbar: null
       const choice = popup.pickerRows[idx].key;
       if (choice.startsWith("timer:")) popup.runAction(popup.pending, "Chronos startAt " + choice.slice(6));
       else if (choice === "Confirm") popup.runAction(popup.pending);
-      else if (choice === "Terminal") popup.runCommand(popup.query, "Terminal");
-      else if (choice === "Process") popup.runCommand(popup.query, "Process");
       else popup.backToSearch();
       return;
     }
-    const row = popup.filtered[idx];
-    if (row) {
-      if (row.kind === "app") {
+    popup.runRow(popup.filtered[idx]);
+  }
+  // what return does to a row, chosen or (a hotkey's) kept
+  function runRow(row) {
+    if (!row) return;
+    if (row.kind === "app") {
+      popup.bump(row.key);
+      Quickshell.execDetached(["sh", "-c", Cynosure.launchAppCommand(row.id)]);
+      popup.closeCynosure();
+    } else if (row.kind === "clip" || row.kind === "clipimg") {
+      popup.folio.takeClip(row.id);
+    } else if (row.kind === "snip") {
+      popup.folio.takeSnippet(row.content);
+    } else if (row.kind === "pics") {
+      const pic = popup.chosenCell(row);
+      if (pic) popup.folio.takeClip(pic.id);
+    } else if (row.kind === "glyphs") {
+      const cell = row.cells[Math.min(popup.cellSel, row.cells.length - 1)];
+      if (cell) {
+        popup.noteGlyph(cell.char, row.nerd);
+        row.nerd ? popup.ideo.copyGlyph(cell.char) : popup.ideo.pasteGlyph(cell.char);
+      }
+    } else if (row.kind === "file") {
+      popup.opening = true;
+      popup.finder.open(row);
+    } else if (row.kind === "scoped") {
+      popup.bump(row.key);
+      popup.handOff(row.view, row.rest, row.action);
+    } else if (row.kind === "script") {
+      popup.runScript(row.script, row.arg);
+    } else if (row.kind === "window") {
+      popup.goToWindow(row.address);
+    } else if (row.kind === "setting") {
+      popup.openSetting(row);
+    } else if (row.kind === "storeapp") {
+      popup.openStoreApp(row);
+    } else if (row.kind === "note") {
+      popup.openNote(row);
+    } else if (row.kind === "package") {
+      popup.changePackage(row);
+    } else if (row.kind === "newevent") {
+      popup.addEvent(row, false);
+    } else if (row.kind === "newnote") {
+      popup.saveNote(row.text, false);
+    } else if (row.kind === "argcmd") {
+      // ending processes asks first, on the one-line confirm
+      if (row.cmd.kind === "kill") {
+        popup.pending = { name: row.label, glyph: row.glyph, confirm: true,
+          sh: "pkill " + (row.cmd.force ? "-KILL " : "") + "-i -x -- " + Strings.shellQuote(row.cmd.name) };
+        popup.showPicker();
+        popup.sel = popup.pickerRows.length - 1;
+        return;
+      }
+      popup.runCmd(row.cmd);
+    } else if (row.kind === "link") {
+      Strings.openLink(row.url);
+      popup.closeCynosure();
+    } else if (row.kind === "fallback") {
+      popup.runInline(row.action);
+    } else if (row.kind === "run") {
+      popup.runCommand(row.text, row.mode);
+    } else if (row.kind === "shell") {
+      if (row.action.line || row.action.inline) {
         popup.bump(row.key);
-        Quickshell.execDetached(["sh", "-c", Cynosure.launchAppCommand(row.id)]);
-        popup.closeCynosure();
-      } else if (row.kind === "shell") {
-        const picks = row.action.choose === "timer"
-          ? Cynosure.timerChoices(Chronos.timers) : [];
-        if (picks.length > 1) {
-          popup.pending = row.action;
-          popup.choices = picks;
-          popup.showPicker();
-        } else if (row.action.confirm) {
-          popup.pending = row.action;
-          popup.showPicker();
-          popup.sel = popup.pickerRows.length - 1;   // Back, not Confirm
-        } else {
-          popup.runAction(row.action);
-        }
+        popup.runInline(row.action);
+        return;
+      }
+      if (row.action.view) {
+        popup.bump(row.key);
+        popup.handOff(row.action.view, "", row.action);
+        return;
+      }
+      const picks = row.action.choose === "timer"
+        ? Cynosure.timerChoices(Chronos.timers) : [];
+      if (picks.length > 1) {
+        popup.pending = row.action;
+        popup.choices = picks;
+        popup.showPicker();
+      } else if (row.action.confirm) {
+        popup.pending = row.action;
+        popup.showPicker();
+        popup.sel = popup.pickerRows.length - 1;   // Back, not Confirm
       } else {
-        popup.runCommand(row.key, row.raw.startsWith(Cynosure.ICON_P) ? "Process" : "Terminal");
+        popup.runAction(row.action);
       }
     } else {
-      popup.showPicker();
+      popup.runCommand(row.key, row.raw.startsWith(Cynosure.ICON_P) ? "Process" : "Terminal");
     }
   }
 
@@ -399,100 +1767,17 @@ property var statusbar: null
     }
   }
 
-  function showPicker() {
-    popup.mode = "picker";
-    popup.sel = 0;
-    input.readOnly = true;
-  }
-
-  FocusRetry {
-    id: focusRetry
-    live: popup.shown
-    took: input.activeFocus
-    onPlace: input.forceActiveFocus()
-  }
-
-  function backToSearch() {
-    popup.pending = null;
-    popup.choices = null;
-    popup.mode = "search";
-    input.readOnly = false;
-    Qt.callLater(() => input.forceActiveFocus());
-  }
-
-  function openCynosure() {
-    popup._resetAfterClose();
-    popup.shown = true;
-    popup.pending = null;
-    popup.choices = null;
-    popup.mode = "search";
-    popup.query = "";
-    popup.sel = 0;
-    if (input) {
-      input.text = "";
-      input.readOnly = false;
-    }
-
-    histCat.running = false;
-    histCat.running = true;
-    popup.applyFilter();
-    focusRetry.begin();
-  }
-
-  // standalone close on selection should keep the strip at its current
-  // width and keep the selected row highlighted while it slides/fades,
-  // not snap the model to "" and shrink to 0 mid-animation
-  property bool _isClosing: false
-  Timer {
-    id: closeResetTimer
-    // standalone, the fade out is spawnFactor's, which runs longer
-    interval: (popup.morphMode ? Zenon.slow : Math.max(Zenon.slow, Zenon.tuck)) + 40
-    onTriggered: {
-      popup.query = "";
-      popup.mode = "search";
-      popup.sel = 0;
-      popup.pending = null;
-      popup.choices = null;
-      if (input) {
-        input.text = "";
-        input.readOnly = false;
-      }
-      popup._isClosing = false;
-    }
-  }
-  function closeCynosure() {
-    if (popup._isClosing) return;
-    popup._isClosing = true;
-    popup.shown = false;
-    // keep query/mode/sel until the fade (showFactor/spawnFactor) finishes
-    // so fittedListW/contentWidth/list stay at the selected width
-    closeResetTimer.restart();
-  }
-  function _resetAfterClose() {
-    // used when reopening before the close timer fires (e.g. quick toggle)
-    closeResetTimer.stop();
-    popup._isClosing = false;
-  }
-
-  function toggle() {
-    if (popup.shown) popup.closeCynosure();
-    else popup.openCynosure();
-  }
-
-  function moveSel(delta) {
-    const len = popup.mode === "picker" ? popup.pickerRows.length : popup.filtered.length;
-    if (len === 0) return;
-    popup.sel = Nav.wrap(popup.sel, delta, len);
-    popup.followSelection();
-  }
-
-  function autocomplete() {
-    if (popup.mode !== "search") {
-      popup.moveSel(1);
-      return;
-    }
+  // Tab: a quick panel's row opens it, a name is completed into the field
+  function tabRow() {
+    if (popup.mode !== "search") { popup.moveSel(1); return; }
     const row = popup.filtered[popup.sel];
     if (!row) return;
+    if (row.kind === "file") return;
+    if (row.kind === "scoped" || (row.kind === "shell" && row.action.view)) {
+      popup.confirm();
+      return;
+    }
+    if (row.kind === "run") return;
     const kind = row.kind;
     const key = row.key;
     input.text = row.text;
@@ -500,637 +1785,1993 @@ property var statusbar: null
     if (idx >= 0) popup.sel = idx;
   }
 
-  // Shrink-wrap width: input bar (while typing) + list content, max 1000.
-  // No trailing pad and no minimum — the rows already carry 12px a side, so
-  // anything added here is dead space at the right end, most obvious once a
-  // filter has narrowed the list to a couple of short entries.
-  // ListView's own content extent, not contentItem.childrenRect: childrenRect
-  // measures whichever delegates happen to be materialised, so it lingers wide
-  // after a filter narrows the model and the pill keeps the old width.
-  readonly property real pickerW: pickerList.contentWidth
+  function showPicker() {
+    popup.mode = "picker";
+    popup.sel = 0;
+    input.readOnly = true;
+    popup.followSelection();
+  }
 
-  // ── whole-row shrink-wrap ────────────────────────────────────────────────
-  // The strip ends on a row boundary rather than at the raw 1000px cap, so a
-  // row dropped for being sliced doesn't leave its slot behind as dead space.
-  //
-  // Measured imperatively rather than as a binding, and against the fixed cap
-  // rather than the live viewport: the pill's width is what the measurement
-  // decides, so a binding that read the viewport back would be a cycle
-  // (width -> which rows fit -> width). Evaluating once per change instead of
-  // iterating to a fixpoint makes that impossible.
-  readonly property real listCap: 1000 - inputBar.width
-  property real fittedListW: 0
+  FocusRetry {
+    id: focusRetry
+    live: popup.shown && !popup.taken
+    took: input.activeFocus
+    onPlace: input.forceActiveFocus()
+  }
 
-  // The run of rows the strip actually shows, as model indices. This is what
-  // makes the corners content-aware: a row rounds because it is the first or
-  // last row on screen, not because of where it sits in the model. Filtering,
-  // scrolling and dropping a sliced row all move these two numbers, so the
-  // rounding follows without any of them being special-cased.
-  property int fitFirst: -1
-  property int fitLast: -1
+  // ── SETTING AN ALIAS ──────────────────────────────────────────────────
+  // The field becomes "Alias for Firefox" and the word: return keeps it (an
+  // empty word takes the alias away), esc leaves it as it was. The line that
+  // was typed comes back after.
+  // the line is a word being set (an alias, a quick link), not a search
+  readonly property bool editing: popup.mode === "alias" || popup.mode === "link" || popup.mode === "hotkey"
+  property var aliasRow: null
+  property string aliasNote: ""
+  property string aliasWas: ""
+  // "New quick link": the same one line, its chip "New quick link" and the
+  // word then the address typed after it
+  function askLink() {
+    popup.aliasRow = null;
+    popup.aliasNote = "";
+    popup.aliasWas = popup.query;
+    popup.mode = "link";
+    input.readOnly = false;
+    input.text = "";
+    Qt.callLater(() => input.forceActiveFocus());
+  }
+  function saveLink() {
+    const got = Cynosure.readLink(input.text);
+    if (got.problem) { popup.aliasNote = got.problem; return; }
+    popup.ownLinks = popup.ownLinks.filter((l) => l.word !== got.link.word).concat([got.link]);
+    popup.writeLinks();
+    popup.endAlias();
+  }
+  function askAlias(row) {
+    popup.aliasRow = row;
+    popup.aliasNote = "";
+    popup.aliasWas = popup.query;
+    popup.mode = "alias";
+    input.readOnly = false;
+    input.text = row.alias || "";
+    input.selectAll();
+    Qt.callLater(() => input.forceActiveFocus());
+  }
+  function saveAlias() {
+    const word = input.text.trim().toLowerCase();
+    const problem = Cynosure.aliasProblem(word);
+    if (problem !== "") { popup.aliasNote = problem; return; }
+    // a word another row had moves to this one
+    const others = {};
+    for (const w in popup.aliases) if (w !== word) others[w] = popup.aliases[w];
+    popup.aliases = word === "" ? Cynosure.dropAlias(popup.aliases, popup.aliasRow)
+      : Cynosure.setAlias(others, word, popup.aliasRow);
+    popup.writeAliases();
+    popup.endAlias();
+  }
+  function endAlias() {
+    popup.aliasRow = null;
+    popup.aliasNote = "";
+    popup.mode = "search";
+    input.text = popup.aliasWas;
+    input.cursorPosition = input.text.length;
+    popup.rebuild();
+  }
 
-  function measureFit() {
-    const avail = popup.listCap;
-    const c = list.contentX;
-    let first = -1;
-    let last = -1;
-    let best = 0;
-    let built = 0;
-    for (let i = 0; i < popup.filtered.length; ++i) {
-      const it = list.itemAtIndex(i);
-      // ── AN UNBUILT ROW IS OFF ONE END OR THE OTHER ──────────────────
-      // This used to stop at the first row the view had not realized, on
-      // the reading that it was past the far end. It can just as well be
-      // BEFORE the near one: wrap to the end of a long list (Up from the
-      // first row) and the view scrolls so far that it lets the first rows
-      // go. The walk then stopped at row 0, found nothing, and fell back to
-      // "nothing fits" — every row painted, a sliced one on the left, and
-      // the last row square in the pill's right corner. Before the run
-      // starts, an unbuilt row is scrolled off the left: skip it. After, it
-      // is past the right: stop.
-      if (!it) { if (first >= 0) break; continue; }
-      built++;
-      const left = it.x - c;
-      const right = left + it.width;
-      if (right <= 0.5) continue;        // scrolled off to the left
-      if (left < -0.5) continue;         // sliced by the left edge
-      if (right > avail + 0.5) break;    // first row the cap would slice
-      if (first < 0) first = i;
-      last = i;
-      best = right;
+  function backToSearch() {
+    popup.pending = null;
+    popup.choices = null;
+    popup.mode = "search";
+    popup.sel = 0;
+    input.readOnly = false;
+    popup.followSelection();
+    Qt.callLater(() => input.forceActiveFocus());
+  }
+
+  function resetState() {
+    popup.endHotkey();
+    popup.recallAt = -1;
+    popup.altHeld = false;
+    popup.actionsOpen = false;
+    popup.lexiChip = -1;
+    // read again next time: what is installed may have changed meanwhile
+    popup.storeApps = [];
+    popup.pkgFound = [];
+    popup.folioLatched = false;
+    popup.snippetAsked = false;
+    popup.clipRows = [];
+    popup.pwMode = false;
+    popup.pwLatched = false;
+    popup.pwPending = null;
+    popup.glyphRows = [];
+    popup.cellSel = 0;
+    popup.opening = false;
+    popup.fileRows = [];
+    if (popup.finder) popup.finder.search("");
+    openWith.close();
+    popup.pending = null;
+    popup.choices = null;
+    popup.mode = "search";
+    popup.query = "";
+    popup.sel = 0;
+    input.text = "";
+    input.readOnly = false;
+  }
+
+  function openCynosure() {
+    if (popup.shown && !popup.collapsing) return;
+    rowFlash.cancel();
+    popup.resetState();
+    popup.shown = true;
+    popup.collapsing = false;
+    if (popup.metis) popup.metis.start();
+    histCat.running = false;
+    histCat.running = true;
+    scriptsProc.running = false;
+    scriptsProc.running = true;
+    // walked again on every open, as artemis' own panel did: 19ms for ~4k
+    // entries, and no staleness to reason about
+    if (popup.finder) popup.finder.reindex();
+    popup.applyFilter();
+    popup.playOpen();
+    focusRetry.begin();
+  }
+
+  // The list keeps what it showed until the panel has faded out, so the row
+  // that was chosen is still under the cursor on the way down.
+  function closeCynosure() {
+    if (!popup.shown || popup.collapsing) return;
+    // the line that led somewhere, kept for up to bring back
+    if (popup.mode === "search" && popup.query.trim() !== "") {
+      popup.queries = Cynosure.addQuery(popup.queries, popup.query);
+      writer.write(Cynosure.queriesPath(), Cynosure.serializeQueries(popup.queries));
     }
-    if (first >= 0) {
-      popup.fitRetries = 0;
-      popup.fitFirst = first;
-      popup.fitLast = last;
-      return best;
+    // a view keeps what it has on screen first (metis' answer), then says
+    // dismissed, which comes back here
+    if (popup.pwMode && popup.calypso && !popup.calypso.closing) { popup.calypso.closePopup(); return; }
+    // the calculator keeps the answer it was showing, as it always has
+    if (popup.metis && popup.calcShown && !popup.metis.closing) { popup.metis.closePopup(); return; }
+    popup.collapsing = true;
+    popup.playClose();
+  }
+  onCloseFinished: {
+    if (!popup.shown) popup.resetState();
+    popup.runAfterClose();
+  }
+
+  function toggle() {
+    if (popup.shown && !popup.collapsing) popup.closeCynosure();
+    else popup.openCynosure();
+  }
+
+  // the answer card, when it is up, is row -1: above the first
+  function moveSel(delta) {
+    const len = popup.mode === "picker" ? popup.pickerRows.length : popup.filtered.length;
+    const first = popup.mode === "search" && popup.cardUp ? -1 : 0;
+    const n = len - first;
+    if (n <= 0) return;
+    popup.sel = ((popup.sel - first + delta) % n + n) % n + first;
+    popup.followSelection();
+  }
+
+  function jumpSel(delta) {
+    const len = popup.mode === "picker" ? popup.pickerRows.length : popup.filtered.length;
+    if (len === 0) return;
+    popup.sel = Math.max(0, Math.min(len - 1, popup.sel + delta));
+    popup.followSelection();
+  }
+
+  // The keys the list answers, asked by the field BEFORE its own handling:
+  // a TextInput would take Up and Down for nothing, and the list is what they
+  // move. Left and Right stay the caret's.
+  // ── THE ACTIONS PANEL (shift return) ──────────────────────────────────
+  // Raycast's ⌘K: what the chosen row (or the calculator's card) can do,
+  // in the suite's menu card (morpheus/MenuCore) over the panel's bottom
+  // right. Up and down choose, return does it, esc or shift+return puts it
+  // away. Shift+return opens it (user, 2026-11-01: not ctrl k).
+  property bool actionsOpen: false
+  property var actionRows: []
+  property int actionSel: 0
+  // the row the panel was opened on: kept, so a list that refreshes under
+  // it does not change what the action is done to
+  property var actionOn: null
+  readonly property var chosenRow: !popup.cardSel ? popup.current
+    : popup.calcShown ? { kind: "calc" }
+    : popup.lexiShown ? { kind: "lexi", mode: popup.lexiMode, more: !!popup.lexi.dictResult,
+        swap: !!(popup.lexiTr && popup.lexiTr.source), say: popup.lexi.playerCmd !== "" }
+    : { kind: "answer", weather: !!popup.wxAsk,
+        calDay: popup.answer && popup.answer.kind === "cal" ? popup.answer.day || "" : "" }
+  // ── DRAGGED OUT ───────────────────────────────────────────────────────
+  // A file, a clip, a picture, a snippet, an emoji or a link dragged from
+  // the list into another app (artemis' and folio's way, brought here): for
+  // as long as the drag is out, the panel lets go of the pointer (its input
+  // region is nothing) and of its grab, so the drop is the other app's; a
+  // copy dropped closes the panel. The card under the pointer is terminus'.
+  property bool dragging: false
+  // explicitly the whole surface when idle, explicitly nothing while
+  // dragging: an unset mask read the wrong way leaves it click-through
+  mask: Region { item: popup.dragging ? null : closeArea }
+  Term.DragCard { id: dragCard }
+  function dragPicture(label, glyph, then, thumb) {
+    dragCard.label = label;
+    dragCard.glyph = glyph;
+    dragCard.ink = Zenon.cyan;
+    dragCard.thumb = thumb || "";
+    dragCard.picture(then);
+  }
+  // offer `item`'s drag with `mime`, once its card is drawn
+  function offerDrag(item, mime, label, glyph, thumb) {
+    popup.dragPicture(label, glyph, (url) => {
+      item.Drag.mimeData = mime;
+      item.Drag.imageSource = url;
+      item.Drag.active = true;
+    }, thumb);
+  }
+  function startDrag(item, r) {
+    popup.dragging = true;
+    if (r.kind === "file")
+      popup.offerDrag(item, { "text/uri-list": Strings.fileUrl(r.path.replace(/\/$/, "")) + "\r\n" }, r.label, r.glyph);
+    else if (r.kind === "snip") popup.offerDrag(item, { "text/plain": String(r.content || "") }, r.label, r.glyph);
+    else if (r.kind === "link") popup.offerDrag(item, { "text/uri-list": r.url + "\r\n", "text/plain": r.url }, r.label, r.glyph);
+    else if (r.kind === "clip")
+      // the clip itself, decoded (the row's is cliphist's folded preview)
+      popup.folio.decodeText(r.id, (t) => {
+        if (!popup.dragging) return;
+        popup.offerDrag(item, { "text/plain": t !== "" ? t : String(r.label) }, r.label, r.glyph);
+      });
+    else popup.dragging = false;
+  }
+  function dragEnded(item, action) {
+    item.Drag.active = false;
+    popup.dragging = false;
+    if (action === Qt.CopyAction) popup.closeCynosure();
+  }
+
+  // the chosen cell's item, which the cell cursor slides to
+  property Item chosenCellItem: null
+  function placeCellCursor() {
+    const c = popup.current;
+    const row = c && c.cells ? list.itemAtIndex(popup.sel) : null;
+    popup.chosenCellItem = row && row.cellItem ? row.cellItem(Math.min(popup.cellSel, c.cells.length - 1)) : null;
+  }
+  onFilteredChanged: Qt.callLater(popup.placeCellCursor)
+  // the cell chosen in a row of cells (a strip of emoji, a row of pictures)
+  function chosenCell(r) {
+    return r && r.cells ? r.cells[Math.min(popup.cellSel, r.cells.length - 1)] : null;
+  }
+  function openActions() {
+    let r = popup.chosenRow;
+    // a picture's actions are the chosen picture's
+    if (r && r.kind === "pics") r = { kind: "clipimg", id: popup.chosenCell(r).id };
+    const rows = Cynosure.rowActions(r && Cynosure.HOTKEY_KINDS[r.kind]
+      ? Object.assign({}, r, { hotkey: popup.chordWords(Cynosure.hotkeyOf(popup.hotkeys, r)) }) : r);
+    if (rows.length === 0) return;
+    popup.actionOn = r;
+    popup.actionRows = rows;
+    popup.actionSel = 0;
+    popup.actionsOpen = true;
+  }
+  function closeActions() { popup.actionsOpen = false; }
+  function actionsKey(event) {
+    const k = event.key;
+    event.accepted = true;
+    const shiftRet = (k === Qt.Key_Return || k === Qt.Key_Enter) && (event.modifiers & Qt.ShiftModifier);
+    if (k === Qt.Key_Escape || shiftRet) { popup.closeActions(); return; }
+    if (k === Qt.Key_Up) { popup.actionSel = (popup.actionSel + popup.actionRows.length - 1) % popup.actionRows.length; return; }
+    if (k === Qt.Key_Down) { popup.actionSel = (popup.actionSel + 1) % popup.actionRows.length; return; }
+    if (k === Qt.Key_Return || k === Qt.Key_Enter) { popup.doAction(popup.actionSel); return; }
+    // anything else is not typed into the line while the panel is up
+  }
+  function copyText(t) {
+    Quickshell.execDetached(["sh", "-c", "printf '%s' \"$1\" | wl-copy", "cynosure", String(t)]);
+  }
+  function doAction(i) {
+    const act = popup.actionRows[i];
+    const r = popup.actionOn;
+    popup.closeActions();
+    if (!act || !r) return;
+    const m = popup.metis;
+    switch (act.id) {
+    case "go":
+      if (r.kind === "calc") m.takeShown(false);
+      else if (r.kind === "answer") { popup.copyText(popup.answerText()); popup.closeCynosure(); }
+      else if (r.kind === "lexi") popup.lexiCopy();
+      else popup.confirm();
+      return;
+    case "setAlias": popup.askAlias(r); return;
+    case "setHotkey": popup.askHotkey(r); return;
+    case "dropHotkey": popup.dropHotkey(r); return;
+    case "winHere": popup.windowDo(r.address, "here"); return;
+    case "winFloat": popup.windowDo(r.address, "float"); return;
+    case "winCenter": popup.windowDo(r.address, "center"); return;
+    case "winFull": popup.windowDo(r.address, "full"); return;
+    case "closeWin":
+      Hyprland.dispatch(Hypr.closeWindow(Hypr.byAddress(r.address)));
+      return;
+    case "copyUrl": popup.copyText(r.url); popup.closeCynosure(); return;
+    case "dropLink":
+      popup.ownLinks = popup.ownLinks.filter((l) => l.word !== r.word);
+      popup.writeLinks();
+      popup.rebuild();
+      return;
+    case "dropAlias":
+      popup.aliases = Cynosure.dropAlias(popup.aliases, r);
+      popup.writeAliases();
+      popup.rebuild();
+      return;
+    case "calOpen":
+      Quickshell.execDetached(["qs", "ipc", "call", "Calendar", "day", r.calDay]);
+      popup.closeCynosure();
+      return;
+    case "forecast":
+      Quickshell.execDetached(["qs", "ipc", "call", "Chronos", "toggle"]);
+      popup.closeCynosure();
+      return;
+    case "copyName":
+      popup.copyText(r.kind === "glyphs" ? (r.nerd ? (r.cells[popup.cellSel] || {}).cls : (r.cells[popup.cellSel] || {}).name) || "" : r.kind === "hist" ? r.key : r.label);
+      popup.closeCynosure();
+      return;
+    case "copyPath": popup.copyText(r.path || (r.script ? r.script.path : "")); popup.closeCynosure(); return;
+    case "editScript":
+      Quickshell.execDetached(["qs", "ipc", "call", "Plato", "open", r.script.path]);
+      popup.closeCynosure();
+      return;
+    case "reveal":
+      Quickshell.execDetached(["qs", "ipc", "call", "Terminus", "reveal", r.path]);
+      popup.closeCynosure();
+      return;
+    case "openWith": openWith.ask(r.path); return;
+    case "forget":
+      if (r.kind === "hist") { popup.deleteSelected(); return; }
+      delete popup.freqMap[r.key];
+      popup.writeFreq();
+      popup.rebuild();
+      return;
+    case "runTerminal": popup.runCommand(r.key, "Terminal"); return;
+    case "runProcess": popup.runCommand(r.key, "Process"); return;
+    case "keep": popup.folio.keepClip(r.id); return;
+    case "drop":
+      if (r.kind === "snip") popup.folio.dropSnippet(r.path); else popup.folio.dropClip(r.id);
+      return;
+    case "markUp": popup.folio.annotateClip(r.id); return;
+    case "viewPic": popup.folio.viewClip(r.id); return;
+    case "savePic": popup.folio.saveClip(r.id); return;
+    case "openUrl": Strings.openLink(String(r.label).trim()); popup.closeCynosure(); return;
+    case "copyFile":
+      // as a file, not its path: pasted into terminus or a browser's upload
+      Quickshell.execDetached(["sh", "-c", "printf 'file://%s\\n' \"$1\" | wl-copy -t text/uri-list", "cynosure", r.path]);
+      popup.closeCynosure();
+      return;
+    case "edit": popup.folio.editSnippetAt(r.path, r.label, r.content); return;
+    case "newSnippet": popup.runInline({ inline: "newSnippet" }); return;
+    case "copyGlyph": {
+      const ch = (r.cells[popup.cellSel] || {}).char || "";
+      popup.noteGlyph(ch, r.nerd);
+      popup.ideo.copyGlyph(ch);
+      return;
     }
-    // ── NOT MEASURED YET IS NOT "NOTHING FITS" ──────────────────────────
-    // Asked the instant a filter swaps the model, the view has not built the
-    // new rows yet and there is nothing to measure. That used to land in the
-    // fallback below — fitLast -1, every row shown, the pill as wide as the
-    // content — so the last row sat flush in the pill's right corner with no
-    // row claiming it, and its highlight went square across the rounding.
-    // Nothing re-asked unless the content width moved again. So when not one
-    // row is built yet, ask again a frame later, a bounded number of times.
-    if (built === 0 && popup.filtered.length > 0 && popup.fitRetries < 12) {
-      popup.fitRetries++;
-      fitRetry.restart();
-    } else popup.fitRetries = 0;
-    // Nothing fits whole: a single row wider than the entire strip. It is
-    // shown clipped rather than collapsing the pill to nothing — moveSel
-    // already keeps it selected. It does own the left corner, but the strip
-    // ends part-way through it, so there is no row in the right one.
-    popup.fitFirst = popup.filtered.length > 0 ? 0 : -1;
-    popup.fitLast = -1;
-    return Math.min(avail, list.contentWidth);
-  }
-
-  Timer {
-    id: fitTimer
-    interval: 0
-    onTriggered: popup.fittedListW = popup.measureFit()
-  }
-  // see measureFit — a re-ask for a model whose rows are not built yet
-  property int fitRetries: 0
-  Timer {
-    id: fitRetry
-    interval: 16
-    onTriggered: popup.fittedListW = popup.measureFit()
-  }
-
-  Connections {
-    target: list
-    // contentWidth fires once the delegates for a new model are sized, which
-    // is the earliest point measureFit() can see real geometry
-    function onContentWidthChanged() { fitTimer.restart(); }
-    function onContentXChanged() { fitTimer.restart(); }
-    // a filter that changes WHICH rows without changing their total width
-    // moves neither of the above
-    function onCountChanged() { fitTimer.restart(); }
-  }
-  onListCapChanged: fitTimer.restart()
-
-  property int contentWidth: {
-    if (popup.mode === "picker") return Math.min(1000, Math.ceil(msgArea.width + popup.pickerW));
-    return Math.min(1000, Math.ceil(inputBar.width + popup.fittedListW));
-  }
-
-  // The cursor both strips slide. The view sizes it to the current row; it
-  // takes that row's edge flags for its insets and corners, so it is held
-  // off the panel's stroke and rounds only where the row sits in a pill
-  // corner — the rule each row used to apply to its own highlight.
-  //
-  // Placed by hand, not by the view: highlightFollowsCurrentItem's smoothed
-  // follow at this speed read as a jump, not a slide. The view still parents
-  // it in its content, so the row's own x is the right coordinate, and a
-  // plain eased NumberAnimation is a move you can actually watch.
-  component SelBar: Item {
-    id: sb
-    property Item cur: null
-    readonly property alias flash: sbFlash
-    x: sb.cur ? sb.cur.x : 0
-    y: 0
-    width: sb.cur ? sb.cur.width : 0
-    height: sb.cur ? sb.cur.height : 0
-    visible: !!sb.cur
-    Behavior on x { NumberAnimation { duration: Zenon.normal; easing.type: Easing.OutCubic } }
-    Behavior on width { NumberAnimation { duration: Zenon.normal; easing.type: Easing.OutCubic } }
-    readonly property bool atLeft: !!sb.cur && sb.cur.atLeftEdge
-    readonly property bool atRight: !!sb.cur && sb.cur.atRightEdge
-    Rectangle {
-      anchors.fill: parent
-      anchors.topMargin: popup.edgeInset
-      anchors.bottomMargin: popup.edgeInset
-      anchors.leftMargin: sb.atLeft ? popup.edgeInset : 0
-      anchors.rightMargin: sb.atRight ? popup.edgeInset : 0
-      radius: 0
-      topLeftRadius: sb.atLeft ? popup.innerCorner : 0
-      bottomLeftRadius: sb.atLeft ? popup.innerCorner : 0
-      topRightRadius: sb.atRight ? popup.innerCorner : 0
-      bottomRightRadius: sb.atRight ? popup.innerCorner : 0
-      // stronger than the menus' menuHi: over this bar's deep, frosted
-      // ground .16 read faint in both modes (user, 2026-10-21)
-      // the flash rides this fill, so it keeps the band's corners
-      color: Zenon.alpha(Zenon.cyan, (Zenon.light ? 0.30 : 0.28) + 0.4 * sbFlash.chosen)
-      ChosenFlash { id: sbFlash; painted: false }
+    case "copyCode": popup.copyText(Cynosure.codepoints((r.cells[popup.cellSel] || {}).char)); popup.closeCynosure(); return;
+    case "copyAnswer": m.takeShown(true); return;
+    case "noteOpen": popup.saveNote(r.text, true); return;
+    case "eventOpen": popup.addEvent(r, true); return;
+    case "pasteSnip": popup.folio.pasteSnippet(r.content); return;
+    case "pkgShow": popup.closeThen(() => Ceres.showPackage(r.label)); return;
+    case "storeInstall":
+      Ceres.install([r.pkg], "from Cynosure", () => {});
+      Ceres.openWindow("store");
+      popup.closeCynosure();
+      return;
+    case "lexiSay": popup.lexi.cardSpeak(popup.lexiMode); return;
+    case "lexiMore": popup.lexi.cardMore(); return;
+    case "lexiSwap": popup.lexiSwap(); return;
+    case "copyQuestion": popup.copyText(m.query); popup.closeCynosure(); return;
+    case "tape": m.tapeToggleOpen(); return;
+    case "explain":
+      if (m.readings.length > 1) m.readingIdx = (m.readingIdx + 1) % m.readings.length;
+      return;
     }
   }
 
-  // The divider between two rows: the panel's own stroke, the whole height
-  // of the strip, so it meets the top and bottom border and the strip reads
-  // as cells. Morphed the panel draws no stroke (the pill does), but the
-  // pill's is the same Zenon.border, so this one stays.
-  component RowRule: Rectangle {
-    property bool shown: false
-    anchors.left: parent.left
-    anchors.top: parent.top
-    anchors.bottom: parent.bottom
-    width: bg.border.width
-    color: Zenon.border
-    opacity: shown ? 1 : 0
-    Behavior on opacity { NumberAnimation { duration: Zenon.fast; easing.type: Zenon.ease } }
-  }
-
-  // The moving part. Its width eases on the GPU instead of on the compositor.
-  Item {
-    id: strip
-    width: popup.liveWidth
-    // The slot, not the surface: the surface is taller now so the shadow
-    // has somewhere to fall, and the strip must not grow with it.
-    height: Zenon.slot
-    anchors.horizontalCenter: parent.horizontalCenter
-    // liftOut + liftIn === lift, so the strip is where it always was. By y,
-    // not a top/bottom anchor pair: flipping the pair at runtime briefly
-    // applies both, stretches the strip to the surface and unbinds `height`.
-    y: Zenon.barTop ? popup.liftIn : parent.height - height - popup.liftIn
-  }
-
-  // ── THE SHADOW, WHICH HAS TO BE GIVEN THE SLIDE BY HAND ──────────
-  // Every other popup puts its entrance transform on a CONTAINER and
-  // hangs both the shadow and the panel inside it, so the shadow comes
-  // along for free. Here the Translate is on `bg` itself, and anchors
-  // track geometry rather than transforms — so the shadow would stay
-  // behind while the panel slid out from under it. Same y, same fade.
-  //
-  // The fade covers what `morphed` covers elsewhere: morphed, this panel
-  // IS the pill and the bar casts for it, so the shadow goes to nothing.
-  LayerShadow {
-    panel: bg
-    cornerRadius: popup.edgeCorner
-    // `fade`, not `opacity` — see LayerShadow on why a curve bound to its
-    // opacity froze the shadow for the whole entrance.
-    morphed: popup.morphMode
-    fade: popup.morphMode ? popup.showFactor : popup.spawnFactor
-    transform: Translate { y: spawnT.y }
-    // The pill's resting shadow, not a menu's: standalone, cynosure is the
-    // one panel built like the bar — a strip off a screen edge — so it is
-    // lit the same. Keep these in step with the bar's LayerShadow in
-    // shell.qml (its values at morphProgress 0).
-    ink: Zenon.alpha(Zenon.menuShadowInk, Zenon.menuShadowInk.a * 0.55)
-    grow: 4
-    softness: 16
-    drop: 2
-  }
-
-  // ── AND THE PILL'S TWO OUTER RINGS ────────────────────────────────
-  // Same as the bar's in shell.qml: bg's border is the firmest, innermost
-  // line, and each ring out is fainter. Siblings because bg's content
-  // clips; they ride bg's fade and slide. Morphed, the pill draws its own
-  // three, so these go.
-  Repeater {
-    // [how far out, strength against the theme's border]
-    model: [[1, 1.2], [2, 0.7]]
-    Rectangle {
-      required property var modelData
-      readonly property int out: modelData[0]
-      x: bg.x - out
-      y: bg.y - out
-      width: bg.width + out * 2
-      height: bg.height + out * 2
-      radius: bg.radius + out
-      color: "transparent"
-      border.width: 1
-      border.color: Qt.rgba(Zenon.border.r, Zenon.border.g, Zenon.border.b,
-                            Zenon.border.a * modelData[1])
-      visible: !popup.morphMode
-      opacity: popup.spawnFactor
-      transform: Translate { y: spawnT.y }
+  function fieldKey(event) {
+    const k = event.key;
+    // the actions panel has the keys while it is up
+    if (popup.actionsOpen) { popup.actionsKey(event); return; }
+    // waiting for a hotkey's chord: every key is the chord
+    if (popup.mode === "hotkey") { popup.hotkeyKey(event); return; }
+    // setting an alias: return keeps it, esc leaves it; the rest is typing
+    if (popup.mode === "alias" || popup.mode === "link") {
+      if (k === Qt.Key_Return || k === Qt.Key_Enter) { event.accepted = true; popup.mode === "link" ? popup.saveLink() : popup.saveAlias(); }
+      else if (k === Qt.Key_Escape) { event.accepted = true; popup.endAlias(); }
+      return;
+    }
+    if (k === Qt.Key_Alt) { popup.altHeld = true; return; }
+    // alt 1–9: that row, at once (user, 2026-11-01: alt, not ctrl)
+    if ((event.modifiers & Qt.AltModifier) && k >= Qt.Key_1 && k <= Qt.Key_9 && popup.mode === "search") {
+      event.accepted = true;
+      const n = k - Qt.Key_1;
+      if (n < popup.filtered.length) { popup.sel = n; popup.altHeld = false; popup.confirm(); }
+      return;
+    }
+    // up on an empty line: what you searched before, further back each time;
+    // down comes forward again, to the empty line
+    if (k === Qt.Key_Up && popup.mode === "search" && (input.text === "" || popup.recallAt >= 0)
+        && popup.recallAt < popup.queries.length - 1) {
+      event.accepted = true;
+      popup.recall(popup.recallAt + 1);
+      return;
+    }
+    if (k === Qt.Key_Down && popup.recallAt >= 0) {
+      event.accepted = true;
+      popup.recall(popup.recallAt - 1);
+      return;
+    }
+    if ((k === Qt.Key_Return || k === Qt.Key_Enter) && (event.modifiers & Qt.ShiftModifier)
+        && popup.mode === "search") {
+      event.accepted = true;
+      popup.openActions();
+      return;
+    }
+    // ONE RULE FOR THE WHOLE PANEL (user, 2026-11-01): esc clears the line,
+    // and on an empty one closes; backspace on an empty line goes back a step
+    if (k === Qt.Key_Escape) {
+      event.accepted = true;
+      if (popup.mode === "picker") { popup.backToSearch(); input.text = ""; }
+      else if (input.text !== "") input.text = "";
+      else popup.closeCynosure();
+      return;
+    }
+    // the picker's line is the verb that asked, kept: backspace there is
+    // always back, not a letter off it
+    if (k === Qt.Key_Backspace && (input.text === "" || popup.mode === "picker")) {
+      event.accepted = true;
+      if (popup.mode === "picker") popup.backToSearch();
+      return;
+    }
+    // the answer chosen: the calculator's own keys first (tab its chips,
+    // return pastes, ctrl+return copies, ctrl+h its tape, up its history),
+    // and down off the bottom of it into the list
+    // a smart answer's card: return copies it; up stays, down into the list
+    // the dictionary's or the translator's card: tab its chips, return
+    // copies (or takes the chip), alt p says it, alt e more, alt s swaps
+    if (popup.cardSel && popup.lexiShown && popup.lexiKey(event)) return;
+    if (popup.cardSel && !popup.calcShown) {
+      if (k === Qt.Key_Up || k === Qt.Key_Down) {
+        event.accepted = true;
+        if (k === Qt.Key_Down && popup.filtered.length > 0) { popup.sel = 0; popup.followSelection(); }
+        return;
+      }
+      if (k === Qt.Key_Return || k === Qt.Key_Enter) {
+        event.accepted = true;
+        popup.copyText(popup.answerText());
+        popup.closeCynosure();
+        return;
+      }
+    }
+    if (popup.cardSel && popup.calcShown) {
+      const m = popup.metis;
+      // up and down are the list's (the tape's while it is open): up stays
+      // on the card, down goes on into the list
+      if ((k === Qt.Key_Up || k === Qt.Key_Down) && !m.tapeMode) {
+        event.accepted = true;
+        if (k === Qt.Key_Down && popup.filtered.length > 0) { popup.sel = 0; popup.followSelection(); }
+        return;
+      }
+      const caret = k === Qt.Key_Left || k === Qt.Key_Right || k === Qt.Key_Home || k === Qt.Key_End;
+      if (!caret) {
+        m.handleKey(event);
+        if (event.accepted) return;
+      }
+    }
+    // the one-line confirm: its two answers sit side by side
+    if ((k === Qt.Key_Left || k === Qt.Key_Right) && popup.confirmLine) {
+      event.accepted = true;
+      popup.moveSel(k === Qt.Key_Left ? -1 : 1);
+      return;
+    }
+    if ((k === Qt.Key_Left || k === Qt.Key_Right) && popup.current && popup.current.cells) {
+      event.accepted = true;
+      popup.moveCell(k === Qt.Key_Left ? -1 : 1);
+      return;
+    }
+    if (k === Qt.Key_Up) { event.accepted = true; popup.moveSel(-1); return; }
+    if (k === Qt.Key_Down) { event.accepted = true; popup.moveSel(1); return; }
+    if (k === Qt.Key_PageUp) { event.accepted = true; popup.jumpSel(-8); return; }
+    if (k === Qt.Key_PageDown) { event.accepted = true; popup.jumpSel(8); return; }
+    if (k === Qt.Key_Tab) { event.accepted = true; popup.tabRow(); return; }
+    if (k === Qt.Key_Backtab) { event.accepted = true; popup.moveSel(-1); return; }
+    if (k === Qt.Key_Return || k === Qt.Key_Enter) {
+      event.accepted = true;
+      if ((event.modifiers & Qt.AltModifier) && popup.mode === "search") {
+        const q = popup.query.trim();
+        if (q !== "") popup.runCommand(q, "Terminal");
+      } else popup.confirm();
+      return;
+    }
+    if (k === Qt.Key_Delete && popup.mode === "search" && popup.current
+        && popup.current.kind === "hist") {
+      event.accepted = true;
+      popup.deleteSelected();
+      return;
+    }
+    // folio's keys, on its rows: delete removes, shift+return marks up a
+    // picture, ctrl+s keeps a clip as a snippet, ctrl+e edits a snippet,
+    // ctrl+n writes a new one
+    const c = popup.current;
+    const ctrl = (event.modifiers & Qt.ControlModifier) !== 0;
+    if (popup.folio && ctrl && k === Qt.Key_N && popup.mode === "search") {
+      event.accepted = true;
+      popup.folio.editSnippetAt("", "", "");
+      return;
+    }
+    if (!popup.folio || !c) return;
+    if (k === Qt.Key_Delete && c.kind === "clip") {
+      event.accepted = true; popup.folio.dropClip(c.id);
+    } else if (k === Qt.Key_Delete && c.kind === "pics") {
+      event.accepted = true; popup.folio.dropClip(popup.chosenCell(c).id);
+    } else if (k === Qt.Key_Delete && c.kind === "snip") {
+      event.accepted = true; popup.folio.dropSnippet(c.path);
+    } else if (ctrl && k === Qt.Key_S && c.kind === "clip") {
+      event.accepted = true; popup.folio.keepClip(c.id);
+    } else if (ctrl && k === Qt.Key_E && c.kind === "snip") {
+      event.accepted = true; popup.folio.editSnippetAt(c.path, c.label, c.content);
     }
   }
 
-  Rectangle {
-    id: bg
-    anchors.fill: strip
-    radius: popup.edgeCorner
-    color: popup.morphMode ? "transparent" : Zenon.panelBgDeep
-    // the firmer inner of the pill's three rings, as the bar has it
-    border.color: (popup.morphMode) ? "transparent"
-      : Qt.rgba(Zenon.border.r, Zenon.border.g, Zenon.border.b,
-                Math.min(1, Zenon.border.a * 2.5))
-    border.width: 1
-
-    opacity: popup.morphMode ? 1 : popup.spawnFactor
-    transform: Translate {
-      id: spawnT
-      // the lift is the standalone entrance, in from whichever edge the bar
-      // is on. Morphed, the pill has already traveled that distance and the
-      // panel IS the pill, so a second move reads as the two coming apart.
-      y: popup.morphMode ? 0
-        : (Zenon.barTop ? -1 : 1) * Zenon.tuckLift * (1 - popup.spawnFactor)
+  function hints() {
+    if (popup.mode === "link") return [["return", "save"], ["esc", "cancel"]];
+    if (popup.mode === "hotkey") return [["super ctrl alt + key", "set"], ["esc", "cancel"]];
+    if (popup.mode === "alias")
+      return [["return", input.text.trim() !== "" ? "save"
+                : popup.aliasRow && popup.aliasRow.alias ? "remove alias" : "leave it"], ["esc", "cancel"]];
+    if (popup.mode === "picker")
+      return [["return", "choose"], ["backspace", "back"], ["esc", "clear"]];
+    if (popup.actionsOpen) return [["↑↓", "choose"], ["return", "do it"], ["esc", "back"]];
+    // the dictionary's, passwords' or the snippet page's while one has the
+    // field
+    if (popup.folioEditing) return Folio.hintText("edit");
+    if (popup.pwMode && popup.calypso) return popup.calypso.hints();
+    // Raycast's strip: what return does, the actions panel, esc — the rest of
+    // a row's keys are listed with their actions (shift return)
+    const out = [];
+    if (popup.cardSel && popup.calcShown) {
+      out.push(["return", "paste"], ["tab", "units"]);
+    } else if (popup.cardSel && popup.lexiShown) {
+      if (popup.lexiChip >= 0 || !popup.lexiBare)
+        out.push(["return", popup.lexiChip >= 0 ? (popup.lexiMode === "trans" && !popup.lexiBare ? "translate" : "look up") : "copy"]);
+      if (popup.lexiChips.length) out.push(["tab", popup.lexiMode === "trans" && !popup.lexiBare ? "languages"
+        : popup.lexiBare ? "recents" : "words"]);
+    } else if (popup.cardSel) {
+      out.push(["return", "copy"]);
+    } else {
+      const r = popup.current;
+      if (r && r.cells) out.push(["←→", "choose"]);
+      if (r) out.push(["return", Cynosure.verbOf(r)]);
     }
+    if (popup.chosenRow) out.push(["shift return", "actions"]);
+    out.push(["esc", popup.query !== "" ? "clear" : "close"]);
+    return out;
+  }
 
-    Item {
-      id: content
-      anchors.fill: parent
-      clip: true
-      // only the morph needs a separate content fade; standalone, bg already
-      // carries the whole panel out and a second fade just muddies it
-      opacity: popup.morphMode ? popup.contentFade : 1
 
-      // A crossfade, to the pixel: the outgoing view leaves to the
-      // LEFT by 12 and the incoming one arrives from the RIGHT by the same
-      // 12, so the pair reads as one strip sliding rather than two views
-      // both retreating the same way. Cynosure had them both leaving left, at
-      // -24 and -36 — two different distances in one direction, which is why
-      // the picker never felt like it came from anywhere.
-      Row {
-        id: searchRow
+  // a press anywhere off the panel closes it
+  MouseArea {
+    id: closeArea
+    anchors.fill: parent
+    z: 0
+    onClicked: popup.closeCynosure()
+  }
+
+  LayerPanel {
+    id: panel
+    host: popup
+    ground: bgRoot
+    width: Math.round(popup.liveWidth)
+    height: popup.calcHeight()
+
+    PanelGround {
+      id: bgRoot
+      color: Zenon.layerBg
+
+      // EVERYTHING BUT THE ACTIONS MENU, in one item: what the menu frosts
+      // (its Frost's source) has to be something the menu is not inside
+      Item {
+        id: stage
         anchors.fill: parent
-        visible: opacity > 0.01
-        opacity: popup.mode === "search" ? 1 : 0
-        x: popup.mode === "search" ? 0 : -12
-        Behavior on opacity { NumberAnimation { duration: Zenon.normal; easing.type: Zenon.ease } }
-        Behavior on x { NumberAnimation { duration: Zenon.normal; easing.type: Zenon.ease } }
 
+      // rows scrolled off the top carry on under the field, frosted (see
+      // morpheus/ScrollEdge); before the field, so the field draws over it
+      ScrollEdge {
+        view: list
+        visible: !popup.confirmLine
+        x: list.x
+        width: list.width
+        height: list.y
+      }
+      // and the ones still to come show through the hint strip
+      ScrollEdge {
+        view: list
+        visible: !popup.confirmLine
+        below: true
+        x: list.x
+        y: hintStrip.y
+        width: list.width
+        height: hintStrip.height
+      }
+
+      // ------------------------------------------------------- field --
+      Item {
+        id: field
+        // hidden while something has taken the field: what took it draws
+        // its own line in this place
+        visible: !popup.taken
+        width: parent.width
+        height: popup.confirmLine ? popup.confirmH : popup.fieldH
+
+        // the confirm's red, the question's own ground only: on the one-line
+        // strip it ends where the question does, and its two answers follow
         Rectangle {
-          id: inputBar
-          // Only surfaces once what you have typed matches nothing already in
-          // the list (history or apps) — i.e. you are composing a new command
-          // and the row strip can no longer show you what you are typing.
-          property bool showInput: input.text.length > 0 && popup.filtered.length === 0
-          width: showInput
-            ? Math.min(10 + promptText.width + input.contentWidth + 12 + queryClear.width + 14, 700)
-            : 0
+          width: popup.confirmLine ? popup.questionW : parent.width
           height: parent.height
-          color: "transparent"
-          Behavior on width { NumberAnimation { duration: Zenon.normal; easing.type: Zenon.ease } }
+          color: popup.alarm ? Zenon.red : "transparent"
+          Behavior on color { ColorAnimation { duration: Zenon.normal; easing.type: Zenon.ease } }
+        }
 
-          Row {
-            anchors.left: parent.left
-            anchors.right: queryClear.left
-            height: parent.height
-            leftPadding: 10
-            spacing: 0
+        Text {
+          id: fieldGlyph
+          x: 20
+          width: Zenon.px(22)
+          anchors.verticalCenter: parent.verticalCenter
+          horizontalAlignment: Text.AlignHCenter
+          text: popup.mode === "picker" && popup.pending && popup.pending.glyph
+            ? popup.pending.glyph : popup.mode === "alias" ? "\uF02B" : popup.mode === "link" ? "\uF0C1"
+            : popup.mode === "hotkey" ? "\uF11C"
+            : popup.fieldTag && popup.fieldTag.glyph ? popup.fieldTag.glyph : ""
+          color: popup.alarm ? Zenon.onAccent : popup.mode === "picker" ? Zenon.white : Zenon.muted
+          font.family: Zenon.face
+          font.pixelSize: Zenon.px(popup.confirmLine ? 16 : 18)
+        }
 
-            Text {
-              id: promptText
-              width: 30
-              height: parent.height
-              text: "\uF120"
-              visible: inputBar.showInput
-              color: Zenon.white
-              font.family: Zenon.face
-              font.weight: Font.Bold
-              font.pixelSize: Zenon.px(18)
-              verticalAlignment: Text.AlignVCenter
-            }
-
-            TextInput {
-              id: input
-              width: parent.width - promptText.width
-              height: parent.height
-              text: popup.query
-              color: Zenon.white
-              selectionColor: Zenon.selBg
-              selectedTextColor: Zenon.white
-              cursorVisible: true
-
-              cursorDelegate: Caret {
-                field: input
-                active: input.activeFocus && popup.mode === "search" && inputBar.showInput
-                thick: 3; low: 0.25; radius: 1
-                color: Zenon.white
-              }
-              clip: true
-              font.family: Zenon.face
-              font.weight: Font.Bold
-              font.pixelSize: Zenon.px(18)
-              verticalAlignment: Text.AlignVCenter
-              Keys.forwardTo: content
-              onTextChanged: {
-                popup.query = input.text;
-                popup.sel = 0;
-                popup.applyFilter();
-              }
-            }
+        TextInput {
+          id: input
+          objectName: "cynosureLine"
+          anchors.left: fieldGlyph.right
+          anchors.leftMargin: 14
+          anchors.right: popup.fieldTag ? fieldTagLabel.left : queryClear.left
+          anchors.rightMargin: 10
+          height: parent.height
+          // the question takes the field's place in the picker; the input
+          // keeps the focus there, unseen, so the keys still arrive
+          opacity: popup.mode === "search" || popup.editing ? 1 : 0
+          // the word goes after "Alias for …" / "New quick link"
+          leftPadding: popup.editing ? aliasFor.width + 12 : 0
+          verticalAlignment: TextInput.AlignVCenter
+          color: Zenon.white
+          selectionColor: Zenon.selBg
+          selectedTextColor: Zenon.white
+          font.family: Zenon.face
+          font.weight: 500
+          font.pixelSize: Zenon.px(18)
+          clip: true
+          cursorVisible: activeFocus
+          cursorDelegate: Caret {
+            field: input
+            active: input.activeFocus && popup.mode === "search"
+            thick: 3; low: 0.25; radius: 1
+            color: Zenon.white
           }
-
-          // a click on the × empties the line, as esc does (Picasso's)
-          ClearChip {
-            id: queryClear
-            anchors.right: parent.right
-            anchors.rightMargin: 14
-            anchors.verticalCenter: parent.verticalCenter
-            size: Zenon.px(15)
-            shown: inputBar.showInput
-            onClicked: input.text = ""
+          Keys.priority: Keys.BeforeItem
+          Keys.onPressed: (event) => popup.fieldKey(event)
+          Keys.onReleased: (event) => { if (event.key === Qt.Key_Alt) popup.altHeld = false; }
+          onTextChanged: {
+            // the word being set as an alias is not a search
+            if (popup.editing) { if (popup.mode !== "hotkey") popup.aliasNote = ""; return; }
+            // typing leaves the recalled line for one of your own
+            if (!popup.recalling) popup.recallAt = -1;
+            popup.query = input.text;
+            if (!popup.feedingLine) Qt.callLater(popup.maybeEnterPw);
+            // metis' line typing keeps its answer the chosen row
+            if (!popup.cardUp) popup.sel = 0;
+            popup.applyFilter();
+            // a tick later: the hand-over may rewrite this very line ("=" → "calc ")
           }
         }
 
-        ListView {
-          id: list
-          // Finder's rubber band and the smooth wheel notch, one rule for
-          // the whole shell — see morpheus/Elastic.qml. Inside the view
-          // rather than over it: it pins itself to the viewport.
-          ElasticScroll { view: list }
-          width: parent.width - inputBar.width
+        Text {
+          textFormat: Text.PlainText
+          anchors.left: input.left
+          anchors.verticalCenter: parent.verticalCenter
+          visible: (popup.mode === "search" || popup.editing) && input.text === ""
+          anchors.leftMargin: popup.editing ? aliasFor.width + 12 : 0
+          text: popup.mode === "alias" ? "A word, like ff"
+            : popup.mode === "hotkey" ? "Press the keys, like Super+F"
+            : popup.mode === "link" ? "A word, then the address with {q} for the words" : "Search apps and commands"
+          color: Zenon.muted
+          font.family: Zenon.face
+          font.weight: 500
+          font.pixelSize: Zenon.px(18)
+        }
+
+        Text {
+          id: question
+          textFormat: Text.PlainText
+          anchors.left: input.left
+          anchors.right: popup.confirmLine ? undefined : parent.right
+          anchors.rightMargin: 20
+          anchors.verticalCenter: parent.verticalCenter
+          visible: popup.mode === "picker"
+          text: popup.choices ? "Which timer?"
+            : popup.pending ? popup.pending.name + "?" : ""
+          color: popup.alarm ? Zenon.onAccent : Zenon.white
+          font.family: Zenon.face
+          font.weight: Zenon.titleWeight
+          font.pixelSize: Zenon.px(popup.confirmLine ? 16 : 18)
+          elide: Text.ElideRight
+        }
+
+        // "Alias for Firefox", ahead of the word being set
+        Rectangle {
+          id: aliasFor
+          visible: popup.editing
+          anchors.left: input.left
+          anchors.verticalCenter: parent.verticalCenter
+          width: aliasForText.implicitWidth + 16
+          height: aliasForText.implicitHeight + 8
+          radius: Zenon.menuRadius
+          color: Zenon.menuHi
+          Text {
+            id: aliasForText
+            anchors.centerIn: parent
+            textFormat: Text.PlainText
+            text: popup.mode === "link" ? "New quick link"
+              : popup.mode === "hotkey" && popup.hotkeyRow ? "Hotkey for " + (popup.hotkeyRow.label || popup.hotkeyRow.text || "")
+              : popup.aliasRow ? "Alias for " + (popup.aliasRow.label || popup.aliasRow.text || "") : ""
+            color: Zenon.white
+            font.family: Zenon.face
+            font.weight: 600
+            font.pixelSize: Zenon.px(15)
+          }
+        }
+
+        // what the line is read as (fieldTag), at the right of it: the
+        // heading the card or the list had, the same small capitals
+        SectionLabel {
+          id: fieldTagLabel
+          visible: !!popup.fieldTag
+          anchors.right: queryClear.left
+          anchors.rightMargin: 14
+          anchors.verticalCenter: parent.verticalCenter
+          text: popup.fieldTag ? popup.fieldTag.text : ""
+        }
+
+        // a click on the × empties the line, as esc does (Picasso's)
+        ClearChip {
+          id: queryClear
+          anchors.right: parent.right
+          anchors.rightMargin: 18
+          anchors.verticalCenter: parent.verticalCenter
+          size: Zenon.px(15)
+          shown: popup.mode === "search" && input.text !== ""
+          onClicked: input.text = ""
+        }
+
+        // ── the confirm's two answers, on the question's line ──────────
+        // the one sliding cursor (morpheus/CursorBand), under the answers
+        CursorBand {
+          repeater: answersRep
+          index: popup.sel
+          shown: popup.confirmLine
+        }
+        Row {
+          id: answers
+          x: popup.questionW
           height: parent.height
-          orientation: ListView.Horizontal
-          clip: true
-          model: popup.filtered
-          snapMode: ListView.SnapOneItem
-          // ── THE CURSOR SLIDES ─────────────────────────────────────
-          // One highlight carried from row to row (see SelBar), rather
-          // than each row lighting its own. -1 while the picker is up, so it is not left sitting under
-          // a hidden row and slides in from nowhere on the way back.
-          currentIndex: popup.mode === "search" ? popup.sel : -1
-          highlightFollowsCurrentItem: false
-          highlight: SelBar { cur: list.currentItem }
-          // realize offscreen delegates so ListView.contentWidth is an exact sum
-          // of real delegate widths rather than an average-based estimate
-          cacheBuffer: 4000
-
-          delegate: Item {
-            id: row
-            required property var modelData
-            required property int index
-            width: rowText.implicitWidth + 28
-            height: ListView.view.height
-            readonly property bool selected: row.index === popup.sel
-
-            // Half an entry is worse than no entry, so anything not wholly
-            // inside the strip is simply not painted — whether it is cut off
-            // by the 1000px cap or by the strip being scrolled. The slot
-            // itself stays, so scrolling and index maths are untouched.
-            // The selected row is always drawn: it is the one about to run,
-            // and an entry wider than the whole strip would otherwise vanish
-            // the moment you arrowed onto it.
-            visible: row.index === popup.sel || popup.fitLast < 0
-              || (row.index >= popup.fitFirst && row.index <= popup.fitLast)
-
-            // Corners follow the pill's edge, not the row's position in the
-            // model — index 0 is not the left edge while the input bar is
-            // showing, and the last index stopped being the right edge as
-            // soon as a sliced row could be dropped. Asked of measureFit's
-            // kept run rather than of live geometry: the strip's width eases
-            // whenever the pill does, and a row measured against a viewport
-            // still in motion never matches its edge, so the corner sat
-            // square for the whole animation.
-            readonly property bool atLeftEdge: row.index === popup.fitFirst
-              && inputBar.width < 0.5
-            readonly property bool atRightEdge: row.index === popup.fitLast
-
-            // A hairline between this row and the one before it — not
-            // before the first row on screen, and not beside the cursor,
-            // which already marks that edge.
-            RowRule {
-              shown: row.index > Math.max(0, popup.fitFirst)
-                && !row.selected && row.index - 1 !== popup.sel
-            }
-
-            // The glyph is its own Text, a real gap from the title: as one
-            // rich-text run, its "  " collapsed to a single space and the
-            // glyph sat right on the word.
-            Row {
-              id: rowText
-              anchors.centerIn: parent
-              spacing: Zenon.px(9)
-
-              Text {
-                visible: text !== ""
-                anchors.verticalCenter: parent.verticalCenter
-                text: row.modelData.glyph || ""
-                color: Zenon.white
-                font.family: Zenon.face
-                font.pixelSize: Zenon.px(17)
+          visible: popup.confirmLine
+          Repeater {
+            id: answersRep
+            model: popup.confirmLine ? popup.pickerRows : []
+            delegate: Item {
+              id: answer
+              required property var modelData
+              required property int index
+              width: answerFace.implicitWidth + 36
+              height: answers.height
+              FlashOver { flash: rowFlash; index: answer.index }
+              Row {
+                id: answerFace
+                anchors.centerIn: parent
+                spacing: Zenon.px(10)
+                Text {
+                  anchors.verticalCenter: parent.verticalCenter
+                  text: answer.modelData.glyph || ""
+                  color: Zenon.white
+                  font.family: Zenon.face
+                  font.pixelSize: Zenon.px(17)
+                }
+                Text {
+                  textFormat: Text.PlainText
+                  anchors.verticalCenter: parent.verticalCenter
+                  text: answer.modelData.label || ""
+                  color: Zenon.white
+                  font.family: Zenon.face
+                  font.weight: 600
+                  font.pixelSize: Zenon.px(16)
+                }
               }
-
-              Text {
-                anchors.verticalCenter: parent.verticalCenter
-                text: Cynosure.highlight(row.modelData.label, popup.query)
-                color: Zenon.white
-                font.family: Zenon.face
-                font.weight: Font.Bold
-                font.pixelSize: Zenon.px(16)
-                textFormat: Text.RichText
-              }
-            }
-
-            MouseArea {
-              anchors.fill: parent
-              onClicked: {
-                popup.sel = index;
-                popup.confirm();
+              // one click chooses, two answer (user, 2026-11-01)
+              MouseArea {
+                anchors.fill: parent
+                onClicked: popup.sel = answer.index
+                onDoubleClicked: { popup.sel = answer.index; popup.confirm(); }
               }
             }
           }
+        }
+
+        Rectangle {
+          anchors.bottom: parent.bottom
+          width: parent.width
+          height: 1
+          color: Zenon.border
+          visible: !popup.confirmLine
         }
       }
 
-      Row {
-        id: pickerRow
-        anchors.fill: parent
-        visible: opacity > 0.01
-        opacity: popup.mode === "picker" ? 1 : 0
-        x: popup.mode === "picker" ? 0 : 12
-        Behavior on opacity { NumberAnimation { duration: Zenon.normal; easing.type: Zenon.ease } }
-        Behavior on x { NumberAnimation { duration: Zenon.normal; easing.type: Zenon.ease } }
+      // ---------------------------------------------------- clipboard --
+      // Folio, unseen; its snippet page drawn from the top while it is up
+      Loader {
+        id: folioLoader
+        width: parent.width
+        height: popup.folioEditing ? popup.folioH : 0
+        visible: popup.folioEditing
+        active: popup.folioLatched && popup.shown
+        source: "../folio/FolioView.qml"
+        onLoaded: {
+          const f = folioLoader.item;
+          f.host = popup;
+          f.embedded = true;
+          f.dismissed.connect(() => popup.closeCynosure());
+          f.start();
+          popup.takeClips();
+          if (popup.snippetAsked) { popup.snippetAsked = false; f.editSnippetAt("", "", ""); }
+        }
+      }
+
+      // ------------------------------------------------------- glyphs --
+      // Ideo, unseen: its sets are the strips' cells
+      Loader {
+        id: ideoLoader
+        width: 0
+        height: 0
+        visible: false
+        // made once a session and kept: the sets are read once (and the
+        // first "fi" or "em" waited 85 ms on the making, every open)
+        active: popup.ideoLatched
+        source: "../ideo/IdeoCore.qml"
+        onLoaded: {
+          ideoLoader.item.host = popup;
+          popup.takeGlyphs();
+        }
+      }
+
+      // ---------------------------------------------------- passwords --
+      // Calypso's Quick Access, from the top while it has the field (pwMode)
+      Loader {
+        id: calypsoLoader
+        width: parent.width
+        height: popup.pwH
+        visible: popup.pwMode
+        active: popup.pwLatched && popup.shown
+        source: "../calypso/CalypsoView.qml"
+        onLoaded: {
+          const c = calypsoLoader.item;
+          c.mgr = popup.passwords;
+          c.host = popup;
+          c.embedded = true;
+          c.dismissed.connect(() => popup.closeCynosure());
+          c.backed.connect(() => popup.exitPw());
+          popup.startPw();
+        }
+      }
+
+      // ------------------------------------------------- dictionary --
+      // Lexi, unseen: it asks, the card under the field shows (lexiAsk)
+      Loader {
+        id: lexiLoader
+        width: 0
+        height: 0
+        visible: false
+        active: popup.lexiLatched
+        source: "../lexi/LexiCore.qml"
+        onLoaded: {
+          lexiLoader.item.host = popup;
+          popup.askLexi();
+        }
+      }
+
+      // -------------------------------------------------- calculator --
+      // Metis, under the field while the line is a sum: its heading, then
+      // the calculator itself (embedded: the answer, chips, strips, tape).
+      // Lit as the chosen row while sel is -1.
+      Item {
+        id: calcBox
+        y: popup.fieldH
+        width: parent.width
+        height: popup.calcShown ? popup.cardTop + popup.metisH : 0
+        visible: popup.calcShown
+        clip: true
+        Behavior on height { NumberAnimation { duration: Zenon.normal; easing.type: Zenon.ease } }
+
+        // no band over a card when it is chosen (user, 2026-11-01): its
+        // chips are what is picked in it, and they light themselves
+        Loader {
+          id: metisLoader
+          y: popup.cardTop
+          width: parent.width
+          height: popup.metisH
+          // kept too once made (the first digit of every open waited on
+          // it); start() on each open puts it back to an empty line
+          active: popup.calcLatched
+          source: "../metis/MetisView.qml"
+          onLoaded: {
+            const m = metisLoader.item;
+            m.host = popup;
+            m.embedded = true;
+            m.dismissed.connect(() => popup.closeCynosure());
+            m.start();
+            m.setLine(popup.calcWanted ? popup.calcLine : "");
+          }
+        }
+        // a press on the card's ground (not on a chip of it) chooses it
+        MouseArea {
+          anchors.fill: parent
+          z: -1
+          onClicked: popup.sel = -1
+        }
+      }
+
+      // ------------------------------------------------ smart answer --
+      // the answer to a line in plain words, its heading over it, lit as a
+      // band while it is the chosen row; the weather in a card of its own
+      Item {
+        id: answerBox
+        y: popup.fieldH + calcBox.height
+        width: parent.width
+        height: popup.answerBoxH
+        visible: popup.answerShown
+        clip: true
+        Behavior on height { NumberAnimation { duration: Zenon.normal; easing.type: Zenon.ease } }
 
         Rectangle {
-          id: msgArea
-          // shrink-wrap the echoed command instead of claiming a flat half of
-          // the pill: at 50% the three picker buttons were handed less width
-          // than they needed and the last one was cut off by the ListView clip.
-          // The cap is the point past which a very long command elides rather
-          // than pushing the buttons off the end.
-          width: Math.min(420, msgFace.implicitWidth + 24)
-          height: parent.height
-          // the confirm's red, the question's own ground only; it holds the
-          // pill's left end, so it takes the pill's corners there
-          color: popup.alarm ? Zenon.red : "transparent"
-          topLeftRadius: bg.radius
-          bottomLeftRadius: bg.radius
-          Behavior on color { ColorAnimation { duration: Zenon.normal; easing.type: Zenon.ease } }
+          id: answerBand
+          y: popup.cardTop
+          width: parent.width
+          height: Math.max(0, parent.height - popup.cardTop)
+          // no band when chosen: see the calculator's card
+          color: "transparent"
+          MouseArea {
+            anchors.fill: parent
+            onClicked: popup.sel = -1
+            onDoubleClicked: { popup.copyText(popup.answerText()); popup.closeCynosure(); }
+          }
+        }
 
-          // The verb's own glyph ahead of its question, as its row had it in
-          // the list: "⏻  Shutdown?". Its own Text for the same reason the
-          // rows' is — one rich-text run collapses the gap.
+        // ── an answer: large, and what it is under it
+        Column {
+          visible: !popup.wxAsk
+          anchors.horizontalCenter: parent.horizontalCenter
+          y: popup.cardTop + (answerBand.height - height) / 2
+          spacing: 6
           Row {
-            id: msgFace
-            anchors.centerIn: parent
-            spacing: Zenon.px(9)
-
-            Text {
-              id: msgGlyph
-              visible: text !== ""
+            anchors.horizontalCenter: parent.horizontalCenter
+            spacing: 14
+            // a color shows itself; the moon its phase
+            Rectangle {
+              visible: !!popup.answer && !!popup.answer.color
               anchors.verticalCenter: parent.verticalCenter
-              text: popup.pending && popup.pending.glyph ? popup.pending.glyph : ""
-              color: msgText.color
-              font.family: Zenon.face
-              font.pixelSize: Zenon.px(17)
+              width: Zenon.px(30)
+              height: width
+              radius: Zenon.menuRadius
+              color: popup.answer && popup.answer.color ? popup.answer.color : "transparent"
+              border.width: 1
+              border.color: Zenon.border
             }
+            Text {
+              visible: !!popup.answer && !!popup.answer.glyph
+              anchors.verticalCenter: parent.verticalCenter
+              text: popup.answer && popup.answer.glyph ? popup.answer.glyph : ""
+              color: Zenon.white
+              font.family: Zenon.face
+              font.pixelSize: Zenon.px(28)
+            }
+          Text {
+            textFormat: Text.PlainText
+            anchors.verticalCenter: parent.verticalCenter
+            width: Math.min(implicitWidth, answerBox.width - 40)
+            elide: Text.ElideMiddle
+            text: popup.answer ? popup.answer.big : ""
+            color: Zenon.white
+            font.family: Zenon.face
+            font.weight: Zenon.titleWeight
+            // a long answer (an address, filler text) smaller
+            font.pixelSize: Zenon.px(popup.answer && popup.answer.big.length > 40 ? 16 : 28)
+          }
+          }
+          Text {
+            textFormat: Text.PlainText
+            anchors.horizontalCenter: parent.horizontalCenter
+            text: popup.answer ? popup.answer.small : ""
+            color: Zenon.muted
+            font.family: Zenon.face
+            font.weight: 500
+            font.pixelSize: Zenon.px(14)
+          }
+        }
 
+        // ── the weather: now (or the day asked about), and the days after
+        Item {
+          visible: !!popup.wxAsk && !!popup.wx
+          y: popup.cardTop
+          width: parent.width
+          height: answerBand.height
+          readonly property var w: popup.wx
+          readonly property var d: popup.wxDay
+          readonly property bool now: !!w && w.offset === 0 && !!w.current
+          readonly property int code: now ? w.current.code : d ? d.code : 0
+          function t(c) { return Weather.fmt(c) + "°"; }
+
+          Row {
+            id: wxNow
+            x: 24
+            y: 14
+            spacing: 18
+            Text {
+              anchors.verticalCenter: parent.verticalCenter
+              text: Wx.glyph(parent.parent.code, parent.parent.now ? parent.parent.w.current.isDay : true)
+              color: Zenon.white
+              font.family: Zenon.face
+              font.pixelSize: Zenon.px(44)
+            }
             Text {
               textFormat: Text.PlainText
-              id: msgText
               anchors.verticalCenter: parent.verticalCenter
-              // capped so a long command still elides inside the area's 420
-              width: Math.min(implicitWidth,
-                420 - 24 - (msgGlyph.visible ? msgGlyph.width + msgFace.spacing : 0))
-              text: popup.pending ? popup.pending.name + "?" : popup.query
-              color: popup.alarm ? Zenon.onAccent : Zenon.white
+              text: parent.parent.now ? parent.parent.t(parent.parent.w.current.temp)
+                : parent.parent.d ? parent.parent.t(parent.parent.d.hi) : ""
+              color: Zenon.white
               font.family: Zenon.face
-              font.weight: Font.Bold
-              font.pixelSize: Zenon.px(16)
-              elide: Text.ElideMiddle
+              font.weight: Zenon.titleWeight
+              font.pixelSize: Zenon.px(38)
             }
-          }
-        }
-
-        ListView {
-          id: pickerList
-          // Finder's rubber band and the smooth wheel notch, one rule for
-          // the whole shell — see morpheus/Elastic.qml. Inside the view
-          // rather than over it: it pins itself to the viewport.
-          ElasticScroll { view: pickerList }
-          width: parent.width - msgArea.width
-          height: parent.height
-          orientation: ListView.Horizontal
-          clip: true
-          model: popup.pickerRows
-          // the same sliding cursor as the search strip
-          currentIndex: popup.mode === "picker" ? popup.sel : -1
-          highlightFollowsCurrentItem: false
-          highlight: SelBar { cur: pickerList.currentItem }
-          cacheBuffer: 4000
-
-          delegate: Item {
-            id: pickerBtn
-            required property var modelData
-            required property int index
-            width: pickerText.implicitWidth + 28
-            height: ListView.view.height
-            readonly property bool selected: index === popup.sel
-            readonly property var face: Cynosure.splitGlyph(modelData.label)
-
-            // Same rule as the search strip, asked of the picker's own
-            // content: msgArea always holds the pill's left end, so index 0
-            // (Terminal) is a middle row and stays square, and only the last
-            // button sits in a corner. The picker is never filtered, so its
-            // run is simply the whole model.
-            readonly property bool atLeftEdge: msgArea.width < 0.5 && index === 0
-            readonly property bool atRightEdge: index === popup.pickerRows.length - 1
-
-            // the picker is never filtered, so the run is the whole model
-            RowRule {
-              shown: pickerBtn.index > 0
-                && !pickerBtn.selected && pickerBtn.index - 1 !== popup.sel
-            }
-
-            // same split as the search rows
-            Row {
-              id: pickerText
-              anchors.centerIn: parent
-              spacing: Zenon.px(9)
-
-              Text {
-                visible: text !== ""
-                anchors.verticalCenter: parent.verticalCenter
-                text: pickerBtn.face.glyph
-                color: Zenon.white
-                font.family: Zenon.face
-                font.pixelSize: Zenon.px(17)
-              }
-
+            Column {
+              anchors.verticalCenter: parent.verticalCenter
+              spacing: 3
               Text {
                 textFormat: Text.PlainText
-                anchors.verticalCenter: parent.verticalCenter
-                text: pickerBtn.face.label
+                text: Wx.label(parent.parent.parent.code)
                 color: Zenon.white
                 font.family: Zenon.face
-                font.weight: Font.Bold
+                font.weight: 600
                 font.pixelSize: Zenon.px(16)
               }
+              Text {
+                textFormat: Text.PlainText
+                text: parent.parent.parent.w ? parent.parent.parent.w.name + " · " + popup.dayName(parent.parent.parent.w.offset) : ""
+                color: Zenon.muted
+                font.family: Zenon.face
+                font.weight: 500
+                font.pixelSize: Zenon.px(14)
+              }
             }
+          }
 
-            MouseArea {
-              anchors.fill: parent
-              onClicked: {
-                popup.sel = index;
-                popup.confirm();
+          // the facts on the right: what was asked about first
+          Column {
+            anchors.right: parent.right
+            anchors.rightMargin: 24
+            y: 16
+            spacing: 4
+            readonly property var box: parent
+            Repeater {
+              model: {
+                const b = parent.box;
+                const w = b.w, d = b.d;
+                if (!w) return [];
+                const out = [];
+                const add = (txt) => { if (txt) out.push(txt); };
+                const sun = d ? "Sunrise " + Wx.hhmm(d.sunrise) + " · Sunset " + Wx.hhmm(d.sunset) : "";
+                const rain = d && d.pop !== undefined && d.pop !== null ? "Rain " + d.pop + "%" : "";
+                const hl = d ? "High " + b.t(d.hi) + " · Low " + b.t(d.lo) : "";
+                const cur = b.now ? w.current : null;
+                const wind = cur ? "Wind " + Math.round(cur.wind) + " km/h " + Wx.windDir(cur.windDeg) : "";
+                const more = cur ? "Feels " + b.t(cur.feels) + " · Humidity " + cur.humidity + "%" : "";
+                if (w.focus === "sun") { add(sun); add(hl); add(rain); }
+                else if (w.focus === "rain") { add(rain); add(hl); add(more); }
+                else if (w.focus === "wind") { add(wind); add(hl); add(more); }
+                else { add(hl); add(rain); add(more); add(wind); }
+                return out.slice(0, 3);
+              }
+              delegate: Text {
+                required property var modelData
+                anchors.right: parent.right
+                textFormat: Text.PlainText
+                text: modelData
+                color: Zenon.keyInk
+                font.family: Zenon.face
+                font.weight: 500
+                font.pixelSize: Zenon.px(14)
+              }
+            }
+          }
+
+          // the days after the one shown
+          Row {
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: 10
+            spacing: 26
+            readonly property var box: parent
+            Repeater {
+              model: parent.box.w && parent.box.w.days
+                ? parent.box.w.days.slice(parent.box.w.offset + 1, parent.box.w.offset + 6) : []
+              delegate: Column {
+                id: dayCol
+                required property var modelData
+                required property int index
+                readonly property var box: parent.box
+                spacing: 2
+                Text {
+                  anchors.horizontalCenter: parent.horizontalCenter
+                  textFormat: Text.PlainText
+                  text: popup.dayName(dayCol.box.w.offset + 1 + dayCol.index).slice(0, 3)
+                  color: Zenon.muted
+                  font.family: Zenon.face
+                  font.weight: 600
+                  font.pixelSize: Zenon.px(12)
+                }
+                Text {
+                  anchors.horizontalCenter: parent.horizontalCenter
+                  text: Wx.glyph(dayCol.modelData.code, true)
+                  color: Zenon.white
+                  font.family: Zenon.face
+                  font.pixelSize: Zenon.px(18)
+                }
+                Text {
+                  anchors.horizontalCenter: parent.horizontalCenter
+                  textFormat: Text.PlainText
+                  text: dayCol.box.t(dayCol.modelData.hi) + " " + dayCol.box.t(dayCol.modelData.lo)
+                  color: Zenon.keyInk
+                  font.family: Zenon.face
+                  font.weight: 500
+                  font.pixelSize: Zenon.px(12)
+                }
               }
             }
           }
         }
       }
 
-      Keys.onEscapePressed: (event) => {
-        event.accepted = true;
-        if (popup.mode === "picker") {
-          popup.backToSearch();
-        } else if (input.text !== "") {
-          input.text = "";
-        } else {
-          popup.closeCynosure();
+      // ------------------------------------------- dictionary, translate --
+      // Lexi's answer as the calculator shows its own (user, 2026-11-01):
+      // a heading, a wash of color, the reading over a large answer, and
+      // chips under — words for the dictionary, languages for the translator
+      Item {
+        id: lexiBox
+        y: popup.fieldH + calcBox.height + answerBox.height
+        width: parent.width
+        height: popup.lexiBoxH
+        visible: popup.lexiShown
+        clip: true
+        Behavior on height { NumberAnimation { duration: Zenon.normal; easing.type: Zenon.ease } }
+
+        readonly property var lx: popup.lexi
+        readonly property bool dict: popup.lexiMode === "dict"
+        readonly property var res: lexiBox.lx && lexiBox.dict ? lexiBox.lx.dictResult : null
+        readonly property var tr: popup.lexiTr
+        readonly property bool loading: !!lexiBox.lx && (lexiBox.dict ? lexiBox.lx.dictLoading : !!(lexiBox.tr && lexiBox.tr.pending))
+        readonly property bool failed: !!lexiBox.lx && (lexiBox.dict
+          ? lexiBox.lx.dictError !== "" || lexiBox.lx.dictSuggest.length > 0 : !!(lexiBox.tr && lexiBox.tr.error))
+        readonly property color ink: lexiBox.dict ? Zenon.cyan : Zenon.magenta
+
+
+        Item {
+          id: lexiCard
+          y: popup.cardTop
+          width: parent.width
+          height: lexiCard.want
+          // the words, the senses under them, and a row of chips
+          readonly property int want: Math.ceil(lexiCol.implicitHeight) + 28
+            + (popup.lexiChips.length > 0 ? lexiChipRow.height : 0)
+
+          Rectangle {
+            anchors.fill: parent
+            gradient: Gradient {
+              orientation: Gradient.Horizontal
+              GradientStop { position: 0.0; color: "transparent" }
+              GradientStop { position: 0.5; color: Zenon.alpha(lexiBox.ink, 0.08) }
+              GradientStop { position: 1.0; color: "transparent" }
+            }
+          }
+
+          Column {
+            id: lexiCol
+            y: 14
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: parent.width - 48
+            spacing: 4
+
+            // how it was read: the sound and the parts of speech, or which
+            // language into which
+            Text {
+              width: parent.width
+              horizontalAlignment: Text.AlignHCenter
+              visible: text !== ""
+              textFormat: Text.StyledText
+              elide: Text.ElideRight
+              text: {
+                const x = lexiBox.lx;
+                if (!x || popup.lexiBare) return "";
+                if (lexiBox.dict) {
+                  const r = lexiBox.res;
+                  if (!r || lexiBox.failed) return "";
+                  const bits = [];
+                  if (r.ipa) bits.push(Strings.escapeHtml(r.ipa));
+                  if (r.pos.length) bits.push(Strings.escapeHtml(r.pos.map((p) => p.name.toLowerCase()).join(", ")));
+                  if (r.corrected) bits.push('<font color="' + Zenon.keyInk + '">\u21BA ' + Strings.escapeHtml(x.dictAskedAs) + '</font>');
+                  if (popup.lexiAsk.lang) bits.push(Strings.escapeHtml(popup.lexiAsk.lang.en));
+                  return bits.join("  \u00B7  ");
+                }
+                const t = lexiBox.tr;
+                if (!t) return "";
+                const from = t.from || t.source;
+                return (from ? Strings.escapeHtml(Lexicon.langEnName(from)) : "Detected")
+                  + '<font color="' + lexiBox.ink + '">  \u2192  </font>'
+                  + '<font color="' + Zenon.white + '">' + Strings.escapeHtml(Lexicon.langEnName(t.to)) + '</font>';
+              }
+              color: Zenon.muted
+              font.family: Zenon.face
+              font.weight: Font.Bold
+              font.pixelSize: Zenon.px(14)
+            }
+
+            // the word, or the translation: large, the way an answer is
+            Text {
+              // nothing typed yet: no title, only the line under (user)
+              visible: !popup.lexiBare
+              width: parent.width
+              horizontalAlignment: Text.AlignHCenter
+              textFormat: Text.PlainText
+              wrapMode: Text.Wrap
+              maximumLineCount: lexiBox.dict ? 1 : 3
+              elide: Text.ElideRight
+              opacity: lexiBox.loading ? 0.45 : 1
+              Behavior on opacity { NumberAnimation { duration: Zenon.normal } }
+              text: {
+                const x = lexiBox.lx;
+                if (!x) return "";
+                if (popup.lexiBare) return "";
+                if (lexiBox.dict) {
+                  if (x.dictError !== "") return x.dictErrorWord !== "" ? "No entry for \u201C" + x.dictErrorWord + "\u201D" : "No answer";
+                  if (x.dictSuggest.length) return x.offerLabel.charAt(0).toUpperCase() + x.offerLabel.slice(1);
+                  return lexiBox.res ? lexiBox.res.title : "\u2026";
+                }
+                const t = lexiBox.tr;
+                if (!t) return "\u2026";
+                if (t.error) return "No translation";
+                return t.translation || "\u2026";
+              }
+              // a word in the card's ink; a translation plain (user, 2026-11-01)
+              color: lexiBox.failed ? Zenon.red : lexiBox.dict ? lexiBox.ink : Zenon.white
+              font.family: Zenon.face
+              font.weight: Font.Bold
+              // the prompts and the misses at metis' "Can't read" size, an
+              // answer large (user, 2026-11-01)
+              font.pixelSize: Zenon.px(popup.lexiBare || lexiBox.failed ? 19
+                : lexiBox.dict ? 26 : String(text).length < 40 ? 21 : 18)
+            }
+
+            // nothing typed yet: what to type, led by the book's or the
+            // translator's glyph in the same quiet grey, and no title over
+            // it (user, 2026-11-01)
+            Row {
+              visible: popup.lexiBare
+              anchors.horizontalCenter: parent.horizontalCenter
+              spacing: 14
+              Text {
+                anchors.verticalCenter: parent.verticalCenter
+                textFormat: Text.PlainText
+                text: lexiBox.dict ? "\uF02D" : "\uF1AB"
+                color: Zenon.muted
+                font.family: Zenon.face
+                font.pixelSize: Zenon.px(16)
+              }
+              Text {
+                anchors.verticalCenter: parent.verticalCenter
+                textFormat: Text.PlainText
+                text: lexiBox.dict ? "Type the word, or \u201C\u2026 in french\u201D to read another language"
+                  : "Type the words, then \u201Cin\u201D and a language: tr good morning in german"
+                color: Zenon.muted
+                font.family: Zenon.face
+                font.weight: 500
+                font.pixelSize: Zenon.px(14)
+              }
+            }
+            // under the answer, quietly: the romanization, or what went wrong
+            Text {
+              width: parent.width
+              horizontalAlignment: Text.AlignHCenter
+              textFormat: Text.PlainText
+              visible: text !== ""
+              wrapMode: Text.Wrap
+              text: popup.lexiBare ? ""
+                // how to say it, where the answer is in another script
+                : !lexiBox.dict && lexiBox.tr && lexiBox.tr.roman
+                  && /[^\u0000-\u024F\s]/.test(lexiBox.tr.translation || "") ? lexiBox.tr.roman
+                : lexiBox.dict && lexiBox.lx && lexiBox.lx.dictError !== "" && lexiBox.lx.dictErrorWord === "" ? lexiBox.lx.dictError
+                : ""
+              color: Zenon.muted
+              font.family: Zenon.face
+              font.weight: 500
+              font.pixelSize: Zenon.px(14)
+            }
+
+            // the senses: the first few, all of them on alt e
+            Column {
+              width: parent.width
+              spacing: 3
+              topPadding: 6
+              visible: lexiBox.dict && !!lexiBox.res && !lexiBox.failed && !popup.lexiBare
+              Repeater {
+                model: lexiBox.dict && lexiBox.lx ? lexiBox.lx.dictRows.filter((row) => row.kind === "pos" || row.kind === "def")
+                  .slice(0, lexiBox.lx.expanded ? 14 : 5) : []
+                delegate: Text {
+                  required property var modelData
+                  width: parent.width
+                  // centered under the word, as the card's every line is (user)
+                  horizontalAlignment: Text.AlignHCenter
+                  textFormat: Text.StyledText
+                  wrapMode: Text.Wrap
+                  maximumLineCount: 3
+                  elide: Text.ElideRight
+                  text: modelData.kind === "pos" ? modelData.text.toLowerCase() : modelData.text
+                  color: modelData.kind === "pos" ? lexiBox.ink : Zenon.white
+                  font.family: Zenon.face
+                  font.weight: modelData.kind === "pos" ? Font.Bold : 500
+                  font.italic: modelData.kind === "pos"
+                  font.pixelSize: Zenon.px(modelData.kind === "pos" ? 14 : 17)
+                }
+              }
+            }
+          }
+
+          // the chips: synonyms or near misses, languages, or the recents
+          Item {
+            id: lexiChipRow
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: 6
+            width: parent.width
+            height: Zenon.px(40)
+            visible: popup.lexiChips.length > 0
+            MetisDir.ChipStrip {
+              id: lexiStrip
+              anchors.verticalCenter: parent.verticalCenter
+              anchors.left: parent.left
+              anchors.right: parent.right
+              anchors.leftMargin: 12
+              anchors.rightMargin: 12
+              Repeater {
+                id: lexiChipRep
+                model: popup.lexiChips
+                delegate: MetisDir.MetisChip {
+                  required property var modelData
+                  required property int index
+                  order: index
+                  sel: popup.cardSel && index === popup.lexiChip
+                  label: modelData.label
+                  sub: modelData.sub || ""
+                  glyph: modelData.glyph || ""
+                  onClicked: popup.lexiTakeChip(index)
+                }
+              }
+            }
+          }
+
+          // a press on the card's ground chooses it
+          MouseArea {
+            anchors.fill: parent
+            z: -1
+            onClicked: popup.sel = -1
+          }
         }
       }
-      Keys.onReturnPressed: (event) => {
-        event.accepted = true;
-        // alt+return here, not in onPressed: Keys calls the named handler
-        // first, and its accepting kept onPressed from ever seeing it
-        // (audit 2026-10-28d)
-        if (event.modifiers & Qt.AltModifier) popup.showPicker();
-        else popup.confirm();
-      }
-      Keys.onTabPressed: (event) => {
-        event.accepted = true;
-        popup.autocomplete();
-      }
-      Keys.onBacktabPressed: (event) => {
-        event.accepted = true;
-        popup.moveSel(-1);
-      }
-      Keys.onLeftPressed: (event) => popup.moveSel(-1)
-      Keys.onRightPressed: (event) => popup.moveSel(1)
-      Keys.onUpPressed: (event) => popup.moveSel(-1)
-      Keys.onDownPressed: (event) => popup.moveSel(1)
-      Keys.onPressed: (event) => {
-        if (event.key === Qt.Key_Delete) {
-          event.accepted = true;
-          popup.deleteSelected();
+
+      // --------------------------------------------------- detail pane --
+      // what the chosen file, clip, picture, snippet or glyph is: a preview,
+      // and the facts about it under (Raycast's detail, terminus' Info)
+      Item {
+        id: pane
+        visible: popup.paneOn
+        x: list.width
+        y: list.y
+        width: parent.width - list.width
+        height: list.height
+        clip: true
+        readonly property var d: popup.detail
+
+        Rectangle { width: 1; height: parent.height; color: Zenon.border }
+
+        Item {
+          id: look
+          x: 18
+          y: 14
+          width: parent.width - 36
+          // what the facts leave: their heading and a line each, under it
+          height: Math.max(80, parent.height - 14 - 10 - 34 - 8
+            - (pane.d && pane.d.facts ? pane.d.facts.length + 1 : 1) * (Zenon.px(20) + 6))
+
+          Image {
+            id: lookImage
+            anchors.fill: parent
+            visible: !!pane.d && !!pane.d.image
+            source: pane.d && pane.d.image ? pane.d.image : ""
+            fillMode: Image.PreserveAspectFit
+            asynchronous: true
+            cache: false
+            // the size it really is, for the facts
+            onStatusChanged: if (status === Image.Ready) popup.picSize = sourceSize.width + " × " + sourceSize.height
+          }
+          Text {
+            anchors.centerIn: parent
+            visible: !!pane.d && !!pane.d.glyph
+            text: pane.d && pane.d.glyph ? pane.d.glyph : ""
+            color: Zenon.white
+            font.family: pane.d && pane.d.nerd ? "Symbols Nerd Font" : "Noto Color Emoji"
+            font.pixelSize: Zenon.px(96)
+          }
+          // a file's own text, in the colors terminus' preview wears
+          Text {
+            anchors.fill: parent
+            visible: !!pane.d && !!pane.d.rich
+            textFormat: Text.RichText
+            text: pane.d && pane.d.rich ? pane.d.rich : ""
+            color: Zenon.white
+            font.family: Zenon.faceCode
+            font.pixelSize: Zenon.px(12)
+            clip: true
+            wrapMode: Text.NoWrap
+          }
+          Text {
+            anchors.fill: parent
+            visible: !!pane.d && !pane.d.rich && pane.d.text !== undefined && pane.d.text !== ""
+            textFormat: Text.PlainText
+            text: pane.d && pane.d.text ? pane.d.text : ""
+            color: Zenon.white
+            font.family: pane.d && pane.d.mono ? Zenon.faceCode : Zenon.face
+            font.pixelSize: Zenon.px(pane.d && pane.d.mono ? 12 : 14)
+            wrapMode: Text.Wrap
+            elide: Text.ElideRight
+            clip: true
+          }
+          // nothing to show it with: its glyph, large and quiet
+          Text {
+            anchors.centerIn: parent
+            visible: !!pane.d && !pane.d.image && !pane.d.glyph && !pane.d.rich && !pane.d.text && !pane.d.busy
+            text: pane.d && pane.d.icon ? pane.d.icon : ""
+            color: Zenon.muted
+            font.family: Zenon.face
+            font.pixelSize: Zenon.px(64)
+          }
+          Working {
+            anchors.centerIn: parent
+            running: popup.paneOn && !!pane.d && !!pane.d.busy
+            dot: 6
+            gap: 6
+          }
+        }
+
+        Rectangle {
+          id: factsRule
+          x: 18
+          y: look.y + look.height + 10
+          width: parent.width - 36
+          height: 1
+          color: Zenon.border
+        }
+        SectionLabel {
+          x: 18
+          y: factsRule.y + 12
+          text: "Information"
+        }
+        Column {
+          x: 18
+          y: factsRule.y + 34
+          width: parent.width - 36
+          spacing: 6
+          Repeater {
+            model: pane.d && pane.d.facts ? pane.d.facts.concat(popup.picSize !== "" && pane.d.image
+              && pane.d.kind === "pics" ? [["Size", popup.picSize]] : []) : []
+            delegate: Item {
+              id: fact
+              required property var modelData
+              width: parent.width
+              height: Zenon.px(20)
+              Text {
+                id: factKey
+                textFormat: Text.PlainText
+                anchors.verticalCenter: parent.verticalCenter
+                text: fact.modelData[0]
+                color: Zenon.muted
+                font.family: Zenon.face
+                font.weight: 500
+                font.pixelSize: Zenon.px(13)
+              }
+              Text {
+                textFormat: Text.PlainText
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                width: Math.min(implicitWidth, parent.width - factKey.implicitWidth - 16)
+                horizontalAlignment: Text.AlignRight
+                elide: Text.ElideMiddle
+                text: fact.modelData[1]
+                color: Zenon.keyInk
+                font.family: Zenon.face
+                font.weight: 500
+                font.pixelSize: Zenon.px(13)
+              }
+            }
+          }
         }
       }
+
+      // -------------------------------------------------------- list --
+      ListView {
+        id: list
+        visible: !popup.confirmLine && !popup.editing
+        // Finder's rubber band and the smooth wheel notch, one rule for the
+        // whole shell — see morpheus/Elastic.qml
+        ElasticScroll { view: list }
+        // the chosen row slides (morpheus/CursorBand), flush to both sides
+        // not on a row of cells (pictures, emoji): the chosen cell's ring is
+        // the cursor there (user, 2026-11-01)
+        CursorBand { follows: list; index: popup.sel
+                     shown: list.count > 0 && !(popup.current && popup.current.cells) }
+        // and on a row of cells the one cursor slides between the cells
+        // themselves, across a row and from row to row (user, 2026-11-01)
+        CursorBand {
+          follows: list
+          item: popup.chosenCellItem
+          shown: !!popup.chosenCellItem
+          insetX: 4
+          insetY: 4
+          radius: Zenon.menuRadius
+        }
+        y: popup.topH + calcBox.height + answerBox.height + lexiBox.height
+        // the detail pane takes the right of it in a list of one kind
+        // a glyph's pane is one character and its facts: a narrow column,
+        // the strips their full width (user, 2026-11-01)
+        width: !popup.paneOn ? parent.width
+          : popup.glyphsScoped ? parent.width - Zenon.px(280) : Math.round(parent.width * 0.52)
+        height: popup.rootH - Zenon.hintBarH - y
+        clip: true
+        boundsBehavior: Flickable.StopAtBounds
+        model: popup.mode === "picker" ? popup.pickerRows : popup.filtered
+        cacheBuffer: 600
+        // a new list's rows made from the last one's, not built from nothing
+        // (user, 2026-11-02: snappier)
+        reuseItems: true
+
+        section.property: "section"
+        section.criteria: ViewSection.FullString
+        section.delegate: Item {
+          required property string section
+          width: list.width
+          // the field says it already (fieldTag): not again over the list
+          readonly property bool said: section === "" || (!!popup.fieldTag && section === popup.fieldTag.text)
+          height: said ? 0 : popup.sectionH
+          // the list sets a heading's own `visible`: the label is what hides,
+          // or it draws over the row before at height 0 (nf, em, 11-01)
+          SectionLabel {
+            visible: !parent.said
+            x: 20
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: 6
+            text: parent.section
+          }
+        }
+
+        delegate: Item {
+          id: row
+          required property var modelData
+          required property int index
+          readonly property var r: modelData
+          // a name, read through the query's underline, for the rows that
+          // are a thing found; a sentence of the shell's own for the rest
+          readonly property bool marked: r.kind === "app" || r.kind === "shell" || r.kind === "hist"
+          // a picture on the clipboard: its thumbnail in the glyph's place,
+          // on a row tall enough to see it
+          readonly property bool isPic: r.kind === "clipimg"
+          readonly property bool isStrip: r.kind === "glyphs"
+          readonly property bool isGrid: r.kind === "pics"
+          // the item of cell i, for the sliding cell cursor
+          function cellItem(i) {
+            return row.isGrid ? picRep.itemAt(i) : row.isStrip ? glyphRep.itemAt(i) : null;
+          }
+          readonly property bool chosen: row.index === popup.sel
+          width: list.width
+          height: row.isPic ? popup.rowH * 2 : row.isStrip ? popup.glyphRowH
+            : row.isGrid ? popup.picRowH : popup.rowH
+
+          // a row of the pictures' grid: each a thumbnail and when it came,
+          // the chosen one ringed in the accent
+          Row {
+            visible: row.isGrid
+            x: 14
+            anchors.verticalCenter: parent.verticalCenter
+            Repeater {
+              id: picRep
+              model: row.isGrid ? row.r.cells : []
+              delegate: Item {
+                id: picCell
+                required property var modelData
+                required property int index
+                width: Math.floor((list.width - 28) / popup.picsPer)
+                height: popup.picRowH
+                // the chosen cell lights before it acts, in the cursor's box
+                FlashOver {
+                  flash: rowFlash
+                  index: row.index
+                  anchors.margins: 4
+                  radius: Zenon.menuRadius
+                  visible: picCell.index === popup.cellSel && !!flash && index === flash.at && flash.ink > 0
+                }
+                // the picture itself, written out as a file to carry
+                Drag.active: false
+                Drag.source: picCell
+                Drag.keys: ["text/uri-list"]
+                Drag.supportedActions: Qt.CopyAction
+                Drag.dragType: Drag.Automatic
+                Drag.hotSpot.x: 16
+                Drag.hotSpot.y: 19
+                Drag.onDragFinished: function(dropAction) { popup.dragEnded(picCell, dropAction); }
+                DragHandler {
+                  target: null
+                  onActiveChanged: {
+                    if (!active) return;
+                    popup.dragging = true;
+                    popup.folio.dragDecode(picCell.modelData.id, (file) => {
+                      if (file === "") { popup.dragging = false; return; }
+                      popup.offerDrag(picCell, { "text/uri-list": Strings.fileUrl(file) + "\r\n" },
+                        Terminus.basename(file), "\uF03E", picCell.modelData.thumb ? "file://" + picCell.modelData.thumb : "");
+                    });
+                  }
+                }
+                Image {
+                  id: picThumb
+                  anchors.top: parent.top
+                  anchors.topMargin: 10
+                  anchors.horizontalCenter: parent.horizontalCenter
+                  width: parent.width - 20
+                  height: parent.height - 40
+                  source: picCell.modelData.thumb ? "file://" + picCell.modelData.thumb : ""
+                  fillMode: Image.PreserveAspectFit
+                  asynchronous: true
+                  cache: false
+                }
+                // not made yet: the picture glyph in its place
+                Text {
+                  anchors.centerIn: picThumb
+                  visible: picThumb.status !== Image.Ready
+                  text: "\uF03E"
+                  color: Zenon.muted
+                  font.family: Zenon.face
+                  font.pixelSize: Zenon.px(28)
+                }
+                Text {
+                  textFormat: Text.PlainText
+                  anchors.bottom: parent.bottom
+                  anchors.bottomMargin: 9
+                  anchors.horizontalCenter: parent.horizontalCenter
+                  width: Math.min(implicitWidth, parent.width - 16)
+                  elide: Text.ElideRight
+                  text: picCell.modelData.stamp
+                  color: Zenon.muted
+                  font.family: Zenon.face
+                  font.weight: 500
+                  font.pixelSize: Zenon.px(12)
+                }
+                MouseArea {
+                  anchors.fill: parent
+                  // one click chooses it, two use it, a right click opens
+                  // its actions (user, 2026-11-01)
+                  acceptedButtons: Qt.LeftButton | Qt.RightButton
+                  onClicked: (mouse) => {
+                    popup.sel = row.index;
+                    popup.cellSel = picCell.index;
+                    if (mouse.button === Qt.RightButton) Qt.callLater(popup.openActions);
+                  }
+                  onDoubleClicked: (mouse) => {
+                    if (mouse.button !== Qt.LeftButton) return;
+                    popup.sel = row.index;
+                    popup.cellSel = picCell.index;
+                    popup.confirm();
+                  }
+                }
+              }
+            }
+          }
+
+          // a strip of emoji or glyphs, the chosen cell ringed in the accent
+          Row {
+            visible: row.isStrip
+            x: 14
+            anchors.verticalCenter: parent.verticalCenter
+            Repeater {
+              id: glyphRep
+              model: row.isStrip ? row.r.cells : []
+              delegate: Item {
+                id: cell
+                required property var modelData
+                required property int index
+                width: Zenon.px(52)
+                height: popup.glyphRowH
+                // the chosen cell lights before it acts, in the cursor's box
+                FlashOver {
+                  flash: rowFlash
+                  index: row.index
+                  anchors.margins: 4
+                  radius: Zenon.menuRadius
+                  visible: cell.index === popup.cellSel && !!flash && index === flash.at && flash.ink > 0
+                }
+                // the glyph as text, into whatever takes it
+                Drag.active: false
+                Drag.source: cell
+                Drag.supportedActions: Qt.CopyAction
+                Drag.dragType: Drag.Automatic
+                Drag.hotSpot.x: 16
+                Drag.hotSpot.y: 19
+                Drag.onDragFinished: function(dropAction) { popup.dragEnded(cell, dropAction); }
+                DragHandler {
+                  target: null
+                  onActiveChanged: {
+                    if (!active) return;
+                    popup.dragging = true;
+                    popup.offerDrag(cell, { "text/plain": cell.modelData.char }, cell.modelData.name || cell.modelData.char, cell.modelData.char);
+                  }
+                }
+                Text {
+                  anchors.centerIn: parent
+                  text: cell.modelData.char
+                  color: Zenon.white
+                  font.family: row.r.nerd ? "Symbols Nerd Font" : "Noto Color Emoji"
+                  font.pixelSize: Zenon.px(row.r.nerd ? 26 : 24)
+                }
+                MouseArea {
+                  anchors.fill: parent
+                  acceptedButtons: Qt.LeftButton | Qt.RightButton
+                  onClicked: (mouse) => {
+                    popup.sel = row.index;
+                    popup.cellSel = cell.index;
+                    if (mouse.button === Qt.RightButton) Qt.callLater(popup.openActions);
+                  }
+                  onDoubleClicked: (mouse) => {
+                    if (mouse.button !== Qt.LeftButton) return;
+                    popup.sel = row.index;
+                    popup.cellSel = cell.index;
+                    popup.confirm();
+                  }
+                }
+              }
+            }
+          }
+
+          // dragged out to another app (startDrag): not a row of cells,
+          // whose cells drag themselves
+          Drag.active: false
+          Drag.source: row
+          Drag.supportedActions: Qt.CopyAction
+          Drag.dragType: Drag.Automatic
+          Drag.hotSpot.x: 16
+          Drag.hotSpot.y: 19
+          Drag.onDragFinished: function(dropAction) { popup.dragEnded(row, dropAction); }
+          DragHandler {
+            target: null
+            enabled: ["file", "clip", "snip", "link"].indexOf(row.r.kind) >= 0
+            onActiveChanged: if (active) popup.startDrag(row, row.r)
+          }
+
+          // the whole row lights before it acts — but not a row of cells,
+          // where only the chosen cell does (below, in the cell)
+          FlashOver {
+            flash: rowFlash
+            index: row.index
+            visible: !row.r.cells && !!flash && index === flash.at && flash.ink > 0
+          }
+
+          // ── every row: glyph, name, its second line, and on the
+          // right what kind of thing it is, or the word that reaches it
+          Image {
+            id: thumb
+            visible: row.isPic
+            x: 20
+            width: row.isPic ? popup.rowH * 2 - 12 : 0
+            height: width
+            anchors.verticalCenter: parent.verticalCenter
+            source: row.isPic && row.r.thumb ? "file://" + row.r.thumb : ""
+            fillMode: Image.PreserveAspectFit
+            asynchronous: true
+            cache: false
+          }
+          Text {
+            id: glyph
+            visible: !row.isPic && !row.isStrip && !row.isGrid
+            x: 20
+            width: Zenon.px(22)
+            anchors.verticalCenter: parent.verticalCenter
+            horizontalAlignment: Text.AlignHCenter
+            text: row.r.glyph || ""
+            color: Zenon.white
+            font.family: Zenon.face
+            font.pixelSize: Zenon.px(17)
+          }
+
+          Row {
+            visible: !row.isStrip && !row.isGrid
+            anchors.left: row.isPic ? thumb.right : glyph.right
+            anchors.leftMargin: 14
+            anchors.right: tail.left
+            anchors.rightMargin: 12
+            anchors.verticalCenter: parent.verticalCenter
+            spacing: Zenon.px(10)
+            clip: true
+
+            Text {
+              id: label
+              anchors.verticalCenter: parent.verticalCenter
+              text: row.marked ? Cynosure.highlight(row.r.label, popup.query)
+                : Strings.escapeHtml(row.r.label || "")
+              textFormat: Text.StyledText
+              color: Zenon.white
+              font.family: Zenon.face
+              font.weight: 600
+              font.pixelSize: Zenon.px(15)
+            }
+            Text {
+              textFormat: Text.PlainText
+              anchors.verticalCenter: parent.verticalCenter
+              visible: text !== ""
+              text: row.r.sub || ""
+              color: Zenon.muted
+              font.family: Zenon.face
+              font.weight: 500
+              font.pixelSize: Zenon.px(14)
+            }
+          }
+
+          Row {
+            id: tail
+            // beside the detail pane a strip's name is the pane's to say
+            visible: !row.isGrid && !(row.isStrip && popup.paneOn)
+            anchors.right: parent.right
+            anchors.rightMargin: 20
+            anchors.verticalCenter: parent.verticalCenter
+            spacing: Zenon.px(10)
+            // the word that opens it straight from the field: "cb invoice"
+            KeyCap {
+              anchors.verticalCenter: parent.verticalCenter
+              // your alias for it, or a panel's own word
+              visible: !!row.r.alias || (row.r.kind === "shell" && !!(row.r.action && row.r.action.alias))
+              label: row.r.alias ? row.r.alias : row.r.action && row.r.action.alias ? row.r.action.alias : ""
+            }
+            // the row's keys on ONE cap, as a hint writes them (user,
+            // 2026-11-01: a cap per key read as several shortcuts): with alt
+            // held the first nine say "alt 1"…; otherwise the hotkey you gave
+            // the row, "super shift f"
+            KeyCap {
+              anchors.verticalCenter: parent.verticalCenter
+              readonly property bool numbered: popup.altHeld && row.index < 9 && !row.isStrip && !row.isGrid
+              label: numbered ? "alt " + (row.index + 1)
+                : Cynosure.HOTKEY_KINDS[row.r.kind] ? popup.chordWords(Cynosure.hotkeyOf(popup.hotkeys, row.r)) : ""
+            }
+            Text {
+              textFormat: Text.PlainText
+              anchors.verticalCenter: parent.verticalCenter
+              visible: row.r.kind !== "pick"
+              // a strip says the chosen cell's name, while it is chosen
+              width: row.isStrip ? Math.min(implicitWidth, popup.panelWidth - 40 - popup.glyphsPer * Zenon.px(52)) : implicitWidth
+              elide: Text.ElideRight
+              // with alt held, the first nine say the number that opens them
+              text: row.isStrip
+                ? (row.chosen && row.r.cells[popup.cellSel] ? row.r.cells[popup.cellSel].name : Cynosure.kindName(row.r))
+                : Cynosure.kindName(row.r)
+              color: Zenon.muted
+              font.family: Zenon.face
+              font.weight: 500
+              font.pixelSize: Zenon.px(13)
+            }
+          }
+
+          MouseArea {
+            anchors.fill: parent
+            // a strip's cells take their own presses
+            enabled: !row.isStrip && !row.isGrid
+            // one click chooses the row, two do what return does, a right
+            // click opens its actions (shift return's menu)
+            acceptedButtons: Qt.LeftButton | Qt.RightButton
+            onClicked: (mouse) => {
+              popup.sel = row.index;
+              if (mouse.button === Qt.RightButton) Qt.callLater(popup.openActions);
+            }
+            onDoubleClicked: (mouse) => {
+              if (mouse.button !== Qt.LeftButton) return;
+              popup.sel = row.index;
+              popup.confirm();
+            }
+          }
+        }
+
+        ScrollRail {
+          target: list
+          parent: list
+          anchors.right: parent.right
+          anchors.top: parent.top
+          anchors.bottom: parent.bottom
+        }
+      }
+
+      // ---------------------------------------------------- the keys --
+      // morpheus/HintBar, as every strip: what the keys do to the chosen
+      // row (which says what it is on its own right end)
+      HintBar {
+        id: hintStrip
+        visible: !popup.confirmLine
+        y: popup.rootH - Zenon.hintBarH
+        width: parent.width
+        rows: popup.hints()
+        // folio's word for a moment ("Kept as …", "Saved")
+        note: popup.aliasNote !== "" ? popup.aliasNote : popup.folio ? popup.folio.note : ""
+      }
+      }
+
+      // the actions panel, over the bottom right as Raycast has it; a press
+      // anywhere else in the panel puts it away
+      MouseArea {
+        anchors.fill: parent
+        z: 59
+        visible: popup.actionsOpen
+        onClicked: popup.closeActions()
+      }
+      // frosted, as glass over the list (user, 2026-11-01): the panel under
+      // the card, blurred (morpheus/Frost), the card's own ground over it
+      Frost {
+        z: 59.5
+        x: actionsMenu.x + actionsMenu.pad
+        y: actionsMenu.y + actionsMenu.pad
+        width: actionsMenu.cardW
+        height: Math.min(actionsMenu.contentH, Zenon.menuMaxHeight)
+        radius: Zenon.menuRadius
+        source: stage
+        // a solid floor under the blur, as the sheets have over a listing:
+        // thin text blurred is a haze the sharp rows read straight through
+        base: Zenon.black
+        active: actionsMenu.showing
+        visible: actionsMenu.showing
+        opacity: actionsMenu.shade
+        scrim: 0
+      }
+      MenuCore {
+        id: actionsMenu
+        z: 60
+        anchors.right: parent.right
+        anchors.rightMargin: 8 - actionsMenu.pad
+        // over the strip of keys, as the card sat before (stage's strip is
+        // not a sibling to anchor to)
+        y: popup.rootH - Zenon.hintBarH - actionsMenu.implicitHeight + actionsMenu.pad - 4
+        fit: true
+        open: popup.actionsOpen
+        visible: actionsMenu.showing
+        activeIndex: popup.actionSel
+        model: popup.actionRows.map((a) => ({ text: a.text, icon: a.icon, hint: a.hint }))
+        onChosen: (i) => popup.doAction(i)
+        onHovered: (i) => popup.actionSel = i
+      }
+
     }
   }
 
@@ -1152,5 +3793,12 @@ property var statusbar: null
     DesktopEntries.applicationsChanged.connect(() => popup.refreshApps());
     histCat.running = true;
     freqCat.running = true;
+    // and your words, links and searches: never asked for before, so a
+    // restart came back without them (2026-11-01)
+    aliasCat.running = true;
+    linkCat.running = true;
+    queriesCat.running = true;
+    glyphsCat.running = true;
+    hotkeysCat.running = true;
   }
 }

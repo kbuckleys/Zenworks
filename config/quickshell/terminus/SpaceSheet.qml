@@ -150,6 +150,7 @@ Rectangle {
       anchors.right: parent.right
       height: 44
       Text {
+        textFormat: Text.PlainText
         id: whereText
         anchors.left: parent.left
         anchors.leftMargin: 18

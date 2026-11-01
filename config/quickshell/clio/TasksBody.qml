@@ -142,6 +142,7 @@ Item {
               }
             }
             Text {
+              textFormat: Text.PlainText
               id: what
               anchors.left: box.right
               anchors.leftMargin: 12

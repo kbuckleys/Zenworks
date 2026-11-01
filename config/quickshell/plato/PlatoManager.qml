@@ -24,11 +24,9 @@
 import QtQuick
 import Quickshell
 import Quickshell.Io
-import Quickshell.Hyprland
 import "../morpheus"
 import "../morpheus/lagnotes.js" as LagNotes
 import "core"
-import "../morpheus/hypr.js" as Hypr
 
 Scope {
   id: mgr
@@ -347,12 +345,12 @@ Scope {
     const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
     const months = ["January", "February", "March", "April", "May", "June", "July",
       "August", "September", "October", "November", "December"];
-    const start = new Date(d.getFullYear(), 0, 1);
     const map = {
       Y: d.getFullYear(), y: z(d.getFullYear() % 100), m: z(d.getMonth() + 1), d: z(d.getDate()),
       e: String(d.getDate()), H: z(d.getHours()), M: z(d.getMinutes()), S: z(d.getSeconds()),
       A: days[d.getDay()], a: days[d.getDay()].slice(0, 3), B: months[d.getMonth()],
-      b: months[d.getMonth()].slice(0, 3), j: z(Math.floor((d - start) / 86400000) + 1, 3),
+      b: months[d.getMonth()].slice(0, 3), j: z(Math.round((Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())
+        - Date.UTC(d.getFullYear(), 0, 1)) / 86400000) + 1, 3),
       F: d.getFullYear() + "-" + z(d.getMonth() + 1) + "-" + z(d.getDate()), "%": "%",
     };
     return String(fmt).replace(/%([A-Za-z%])/g, (m, k) => map[k] !== undefined ? map[k] : m);
@@ -360,7 +358,7 @@ Scope {
   function capture() {
     const open = mgr.wins.filter((w) => w.capture);
     if (open.length > 0) {
-      Hyprland.dispatch(Hypr.focusTitle("plato-capture"));
+      Attention.raise("plato-capture");
       return;
     }
     const p = mgr._expand(mgr.strftime(settings.captureFile || "~/.local/share/zenworks/plato/scratch.md", new Date()));

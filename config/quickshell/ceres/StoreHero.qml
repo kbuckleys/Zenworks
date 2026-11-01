@@ -27,13 +27,13 @@ ClippingRectangle {
   signal launched(var app)
   signal removed(var app)
 
-  readonly property var app: hero.apps.length ? hero.apps[Math.min(hero.at, hero.apps.length - 1)] : null
+  readonly property var app: (hero.apps || []).length ? hero.apps[Math.min(hero.at, (hero.apps || []).length - 1)] : null
   function turn(d) {
-    if (hero.apps.length < 2) return;
-    hero.at = (hero.at + d + hero.apps.length) % hero.apps.length;
+    if ((hero.apps || []).length < 2) return;
+    hero.at = (hero.at + d + (hero.apps || []).length) % (hero.apps || []).length;
     turner.restart();
   }
-  onAppsChanged: if (hero.at >= hero.apps.length) hero.at = 0
+  onAppsChanged: if (hero.at >= (hero.apps || []).length) hero.at = 0
 
   radius: Zenon.windowRadius
   color: Zenon.wash(0.04)
@@ -44,7 +44,7 @@ ClippingRectangle {
     id: turner
     interval: 9000
     repeat: true
-    running: hero.visible && hero.apps.length > 1 && !heroMa.containsMouse
+    running: hero.visible && (hero.apps || []).length > 1 && !heroMa.containsMouse
     onTriggered: hero.turn(1)
   }
 
@@ -180,7 +180,7 @@ ClippingRectangle {
 
   // ── where in the turn: a pill for this one, dots for the rest ───────
   Rectangle {
-    visible: hero.apps.length > 1
+    visible: (hero.apps || []).length > 1
     anchors.right: parent.right
     anchors.bottom: parent.bottom
     anchors.rightMargin: 30
@@ -194,7 +194,7 @@ ClippingRectangle {
       anchors.centerIn: parent
       spacing: 6
       Repeater {
-        model: hero.apps.length
+        model: (hero.apps || []).length
         delegate: Rectangle {
           required property int index
           width: index === hero.at ? 18 : 6
@@ -217,7 +217,7 @@ ClippingRectangle {
   // picasso's edge tabs (morpheus/EdgeTab), out of the carousel's sides
   // (user, 2026-10-17: the bare ‹ › were hardly visible)
   Repeater {
-    model: hero.apps.length > 1 ? [-1, 1] : []
+    model: (hero.apps || []).length > 1 ? [-1, 1] : []
     delegate: EdgeTab {
       required property var modelData
       edge: modelData < 0 ? "left" : "right"

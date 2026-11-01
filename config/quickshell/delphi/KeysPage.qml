@@ -47,7 +47,10 @@ Item {
   // the forges that have each key: public key → [{ forge, id }]
   property var on: ({})
   // the last test of each host: host → sshkeys.read_test's answer
-  property var tests: ({})
+  // kept on the window, not here: a page is made anew each time it is
+  // opened, and the ✓ marks went with it on every tab switch, as if the
+  // key had been let go of (user, 2026-11-02)
+  readonly property var tests: pg.win ? pg.win.sshTests : ({})
 
   function reload() {
     if (!pg.win) return;
@@ -240,7 +243,7 @@ Item {
       }
       const h = hosts[i];
       pg.win.act("sshTest", { host: h }, { repo: null, network: true, refresh: false, label: "Trying " + pg.hostName(h),
-        then: (res) => { results.push(res); const t = Object.assign({}, pg.tests); t[h] = res; pg.tests = t; next(i + 1); },
+        then: (res) => { results.push(res); const t = Object.assign({}, pg.win.sshTests); t[h] = res; pg.win.sshTests = t; next(i + 1); },
         failed: (err) => { pg.win.fail("ssh did not run", null, err); } });
     };
     next(0);

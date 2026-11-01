@@ -8,7 +8,10 @@
 
 local ZOOM_STEP = 1.2    -- ZoomFactor, applied multiplicatively
 local MIN_ZOOM  = 1.0    -- std::clamp(value, 1.0, 100.0)
-local MAX_ZOOM  = 100.0
+-- KWin goes to 100, but Hyprland's cursor:zoom_factor stops at 10: every
+-- step past it was refused, each with a "Runtime error in lua" notification
+-- (user, 2026-11-01). Stepping in stops here.
+local MAX_ZOOM  = 10.0
 
 -- Zoom drags the cursor between the hardware plane and the framebuffer: the
 -- zoomLock in Hyprland's Renderer.cpp is a function-local static shared by

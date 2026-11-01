@@ -49,10 +49,11 @@ Column {
   }
 
   function step(d) {
-    let m = cal.month + d, y = cal.year;
-    if (m < 0) { m = 11; y--; } else if (m > 11) { m = 0; y++; }
-    cal.month = m;
-    cal.year = y;
+    // any number of months: a year's step (±12) kept the month, where the
+    // wrap to 0 or 11 did not (audit 10-31)
+    const t = cal.year * 12 + cal.month + d;
+    cal.year = Math.floor(t / 12);
+    cal.month = t - cal.year * 12;
   }
   function goToday() { cal.year = new Date().getFullYear(); cal.month = new Date().getMonth(); }
 

@@ -59,13 +59,18 @@ function parseNerdCss(css) {
   return icons;
 }
 
+// What an entry is found by, lowercased once and kept on it (`_k`): five
+// thousand names lowercased again on every key was most of a keystroke in
+// Cynosure (2026-11-02). The match is the same: the class or the codepoint
+// for a nerd glyph, the name or the character for an emoji.
+function keyOf(e) {
+  if (e._k === undefined)
+    e._k = e.cls ? e.cls.toLowerCase() + "\u0000" + String(e.code).toLowerCase()
+      : (e.name ? e.name.toLowerCase() : "") + "\u0000" + e.char;
+  return e._k;
+}
 function filterEntries(entries, query) {
   const q = String(query).toLowerCase();
   if (!q) return entries;
-  return entries.filter((e) => {
-    if (e.cls) return e.cls.toLowerCase().indexOf(q) >= 0 ||
-                      e.code.toLowerCase().indexOf(q) >= 0;
-    return (e.name && e.name.toLowerCase().indexOf(q) >= 0) ||
-           e.char.indexOf(q) >= 0;
-  });
+  return entries.filter((e) => keyOf(e).indexOf(q) >= 0);
 }

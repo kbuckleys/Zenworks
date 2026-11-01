@@ -49,12 +49,14 @@ Rectangle {
       height: 26
 
       Text {
+        textFormat: Text.PlainText
         anchors.left: parent.left
         anchors.leftMargin: 12
         anchors.verticalCenter: parent.verticalCenter
         text: {
           const bad = jobsCard.jobs.faults;
-          const live = jobsCard.jobs.model.count - bad;
+          // finished rows stay a moment: not running, not counted (audit 10-31)
+          const live = jobsCard.jobs.model.count - bad - jobsCard.jobs.done;
           const runs = live === 1 ? "1 " + jobsCard.nouns[0] : live + " " + jobsCard.nouns[1];
           if (bad === 0) return runs;
           const said = bad === 1 ? "1 did not finish"
@@ -75,7 +77,7 @@ Rectangle {
         anchors.right: parent.right
         anchors.rightMargin: 12
         anchors.verticalCenter: parent.verticalCenter
-        visible: jobsCard.jobs.model.count - jobsCard.jobs.faults > 1
+        visible: jobsCard.jobs.model.count - jobsCard.jobs.faults - jobsCard.jobs.done > 1
         text: "Stop all"
         color: stopAllPress.pressed ? Zenon.red : Zenon.muted
         font.family: Zenon.face

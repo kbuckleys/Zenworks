@@ -6,7 +6,7 @@
 // A labeled slider: the name on the left, the track, the value on the
 // right. A click on the value puts it back to its default.
 //
-// One of picasso's controls, shared by the focus card and the viewer.
+// One of picasso's controls, shared by the background setter and the viewer.
 
 import QtQuick
 import "../morpheus"

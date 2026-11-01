@@ -25,6 +25,7 @@ Item {
   height: diskRow.rowH
 
   Text {
+    textFormat: Text.PlainText
     id: diskTarget
     anchors.left: parent.left
     anchors.leftMargin: 22

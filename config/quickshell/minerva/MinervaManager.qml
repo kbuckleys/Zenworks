@@ -25,10 +25,8 @@
 import QtQuick
 import Quickshell
 import Quickshell.Io
-import Quickshell.Hyprland
 import "../morpheus"
 import "../morpheus/lagnotes.js" as LagNotes
-import "../morpheus/hypr.js" as Hypr
 import "../ceres"
 import "../lexi/lexi.js" as Lexicon
 import "minerva.js" as M
@@ -187,21 +185,26 @@ Scope {
     mgr.ask(["python3", "-I", Quickshell.shellDir + "/minerva/core/books.py", "comic", path,
              mgr.cacheDir + "/comic/" + Qt.md5(path)], fn);
   }
+  // each run's own callback, in order asked, and only the newest answered:
+  // one asked mid-run is queued, and the old run's hits came back labeled
+  // with the new words (audit 10-31)
   function findInBook(dir, words, fn) {
-    findProc.fn = fn;
+    findProc.fns = findProc.fns.concat([fn]);
     findProc.command = ["python3", "-I", Quickshell.shellDir + "/minerva/core/epub.py", "find", dir, words];
     findProc.running = true;
   }
   Process {
     id: findProc
-    property var fn: null
+    property var fns: []
     stdout: StdioCollector {
       id: findOut
       waitForEnd: true
       onStreamFinished: {
         let j = [];
         try { j = JSON.parse(findOut.text); } catch (e) {}
-        if (findProc.fn) findProc.fn(Array.isArray(j) ? j : []);
+        const fn = findProc.fns.length > 0 ? findProc.fns[0] : null;
+        findProc.fns = findProc.fns.slice(1);
+        if (fn && findProc.fns.length === 0) fn(Array.isArray(j) ? j : []);
       }
     }
   }
@@ -304,7 +307,7 @@ Scope {
       const was = !fresh && mgr.win.visible;
       fn(mgr.win);
       mgr.win.visible = true;
-      if (was) Hyprland.dispatch(Hypr.focusTitle("minerva"));
+      if (was) Attention.raise("minerva");
     });
   }
   function retire(w) {

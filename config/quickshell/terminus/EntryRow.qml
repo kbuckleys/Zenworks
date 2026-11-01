@@ -44,6 +44,10 @@ Item {
   // markMatch — the substring, or the letters a fuzzy match took)
   property string mark: ""
   property color markInk: Zenon.yellow
+  // What the WHERE cell says instead of the row's own directory: a grouped
+  // results page names each directory once, on the first row of its run,
+  // and leaves the rest of the run blank (PaneList). undefined: the path.
+  property var whereSay: undefined
   property bool clickable: true
   // Whether this row is in THE LISTING THE CURSOR MOVES THROUGH.
   //
@@ -1016,8 +1020,10 @@ Item {
       height: parent.height
       visible: entryRow.showMeta && entryRow.frac.where > 0
       verticalAlignment: Text.AlignVCenter
-      text: entryRow.entry && entryRow.frac.where > 0
-        ? Terminus.whereOf(entryRow.entry.path, host.cwd) : ""
+      textFormat: Text.PlainText
+      text: !entryRow.entry || entryRow.frac.where <= 0 ? ""
+        : entryRow.whereSay !== undefined ? entryRow.whereSay
+        : Terminus.whereOf(entryRow.entry.path, host.cwd)
       // The FRONT is what repeats. Two results deep in the same tree differ
       // at the end of the path, so eliding the tail would leave two rows
       // reading the same and eliding the head keeps them apart.

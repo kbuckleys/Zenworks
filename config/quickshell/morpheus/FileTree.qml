@@ -235,16 +235,24 @@ FocusScope {
   }
 
   // ── git ────────────────────────────────────────────────────────────
+  // asked mid-run: once that run is done. Its answer is for the root it was
+  // asked for, and a root changed meanwhile drops it (audit 10-31)
   function readGit() {
-    if (tree.given !== null || tree.rootPath === "" || gitProc.running) return;
+    if (tree.given !== null || tree.rootPath === "") return;
+    if (gitProc.running) { gitProc.again = true; return; }
+    gitProc.root = tree.rootPath;
     gitProc.command = ["sh", "-c", Terminus.gitCommand(tree.rootPath)];
     gitProc.running = true;
   }
   Process {
     id: gitProc
+    property string root: ""
+    property bool again: false
+    onExited: if (gitProc.again) { gitProc.again = false; Qt.callLater(tree.readGit); }
     stdout: StdioCollector {
       id: gitOut
       onStreamFinished: {
+        if (gitProc.root !== tree.rootPath) return;
         const g = Terminus.parseGit(gitOut.text);
         const out = {};
         // every entry, and every directory above it up to the root, wears the
@@ -477,8 +485,11 @@ FocusScope {
   // One command at a time, with a message on failure; the watcher sees the
   // result and the listing follows on its own.
   property string error: ""
+  // each command's own `after`: one asked while another runs is queued by the
+  // Process, and a single slot ran the second's after on the first's exit
+  // (audit 10-31)
   function run(cmd, after) {
-    runner.after = after || null;
+    runner.afters = runner.afters.concat([after || null]);
     // a script string, or terminus' { script, args } (trashCommand is one —
     // handed to sh -c as it was, it ran "[object Object]")
     runner.command = typeof cmd === "string" ? ["sh", "-c", cmd] : Terminus.shArgv(cmd);
@@ -486,11 +497,13 @@ FocusScope {
   }
   Process {
     id: runner
-    property var after: null
+    property var afters: []
     stderr: StdioCollector { id: runErr }
     onExited: (code) => {
+      const after = runner.afters.length > 0 ? runner.afters[0] : null;
+      runner.afters = runner.afters.slice(1);
       tree.error = code === 0 ? "" : (String(runErr.text).trim() || "failed");
-      if (code === 0 && runner.after) runner.after();
+      if (code === 0 && after) after();
       errorClear.restart();
     }
   }

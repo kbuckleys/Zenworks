@@ -118,6 +118,29 @@ function sourceName(code) {
   return (code && SOURCE_NAMES[code]) || (code ? String(code).toUpperCase() : "");
 }
 
+// A language named in words ("spanish", "Español", "simplified chinese",
+// or its code "de"), as { code, name, en }, or null: Cynosure's "hello in
+// spanish" and "define faire in french" (2026-11-01).
+const LANG_ALIASES = {
+  chinese: "zh-CN", mandarin: "zh-CN", "simplified chinese": "zh-CN", "traditional chinese": "zh-TW",
+  "brazilian portuguese": "pt-BR", farsi: "fa", filipino: "fil", tagalog: "fil",
+  croatian: "hr", serbian: "sr", slovenian: "sl", hebrew: "he", norwegian: "no",
+};
+function langFor(name) {
+  const want = String(name || "").trim().toLowerCase();
+  if (want === "") return null;
+  let code = LANG_ALIASES[want] || null;
+  if (!code) for (const c in EN_NAMES) if (EN_NAMES[c].toLowerCase() === want) { code = c; break; }
+  if (!code) for (const l of LANGS) if (l[1].toLowerCase() === want || l[0].toLowerCase() === want) { code = l[0]; break; }
+  if (!code) return null;
+  return { code, name: SOURCE_NAMES[code] || code, en: EN_NAMES[code] || "" };
+}
+// a code as its name in English, for a card's heading ("es" → "Spanish")
+function langEnName(code) {
+  return EN_NAMES[code] || sourceName(code);
+}
+
+
 const KNOWN_CODES = {};
 for (const c of [
   "af","sq","am","ar","hy","az","eu","be","bn","bs","bg","ca","ceb","zh-CN",

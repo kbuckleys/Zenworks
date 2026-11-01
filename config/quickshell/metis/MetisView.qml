@@ -6,14 +6,51 @@
 import QtQuick
 import Quickshell
 import Quickshell.Io
-import Quickshell.Hyprland
 import "../morpheus"
 import "metis.js" as Metis
 import "../morpheus/helpers.js" as Helpers
 import "../terminus" as Term
 
-LayerPopup {
+// METIS, THE CALCULATOR — part of Cynosure's own list since 2026-11-01:
+// the reading, the answer, the chips, the tips, the day and trend strips and
+// the tape, under Cynosure's field whenever the line is a sum (or "calc …").
+// Everything the calculator is lives here (its state, its keys, its look);
+// Cynosure only says where. The id stays `popup` so the body reads as it
+// always did.
+//
+// Its host hands in `host` (the window: its `shown`, `collapsing` and the
+// bubble's window), sets `embedded` (Cynosure's field is the line: this
+// one's own field and hint strip are not drawn), feeds the line through
+// setLine(), passes keys through handleKey(), and answers `dismissed` (an
+// answer was taken: the panel goes).
+
+Item {
   id: popup
+
+  property var host: null
+  readonly property bool shown: !!popup.host && popup.host.shown
+  readonly property bool collapsing: !!popup.host && popup.host.collapsing
+  // inside Cynosure's panel: esc on an empty line goes back, not away
+  property bool nested: false
+  // esc clears the line, then closes (Cynosure's one rule, 2026-11-01)
+  readonly property string escWord: "clear · close"
+  // drawn under Cynosure's field: no field or hint strip of its own
+  property bool embedded: false
+  // ITS OWN LINE, IN CYNOSURE'S FIELD. While the line is a sum Cynosure
+  // draws this from its top and hides its own field: the calculator's line,
+  // whole — its glyph, its colored reading, its tips, the ans ghost and the
+  // word it would finish — at the field's height (`lineH`).
+  property bool showLine: false
+  property int lineH: 46
+  // the line typed here, for the host to keep its own in step
+  signal lineEdited(string text)
+  // set while the host feeds the line in, so it is not said back to it
+  property bool feeding: false
+  signal dismissed()
+  signal backed()
+  // latched by closePopup, so the answer is kept once however many ways
+  // the close arrives (the host's grab, a click outside, the copy timer)
+  property bool closing: false
 
   readonly property color bgColor: Zenon.layerBg
   readonly property color headColor: Zenon.cyan
@@ -233,19 +270,19 @@ LayerPopup {
       return popup.chipIdx >= 0
         ? [["return", "open"], ["ctrl return", "copy"], ["tab", "recent"],
            ["ctrl p", popup.recents[popup.chipIdx] && popup.recents[popup.chipIdx].pin ? "unpin" : "pin"],
-           ["esc", "close"]]
-        : [["tab", "recent"], ["↑↓", "history"], ["ctrl h", "tape"], ["esc", "close"]];
+           ["esc", popup.escWord]]
+        : [["tab", "recent"], ["↑↓", "history"], ["ctrl h", "tape"], ["esc", popup.escWord]];
     if (popup.exampleMode)
-      return [["tab", "examples"], ["return", "try it"], ["esc", "close"]];
+      return [["tab", "examples"], ["return", "try it"], ["esc", popup.escWord]];
     if (popup.completion !== "")
       return (popup.chips.length > 0 ? [["→", "finish word"], ["return", popup.chipIdx >= 0 ? "copy" : "paste"], ["tab", "units"]]
-        : [["→", "finish word"], ["return", "paste"]]).concat([["esc", "clear · close"]]);
+        : [["→", "finish word"], ["return", "paste"]]).concat([["esc", popup.escWord]]);
     if (popup.shownWhich)
-      return [["tab", "pick one"], ["return", "use it"], ["esc", "clear · close"]];
+      return [["tab", "pick one"], ["return", "use it"], ["esc", popup.escWord]];
     if (popup.shownBad)
       return popup.chips.length > 0
-        ? [["tab", "did you mean"], ["return", "use it"], ["esc", "clear · close"]]
-        : [["esc", "clear · close"], ["↑↓", "history"]];
+        ? [["tab", "did you mean"], ["return", "use it"], ["esc", popup.escWord]]
+        : [["esc", popup.escWord], ["↑↓", "history"]];
     return (popup.chips.length > 0
         ? (popup.chipIdx >= 0 ? [["return", "copy"], ["tab", "units"]]
            : [["return", "paste"], ["ctrl return", "copy"], ["tab", "units"]])
@@ -255,7 +292,7 @@ LayerPopup {
       .concat(popup.readings.length > 1 ? [["ctrl e", "explain"]] : [])
       .concat(popup.shownKind === "currency"
         ? [["ctrl r", popup.ratesRefreshing ? "updating…" : "rates"]] : [])
-      .concat([["esc", "clear · close"], ["↑↓", "history"]]);
+      .concat([["esc", popup.escWord], ["↑↓", "history"]]);
   }
   // measured off the row as drawn — see calypso's minW for why
   HintRow { id: hintMeasure; opacity: 0; rows: popup.hintRows }
@@ -274,33 +311,6 @@ LayerPopup {
       // a day strip needs room for two labels at its ends
       popup.shownStrip.length > 0 || popup.shownProgress ? 440 : 0);
     return Math.max(popup.minW, Math.min(1000, Math.ceil(want)));
-  }
-  readonly property int panelTarget: Zenon.layerWidth(popup.panelWidth)
-  // Following the pill while morphed and easing on its own otherwise — the
-  // same two-line rule artemis, folio and cynosure keep.
-  property real liveWidth: (popup.morphMode && popup.statusbar
-      && popup.statusbar.pillWidth > 0)
-    ? popup.statusbar.pillWidth : popup.panelTarget
-  Behavior on liveWidth {
-    enabled: !popup.morphMode
-    NumberAnimation { duration: Zenon.slow; easing.type: Zenon.ease }
-  }
-
-
-
-  focusable: true
-
-  HyprlandFocusGrab {
-    id: grab
-    windows: [ popup ]
-    active: popup.shown
-    onCleared: popup.closePopup()
-  }
-
-  IpcHandler {
-    target: "Metis"
-
-    function toggle() { popup.toggle(); }
   }
 
   // ------------------------------------------------------------- procs --
@@ -417,7 +427,10 @@ LayerPopup {
         const cache = Object.assign({}, popup.trendCache);
         cache[p.from + ">" + p.to] = pts;
         popup.trendCache = cache;
-        if (trendProc.runSeq === popup.seq && popup.shownKind === "currency") {
+        // the newest pair asked only: a queued older one landing after a
+        // newer pair came from the cache put its trend under it (audit 10-31)
+        if (trendProc.runSeq === popup.seq && popup.shownKind === "currency"
+            && popup.trendWant === p.from + ">" + p.to) {
           popup.trendPair = p;
           popup.shownTrend = pts;
         }
@@ -425,9 +438,11 @@ LayerPopup {
     }
   }
 
+  property string trendWant: ""
   function askTrend(pair) {
     if (!pair) return;
     const key = pair.from + ">" + pair.to;
+    popup.trendWant = key;
     if (key in popup.trendCache) {
       popup.trendPair = pair;
       popup.shownTrend = popup.trendCache[key];
@@ -449,6 +464,12 @@ LayerPopup {
     property Item item: null
     property var head: []
     property var targets: []
+    property var again: null
+    onExited: if (tipProc.again) {
+      const a = tipProc.again;
+      tipProc.again = null;
+      if (popup.bubbleTarget === a.item && popup.bubbleOn) Qt.callLater(() => popup.tipBubble(a.item, a.tip));
+    }
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
@@ -488,7 +509,9 @@ LayerPopup {
       return;
     }
     popup.bubbleAt(item, head, true);
-    if (tipProc.running) return;
+    // busy with another tip: this one once it is free, or its bubble stayed
+    // unready until hovered again (audit 10-31)
+    if (tipProc.running) { tipProc.again = { item: item, tip: tip }; return; }
     const targets = ["USD", "EGP"].filter((c) => c !== i.code);
     tipProc.tip = tip;
     tipProc.item = item;
@@ -712,9 +735,10 @@ LayerPopup {
 
   // ------------------------------------------------------------- open --
 
-  function openPopup() {
-    popup.shown = true;
-    popup.collapsing = false;
+  // The host has made itself shown: a fresh line, and whatever is not read
+  // in yet read now.
+  function start() {
+    popup.closing = false;
     popup.query = "";
     filterInput.text = "";
     popup.seq++;
@@ -724,7 +748,6 @@ LayerPopup {
     popup.tapeMode = false;
 
     focusRetry.begin();
-    popup.playOpen();
     popup.syncFocus();
 
     if (!popup.histLoaded && !histReadProc.running) histReadProc.running = true;
@@ -733,6 +756,19 @@ LayerPopup {
     if (!popup.placesLoaded && !placesProc.running) placesProc.running = true;
     if (!ratesProc.running) ratesProc.running = true;
   }
+
+  // the line set as if it had been typed here ("calc …" in Cynosure)
+  function setLine(q) {
+    popup.feeding = true;
+    filterInput.text = q || "";
+    popup.feeding = false;
+  }
+  // the keyboard to this line, the caret where the host's was
+  function focusLine(pos) {
+    filterInput.forceActiveFocus();
+    filterInput.cursorPosition = Math.max(0, Math.min(filterInput.text.length, pos));
+  }
+  readonly property string lineText: filterInput.text
 
   function clearShown() {
     chipProc.next = null;
@@ -759,17 +795,21 @@ LayerPopup {
   }
 
   function closePopup() {
+    if (popup.closing) return;
+    popup.closing = true;
     if (!popup.collapsing) popup.keepShown();
-    popup.collapsing = true;
-    popup.playClose();
+    popup.dismissed();
   }
 
-  function toggle() {
-    if (popup.shown) popup.closePopup();
-    else popup.openPopup();
+  // esc on an empty line
+  function goBack() {
+    if (!popup.nested) { popup.closePopup(); return; }
+    popup.keepShown();
+    popup.backed();
   }
 
   function syncFocus() {
+    if (popup.embedded) return;
     Qt.callLater(() => {
       if (!popup.shown) return;
       filterInput.forceActiveFocus();
@@ -837,7 +877,7 @@ LayerPopup {
           prep.a.coord, prep.a.place, prep.a.zone, prep.b.coord, prep.b.place, prep.b.zone]
       : prep.kind === "mixed"
       ? ["bash", "-c", Metis.chipScript(), "metis"].concat(prep.lines)
-      : ["bash", "-c", Metis.calcScript(), "metis", prep.expr, prep.alt || "", prep.target || ""];
+      : Metis.calcArgs(prep);
     calcProc.running = true;
   }
 
@@ -1119,39 +1159,28 @@ LayerPopup {
 
   // ---------------------------------------------------------- panel --
 
-  MouseArea {
-    anchors.fill: parent
-    z: 0
-    onClicked: popup.closePopup()
-  }
-
-  LayerPanel {
-    id: panel
-    host: popup
-    ground: bgRoot
-    width: Math.round(popup.liveWidth)
-    height: popup.calcHeight()
-
-    PanelGround {
+    Item {
       id: bgRoot
-      color: popup.bgColor
+      anchors.fill: parent
 
+      // esc clears the line, then closes (Cynosure's rule, 2026-11-01): its
+      // host takes it first (calcKey); on its own it closes
       Keys.onEscapePressed: (event) => {
+        popup.handleKey(event);
+        if (event.accepted) return;
         event.accepted = true;
-        if (popup.tapeMode) {
-          popup.tapeMode = false;
-        } else if (popup.histIdx >= 0) {
-          popup.histStep(-popup.histIdx - 1);   // back to what is typed
-        } else if (filterInput.text !== "") {
-          popup.keepShown();
-          filterInput.clear();
-          popup.query = "";
-        } else {
-          popup.closePopup();
-        }
+        popup.closePopup();
       }
 
-      Keys.onPressed: (event) => {
+      Keys.onPressed: (event) => popup.handleKey(event)
+    }
+
+  // The calculator's keys, asked by whoever has the keyboard: its own field
+  // forwards here, and Cynosure's field calls it while the answer is the
+  // chosen row. Sets event.accepted for the keys it took.
+  function handleKey(event) {
+        // the host's keys first: its list, below, is moved from this line too
+        if (popup.embedded && popup.host && popup.host.calcKey && popup.host.calcKey(event)) return;
         if ((event.modifiers & Qt.ControlModifier) && event.key === Qt.Key_H) {
           event.accepted = true;
           popup.tapeToggleOpen();
@@ -1214,15 +1243,22 @@ LayerPopup {
           popup.histStep(-1);
           return;
         }
-      }
+  }
+
+    Item {
+      anchors.fill: parent
 
       Column {
+        id: metisCol
         anchors.fill: parent
 
         // -------------------------------------------------- input --
         Item {
+          id: lineRow
           width: parent.width
-          height: 46
+          // Cynosure's field's place while it is the calculator (showLine)
+          height: !popup.embedded ? 46 : popup.showLine ? popup.lineH : 0
+          visible: !popup.embedded || popup.showLine
 
           // the rule under the field goes red while what is in it cannot be
           // read (a question asked back — "which dinar?" — stays quiet)
@@ -1351,6 +1387,7 @@ LayerPopup {
 
               TextInput {
                 id: filterInput
+                objectName: "metisLine"
                 anchors.fill: parent
                 leftPadding: popup.continuing ? ansGhost.implicitWidth + 8 : 0
                 verticalAlignment: TextInput.AlignVCenter
@@ -1371,6 +1408,7 @@ LayerPopup {
                 Keys.forwardTo: bgRoot
 
                 onTextChanged: {
+                  if (!popup.feeding) popup.lineEdited(filterInput.text);
                   popup.tapeMode = false;
                   popup.query = filterInput.text;
                   popup.histIdx = -1;
@@ -1411,6 +1449,7 @@ LayerPopup {
         Item {
           width: parent.width
           height: popup.resultShown && !popup.tapeMode ? popup.resultH : 0
+          visible: height > 0.5
           Behavior on height { NumberAnimation { duration: Zenon.normal; easing.type: Zenon.ease } }
           clip: true
 
@@ -1786,12 +1825,12 @@ LayerPopup {
         // morpheus/HintBar, as every strip; a copy's flash takes the keys' place
         HintBar {
           width: parent.width
+          visible: !popup.embedded
           rows: popup.hintRows
           note: popup.copied ? "\uF00C  " + popup.flashText : ""
           noteInk: Zenon.green
         }
       }
-    }
     }
 
   // -------------------------------------------------------- helpers --
@@ -1806,15 +1845,18 @@ LayerPopup {
     : popup.shownProgress !== null ? 38
     : popup.shownTrend.length > 0 ? 46 : 0
 
+  // its own field and strip are not drawn embedded
+  readonly property int chromeH: !popup.embedded ? 46 + Zenon.hintBarH
+    : popup.showLine ? popup.lineH : 0
   function calcHeight() {
-    if (popup.tapeMode) return 46 + tapeList.implicitHeight + Zenon.hintBarH;
-    return 46 + (popup.resultShown ? popup.resultH : 0) + popup.visualH + popup.chipRowH + Zenon.hintBarH;
+    if (popup.tapeMode) return popup.chromeH + tapeList.implicitHeight;
+    return popup.chromeH + (popup.resultShown ? popup.resultH : 0) + popup.visualH + popup.chipRowH;
   }
 
   // ── the bubble ── hung from whatever bubbleAt was handed
   Term.Bubble {
     id: infoBubble
-    window: popup
+    window: popup.host
     target: popup.bubbleTarget
     shown: popup.bubbleOn && popup.shown && !popup.collapsing
     cardWidth: 340
@@ -1860,7 +1902,7 @@ LayerPopup {
 
   FocusRetry {
     id: focusRetry
-    live: popup.shown
+    live: popup.shown && !popup.embedded
     took: filterInput.activeFocus
     onPlace: popup.syncFocus()
   }

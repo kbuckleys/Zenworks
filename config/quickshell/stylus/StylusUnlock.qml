@@ -32,6 +32,18 @@ FocusScope {
     body.win.unlock(p);
   }
 
+  // A refused passphrase shakes the field, as the lock screen does. Asked
+  // on the answer's edge, not off the reason: two refusals in a row say the
+  // same thing, and the reason is written just after `asking` drops.
+  Connections {
+    target: body.win
+    ignoreUnknownSignals: true
+    function onAskingChanged() {
+      if (body.win.asking) return;
+      Qt.callLater(() => { if (body.win && body.win.unlockOpen && body.win.unlockWhy !== "") pass.shake(); });
+    }
+  }
+
   implicitHeight: col.implicitHeight + 2 * 24
 
   Column {

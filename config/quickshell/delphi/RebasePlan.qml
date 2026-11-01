@@ -235,6 +235,7 @@ Item {
         font.pixelSize: Zenon.px(15)
       }
       Text {
+        textFormat: Text.PlainText
         id: word
         anchors.right: parent.right
         anchors.rightMargin: 20

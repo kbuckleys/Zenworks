@@ -123,7 +123,6 @@ const exact = {
 const prefixes = [
   ["Undo", "\u{F054C}"],                     // undo
   ["Rename", "\u{EC61}"],                    // "Rename (9)"
-  ["Background on", "\u{F02E9}"],
   ["Bookmark", "\uF461"],
   ["Remove bookmark", "\uF47A"],
   ["Open ", "\u{F0770}"],

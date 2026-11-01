@@ -45,10 +45,15 @@ Item {
     gen.opts = o;
     gen.make();
   }
+  // each request its own thread: only the newest one asked is shown, or a
+  // quick change of length left the password of an older setting (audit 10-31)
+  property int askGen: 0
   function make() {
     if (!gen.win) return;
     gen.err = "";
+    const n = ++gen.askGen;
     gen.win.mgr.call("generate", null, { opts: gen.opts }, (ok, r, e) => {
+      if (n !== gen.askGen) return;
       if (ok) { gen.value = r.value; gen.bits = r.bits; gen.wordsMissing = false; return; }
       gen.value = "";
       gen.bits = 0;
@@ -182,6 +187,7 @@ Item {
         }
       }
       Text {
+        textFormat: Text.PlainText
         id: strengthWord
         anchors.right: parent.right
         anchors.verticalCenter: parent.verticalCenter

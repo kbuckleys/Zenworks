@@ -129,11 +129,24 @@ class PassWriter:
         if id:
             old = self.decrypt(id, os.path.join(self.store(), id + ".gpg"), cancel)
         title = safe_name(draft.get("title") or (id.rpartition("/")[2] if id else ""))
-        folder = "/".join(safe_name(p) for p in str(draft.get("folder") or "").split(" / ") if p.strip()) \
+        # shown as "web/work" (the store's own path), so split on a bare
+        # slash too: on " / " alone an edit moved it to web-work/ (audit 10-31)
+        folder = "/".join(safe_name(p) for p in re.split(r"\s*/\s*", str(draft.get("folder") or "")) if p.strip()) \
             if "folder" in draft else (id.rpartition("/")[0] if id else "")
         name = (folder + "/" if folder else "") + title
         password = f.get("password") if f.get("password") is not None else (old or {}).get("password", "")
         pairs = list((old or {}).get("pairs", []))
+        # WHAT THE WINDOW WAS SHOWN BUT THE FILE NEVER SAID: a login read off
+        # the file name and a website made from the host (row, detail). Sent
+        # back unchanged they are not written in (audit 10-31): every save
+        # added login: and url: lines to an entry nobody had edited.
+        made = self.row(id, old) if old else None
+        if made and f.get("username") is not None and not pair(pairs, USER_KEYS) \
+                and f["username"] == made["sub"]:
+            f = dict(f, username=None)
+        if made and "urls" in draft and not pair(pairs, URL_KEYS) and made["host"] \
+                and [u for u in draft["urls"] if u] == ["https://" + made["host"]]:
+            draft = {k: v for k, v in draft.items() if k != "urls"}
         if f.get("username") is not None:
             pairs = [(k, v) for k, v in pairs if k.lower() not in USER_KEYS]
             if f["username"]:
@@ -311,7 +324,11 @@ class PassStore(PassWriter, Provider):
             return hit[1]
         code, out, err = self.gpg(["--pinentry-mode", "error", "--decrypt", path], cancel)
         if code != 0:
-            if "pinentry" in err.lower() or "passphrase" in err.lower() or "no secret" not in err.lower():
+            # locked only when gpg says it wanted the passphrase ("No pinentry"
+            # under --pinentry-mode error, measured 10-31); anything else, a
+            # file that is no gpg data say, is its own error and not a lock
+            # screen to type into (audit 10-31)
+            if "pinentry" in err.lower() or "passphrase" in err.lower():
                 raise Locked()
             raise VaultError(first_line(err))
         parsed = parse_entry(out)

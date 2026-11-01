@@ -43,7 +43,9 @@ Item {
         if (paths.length === 0) {
           term.applyPendingRealm();
           term.act.raw = [];
-          term.status = "No matches";
+          // a results page says so on its own bar (SearchBar's tally)
+          term.status = term.searchPage ? "" : "No matches";
+          term.searchDone();
           // a re-ask that found nothing: its aim must not be taken by
           // whatever listing arrives next
           term.wantSel = "";
@@ -151,7 +153,8 @@ Item {
         // the tree is the new page's, so liveBranches names its branches
         // and not the ones we have just navigated away from.
         if (term.act.treed) term.rereadBranches(term.act.liveBranches());
-        term.status = term.rows.length + " matches";
+        term.status = term.searchPage ? "" : term.rows.length + " matches";
+        term.searchDone();
         Qt.callLater(term.positionSel);
       }
     }
@@ -168,8 +171,10 @@ Item {
     term.searchSpec = s;
     term.lastSearch = { kind: s.kind, query: s.query, root: s.root, rules: s.rules || [] };
     const where = Coll.expandHome(String(s.root || "").trim(), Paths.home());
+    // the criteria rows still being filled in (SearchBar) ask nothing yet
+    const rules = (s.rules || []).filter((r) => String(r.value || "").trim() !== "");
     term.cancelCollection();
-    if ((s.rules || []).length === 0 && s.query !== ""
+    if (rules.length === 0 && s.query !== ""
         && (where === "" || where === term.cwd)) {
       term.search(s.kind, s.query);
       return;
@@ -180,7 +185,7 @@ Item {
     if (s.query !== "") d.rules.push(s.kind === "grep"
       ? { kind: "content", op: "text", value: s.query }
       : { kind: "name", op: "contains", value: s.query });
-    for (const r of (s.rules || [])) d.rules.push({ kind: r.kind, op: r.op, value: r.value });
+    for (const r of rules) d.rules.push({ kind: r.kind, op: r.op, value: r.value });
     term.searchScratch(d, s.query);
   }
   function search(mode, query) {
@@ -205,7 +210,8 @@ Item {
     // Held, for the reason openCollection gives: an empty listing between
     // two full ones is a flash, and the header already says what is going
     // on. The results replace these when they land.
-    term.status = "Searching…";
+    term.status = term.searchPage ? "" : "Searching…";
+    term.searchBegun();
     term.runSearch();
   }
   // One search at a time, for the question as it stands NOW. A re-search

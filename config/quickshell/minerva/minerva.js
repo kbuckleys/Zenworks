@@ -247,17 +247,24 @@ function addTime(stats, ms, at) {
 }
 // days in a row with a minute's reading or more, ending today (or
 // yesterday: a streak is not broken until a whole day has gone by)
+// `n` calendar days before `ms`'s day, at its noon: 24 hours back from just
+// after midnight skipped the short day after the clocks went forward
+// (audit 10-31)
+function daysBack(ms, n) {
+  var d = new Date(ms);
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate() - n, 12).getTime();
+}
 function streak(stats, now) {
-  var days = (stats && stats.days) || {}, n = 0, t = now || Date.now();
+  var days = (stats && stats.days) || {}, n = 0, t = daysBack(now || Date.now(), 0);
   var on = function (ms) { return (days[dayKey(ms)] || 0) >= 60000; };
-  if (!on(t)) t -= 86400000;
-  while (on(t) && n < 400) { n++; t -= 86400000; }
+  if (!on(t)) t = daysBack(t, 1);
+  while (on(t) && n < 400) { n++; t = daysBack(t, 1); }
   return n;
 }
 // the last `n` days' time, oldest first
 function lastDays(stats, n, now) {
   var days = (stats && stats.days) || {}, out = [], t = now || Date.now();
-  for (var i = n - 1; i >= 0; --i) out.push(days[dayKey(t - i * 86400000)] || 0);
+  for (var i = n - 1; i >= 0; --i) out.push(days[dayKey(daysBack(t, i))] || 0);
   return out;
 }
 // how long the rest will take, at the pace read so far (ms; -1: not known
@@ -335,12 +342,14 @@ function whereWords(kind, where, chapters) {
 // "2 hours ago"-free: a date the way the library shows when you last read
 function openedWords(ms, now) {
   if (!ms) return "";
-  var d = Math.floor(((now || Date.now()) - ms) / 86400000);
+  // by the calendar: opened at 23:00, seen at 08:00, is yesterday; and the
+  // date is the local one, not UTC's (audit 10-31)
+  var d = Math.round((daysBack(now || Date.now(), 0) - daysBack(ms, 0)) / 86400000);
   if (d <= 0) return "Today";
   if (d === 1) return "Yesterday";
   if (d < 7) return d + " days ago";
   if (d < 31) return Math.floor(d / 7) + (d < 14 ? " week ago" : " weeks ago");
-  return new Date(ms).toISOString().slice(0, 10);
+  return dayKey(ms);
 }
 
 // ── SEARCH ───────────────────────────────────────────────────────────────

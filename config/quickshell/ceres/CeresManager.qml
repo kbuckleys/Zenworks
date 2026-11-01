@@ -25,7 +25,6 @@ import Quickshell.Hyprland
 import Quickshell.Io
 import "../morpheus/lagnotes.js" as LagNotes
 import "../oracle"
-import "../morpheus/hypr.js" as Hypr
 
 Scope {
   id: mgr
@@ -175,7 +174,8 @@ Scope {
     const was = mgr.win.visible;
     mgr.win.present(view || "");
     // Already open is not the same as in front of you: it may be on another
-    // workspace entirely. Brought here, and given the keyboard.
+    // workspace entirely. Focused when it is on screen; elsewhere its
+    // workspace flashes, as any app's does (morpheus/Attention).
     if (was) mgr.raise();
   }
 
@@ -188,7 +188,7 @@ Scope {
   OpenWatchdog { id: watchdog; owner: mgr; tag: "ceres" }
 
   function raise() {
-    Hyprland.dispatch(Hypr.focusTitle("ceres"));
+    Attention.raise("ceres");
   }
 
   // The window ceres is in has the keyboard: the one case where a toggle

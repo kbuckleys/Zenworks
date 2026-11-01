@@ -31,6 +31,7 @@
 
 import json
 import os
+import re
 import stat
 import subprocess
 import sys
@@ -91,11 +92,17 @@ def other_mounts(mount):
             rows = [l.split(" - ", 1) for l in f]
     except OSError:
         return out
+    # The same filesystem is the same type on the same source. Not the
+    # major:minor: each btrfs subvolume has its own, so /home (@home) was
+    # skipped from a scan of / on the same disk. And a mount point's only
+    # escapes are octal (\040 for a space): unicode_escape read a UTF-8 name
+    # as Latin-1, so a drive at /run/media/u/Ñame never matched and was
+    # walked as "system" (audit 10-31).
     src_of = {}
     for a, b in rows:
         a, b = a.split(), b.split()
-        mp = a[4].encode().decode("unicode_escape")
-        src_of[mp] = (b[1] if len(b) > 1 else "") + ":" + a[2]
+        mp = re.sub(r"\\([0-7]{3})", lambda m: chr(int(m.group(1), 8)), a[4])
+        src_of[mp] = (b[0] if b else "") + ":" + (b[1] if len(b) > 1 else "")
     mine = src_of.get(mount)
     for mp, src in src_of.items():
         if mp != mount and mp.startswith(mount.rstrip("/") + "/") and src != mine:

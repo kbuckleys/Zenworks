@@ -41,4 +41,9 @@ QtObject {
   function px(n) { return Math.max(1, Math.round(n)); }
   function ms(n) { return Math.round(n); }
   readonly property color accentMuted: muted
+  // the key caps on menu hints (KeyCap, 2026-11-01)
+  readonly property color accentKey: keyInk
+  readonly property bool light: false
+  readonly property int windowRadius: 6
+  function alpha(c, a) { return Qt.rgba(c.r, c.g, c.b, a); }
 }

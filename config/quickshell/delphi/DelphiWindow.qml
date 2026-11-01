@@ -103,6 +103,9 @@ FloatingWindow {
   property string historyFile: ""
   // a blame asked for from outside (DelphiManager.blame), for History to
   // take up once it has the repository: { file, line } or null
+  // the SSH keys page's last test of each host (KeysPage): kept here so a tab
+  // switch does not forget them while Delphi stays open
+  property var sshTests: ({})
   property var blameWanted: null
   property var info: null
   property var st: null

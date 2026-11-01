@@ -710,15 +710,6 @@ FloatingWindow {
       z: 3
       Rectangle { anchors.fill: parent; color: Zenon.headBg }
       Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Zenon.border }
-      // how far through, along the head's foot
-      Rectangle {
-        anchors.bottom: parent.bottom
-        visible: mw.mode === "reading" && !!mw.book
-        width: parent.width * (mw.book ? mw.book.progress : 0)
-        height: 2
-        color: Zenon.cyan
-        Behavior on width { NumberAnimation { duration: Zenon.normal; easing.type: Zenon.ease } }
-      }
       Text {
         id: owl
         x: 20
@@ -1448,6 +1439,7 @@ FloatingWindow {
            ["f11", "focus"], ["esc", "library"]]
       // where you are and what is left, at the right end
       Text {
+        textFormat: Text.PlainText
         anchors.verticalCenter: parent.verticalCenter
         rightPadding: 6
         visible: text !== ""

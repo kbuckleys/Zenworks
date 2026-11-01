@@ -107,6 +107,8 @@ LayerPopup {
     // list is on screen rather than when a row is clicked, because there is
     // nothing here to click through to.
     Howler.markRead();
+    // a screenshot deleted since the last look is left out (capturesGone)
+    Howler.checkCaptures();
     popup.playOpen();
     Qt.callLater(() => { if (popup.shown) bgRoot.forceActiveFocus(); });
   }
@@ -488,7 +490,7 @@ LayerPopup {
           ClippingRectangle {
             id: shot
             readonly property bool missing: (!!row.modelData.appIcon || !!row.modelData.rawImage)
-              && shotImg.pictures.length === 0
+              && shotImg.pictures.length === 0 && !shotImg.waiting
               && (shotImg.source.toString() === "" || shotImg.status === Image.Error)
             readonly property bool hasPicture: Howler.iconsEnabled && !row.event
               && (shot.missing
@@ -510,16 +512,21 @@ LayerPopup {
               asynchronous: true
               sourceSize.width: 80
               sourceSize.height: 80
-              // A capture is its own picture, while the file is still there;
-              // each that will not load gives way to the next, and the last
-              // to the row's icon below.
-              readonly property var pictures: Wolf.capturePictures(row.modelData)
+              // A capture is its own picture, while the file is still there —
+              // one found gone is never tried (Howler.capturesGone); each that
+              // will not load all the same gives way to the next, and the last
+              // to the row's icon below. Nothing is tried before the check.
+              readonly property var pictures: Wolf.capturePictures(row.modelData, Howler.capturesGone)
+              readonly property bool waiting: !Howler.capturesChecked
+                && Wolf.capturePaths(row.modelData).length > 0
               property int tried: 0
+              onPicturesChanged: tried = 0
               onStatusChanged: if (status === Image.Error
                                    && tried < pictures.length
                                    && source.toString() === pictures[tried]) tried++
               source: {
                 const r = row.modelData;
+                if (shotImg.waiting) return "";
                 if (shotImg.tried < shotImg.pictures.length) return shotImg.pictures[shotImg.tried];
                 // (rows kept from before carry image://icon/ addresses; an
                 // http cover goes through NowPlaying's curl cache, as the

@@ -46,6 +46,7 @@ Item {
     color: press.pressed || tool.held ? Zenon.pressWash(0.14) : tool.lit ? Zenon.alpha(tool.litInk, 0.14) : "transparent"
   }
   Text {
+    textFormat: Text.PlainText
     id: label
     anchors.centerIn: parent
     text: tool.word !== "" ? tool.word : tool.glyph

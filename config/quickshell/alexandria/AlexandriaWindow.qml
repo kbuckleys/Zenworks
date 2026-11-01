@@ -896,6 +896,7 @@ FloatingWindow {
             font.pixelSize: 19
           }
           Text {
+            textFormat: Text.PlainText
             anchors.left: famName.left
             anchors.right: famName.right
             anchors.baseline: parent.top

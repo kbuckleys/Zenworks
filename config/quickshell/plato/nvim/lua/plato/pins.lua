@@ -23,7 +23,6 @@ local path = vim.fn.stdpath("state") .. "/pins.json"
 local MAX = 9
 
 local function read() return util.readJson(path) end
-local function write(all) util.writeJson(path, all) end
 
 -- the project of the last file this engine had pins looked up for, so that
 -- Alt N from a buffer with no file goes to the project you were just in
@@ -60,7 +59,6 @@ function M.toggle()
     vim.notify("Only a file can be pinned", vim.log.levels.WARN)
     return
   end
-  local all = read()
   local at
   for i, p in ipairs(list) do if p == name then at = i end end
   if at then
@@ -73,8 +71,7 @@ function M.toggle()
     list[#list + 1] = name
     vim.notify(("Pinned %s on Alt %d"):format(vim.fs.basename(name), #list))
   end
-  all[root] = #list > 0 and list or nil
-  write(all)
+  util.updateJson(path, function(all) all[root] = #list > 0 and list or nil end)
   require("plato.view").schedule(true)
 end
 
@@ -122,17 +119,17 @@ function M.list()
 end
 
 function M.unpin(p)
-  local all = read()
-  for r, list in pairs(all) do
-    for i, q in ipairs(list) do
-      if q == p then
-        table.remove(list, i)
-        all[r] = #list > 0 and list or nil
-        break
+  util.updateJson(path, function(all)
+    for r, list in pairs(all) do
+      for i, q in ipairs(list) do
+        if q == p then
+          table.remove(list, i)
+          all[r] = #list > 0 and list or nil
+          break
+        end
       end
     end
-  end
-  write(all)
+  end)
   require("plato.view").schedule(true)
 end
 

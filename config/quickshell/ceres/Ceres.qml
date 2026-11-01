@@ -627,6 +627,27 @@ Singleton {
   // Packages, searched for `q` — another app's way to "these, from Ceres"
   // (clio's spelling languages: hunspell). The window takes it as it shows.
   property string askedQuery: ""
+  // an app's page asked for by its catalog key (Cynosure's store rows,
+  // 2026-11-01): the Store shows it once its catalog is in
+  property string askedApp: ""
+  function openApp(key) { root.askedApp = String(key || ""); root.openWindow("store"); }
+  // a package (a parseRows row) to install or remove, from Cynosure's "pkg …"
+  // (2026-11-01): Packages, on it, with its confirm sheet up — the plan,
+  // what it pulls in or leaves, the password, all asked there as ever
+  property var askedChange: null
+  property string askedSeek: ""
+  function changePackage(row) {
+    root.askedChange = row;
+    root.askedSeek = row.name;
+    root.askedQuery = row.name;
+    root.openWindow("packages");
+  }
+  // a package's row in Packages, nothing asked of it
+  function showPackage(name) {
+    root.askedSeek = String(name || "");
+    root.askedQuery = root.askedSeek;
+    root.openWindow("packages");
+  }
   function searchPackages(q) { root.askedQuery = String(q || ""); root.openWindow("packages"); }
   // A keybind's version: open on that view, or close if it is already the
   // one on screen.
@@ -1332,6 +1353,12 @@ Singleton {
     function toggle(): string {
       root.toggleRequested();
       return "toggled";
+    }
+
+    // the Store, on one app's page (its catalog key, ceres-store list)
+    function app(key: string): string {
+      root.openApp(key);
+      return "app " + key;
     }
 
     function toggleWindow(view: string): string {

@@ -41,7 +41,11 @@ Column {
     db.year = y;
   }
   function save() {
-    if (db.n) db.win.mgr.setField(db.n.id, "date", db.picked + (db.hour * 60 + db.minute) * 60000, false);
+    // the hour on that day's clock: midnight plus so many minutes is an hour
+    // out on a day the clocks change (audit 10-31)
+    const p = new Date(db.picked);
+    if (db.n) db.win.mgr.setField(db.n.id, "date",
+      new Date(p.getFullYear(), p.getMonth(), p.getDate(), db.hour, db.minute).getTime(), false);
     db.closed();
   }
 

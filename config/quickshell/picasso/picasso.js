@@ -178,6 +178,12 @@ const presetColors = [
   { hex: "#26262b", name: "Charcoal" }
 ];
 
+// a preset's name, or what any other color is
+function colorName(hex) {
+  for (const c of presetColors) if (c.hex === hex) return c.name;
+  return "Custom color";
+}
+
 // ── color arithmetic for the picker ─────────────────────────────────────
 // HSV in 0..1 each, because that is the shape of the square you drag in.
 function hexToHsv(hex) {
@@ -250,7 +256,7 @@ function lookDiff(look) {
 
 // What fills the space around a picture, as a color: the look's backdrop
 // color, the picture's own (`accent`, when known), otherwise black — the
-// blurred backdrop is drawn over black. The focus card's preview asks it.
+// blurred backdrop is drawn over black. BackgroundSetter's preview asks it.
 function groundOf(look, accent) {
   const l = lookOf(look);
   if (l.backdrop === "color") return l.backdropColor;

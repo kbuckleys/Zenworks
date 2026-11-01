@@ -130,17 +130,21 @@ function generate(jobs, big) {
   const d = Strings.shellQuote(dir());
   const px = big ? BIG : SIZE;
   const tail = big ? "@big" : "";
-  const args = jobs.map((j) => j.kind + " " + Strings.shellQuote(j.src)).join("\n");
+  // kind and path as NUL-separated pairs: a quoted path on a line of its own
+  // (xargs -L 1) stopped xargs at the first name with a newline in it, and
+  // every file after it went without (audit 10-31)
+  const args = jobs.map((j) => Strings.shellQuote(j.kind) + " " + Strings.shellQuote(j.src)).join(" ");
   // Only named when a job needs it: Picasso's Thumb imports this file without
   // Quickshell in scope, and only ever asks for `i` and `v`.
   const helper = jobs.some((j) => j.kind === "f" || j.kind === "d")
     ? Strings.shellQuote(Quickshell.shellDir + "/scripts/thumb.py") : "";
-  return "mkdir -p " + d + "; printf '%s\n' " + Strings.shellQuote(args)
+  return "mkdir -p " + d + "; printf '%s\\0' " + args
     // as many at once as there are cores — four was a guess from a smaller
     // machine, and a directory of photographs is exactly the work that scales
-    + " | xargs -P \"$(nproc 2>/dev/null || echo 4)\" -L 1 sh -c '"
+    + " | xargs -0 -n 2 -P \"$(nproc 2>/dev/null || echo 4)\" sh -c '"
     + keyScript()
-    + 'out=' + d + '/$key' + tail + '.' + EXT + '; '
+    // inside the single-quoted script: its own quotes escaped, as helper's
+    + 'out=' + d.replace(/'/g, "'\\''") + '/$key' + tail + '.' + EXT + '; '
     // ── A THUMBNAIL IN USE IS TOUCHED ──────────────────────────────
     // sweep() deletes by age, on the reasoning that anything alive gets
     // regenerated. Nothing alive ever was: an existing thumbnail was
