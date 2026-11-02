@@ -65,6 +65,19 @@ FloatingWindow {
     function onFileChanged() { if (st.file !== "") { win.opening = false; openingCeiling.stop(); } }
   }
 
+  // at a line (Cynosure's "in …" results, 2026-11-02): at once when nvim
+  // is up, else on its hello with the first file
+  property int openLine: 0
+  function openFileAt(path, line) {
+    if (nvim.ready) {
+      sidebar.follow(path, false);
+      win.noteOpening();
+      nvim.openAt(path, line, 0);
+      return;
+    }
+    win.openFile(path);
+    if (win.openPath === path) win.openLine = line;
+  }
   function openFile(path) {
     // opened from outside (terminus, artemis, `plato f`): the tree goes there
     sidebar.follow(path, false);
@@ -248,12 +261,14 @@ FloatingWindow {
         nvim.openAt(win.openPath);
         nvim.cmd("normal! G$");
       } else if (win.openPath !== "") {
-        nvim.open(win.openPath);
+        if (win.openLine > 0) nvim.openAt(win.openPath, win.openLine, 0);
+        else nvim.open(win.openPath);
         // a new window's first file: the tree goes there, as openFile's do
         sidebar.follow(win.openPath, false);
       }
       for (const p of win._later) nvim.open(p);
       win.openPath = "";
+      win.openLine = 0;
       win._later = [];
     }
     onView: (ev) => st.applyView(ev)

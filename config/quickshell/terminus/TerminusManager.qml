@@ -707,6 +707,22 @@ Scope {
       // which went there and showed nothing where the asking was done.
       // Named `reveal`, not `show`: `qs ipc call Terminus show …` never
       // arrives — qs reads `show` as its own subcommand and rejects the path.
+      // a network place by its address (Cynosure's "go …", 2026-11-02):
+      // gone to when it is mounted, else connected as the sidebar's own
+      // Connect does — with what was saved for it, asking only if it must
+      function place(uri: string): string {
+        if (uri === "") return "usage: place <uri>";
+        const w = mgr.dataWin();
+        if (!w) return mgr.request(Paths.home(), true) ? "open" : "opening";
+        w.shown = true;
+        w.takeFocus();
+        const net = w.networkRef;
+        const row = net.rows.find((r) => r.uri === uri)
+          || { uri: uri, name: "", user: "", domain: "", saved: false, path: "" };
+        net.open(row);
+        return row.path !== "" ? row.path : "connecting";
+      }
+
       function reveal(path: string): string {
         if (path === "") return "usage: reveal <path>";
         // "dir/" (a trailing slash) is the directory itself, no cursor aim

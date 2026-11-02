@@ -172,7 +172,7 @@ module.exports = {
       + "\u001e/s/weather.py\n# @argument a city\n# @word wx\n# @mode output\n"
       + "\u001e/s/plain\n");
     t.eq("a script's header read", scripts[0], { path: "/s/restart-waybar.sh", title: "Restart Waybar", glyph: "\uF489",
-      mode: "silent", argument: "", word: "restart-waybar", keywords: "" });
+      mode: "silent", argument: "", refresh: 0, word: "restart-waybar", keywords: "" });
     t.eq("no title: its file's name", scripts[2].title, "Plain");
     t.eq("one that takes words", C.scriptFor(scripts, "wx cairo").arg, "cairo");
     t.eq("first in the list", C.rootRows(all, "wx cairo", {}, C.SHELL_ACTIONS, { scripts })[0].kind, "script");
@@ -422,6 +422,183 @@ module.exports = {
     // Appending unconditionally would send it looking for htop.desktop.desktop.
     t.ok("an id that is already a file name is left alone",
       C.launchAppCommand("htop.desktop").indexOf("htop.desktop.desktop") === -1);
+
+    {
+      // ── tasks and reminders (2026-11-02) ──────────────────────────────────
+      const now = new Date(2026, 10, 2, 10, 0);
+      const w = (x) => C.taskWhen(x, now);
+      t.eq("in 20 min", w("in 20 min to call mom").due, now.getTime() + 20 * 60000);
+      t.eq("the task is the rest, without its to", w("in 20 min to call mom").title, "Call mom");
+      t.eq("in an hour", w("stretch in an hour").due, now.getTime() + 3600000);
+      t.eq("half an hour", w("in half an hour tea").due, now.getTime() + 1800000);
+      t.eq("at 5pm today", w("call bob at 5pm").due, new Date(2026, 10, 2, 17, 0).getTime());
+      t.eq("a clock gone by is tomorrow's", w("call bob at 9am").due, new Date(2026, 10, 3, 9, 0).getTime());
+      t.eq("a day alone is nine that morning", w("pay rent friday").due, new Date(2026, 10, 6, 9, 0).getTime());
+      t.eq("and the day is not the task", w("pay rent friday").title, "Pay rent");
+      t.eq("no when, no time", w("buy milk").due, 0);
+      t.ok("only a when is no task", !!w("tomorrow at 9").error);
+      const rem = C.newTaskRow("buy milk", true, now);
+      t.ok("a reminder needs a when", rem.bad);
+      const todo = C.newTaskRow("buy milk", false, now);
+      t.ok("a task does not", !todo.bad && todo.due === 0);
+      t.has("a timed row says when", C.newTaskRow("in 20 min to call mom", true, now).sub, "10:20");
+      const tasks = C.taskRows([{ id: "n1", kind: "note", blocks: [{ k: "title", h: "Home" },
+        { k: "check", h: "Water plants", c: false }, { k: "check", h: "Done one", c: true }] }], "", now);
+      t.eq("open items only", tasks.length, 1);
+      t.eq("under Clio's group", tasks[0].section, "No date");
+      t.eq("found by its words", C.taskRows([{ id: "n1", kind: "note", blocks: [{ k: "check", h: "Water plants", c: false }] }],
+        "plants", now).length, 1);
+
+      // ── books, outputs, colors (2026-11-02) ───────────────────────────────
+      const books = C.bookRows([{ path: "/a.pdf", kind: "pdf", title: "Alpha", author: "Ann", opened: 1, progress: 0.5 },
+        { path: "/b.epub", kind: "epub", title: "Beta", author: "", opened: 5, progress: 0, finished: 9 }], "");
+      t.eq("the last read first", books[0].label, "Beta");
+      t.has("finished says so", books[0].sub, "Finished");
+      t.has("else how far", books[1].sub, "50%");
+      t.eq("found by author", C.bookRows([{ path: "/a.pdf", kind: "pdf", title: "Alpha", author: "Ann" }], "ann").length, 1);
+      const outs = C.outputRows([{ id: 3, name: "a", label: "Speakers" }, { id: 4, name: "b", label: "Headphones" }], 4, "");
+      t.eq("the one in use says so", outs[1].sub, "In use");
+      t.eq("found by name", C.outputRows([{ id: 3, name: "a", label: "Speakers" }], 0, "spea").length, 1);
+      t.eq("a color by its hex", C.colorRows(["#ff0000", "#00ff00"], "#ff")[0].label, "#FF0000");
+      t.eq("wearing itself", C.colorRows(["#ff0000"], "")[0].ink, "#ff0000");
+
+      // ── favorites (2026-11-02) ────────────────────────────────────────────
+      const app = { kind: "app", key: "Firefox", label: "Firefox", text: "Firefox", id: "firefox" };
+      const file = { kind: "file", key: "/x", path: "/x", label: "x", text: "x" };
+      let fav = C.addFavorite([], app);
+      fav = C.addFavorite(fav, file);
+      t.eq("kept once", C.addFavorite(fav, app).length, 2);
+      t.ok("known again", C.isFavorite(fav, Object.assign({}, app, { section: "Applications" })));
+      t.eq("moved up", C.moveFavorite(fav, file, -1)[0].kind, "file");
+      t.eq("not past the top", C.moveFavorite(fav, app, -1)[0].kind, "app");
+      t.eq("dropped", C.dropFavorite(fav, app).length, 1);
+      t.eq("a file as kept, the rest as the list has them", C.favoriteRows(fav, [Object.assign({}, app, { sub: "live" })])
+        .map((r) => r.sub || "").join(","), "live,");
+      t.eq("favorites first on the empty line", C.rootRows([app], "", {}, [], { favorites: [app] })[0].section, "Favorites");
+      t.eq("and not again under it", C.rootRows([app], "", { Firefox: 3 }, [], { favorites: [app] })
+        .filter((r) => r.key === "Firefox").length, 1);
+      const acts = C.rowActions(Object.assign({}, app, { favorite: true, favAt: 0, favCount: 2 })).map((a) => a.id);
+      t.eq("a favorite's actions follow return", acts.slice(0, 3).join(","), "go,dropFav,favDown");
+      t.eq("a file can go to the trash", C.rowActions(file).slice(-1)[0].id, "trash");
+      t.ok("todo is Cynosure's own word", C.aliasProblem("todo") !== "");
+    }
+
+    {
+      // ── places (2026-11-02) ───────────────────────────────────────────────
+      const pl = C.placeRows(["/home/test/Code"], [{ uri: "sftp://box/", name: "box", path: "" }],
+        ["/home/test/Code/", "/home/test/Music/"], "", "/home/test");
+      t.eq("bookmarks, network, often visited", pl.map((r) => r.section).join(","), "Bookmarks,Network,Often visited");
+      t.eq("a bookmark is not again among the often visited", pl.filter((r) => r.path === "/home/test/Code").length, 1);
+      t.has("a place not connected says so", pl[1].sub, "not connected");
+      t.eq("found by its name", C.placeRows(["/home/test/Code"], [], [], "cod", "/home/test").length, 1);
+
+      // ── window places (2026-11-02) ────────────────────────────────────────
+      const mon = { x: 1080, y: 396, width: 2560, height: 1440, scale: 1, transform: 0, reserved: [0, 0, 0, 0] };
+      t.eq("the left half, less the gaps", C.snapRect(mon, 10, "left"), { x: 1090, y: 406, w: 1265, h: 1420 });
+      t.eq("the right half meets it a gap away", C.snapRect(mon, 10, "right").x, 1090 + 1270 + 5);
+      t.eq("filled", C.snapRect(mon, 0, "max"), { x: 1080, y: 396, w: 2560, h: 1440 });
+      const turned = { x: 0, y: 0, width: 1920, height: 1080, scale: 1, transform: 3, reserved: [0, 0, 0, 44] };
+      t.eq("a turned screen is tall, less its bar", C.snapRect(turned, 0, "max"), { x: 0, y: 0, w: 1080, h: 1876 });
+      t.eq("a size, centered", C.snapRect(mon, 0, "size", { w: 800, h: 600 }), { x: 1080 + 880, y: 396 + 420, w: 800, h: 600 });
+      t.eq("gaps as a number", C.gapsOf('{"option":"general:gaps_out","int":20}'), 20);
+      t.eq("gaps as css", C.gapsOf('{"option":"general:gaps_out","custom":"12 12 12 12"}'), 12);
+
+      // ── processes and ports (2026-11-02) ──────────────────────────────────
+      const ps = C.processRows("  101  12.5  204800 firefox /usr/lib/firefox/firefox\n  7 0.0 1024 cynosure-self x\n", "", 7);
+      t.eq("a process a row, not ourselves", ps.length, 1);
+      t.has("with its CPU and memory", ps[0].sub, "12.5% CPU");
+      t.has("in megabytes", ps[0].sub, "200 MB");
+      t.eq("found by pid", C.processRows("  101  1  1 firefox x\n", "101", 0).length, 1);
+      const ss = 'tcp   LISTEN 0 4096 127.0.0.1:8080 0.0.0.0:* users:(("node",pid=4242,fd=20))\n'
+        + 'tcp   LISTEN 0 4096 [::1]:8080 [::]:* users:(("node",pid=4242,fd=21))\n'
+        + 'tcp   LISTEN 0 4096 0.0.0.0:80800 0.0.0.0:*\n';
+      const pr = C.portRows(ss, "8080");
+      t.eq("one row a process and protocol", pr.length, 1);
+      t.eq("its pid", pr[0].pid, 4242);
+
+      // ── radios, repositories, services, notifications (2026-11-02) ────────
+      t.eq("an unnamed device is left out", C.deviceRows([{ name: "AA:BB", named: false }, { name: "Buds", named: true,
+        connected: true, paired: true, battery: 80, glyph: "" }], "").length, 1);
+      t.has("a device says its battery", C.deviceRows([{ name: "Buds", named: true, connected: true, paired: true,
+        battery: 80, glyph: "" }], "")[0].sub, "80% battery");
+      t.eq("a network found by name", C.networkRows([{ name: "Home" }, { name: "Cafe" }], "ca")[0].label, "Cafe");
+      const st = C.repoStatus("\u001e/r\n# branch.head main\n# branch.ab +2 -0\n1 .M N... x\n? y\n\u001e/gone\n");
+      t.eq("branch", st["/r"].branch, "main");
+      t.eq("changed", st["/r"].changed, 2);
+      t.eq("ahead", st["/r"].ahead, 2);
+      t.ok("gone is not ok", !st["/gone"].ok);
+      t.has("a repository row says it", C.repoRows([{ root: "/r", name: "r" }], st, "", "/home/test")[0].sub, "2 to push");
+      const sv = C.serviceRows([{ unit: "a.service", scope: "system", active: "active", sub: "running" },
+        { unit: "b.service", scope: "user", active: "failed" }], "");
+      t.eq("the failed first", sv[0].label, "b");
+      t.has("yours says so", sv[0].sub, "yours");
+      const nt = C.notifRows([{ id: 1, time: 1000, appName: "a", summary: "old", body: "" },
+        { id: 2, time: 5000, appName: "b", summary: "<b>new</b>", body: "hi" }], "", new Date(65000));
+      t.eq("the newest first, markup gone", nt[0].label, "new");
+      t.has("how long ago", nt[0].sub, "1 min ago");
+
+      // ── clipboard transforms (2026-11-02) ─────────────────────────────────
+      t.eq("title case", C.transformText("title", "hello wide world"), "Hello Wide World");
+      t.eq("slug", C.transformText("slug", "Héllo, World!"), "hello-world");
+      t.eq("sorted", C.transformText("sort", "b\nA\n\nc"), "A\nb\nc");
+      t.eq("pretty json", C.transformText("json", '{"a":1}'), '{\n  "a": 1\n}');
+      t.eq("not json", C.transformText("json", "nope"), null);
+      t.eq("base64", C.transformText("b64", "hi"), "aGk=");
+      t.ok("a text clip offers them", C.rowActions({ kind: "clip", label: "x" }).some((a) => a.id === "as:upper"));
+    }
+
+    {
+      // ── list and inline scripts (2026-11-02) ──────────────────────────────
+      t.eq("30s", C.refreshMs("30s"), 30000);
+      t.eq("5m", C.refreshMs("5 min"), 300000);
+      t.eq("a bare number is seconds", C.refreshMs("2"), 2000);
+      t.eq("not under a second", C.refreshMs("0.1"), 1000);
+      t.eq("nothing", C.refreshMs(""), 0);
+      const scs = C.parseScripts("\u001e/s/gh.sh\n# @mode list\n# @word gh\n\u001e/s/cpu.sh\n# @mode inline\n# @refresh 10s\n");
+      t.eq("list mode is kept", scs[0].mode, "list");
+      t.eq("refresh is read", scs[1].refresh, 10000);
+      t.eq("a list script's word and a space", C.scriptListFor(scs, "gh issues").arg, "issues");
+      t.eq("its word alone is not yet", C.scriptListFor(scs, "gh"), null);
+      t.eq("a list script types its word", C.scriptActions(scs, {})[0].line, "gh ");
+      t.eq("an inline one wears what it said", C.scriptActions(scs, { "/s/cpu.sh": "42%\nmore" })[1].sub, "42%");
+      t.eq("json array", C.parseListItems('[{"title":"a","open":"https://x"}]')[0].open, "https://x");
+      t.eq("json items", C.parseListItems('{"items":[{"title":"a"},{"title":"b"}]}').length, 2);
+      t.eq("json lines", C.parseListItems('{"title":"a"}\n{"title":"b","copy":"B"}')[1].copy, "B");
+      t.eq("plain lines copy themselves", C.parseListItems("one\ntwo")[1].copy, "two");
+      t.eq("an item's verb", C.verbOf({ kind: "sitem", item: { open: "", paste: "x", run: "" } }), "paste");
+
+      // ── inside files, fonts, captures (2026-11-02) ────────────────────────
+      const hits = C.contentRows("/home/test/a.md:12:  the words\n/home/test/b:3:\n", "/home/test");
+      t.eq("a line a row", hits.length, 2);
+      t.eq("its line", hits[0].line, 12);
+      t.eq("said where", hits[0].sub, "~/a.md:12");
+      t.has("the search quotes the words", C.contentCommand("it's", "/h"), "'it'\\''s'");
+      const fams = [{ name: "Inter", variants: ["Inter"], styles: [1, 2], files: ["/f"], mono: false, nerd: false, user: true },
+        { name: "JetBrains Mono", variants: ["JetBrainsMono NF"], styles: [1], files: ["/g"], mono: true, nerd: true, user: false }];
+      t.eq("found by name", C.fontRows(fams, "jet")[0].face, "JetBrainsMono NF");
+      t.has("says what it is", C.fontRows(fams, "jet")[0].sub, "monospace");
+      const cap = C.captureRows("1762000000\t/p/Screenshots/a.png\n1761000000\t/p/Screenshots/b.png\n",
+        "", { "/p/Screenshots/a.png": "/t/a.png", "/p/Screenshots/b.png": "-" }, 4, false);
+      t.eq("one row of cells", cap.length, 1);
+      t.eq("a thumbnail", cap[0].cells[0].thumb, "/t/a.png");
+      t.eq("a picture with alpha is its own thumbnail", cap[0].cells[1].thumb, "/p/Screenshots/b.png");
+      t.eq("found by name", C.captureRows("1\t/p/x.png\n2\t/p/y.png\n", "y", {}, 4, false)[0].cells.length, 1);
+    }
+
+    {
+      // ── help (2026-11-02) ─────────────────────────────────────────────────
+      const all = C.helpRows("", {});
+      t.ok("every group", ["Find", "Make", "Ask", "Do", "Keys"].every((g) => all.some((r) => r.section === g)));
+      t.ok("every scope word is in it", ["f", "in", "go", "win", "cb", "notes", "todos", "book", "font", "shots", "rec",
+        "colors", "notif", "settings", "store", "pkg", "repo", "svc", "ps", "port", "output", "bt", "wifi", "em", "nf",
+        "pw", "note", "todo", "event"].every((w) => all.some((r) => r.cap === w)));
+      t.eq("found by its words", C.helpRows("weather", {})[0].cap, "weather");
+      t.eq("return types the word", C.helpRows("bluetooth devices", {})[0].fill, "bt ");
+      const own = C.helpRows("", { aliases: { ff: { label: "Firefox" } }, links: [{ word: "g", name: "Google" }],
+        scripts: [{ word: "wx", title: "Weather", argument: "a city", mode: "silent" }] });
+      t.ok("your words, links and scripts", ["Your words", "Quick links", "Your scripts"].every((g) => own.some((r) => r.section === g)));
+      t.ok("a key is only said", C.rowActions(C.helpRows("shift return", {})[0]).length === 0);
+    }
 
     // ── markup ────────────────────────────────────────────────────────────
     // The rows are StyledText, so a name with an ampersand in it must not

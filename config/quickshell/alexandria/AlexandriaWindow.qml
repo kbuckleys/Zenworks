@@ -70,6 +70,18 @@ FloatingWindow {
   readonly property string shelf: win.loose.length > 0 && win.shelfOpened ? "opened"
     : (win.mgr ? win.mgr.shelf : "all")
   property bool shelfOpened: false
+  // ONE FILE, NO LIBRARY: a single font opened (terminus, the command line)
+  // is shown on its own, the specimen the window's whole width — no
+  // sidebar of one row (user, 2026-11-02). A second file, another shelf or
+  // the picker bring the sidebar back. Counted from the moment the file is
+  // handed in, so the library does not flash up while fc-query reads it.
+  // ONLY A WINDOW OPENED FOR THE FILE: one already up as the library keeps
+  // its sidebar, the file arriving on its Opened shelf (user, 2026-11-02).
+  property int looseAsked: 0
+  property bool openedFor: false
+  readonly property bool solo: win.openedFor && !win.picking && (win.loose.length === 0
+    ? win.looseAsked === 1 : win.loose.length === 1 && win.shelf === "opened")
+  onSoloChanged: Qt.callLater(win.refocus)
   readonly property var shelves: (win.loose.length > 0
     ? [{ id: "opened", label: "Opened", glyph: "" }] : []).concat(A.SHELVES)
   readonly property var shown: {
@@ -215,6 +227,7 @@ FloatingWindow {
   function refocus() {
     if (sampleField.activeFocus) return;
     if (win.page === "glyphs") glyphField.forceActiveFocus();
+    else if (win.solo) soloKeys.forceActiveFocus();
     else famField.forceActiveFocus();
   }
   // THE highlight — the selected family, shelf, style, group and glyph all
@@ -252,12 +265,16 @@ FloatingWindow {
   function famWord(n) { return n === 1 ? "1 family" : n + " families"; }
 
   // ── FILES HANDED IN ────────────────────────────────────────────────────
-  function load(paths) {
+  function load(paths, fresh) {
     const fonts = (paths || []).filter(A.isFontFile);
+    // the library opened with no file comes this way too (bin/alexandria
+    // with no arguments): that window is the library, not a file's
+    if (fresh && fonts.length > 0) win.openedFor = true;
     if (fonts.length === 0) {
       if (win.loose.length > 0 && win.shelf === "opened") win.setShelf(win.mgr ? win.mgr.shelf : "all");
       return;
     }
+    win.looseAsked = fonts.length;
     looseProc.command = ["sh", "-c", "for f in \"$@\"; do fc-query -f '"
       + A.LIST_FORMAT + "' \"$f\" 2>/dev/null; done", "sh"].concat(fonts);
     looseProc.running = true;
@@ -274,6 +291,7 @@ FloatingWindow {
         const names = got.map((f) => f.name);
         win.loose = got.concat(win.loose.filter((f) => names.indexOf(f.name) < 0));
         win.shelfOpened = true;
+        win.looseAsked = 0;
         // A BATCH ARRIVES MARKED: several families handed in at once (the
         // picker, a drop, terminus) are there to be installed together, so
         // Install reads "Install 6" straight away — esc to take one at a time
@@ -587,6 +605,10 @@ FloatingWindow {
       win.setPage(ids[(ids.indexOf(win.page) + d + ids.length) % ids.length]);
       return true;
     }
+    // alone there is no family to move to, mark or shelve: those keys rest
+    if (win.solo && (k === Qt.Key_Tab || k === Qt.Key_Backtab
+        || ((alt || ctrl || shift) && (k === Qt.Key_Up || k === Qt.Key_Down))
+        || (ctrl && (k === Qt.Key_J || k === Qt.Key_K || k === Qt.Key_A)))) return true;
     if (k === Qt.Key_Tab || k === Qt.Key_Backtab) { win.stepShelf(k === Qt.Key_Backtab || shift ? -1 : 1); return true; }
     if (ctrl && k === Qt.Key_S) { win.toggleFav(); return true; }
     if (ctrl && k === Qt.Key_L) { win.setPage("specimen"); win.stepLang(shift ? -1 : 1); return true; }
@@ -642,14 +664,18 @@ FloatingWindow {
     if (win.markedFams.length > 0) out.push(["esc", "unmark " + win.markedFams.length]);
     if (win.picking) out.push(["return", "use"]);
     if (win.page === "glyphs") {
-      out.push(["return", "copy"], ["shift return", "codepoint"], ["alt ↑↓", "family"]);
+      out.push(["return", "copy"], ["shift return", "codepoint"]);
+      if (!win.solo) out.push(["alt ↑↓", "family"]);
     } else {
-      out.push(["↑↓", "family"], ["←→", "style"], ["ctrl e", "your line"]);
+      if (!win.solo) out.push(["↑↓", "family"]);
+      out.push(["←→", "style"], ["ctrl e", "your line"]);
       if (win.langs.length > 1) out.push(["ctrl l", "language"]);
       if (win.installable.length > 0) out.push(["return", "install"]);
-      out.push(["shift ↑↓", "mark"], ["ctrl a", "mark all"]);
+      if (!win.solo) out.push(["shift ↑↓", "mark"], ["ctrl a", "mark all"]);
     }
-    out.push(["ctrl wheel", "size"], ["ctrl s", "bookmark"], ["tab", "shelf"], ["ctrl tab", "page"]);
+    out.push(["ctrl wheel", "size"]);
+    if (!win.solo) out.push(["ctrl s", "bookmark"], ["tab", "shelf"]);
+    out.push(["ctrl tab", "page"]);
     if (win.removable.length > 0) out.push(["delete", "remove"]);
     out.push(["ctrl o", "open a file"]);
     if (win.picking) out.push(["esc", "cancel"]);
@@ -664,6 +690,14 @@ FloatingWindow {
       const paths = (d.urls || []).map((u) => decodeURIComponent(String(u).replace(/^file:\/\//, "")));
       win.load(paths);
     }
+  }
+
+  // ── THE KEYS WITH NO SEARCH ────────────────────────────────────────────
+  // one file on its own has no family search to type into (it lives in the
+  // sidebar), so the keys land here and go the same way
+  Item {
+    id: soloKeys
+    Keys.onPressed: (e) => { if (win.navKey(e)) e.accepted = true; }
   }
 
   // ── THE STAGE ──────────────────────────────────────────────────────────
@@ -697,7 +731,9 @@ FloatingWindow {
       anchors.left: parent.left
       anchors.top: parent.top
       anchors.bottom: parent.bottom
-      width: Math.round(Math.min(360, Math.max(260, win.width * 0.24)))
+      // none at all for one file on its own (win.solo)
+      visible: !win.solo
+      width: win.solo ? 0 : Math.round(Math.min(360, Math.max(260, win.width * 0.24)))
 
       // TERMINUS' AND PLATO'S TWO LAYERS (user, 2026-10-14: "all must
       // match"): an inactive tab's thinner glass, then the sheet's veil
@@ -1259,7 +1295,7 @@ FloatingWindow {
                 if (e.key === Qt.Key_Escape || e.key === Qt.Key_Return || e.key === Qt.Key_Enter) {
                   e.accepted = true;
                   win.refocus();
-                  famField.forceActiveFocus();
+                  (win.solo ? soloKeys : famField).forceActiveFocus();
                 } else if ((e.modifiers & Qt.ControlModifier) && e.key !== Qt.Key_A && e.key !== Qt.Key_C
                            && e.key !== Qt.Key_V && e.key !== Qt.Key_X && e.key !== Qt.Key_Z) {
                   if (win.navKey(e)) e.accepted = true;

@@ -37,6 +37,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import Quickshell.Hyprland
+import Quickshell.Services.Pipewire
 // a library; its markup escaping is morpheus Strings'
 import "cynosure.js" as Cynosure
 import "../folio/folio.js" as Folio
@@ -48,6 +49,9 @@ import "../morpheus/hypr.js" as Hypr
 import "../oracle/oracle.js" as Ora
 import "../morpheus/offspecial.js" as Off
 import "../terminus/terminus.js" as Terminus
+import "../terminus/network.js" as TermNet
+import "../artemis/artemis.js" as Artemis
+import "../hermes/hermes.js" as HermesJs
 import "../morpheus/icons.js" as Icons
 import "../morpheus"
 import "../morpheus/gridnav.js" as Nav
@@ -57,6 +61,11 @@ import "../ceres"
 import "../ceres/ceres.js" as Cer
 import "../clio"
 import "../hermes"
+import "../howler"
+import "../kairos"
+import "../kairos/kairos.js" as KairosJs
+import "../alexandria/alexandria.js" as Alex
+import "../morpheus/thumbs.js" as Thumbs
 // terminus' open-with card, for a file nothing opens
 import "../terminus" as Term
 // The directories of what this loads by Loader (metis, lexi, folio, ideo,
@@ -164,6 +173,26 @@ LayerPopup {
     : popup.eventScoped ? { glyph: "\uF073", text: "New event" }
     : popup.notesScoped ? { glyph: "\uE678", text: "Notes" }
     : popup.newNoteScoped ? { glyph: "\uE678", text: "New note" }
+    : popup.newTaskScoped ? { glyph: "\uF14A", text: "New task" }
+    : popup.remindScoped ? { glyph: "\u{F009F}", text: "Reminder" }
+    : popup.tasksScoped ? { glyph: "\uF14A", text: "Tasks" }
+    : popup.booksScoped ? { glyph: "\uF02D", text: "Books" }
+    : popup.outputsScoped ? { glyph: "\u{F04C3}", text: "Sound output" }
+    : popup.colorsScoped ? { glyph: "\u{F03D8}", text: "Colors you picked" }
+    : popup.placesScoped ? { glyph: "\uF07B", text: "Places" }
+    : popup.procsScoped ? { glyph: "\uF085", text: "Processes" }
+    : popup.portScoped ? { glyph: "\u{F0317}", text: "Port" }
+    : popup.btScoped ? { glyph: "\uF293", text: "Bluetooth" }
+    : popup.wifiScoped ? { glyph: "\uF1EB", text: "Wi-Fi" }
+    : popup.reposScoped ? { glyph: "\uF1D3", text: "Repositories" }
+    : popup.servicesScoped ? { glyph: "\u{F08D6}", text: "Services" }
+    : popup.notifsScoped ? { glyph: "\uF0F3", text: "Notifications" }
+    : popup.helpScoped ? { glyph: "\uF059", text: "Help" }
+    : popup.scriptList ? { glyph: popup.scriptList.script.glyph, text: popup.scriptList.script.title }
+    : popup.hitsScoped ? { glyph: "\uF15C", text: "Inside files" }
+    : popup.fontsScoped ? { glyph: "\uF031", text: "Fonts" }
+    : popup.shotsScoped ? { glyph: "\u{F0E51}", text: "Screenshots" }
+    : popup.recsScoped ? { glyph: "\u{F044B}", text: "Recordings" }
     : null
   // a smart answer's card: its heading, then the weather's taller card or
   // an answer's two lines
@@ -205,7 +234,7 @@ LayerPopup {
       if (r.section && r.section !== sec && !(popup.fieldTag && r.section === popup.fieldTag.text)) h += popup.sectionH;
       sec = r.section || "";
       h += r.kind === "clipimg" ? popup.rowH * 2 : r.kind === "glyphs" ? popup.glyphRowH
-        : r.kind === "pics" ? popup.picRowH : popup.rowH;
+        : r.kind === "pics" || r.kind === "shots" ? popup.picRowH : popup.rowH;
       if (h > popup.listH) break;
     }
     return h;
@@ -256,6 +285,13 @@ LayerPopup {
     // a hotkey of yours (binds.lua, from hotkeys.lua): the row it was given to
     function hotkey(chord: string): string {
       return popup.runHotkey(chord);
+    }
+    // what is highlighted anywhere (else copied), typed into the line
+    // (Super+Shift+Space)
+    function selection(): string {
+      if (selectionProc.running) return "busy";
+      selectionProc.running = true;
+      return "ok";
     }
   }
   // The names the quick panels answered to before they moved in here, kept
@@ -467,12 +503,22 @@ LayerPopup {
     command: ["sh", "-c", Cynosure.scriptsListCommand(), "cynosure", Cynosure.scriptsDir()]
     stdout: StdioCollector {
       waitForEnd: true
-      onStreamFinished: { popup.scripts = Cynosure.parseScripts(text); popup.rebuild(); }
+      onStreamFinished: {
+        popup.scripts = Cynosure.parseScripts(text);
+        popup.rebuild();
+        popup.runInlineScripts(true);
+      }
     }
   }
   // run by its @mode: in the background, in your terminal, or what it
   // prints said as a notification. Run with sh when it is not executable.
   function runScript(sc, arg) {
+    // an inline script's row already says it: return copies what it said
+    if (sc.mode === "inline") {
+      popup.copyText(popup.scriptSaid[sc.path] || "");
+      popup.closeCynosure();
+      return;
+    }
     const args = arg ? [arg] : [];
     if (sc.mode === "terminal") {
       Quickshell.execDetached(["sh", "-c", Cynosure.terminalCommand(
@@ -575,7 +621,7 @@ LayerPopup {
   function rebuild() {
     const apps = Cynosure.getApps(popup.appsSnapshot);
     popup.rows = Cynosure.withAliases(Cynosure.buildRows(apps, popup.histLines || [], popup.freqMap || {},
-      Cynosure.SHELL_ACTIONS.concat(Cynosure.linkActions(popup.links), Cynosure.scriptActions(popup.scripts)),
+      Cynosure.SHELL_ACTIONS.concat(Cynosure.linkActions(popup.links), Cynosure.scriptActions(popup.scripts, popup.scriptSaid)),
       popup.actionStates, Icons.appGlyph),
       popup.aliases);
     popup.applyFilter();
@@ -610,7 +656,33 @@ LayerPopup {
         packages: popup.pkgScoped ? Cynosure.packageRows(popup.pkgFound) : [],
         packagesOnly: popup.pkgScoped,
         event: popup.eventScoped ? Cynosure.eventRow(popup.eventLine, Chr.isoOf(new Date()), new Date()) : null,
-        eventOnly: popup.eventScoped });
+        eventOnly: popup.eventScoped,
+        newTask: popup.newTaskScoped || popup.remindScoped ? Cynosure.newTaskRow(popup.taskLine, popup.remindScoped, new Date()) : null,
+        tasks: popup.tasksScoped ? Cynosure.taskRows(popup.clioNotes, popup.taskLine, new Date()) : [],
+        tasksOnly: popup.newTaskScoped || popup.remindScoped || popup.tasksScoped,
+        books: popup.booksScoped ? Cynosure.bookRows(popup.books, popup.bookLine) : [],
+        booksOnly: popup.booksScoped,
+        outputs: popup.outputRows, outputsOnly: popup.outputsScoped,
+        colors: popup.colorsScoped ? Cynosure.colorRows(popup.palette, popup.colorLine) : [],
+        colorsOnly: popup.colorsScoped,
+        favorites: popup.query.trim() === "" ? Cynosure.favoriteRows(popup.favorites, popup.rows) : [],
+        places: popup.placeRows, placesOnly: popup.placesScoped,
+        procs: popup.procRows, procsOnly: popup.procsScoped || popup.portScoped,
+        radios: popup.radioRows, radiosOnly: popup.btScoped || popup.wifiScoped,
+        repos: popup.reposScoped ? Cynosure.repoRows(popup.repoRecents, popup.repoState, popup.repoLine, Quickshell.env("HOME")) : [],
+        reposOnly: popup.reposScoped,
+        services: popup.servicesScoped ? Cynosure.serviceRows(popup.units, popup.serviceLine) : [],
+        servicesOnly: popup.servicesScoped,
+        notifs: popup.notifsScoped ? Cynosure.notifRows(Howler.history, popup.notifLine, new Date()) : [],
+        notifsOnly: popup.notifsScoped,
+        listItems: popup.listRows, listOnly: !!popup.scriptList,
+        hits: popup.hitRows, hitsOnly: popup.hitsScoped,
+        fonts: popup.fontsScoped ? Cynosure.fontRows(popup.fontFamilies, popup.fontLine) : [],
+        fontsOnly: popup.fontsScoped,
+        captures: popup.captureRows, capturesOnly: popup.shotsScoped || popup.recsScoped,
+        help: popup.helpScoped ? Cynosure.helpRows(popup.helpLine, { aliases: popup.aliases, links: popup.ownLinks,
+          scripts: popup.scripts }) : [],
+        helpOnly: popup.helpScoped });
     // the same rows as now: the view keeps the ones it drew
     const sig = JSON.stringify(next);
     if (sig !== popup.filteredSig) {
@@ -681,7 +753,11 @@ LayerPopup {
 
   // a scope word of its own (settings, store, notes): no files under it
   readonly property bool otherScoped: popup.settingsScoped || popup.storeScoped || popup.notesScoped || popup.newNoteScoped
-    || popup.pkgScoped || popup.eventScoped
+    || popup.pkgScoped || popup.eventScoped || popup.newTaskScoped || popup.remindScoped || popup.tasksScoped
+    || popup.booksScoped || popup.outputsScoped || popup.colorsScoped || popup.placesScoped || popup.procsScoped
+    || popup.portScoped || popup.btScoped || popup.wifiScoped || popup.reposScoped || popup.servicesScoped || popup.notifsScoped
+    || !!popup.scriptList || popup.hitsScoped || popup.fontsScoped || popup.shotsScoped || popup.recsScoped
+    || popup.helpScoped
 
   // ── PACKAGES, IN THE LIST ─────────────────────────────────────────────
   // "pkg …": every repo package and the AUR, by Ceres' own search (its
@@ -731,6 +807,622 @@ LayerPopup {
     popup.closeThen(() => { if (show) Quickshell.execDetached(["qs", "ipc", "call", "Calendar", "day", q.iso || ""]); });
   }
 
+  // ── TASKS AND REMINDERS (2026-11-02) ──────────────────────────────────
+  // "todo pay rent friday" and "remind me in 20 min to call mom": one row
+  // saying how it will be kept (Cynosure.newTaskRow); return adds it to
+  // Clio's Tasks note, the time its reminder. "todos …" / "tasks …" lists
+  // the open ones; return ticks one (Clio's own tickTask).
+  readonly property bool newTaskScoped: /^\s*todo\s/i.test(popup.query)
+  readonly property bool remindScoped: /^\s*remind me\s/i.test(popup.query)
+  readonly property bool tasksScoped: /^\s*(todos|tasks)\s/i.test(popup.query)
+  readonly property string taskLine: popup.newTaskScoped ? popup.query.replace(/^\s*todo\s+/i, "")
+    : popup.remindScoped ? popup.query.replace(/^\s*remind me\s+/i, "")
+    : popup.tasksScoped ? popup.query.replace(/^\s*(todos|tasks)\s+/i, "") : ""
+  onTasksScopedChanged: if (popup.tasksScoped && Clio.app && !Clio.app.loaded) Clio.app.whenLoaded(() => popup.applyFilter())
+  function addTask(row, show) {
+    if (row.bad) return;
+    popup.closeThen(() => {
+      if (!Clio.app) return;
+      Clio.app.addTask(row.title, row.due, (id) => { if (show) Clio.app.openAt(id, row.title); });
+      Quickshell.execDetached(["notify-send", "-a", "clio", "--", row.remind ? "Reminder set" : "Task added",
+        row.title + (row.due ? " · " + Cynosure.dueWords(row.due, new Date()) : "")]);
+    });
+  }
+  function tickTask(row) {
+    if (Clio.app && Clio.app.tickTask(row.task)) popup.applyFilter();
+  }
+
+  // ── BOOKS (2026-11-02) ────────────────────────────────────────────────
+  // "book …": Minerva's library, read from its own file each time the word
+  // is typed; return opens the book where it was left
+  readonly property bool booksScoped: /^\s*books?\s/i.test(popup.query)
+  readonly property string bookLine: popup.booksScoped ? popup.query.replace(/^\s*books?\s+/i, "") : ""
+  property var books: []
+  onBooksScopedChanged: if (popup.booksScoped) { booksCat.running = false; booksCat.running = true; }
+  Cat {
+    id: booksCat
+    path: Quickshell.statePath("minerva.json")
+    onDone: (text) => {
+      let j = null;
+      try { j = JSON.parse(text); } catch (e) {}
+      // minerva.js' cleanBook, by hand: a path, a title, the rest as kept
+      popup.books = (j && Array.isArray(j.books) ? j.books : []).filter((b) => b && b.path)
+        .map((b) => ({ path: String(b.path), kind: String(b.kind || ""), title: String(b.title || "") || Terminus.basename(b.path),
+          author: String(b.author || ""), cover: String(b.cover || ""), opened: Number(b.opened) || 0,
+          added: Number(b.added) || 0, progress: Math.max(0, Math.min(1, Number(b.progress) || 0)),
+          finished: Number(b.finished) || 0 }));
+      popup.applyFilter();
+    }
+  }
+  function openBook(row) {
+    popup.closeThen(() => Quickshell.execDetached(["qs", "ipc", "call", "Minerva", "open", row.path]));
+  }
+
+  // ── SOUND OUTPUT (2026-11-02) ─────────────────────────────────────────
+  // "output …": Pipewire's sinks (zeus' Sound reads them the same way);
+  // return makes one the default, as zeus' mixer does
+  readonly property bool outputsScoped: /^\s*output\s/i.test(popup.query)
+  readonly property string outputLine: popup.outputsScoped ? popup.query.replace(/^\s*output\s+/i, "") : ""
+  function sinkNodes() {
+    const out = [];
+    const all = Pipewire.nodes.values;
+    for (let i = 0; i < all.length; ++i) {
+      const n = all[i];
+      if (n && n.audio && n.isSink && !n.isStream && String(n.name || "") !== "quickshell") out.push(n);
+    }
+    return out;
+  }
+  readonly property var outputRows: popup.outputsScoped
+    ? Cynosure.outputRows(popup.sinkNodes().map((n) => ({ id: n.id, name: String(n.name || ""),
+        label: String(n.nickname || "").trim() || String(n.description || "").trim() || String(n.name || "") })),
+      Pipewire.defaultAudioSink ? Pipewire.defaultAudioSink.id : -1, popup.outputLine)
+    : []
+  onOutputRowsChanged: if (popup.outputsScoped) popup.applyFilter()
+  function useOutput(row) {
+    const n = popup.sinkNodes().find((x) => x.id === row.id);
+    if (n) Pipewire.preferredDefaultAudioSink = n;
+    popup.closeCynosure();
+  }
+
+  // ── COLORS YOU PICKED (2026-11-02) ────────────────────────────────────
+  // "colors …": Picasso's picker palette (picker-palette.json); return
+  // copies the hex, its actions rgb() and hsl()
+  readonly property bool colorsScoped: /^\s*colors\s/i.test(popup.query)
+  readonly property string colorLine: popup.colorsScoped ? popup.query.replace(/^\s*colors\s+/i, "") : ""
+  property var palette: []
+  onColorsScopedChanged: if (popup.colorsScoped) { paletteCat.running = false; paletteCat.running = true; }
+  Cat {
+    id: paletteCat
+    path: Quickshell.statePath("picker-palette.json")
+    onDone: (text) => {
+      let j = null;
+      try { j = JSON.parse(text); } catch (e) {}
+      popup.palette = Array.isArray(j) ? j.filter((x) => typeof x === "string" && /^#[0-9a-f]{6}$/i.test(x)) : [];
+      popup.applyFilter();
+    }
+  }
+  function colorText(hex, as) {
+    const rgb = Answers.hexToRgb(hex.slice(1));
+    if (as === "rgb") return "rgb(" + rgb.join(", ") + ")";
+    const h = Answers.rgbToHsl(rgb);
+    return "hsl(" + h[0] + ", " + h[1] + "%, " + h[2] + "%)";
+  }
+
+  // ── FAVORITES (2026-11-02) ────────────────────────────────────────────
+  // rows you keep at the top of the empty line (Cynosure.favoriteRows), set
+  // from shift return's menu
+  property var favorites: []
+  Cat {
+    id: favoritesCat
+    path: Cynosure.favoritesPath()
+    onDone: (text) => { popup.favorites = Cynosure.parseFavorites(text); popup.applyFilter(); }
+  }
+  function setFavorites(list) {
+    popup.favorites = list;
+    writer.write(Cynosure.favoritesPath(), Cynosure.serializeFavorites(list));
+    popup.applyFilter();
+  }
+
+  // ── WHAT IS HIGHLIGHTED, AS THE LINE (2026-11-02) ─────────────────────
+  // Super+Shift+Space: the text highlighted anywhere (the primary
+  // selection) typed into the field, so the calculator, the dictionary, a
+  // color or a conversion answer it at once. With no primary selection —
+  // misc:middle_click_paste off takes it away entirely — the text last
+  // copied instead (user, 2026-11-02); a copied picture is not text, and
+  // the panel opens empty.
+  Process {
+    id: selectionProc
+    command: ["sh", "-c", "wl-paste --primary --no-newline 2>/dev/null || wl-paste --no-newline --type text 2>/dev/null"]
+    stdout: StdioCollector {
+      id: selectionOut
+      waitForEnd: true
+      onStreamFinished: {
+        // one line, and not a page of it
+        const t = selectionOut.text.replace(/\s+/g, " ").trim().slice(0, 300);
+        popup.openCynosure();
+        popup.untake();
+        input.text = t;
+        input.cursorPosition = input.text.length;
+      }
+    }
+  }
+
+  // ── PLACES (2026-11-02) ───────────────────────────────────────────────
+  // "go …": terminus' bookmarks and network places and the directories
+  // artemis has opened most (Cynosure.placeRows), read each time the word is
+  // typed; return opens Terminus there, a place not connected connects
+  // first (Terminus place)
+  readonly property bool placesScoped: /^\s*go\s/i.test(popup.query)
+  readonly property string placeLine: popup.placesScoped ? popup.query.replace(/^\s*go\s+/i, "") : ""
+  property var termBookmarks: []
+  property var netPlaces: []
+  property var netMounts: []
+  onPlacesScopedChanged: if (popup.placesScoped) {
+    bookmarksCat.running = false; bookmarksCat.running = true;
+    netPlacesCat.running = false; netPlacesCat.running = true;
+    if (!mountsProc.running) mountsProc.running = true;
+  }
+  Cat {
+    id: bookmarksCat
+    path: Quickshell.statePath("terminus-bookmarks")
+    onDone: (text) => {
+      popup.termBookmarks = text.split("\n").map((l) => l.trim()).filter((l) => l !== "");
+      popup.applyFilter();
+    }
+  }
+  Cat {
+    id: netPlacesCat
+    path: Quickshell.statePath("terminus-network.json")
+    onDone: (text) => { popup.netPlaces = TermNet.parsePlaces(text); popup.applyFilter(); }
+  }
+  Process {
+    id: mountsProc
+    command: ["python3", "-I", Quickshell.shellDir + "/terminus/net/netplaces.py", "list"]
+    stdout: StdioCollector {
+      id: mountsOut
+      waitForEnd: true
+      onStreamFinished: {
+        let j = null;
+        try { j = JSON.parse(mountsOut.text); } catch (e) {}
+        popup.netMounts = j && j.ok ? j.mounts || [] : [];
+        popup.applyFilter();
+      }
+    }
+  }
+  readonly property var placeRows: popup.placesScoped
+    ? Cynosure.placeRows(popup.termBookmarks, TermNet.rows(popup.netPlaces, popup.netMounts),
+        popup.finder ? Artemis.freqRanked(popup.finder.freq, 300).filter((f) => f.isDir).slice(0, 12).map((f) => f.path) : [],
+        popup.placeLine, Quickshell.env("HOME"))
+    : []
+  function openPlace(row) {
+    popup.closeThen(() => Quickshell.execDetached(row.path !== ""
+      ? ["qs", "ipc", "call", "Terminus", "open", row.path] : ["qs", "ipc", "call", "Terminus", "place", row.uri]));
+  }
+
+  // ── WINDOWS, PUT SOMEWHERE (2026-11-02) ───────────────────────────────
+  // "left half", "maximize", "next screen", "size 1280x720" for the window
+  // you were in, and the same from a window row's actions: floated, then
+  // sized and moved to the screen it is on (Cynosure.snapRect), in one ask
+  // so the order holds (a floating resize grows about the middle; the
+  // move after it puts it right)
+  Process {
+    id: snapProc
+    property string address: ""
+    property string where: ""
+    property var size: null
+    command: ["sh", "-c", "hyprctl monitors -j; printf '\\036'; hyprctl clients -j; printf '\\036'; hyprctl getoption general:gaps_out -j"]
+    stdout: StdioCollector {
+      id: snapOut
+      waitForEnd: true
+      onStreamFinished: {
+        const parts = snapOut.text.split("\u001e");
+        let mons = [], clients = [];
+        try { mons = JSON.parse(parts[0]); clients = JSON.parse(parts[1]); } catch (e) { return; }
+        const addr = snapProc.address;
+        const c = addr !== "" ? clients.find((x) => x.address === addr)
+          : clients.slice().sort((a, b) => a.focusHistoryID - b.focusHistoryID)[0];
+        if (!c) return;
+        const mon = mons.find((m) => m.id === c.monitor) || mons.find((m) => m.focused);
+        if (!mon) return;
+        const r = Cynosure.snapRect(mon, Cynosure.gapsOf(parts[2]), snapProc.where, snapProc.size);
+        if (!r) return;
+        const sel = Hypr.byAddress(c.address);
+        Quickshell.execDetached(Off.wanted([Hypr.focusWindow(sel), Hypr.raiseWindow(sel), Hypr.floatOn(),
+          Hypr.resizeTo(r.w, r.h), Hypr.moveTo(r.x, r.y)]));
+      }
+    }
+  }
+  // the window "left half" will move: the one you were in
+  function lastWindowName() {
+    const t = Hyprland.activeToplevel;
+    return t ? String(t.title || "") : "No window";
+  }
+  function snapWindow(address, where, size) {
+    if (where === "next") {
+      const steps = address !== "" ? [Hypr.focusWindow(Hypr.byAddress(address)), Hypr.raiseWindow(Hypr.byAddress(address))] : [];
+      Quickshell.execDetached(Off.wanted(steps.concat([Hypr.moveToMonitor("+1")])));
+      popup.closeCynosure();
+      return;
+    }
+    snapProc.address = address;
+    snapProc.where = where;
+    snapProc.size = size || null;
+    snapProc.running = true;
+    popup.closeCynosure();
+  }
+
+  // ── PROCESSES AND PORTS (2026-11-02) ──────────────────────────────────
+  // "ps …": what runs, the busiest first, read again a beat after each key;
+  // "port 8080": what listens there. Return ends it on the one-line confirm.
+  readonly property bool procsScoped: /^\s*ps\s/i.test(popup.query)
+  readonly property bool portScoped: /^\s*port\s+\d{1,5}\s*$/i.test(popup.query)
+  readonly property string procLine: popup.procsScoped ? popup.query.replace(/^\s*ps\s+/i, "")
+    : popup.portScoped ? popup.query.replace(/^\s*port\s+/i, "").trim() : ""
+  property var procRows: []
+  onProcLineChanged: if (popup.procsScoped || popup.portScoped) procLater.restart()
+  onProcsScopedChanged: if (popup.procsScoped) procLater.restart()
+  Timer { id: procLater; interval: 150; onTriggered: popup.askProcs() }
+  function askProcs() {
+    if (procProc.running) { procProc.again = true; return; }
+    procProc.port = popup.portScoped;
+    procProc.asked = popup.procLine;
+    procProc.command = popup.portScoped ? ["ss", "-ltnupH"]
+      : ["ps", "-eo", "pid=,pcpu=,rss=,comm=,args=", "--sort=-pcpu"];
+    procProc.running = true;
+  }
+  Process {
+    id: procProc
+    property bool port: false
+    property string asked: ""
+    property bool again: false
+    onExited: if (procProc.again) { procProc.again = false; Qt.callLater(popup.askProcs); }
+    stdout: StdioCollector {
+      id: procOut
+      waitForEnd: true
+      onStreamFinished: {
+        if (procProc.asked !== popup.procLine) return;
+        popup.procRows = procProc.port ? Cynosure.portRows(procOut.text, procProc.asked)
+          : Cynosure.processRows(procOut.text, procProc.asked, 0);
+        popup.applyFilter();
+      }
+    }
+  }
+  function endProcess(row, force) {
+    popup.pending = { name: (force ? "Force quit " : "Quit ") + row.name + " (" + row.pid + ")", glyph: row.glyph, confirm: true,
+      sh: "kill " + (force ? "-KILL " : "") + "-- " + row.pid };
+    popup.showPicker();
+    popup.sel = popup.pickerRows.length - 1;
+  }
+
+  // ── BLUETOOTH AND WI-FI (2026-11-02) ──────────────────────────────────
+  // "bt …" and "wifi …": the control hub's devices and networks; return
+  // connects or leaves. A network that needs a password Hermes has not got
+  // is asked for in the control hub, where the password field is.
+  readonly property bool btScoped: /^\s*bt\s/i.test(popup.query)
+  readonly property bool wifiScoped: /^\s*wifi\s/i.test(popup.query)
+  readonly property string radioLine: popup.btScoped ? popup.query.replace(/^\s*bt\s+/i, "")
+    : popup.wifiScoped ? popup.query.replace(/^\s*wifi\s+/i, "") : ""
+  // "wifi off" is the switch, not a network called "off"
+  readonly property string radioFind: popup.cmd ? "" : popup.radioLine
+  readonly property var radioRows: popup.btScoped
+    ? Cynosure.deviceRows(Hermes.devices.map((d) => Object.assign({}, d, { glyph: HermesJs.btGlyph(d.icon) })), popup.radioFind)
+    : popup.wifiScoped
+    ? Cynosure.networkRows(Hermes.networks.map((n) => Object.assign({}, n, { glyph: HermesJs.wifiGlyph(n.strength),
+        secure: !HermesJs.securityOpen(n.security) })), popup.radioFind)
+    : []
+  onRadioRowsChanged: if (popup.btScoped || popup.wifiScoped) popup.applyFilter()
+  function radioDo(row) {
+    if (row.kind === "btdev") {
+      Hermes.toggleDevice(row.dev);
+      popup.closeCynosure();
+      return;
+    }
+    const r = Hermes.join(row.net, "");
+    if (r === "ask") popup.closeThen(() => Hermes.open("network"));
+    else popup.closeCynosure();
+  }
+
+  // ── REPOSITORIES (2026-11-02) ─────────────────────────────────────────
+  // "repo …": Delphi's recent repositories, with git's word on each
+  readonly property bool reposScoped: /^\s*repo\s/i.test(popup.query)
+  readonly property string repoLine: popup.reposScoped ? popup.query.replace(/^\s*repo\s+/i, "") : ""
+  property var repoRecents: []
+  property var repoState: ({})
+  onReposScopedChanged: if (popup.reposScoped) { delphiCat.running = false; delphiCat.running = true; }
+  Cat {
+    id: delphiCat
+    path: Quickshell.statePath("delphi.json")
+    onDone: (text) => {
+      let j = null;
+      try { j = JSON.parse(text); } catch (e) {}
+      popup.repoRecents = j && Array.isArray(j.recents)
+        ? j.recents.filter((r) => r && typeof r.root === "string").map((r) => ({ root: r.root, name: String(r.name || Terminus.basename(r.root)) }))
+        : [];
+      popup.applyFilter();
+      if (popup.repoRecents.length > 0 && !repoProc.running) {
+        repoProc.command = ["sh", "-c", Cynosure.repoStatusCommand(), "cynosure"].concat(popup.repoRecents.map((r) => r.root));
+        repoProc.running = true;
+      }
+    }
+  }
+  Process {
+    id: repoProc
+    stdout: StdioCollector {
+      id: repoOut
+      waitForEnd: true
+      onStreamFinished: { popup.repoState = Cynosure.repoStatus(repoOut.text); popup.applyFilter(); }
+    }
+  }
+  function openRepo(row) {
+    popup.closeThen(() => Quickshell.execDetached(["qs", "ipc", "call", "Delphi", "open", row.path]));
+  }
+
+  // ── SERVICES (2026-11-02) ─────────────────────────────────────────────
+  // "svc …": Hestia's reading of systemd (hestia.py units, the system's and
+  // yours); return opens it in Hestia, start/stop/restart go through
+  // Hestia's own act (polkit, or Ceres' password card)
+  readonly property bool servicesScoped: /^\s*svc\s/i.test(popup.query)
+  readonly property string serviceLine: popup.servicesScoped ? popup.query.replace(/^\s*svc\s+/i, "") : ""
+  property var units: []
+  onServicesScopedChanged: if (popup.servicesScoped && !unitsProc.running) unitsProc.running = true
+  Process {
+    id: unitsProc
+    command: ["sh", "-c", "python3 -I \"$1\" units system; printf '\\036'; python3 -I \"$1\" units user", "cynosure",
+      Quickshell.shellDir + "/hestia/core/hestia.py"]
+    stdout: StdioCollector {
+      id: unitsOut
+      waitForEnd: true
+      onStreamFinished: {
+        let all = [];
+        for (const part of unitsOut.text.split("\u001e")) {
+          try { const j = JSON.parse(part); if (Array.isArray(j)) all = all.concat(j); } catch (e) {}
+        }
+        popup.units = all;
+        popup.applyFilter();
+      }
+    }
+  }
+  function serviceDo(row, verb) {
+    Quickshell.execDetached(["qs", "ipc", "call", "Hestia", "act", row.scope, verb, row.unit]);
+    popup.closeCynosure();
+  }
+
+  // ── NOTIFICATIONS (2026-11-02) ────────────────────────────────────────
+  // "notif …": Howler's history; return does what its toast did
+  readonly property bool notifsScoped: /^\s*notif\s/i.test(popup.query)
+  readonly property string notifLine: popup.notifsScoped ? popup.query.replace(/^\s*notif\s+/i, "") : ""
+
+  // ── A CLIP, PASTED OTHERWISE (2026-11-02) ─────────────────────────────
+  // shift return's "Paste as …" on a text clip: decoded, changed
+  // (Cynosure.transformText), typed into the window you were in as a
+  // snippet is (folio.js pasteSnippetCommand)
+  function pasteAs(row, id) {
+    popup.folio.decodeText(row.id, (t) => {
+      const out = Cynosure.transformText(id, t);
+      if (out === null) {
+        Quickshell.execDetached(["notify-send", "-a", "Cynosure", "--", "Not pasted", "That clip is not JSON"]);
+        return;
+      }
+      popup.closeCynosure();
+      Quickshell.execDetached(["sh", "-c", Folio.pasteSnippetCommand(out, 0)]);
+    });
+  }
+
+  // ── HELP (2026-11-02) ─────────────────────────────────────────────────
+  // "?" or "help", alone or with words to find among: every word and phrase
+  // Cynosure reads (Cynosure.helpRows), yours too; return types it in
+  readonly property bool helpScoped: popup.mode === "search" && /^\s*(\?|help)(\s|$)/i.test(popup.query)
+  readonly property string helpLine: popup.helpScoped ? popup.query.replace(/^\s*(\?|help)\s*/i, "") : ""
+
+  // ── SCRIPTS THAT LIST, SCRIPTS THAT SAY (2026-11-02) ──────────────────
+  // @mode list: its word and a space run it (the words after as $1), a beat
+  // after each key, and what it prints is the list (Cynosure.parseListItems).
+  // @mode inline: run on every open, what it prints its row's second line;
+  // @refresh runs it again while the panel is up.
+  readonly property var scriptList: popup.mode === "search" ? Cynosure.scriptListFor(popup.scripts, popup.query) : null
+  readonly property string scriptListKey: popup.scriptList ? popup.scriptList.script.path + "\u0000" + popup.scriptList.arg : ""
+  property var listRows: []
+  onScriptListKeyChanged: {
+    if (popup.scriptListKey === "") { popup.listRows = []; return; }
+    listLater.restart();
+  }
+  Timer { id: listLater; interval: 200; onTriggered: popup.runListScript() }
+  function runListScript() {
+    const sl = popup.scriptList;
+    if (!sl) return;
+    if (listProc.running) { listProc.again = true; return; }
+    listProc.asked = popup.scriptListKey;
+    listProc.script = sl.script;
+    listProc.command = ["timeout", "10", "sh", "-c", "if [ -x \"$1\" ]; then exec \"$@\"; else exec sh \"$@\"; fi",
+      "cynosure", sl.script.path].concat(sl.arg !== "" ? [sl.arg] : []);
+    listProc.running = true;
+  }
+  Process {
+    id: listProc
+    property string asked: ""
+    property var script: null
+    property bool again: false
+    onExited: if (listProc.again) { listProc.again = false; Qt.callLater(popup.runListScript); }
+    stdout: StdioCollector {
+      id: listOut
+      waitForEnd: true
+      onStreamFinished: {
+        if (listProc.asked !== popup.scriptListKey) return;
+        popup.listRows = Cynosure.listItemRows(listProc.script, Cynosure.parseListItems(listOut.text));
+        popup.applyFilter();
+      }
+    }
+  }
+  function runListItem(row) {
+    const it = row.item;
+    popup.closeCynosure();
+    if (it.open !== "") {
+      if (/^[a-z][\w+.-]*:/i.test(it.open)) Strings.openLink(it.open);
+      else Quickshell.execDetached(["gio", "open", it.open.replace(/^~(?=\/|$)/, Quickshell.env("HOME"))]);
+    } else if (it.paste !== "") {
+      Quickshell.execDetached(["sh", "-c", Folio.pasteSnippetCommand(it.paste, 0)]);
+    } else if (it.run !== "") {
+      Quickshell.execDetached(["setsid", "-f", "sh", "-c", it.run]);
+    } else {
+      popup.copyText(it.copy !== "" ? it.copy : it.title);
+    }
+  }
+  // what each inline script last printed, by path
+  property var scriptSaid: ({})
+  readonly property var inlineScripts: popup.scripts.filter((sc) => sc.mode === "inline")
+  function runInlineScripts(all) {
+    const now = Date.now();
+    for (const sc of popup.inlineScripts) {
+      if (!all && !(sc.refresh > 0 && now - (popup.inlineAt[sc.path] || 0) >= sc.refresh)) continue;
+      popup.inlineAt[sc.path] = now;
+      const p = inlineComp.createObject(popup, { path: sc.path });
+      p.running = true;
+    }
+  }
+  property var inlineAt: ({})
+  onInlineScriptsChanged: if (popup.shown) popup.runInlineScripts(true)
+  Component {
+    id: inlineComp
+    Process {
+      id: ip
+      property string path: ""
+      command: ["timeout", "10", "sh", "-c", "if [ -x \"$1\" ]; then exec \"$@\"; else exec sh \"$@\"; fi", "cynosure", ip.path]
+      stdout: StdioCollector {
+        id: ipOut
+        waitForEnd: true
+        onStreamFinished: {
+          const said = Object.assign({}, popup.scriptSaid);
+          said[ip.path] = ipOut.text.trim();
+          popup.scriptSaid = said;
+          popup.rebuild();
+        }
+      }
+      onExited: ip.destroy()
+    }
+  }
+  // the shortest @refresh asked for, while the panel is up
+  Timer {
+    interval: Math.max(1000, Math.min.apply(null, [3600000].concat(popup.inlineScripts.filter((sc) => sc.refresh > 0).map((sc) => sc.refresh))))
+    repeat: true
+    running: popup.shown && popup.inlineScripts.some((sc) => sc.refresh > 0)
+    onTriggered: popup.runInlineScripts(false)
+  }
+
+  // ── WORDS INSIDE FILES (2026-11-02) ───────────────────────────────────
+  // "in …": ripgrep through home (Cynosure.contentCommand), a beat after the
+  // last key, a run in flight stopped for the newer one; return opens the
+  // file at the line in Plato
+  readonly property bool hitsScoped: /^\s*in\s/i.test(popup.query)
+  readonly property string hitLine: popup.hitsScoped ? popup.query.replace(/^\s*in\s+/i, "").trim() : ""
+  property var hitRows: []
+  property bool hitsBusy: false
+  onHitLineChanged: {
+    if (popup.hitLine.length < 3) { hitLater.stop(); hitProc.running = false; popup.hitRows = []; popup.applyFilter(); return; }
+    hitLater.restart();
+  }
+  Timer { id: hitLater; interval: 300; onTriggered: popup.askHits() }
+  function askHits() {
+    hitProc.running = false;
+    hitProc.asked = popup.hitLine;
+    hitProc.command = ["sh", "-c", Cynosure.contentCommand(popup.hitLine, Quickshell.env("HOME"))];
+    hitProc.running = true;
+  }
+  Process {
+    id: hitProc
+    property string asked: ""
+    stdout: StdioCollector {
+      id: hitOut
+      waitForEnd: true
+      onStreamFinished: {
+        if (hitProc.asked !== popup.hitLine) return;
+        popup.hitRows = Cynosure.contentRows(hitOut.text, Quickshell.env("HOME"));
+        popup.applyFilter();
+      }
+    }
+  }
+  function openHit(row) {
+    popup.closeThen(() => Quickshell.execDetached(["qs", "ipc", "call", "Plato", "openAt", row.path, String(row.line)]));
+  }
+
+  // ── FONTS (2026-11-02) ────────────────────────────────────────────────
+  // "font …": the installed families by Alexandria's reading of fc-list,
+  // read the first time the word is typed in a session
+  readonly property bool fontsScoped: /^\s*font\s/i.test(popup.query)
+  readonly property string fontLine: popup.fontsScoped ? popup.query.replace(/^\s*font\s+/i, "") : ""
+  property var fontFamilies: []
+  onFontsScopedChanged: if (popup.fontsScoped && popup.fontFamilies.length === 0 && !fontsProc.running) fontsProc.running = true
+  Process {
+    id: fontsProc
+    command: ["sh", "-c", Alex.listCommand()]
+    stdout: StdioCollector {
+      id: fontsOut
+      waitForEnd: true
+      onStreamFinished: {
+        popup.fontFamilies = Alex.parseList(fontsOut.text, Quickshell.env("HOME"), Ora.familyOf);
+        popup.applyFilter();
+      }
+    }
+  }
+  function openFont(row) {
+    popup.closeThen(() => Quickshell.execDetached(["qs", "ipc", "call", "Alexandria", "open", row.files.join("\n")]));
+  }
+
+  // ── SCREENSHOTS AND RECORDINGS (2026-11-02) ───────────────────────────
+  // "shots …" and "rec …": the newest captures as a grid of thumbnails
+  // (the shell's one pool, morpheus/thumbs.js); return opens a picture in
+  // Picasso, a recording in Argus to cut
+  readonly property bool shotsScoped: /^\s*shots\s/i.test(popup.query)
+  readonly property bool recsScoped: /^\s*rec\s/i.test(popup.query)
+  readonly property string captureLine: popup.shotsScoped ? popup.query.replace(/^\s*shots\s+/i, "")
+    : popup.recsScoped ? popup.query.replace(/^\s*rec\s+/i, "") : ""
+  property string capturesFound: ""
+  property var captureThumbs: ({})
+  readonly property bool capturesVideo: popup.recsScoped
+  onShotsScopedChanged: if (popup.shotsScoped) popup.askCaptures()
+  onRecsScopedChanged: if (popup.recsScoped) popup.askCaptures()
+  function askCaptures() {
+    popup.capturesFound = "";
+    capturesProc.video = popup.capturesVideo;
+    capturesProc.command = ["sh", "-c", Cynosure.capturesCommand(popup.capturesVideo)];
+    capturesProc.running = true;
+  }
+  Process {
+    id: capturesProc
+    property bool video: false
+    stdout: StdioCollector {
+      id: capturesOut
+      waitForEnd: true
+      onStreamFinished: {
+        if (capturesProc.video !== popup.capturesVideo) return;
+        popup.capturesFound = capturesOut.text;
+        popup.applyFilter();
+        const jobs = capturesOut.text.split("\n").filter((l) => l.indexOf("\t") > 0)
+          .map((l) => ({ kind: capturesProc.video ? "v" : "i", src: l.slice(l.indexOf("\t") + 1) }));
+        if (jobs.length === 0) return;
+        thumbsProc.command = ["sh", "-c", Thumbs.generate(jobs, false)];
+        thumbsProc.running = true;
+      }
+    }
+  }
+  Process {
+    id: thumbsProc
+    stdout: StdioCollector {
+      id: thumbsOut
+      waitForEnd: true
+      onStreamFinished: {
+        popup.captureThumbs = Object.assign({}, popup.captureThumbs, Thumbs.parseMade(thumbsOut.text));
+        popup.applyFilter();
+      }
+    }
+  }
+  readonly property var captureRows: popup.shotsScoped || popup.recsScoped
+    ? Cynosure.captureRows(popup.capturesFound, popup.captureLine, popup.captureThumbs, popup.picsPer, popup.capturesVideo)
+    : []
+  function openCapture(c) {
+    popup.closeThen(() => Quickshell.execDetached(c.video ? ["qs", "ipc", "call", "Argus", "edit", c.path]
+      : ["qs", "ipc", "call", "Picasso", "view", c.path]));
+  }
+
   // ── CLIO'S NOTES, IN THE LIST ─────────────────────────────────────────
   // "notes …" searches the notebook (Cynosure.noteRows), "note …" makes one
   // of the words; once the notebook is read (the first "notes"), any line
@@ -743,7 +1435,7 @@ LayerPopup {
   readonly property bool notesWanted: popup.mode === "search" && !popup.taken && !popup.calcShown && !popup.lexiAsk
     && !popup.newNoteScoped && !!Clio.app && (popup.notesScoped || (Clio.app.loaded && popup.notesLine.trim().length >= 3))
   onNotesScopedChanged: if (popup.notesScoped && Clio.app && !Clio.app.loaded) Clio.app.whenLoaded(() => popup.applyFilter())
-  onClioNotesChanged: if (popup.shown && popup.notesWanted) popup.applyFilter()
+  onClioNotesChanged: if (popup.shown && (popup.notesWanted || popup.tasksScoped)) popup.applyFilter()
   function openNote(row) {
     popup.closeThen(() => { if (Clio.app) Clio.app.openAt(row.id, ""); });
   }
@@ -1023,6 +1715,18 @@ LayerPopup {
     case "url":
       label = "Open " + c.url.replace(/^https?:\/\//i, ""); glyph = "\uF0AC"; sub = "In the browser";
       break;
+    case "snap":
+      label = c.where === "size" ? "Resize the window to " + c.w + " \u00D7 " + c.h
+        : { left: "Window to the left half", right: "Window to the right half", top: "Window to the top half",
+            bottom: "Window to the bottom half", max: "Window to fill the screen", next: "Window to the next screen" }[c.where];
+      glyph = { left: "\u{F10AA}", right: "\u{F10AB}", next: "\u{F037A}" }[c.where] || "\u{F0293}";
+      sub = popup.lastWindowName();
+      break;
+    case "shot":
+      label = { screen: "Screenshot the screen", window: "Screenshot a window", region: "Screenshot a region" }[c.mode]
+        + " in " + c.delay + " s";
+      glyph = "\u{F0109}"; sub = "Picasso";
+      break;
     }
     return { kind: "argcmd", key: "cmd:" + c.kind, cmd: c, text: label, label, sub, glyph, section: "Command" };
   }
@@ -1056,6 +1760,13 @@ LayerPopup {
       break;
     }
     case "url": Strings.openLink(c.url); break;
+    case "snap":
+      popup.snapWindow("", c.where, c.where === "size" ? { w: c.w, h: c.h } : null);
+      return;
+    case "shot":
+      Quickshell.execDetached(["sh", "-c", "sleep \"$1\" && qs ipc call Picasso shot \"$2\"", "cynosure",
+        String(c.delay), c.mode]);
+      break;
     }
     popup.closeCynosure();
   }
@@ -1112,7 +1823,8 @@ LayerPopup {
   // shown beside the list, Raycast's way: a preview over the facts about it.
   // Read a beat after the cursor stops, newest asking only.
   readonly property bool paneOn: popup.mode === "search" && !popup.taken
-    && (popup.filesScoped || popup.clipsScoped || popup.glyphsScoped)
+    && (popup.filesScoped || popup.clipsScoped || popup.glyphsScoped || popup.booksScoped
+      || popup.shotsScoped || popup.recsScoped)
   // { kind, image, glyph, nerd, rich, text, mono, icon, busy, facts: [[k, v]] }
   property var detail: null
   property int detailSeq: 0
@@ -1171,6 +1883,23 @@ LayerPopup {
         facts: [["Copied", c.stamp || ""]] };
       // the picture whole, written out as a drag writes it, over its thumbnail
       popup.folio.dragDecode(c.id, (f) => { if (f !== "") popup.setDetail(seq, { image: "file://" + f, busy: false }); });
+      return;
+    }
+    if (r.kind === "shots") {
+      const c = popup.chosenCell(r);
+      if (!c) { popup.detail = null; return; }
+      // a picture whole; a recording its frame
+      popup.detail = { kind: "pics", icon: c.video ? "\u{F0567}" : "\uF03E",
+        image: c.video ? (c.thumb ? "file://" + c.thumb : "") : "file://" + c.path,
+        facts: [["Name", c.name], [c.video ? "Recorded" : "Taken", c.stamp]] };
+      return;
+    }
+    if (r.kind === "book") {
+      const b = r.book;
+      popup.detail = { kind: "book", icon: r.glyph, image: b.cover.startsWith("/") ? "file://" + b.cover : "",
+        facts: [["Author", b.author || "\u2014"], ["Read", b.finished > 0 ? "Finished" : Math.round(b.progress * 100) + "%"],
+          ["Last opened", b.opened > 0 ? Qt.formatDate(new Date(b.opened), "d MMM yyyy") : "Never"],
+          ["File", Terminus.basename(b.path)]] };
       return;
     }
     if (r.kind === "snip") {
@@ -1256,6 +1985,24 @@ LayerPopup {
     if (!popup.wxAsk) popup.wx = null;
     if (a || popup.wxAsk) askLater.restart();
   }
+  // "screen time this week", "how long on firefox": Kairos' days summed,
+  // the biggest few named under the total
+  function screenTime(a) {
+    if (!Kairos.enabled) return { big: "Screen time is off", small: "Turn it on in Settings, under Screen time" };
+    const now = new Date();
+    const end = a.span === "yesterday" ? KairosJs.addDays(now, -1) : now;
+    const day = a.span === "week" ? Kairos.weekSum(now) : Kairos.day(KairosJs.dayKey(end));
+    const when = { today: "Today", yesterday: "Yesterday", week: "The last seven days" }[a.span];
+    const top = KairosJs.topApps(day, 0);
+    if (a.app !== "") {
+      const want = a.app.toLowerCase();
+      const hit = top.find((t) => Kairos.nameOf(t.key).toLowerCase().indexOf(want) >= 0 || t.key.indexOf(want) >= 0);
+      return hit ? { big: KairosJs.fmt(hit.secs), small: when + " in " + Kairos.nameOf(hit.key) }
+        : { big: "0m", small: when + ", nothing called \u201C" + a.app + "\u201D" };
+    }
+    return { big: KairosJs.fmt(KairosJs.total(day)),
+      small: [when].concat(top.slice(0, 3).map((t) => Kairos.nameOf(t.key) + " " + KairosJs.fmt(t.secs))).join(" \u00B7 ") };
+  }
   // the machine and the weather, asked once the line has settled
   function askWorld() {
     const seq = popup.askSeq;
@@ -1267,6 +2014,11 @@ LayerPopup {
           ? { kind: "playing", big: NowPlaying.title, small: (NowPlaying.artist || "")
               + (NowPlaying.playing ? "" : (NowPlaying.artist ? " · " : "") + "Paused") }
           : { kind: "playing", big: "Nothing playing", small: "No player has anything on" };
+        return;
+      }
+      // screen time: Kairos' own count (its months, kept by the shell)
+      if (a.kind === "screentime") {
+        popup.answer = Object.assign({ kind: "screentime", kairos: a.span === "week" ? "week" : "day" }, popup.screenTime(a));
         return;
       }
       // the calendar: chronos' cal.py, over the days asked about
@@ -1701,6 +2453,41 @@ LayerPopup {
       popup.addEvent(row, false);
     } else if (row.kind === "newnote") {
       popup.saveNote(row.text, false);
+    } else if (row.kind === "newtask") {
+      popup.addTask(row, false);
+    } else if (row.kind === "task") {
+      popup.tickTask(row);
+    } else if (row.kind === "book") {
+      popup.openBook(row);
+    } else if (row.kind === "output") {
+      popup.useOutput(row);
+    } else if (row.kind === "pcolor") {
+      popup.copyText(row.hex);
+      popup.closeCynosure();
+    } else if (row.kind === "place") {
+      popup.openPlace(row);
+    } else if (row.kind === "proc") {
+      if (row.pid > 0) popup.endProcess(row, false);
+    } else if (row.kind === "btdev" || row.kind === "wifinet") {
+      popup.radioDo(row);
+    } else if (row.kind === "repo") {
+      popup.openRepo(row);
+    } else if (row.kind === "svc") {
+      popup.closeThen(() => Quickshell.execDetached(["qs", "ipc", "call", "Hestia", "unit", row.unit]));
+    } else if (row.kind === "notif") {
+      Howler.openRow(row.row);
+      popup.closeCynosure();
+    } else if (row.kind === "help") {
+      if (row.fill !== "") popup.runInline({ line: row.fill });
+    } else if (row.kind === "sitem") {
+      popup.runListItem(row);
+    } else if (row.kind === "hit") {
+      popup.openHit(row);
+    } else if (row.kind === "font") {
+      popup.openFont(row);
+    } else if (row.kind === "shots") {
+      const c = popup.chosenCell(row);
+      if (c) popup.openCapture(c);
     } else if (row.kind === "argcmd") {
       // ending processes asks first, on the one-line confirm
       if (row.cmd.kind === "kill") {
@@ -1979,7 +2766,8 @@ LayerPopup {
     : popup.lexiShown ? { kind: "lexi", mode: popup.lexiMode, more: !!popup.lexi.dictResult,
         swap: !!(popup.lexiTr && popup.lexiTr.source), say: popup.lexi.playerCmd !== "" }
     : { kind: "answer", weather: !!popup.wxAsk,
-        calDay: popup.answer && popup.answer.kind === "cal" ? popup.answer.day || "" : "" }
+        calDay: popup.answer && popup.answer.kind === "cal" ? popup.answer.day || "" : "",
+        kairos: popup.answer && popup.answer.kairos ? popup.answer.kairos : "" }
   // ── DRAGGED OUT ───────────────────────────────────────────────────────
   // A file, a clip, a picture, a snippet, an emoji or a link dragged from
   // the list into another app (artemis' and folio's way, brought here): for
@@ -2042,15 +2830,45 @@ LayerPopup {
     let r = popup.chosenRow;
     // a picture's actions are the chosen picture's
     if (r && r.kind === "pics") r = { kind: "clipimg", id: popup.chosenCell(r).id };
+    // a capture's are the chosen capture's
+    if (r && r.kind === "shots") {
+      const c = popup.chosenCell(r);
+      r = c ? { kind: "shot", path: c.path, video: c.video, label: c.name } : null;
+    }
+    const favAt = r ? popup.favorites.findIndex((f) => Cynosure.hotkeyTarget(f) === Cynosure.hotkeyTarget(r)) : -1;
     const rows = Cynosure.rowActions(r && Cynosure.HOTKEY_KINDS[r.kind]
-      ? Object.assign({}, r, { hotkey: popup.chordWords(Cynosure.hotkeyOf(popup.hotkeys, r)) }) : r);
+      ? Object.assign({}, r, { hotkey: popup.chordWords(Cynosure.hotkeyOf(popup.hotkeys, r)),
+          favorite: favAt >= 0, favAt, favCount: popup.favorites.length }) : r);
     if (rows.length === 0) return;
+    // a file goes out through the suite's one Share menu (morpheus Share),
+    // before Move to the trash
+    if (r.kind === "file" && !r.isDir) {
+      const path = r.path;
+      const share = Share.items([path], false, 1).map((t) => ({ id: "fn", text: t.label, icon: t.glyph, hint: "", fn: t.act }));
+      rows.splice(rows.length - 1, 0, ...share);
+    }
     popup.actionOn = r;
     popup.actionRows = rows;
     popup.actionSel = 0;
     popup.actionsOpen = true;
   }
   function closeActions() { popup.actionsOpen = false; }
+  // a file moved to the trash: gone from the finder's list, said if it failed
+  Process {
+    id: trashProc
+    property string path: ""
+    stderr: StdioCollector { id: trashErr; waitForEnd: true }
+    onExited: (code) => {
+      if (code !== 0) {
+        Quickshell.execDetached(["notify-send", "-a", "Cynosure", "--", "Not moved to the trash", trashErr.text.trim()]);
+        return;
+      }
+      popup.fileRows = popup.fileRows.filter((f) => f.path !== trashProc.path);
+      if (popup.shotsScoped || popup.recsScoped) popup.askCaptures();
+      if (popup.finder) popup.finder.reindex();
+      popup.applyFilter();
+    }
+  }
   function actionsKey(event) {
     const k = event.key;
     event.accepted = true;
@@ -2070,7 +2888,46 @@ LayerPopup {
     popup.closeActions();
     if (!act || !r) return;
     const m = popup.metis;
+    if (act.id.startsWith("as:")) { popup.pasteAs(r, act.id.slice(3)); return; }
     switch (act.id) {
+    case "fn": act.fn(); popup.closeCynosure(); return;
+    case "addFav": popup.setFavorites(Cynosure.addFavorite(popup.favorites, r)); return;
+    case "dropFav": popup.setFavorites(Cynosure.dropFavorite(popup.favorites, r)); return;
+    case "favUp": popup.setFavorites(Cynosure.moveFavorite(popup.favorites, r, -1)); return;
+    case "favDown": popup.setFavorites(Cynosure.moveFavorite(popup.favorites, r, 1)); return;
+    case "trash":
+      // gio's trash, as terminus' own delete: Tidy or the trash brings it back
+      trashProc.path = r.path;
+      trashProc.command = ["gio", "trash", "--", r.path];
+      trashProc.running = true;
+      return;
+    case "taskOpen": popup.addTask(r, true); return;
+    case "copyItem": popup.copyText(r.item.copy !== "" ? r.item.copy : r.item.title); popup.closeCynosure(); return;
+    case "copyLine": popup.copyText(r.text); popup.closeCynosure(); return;
+    case "copyPic":
+      Quickshell.execDetached(["sh", "-c", "wl-copy < \"$1\"", "cynosure", r.path]);
+      popup.closeCynosure();
+      return;
+    case "winLeft": popup.snapWindow(r.address, "left"); return;
+    case "winRight": popup.snapWindow(r.address, "right"); return;
+    case "winMax": popup.snapWindow(r.address, "max"); return;
+    case "winNext": popup.snapWindow(r.address, "next"); return;
+    case "openTerm":
+      Quickshell.execDetached(["sh", "-c", Terminus.shellCommand(r.path, "")]);
+      popup.closeCynosure();
+      return;
+    case "forceQuit": popup.endProcess(r, true); return;
+    case "copyPid": popup.copyText(String(r.pid)); popup.closeCynosure(); return;
+    case "hermesOpen": popup.closeThen(() => Hermes.open(r.kind === "btdev" ? "bluetooth" : "network")); return;
+    case "svcStart": popup.serviceDo(r, "start"); return;
+    case "svcStop": popup.serviceDo(r, "stop"); return;
+    case "svcRestart": popup.serviceDo(r, "restart"); return;
+    case "svcLog": popup.closeThen(() => Quickshell.execDetached(["qs", "ipc", "call", "Hestia", "journal", r.unit])); return;
+    case "copyBody": popup.copyText(r.body); popup.closeCynosure(); return;
+    case "dropNotif": Howler.forget(r.row); popup.applyFilter(); return;
+    case "taskShow": popup.closeThen(() => { if (Clio.app) Clio.app.openTask(r.task.id, r.task.h); }); return;
+    case "copyRgb": popup.copyText(popup.colorText(r.hex, "rgb")); popup.closeCynosure(); return;
+    case "copyHsl": popup.copyText(popup.colorText(r.hex, "hsl")); popup.closeCynosure(); return;
     case "go":
       if (r.kind === "calc") m.takeShown(false);
       else if (r.kind === "answer") { popup.copyText(popup.answerText()); popup.closeCynosure(); }
@@ -2087,7 +2944,7 @@ LayerPopup {
     case "closeWin":
       Hyprland.dispatch(Hypr.closeWindow(Hypr.byAddress(r.address)));
       return;
-    case "copyUrl": popup.copyText(r.url); popup.closeCynosure(); return;
+    case "copyUrl": popup.copyText(r.url || r.uri); popup.closeCynosure(); return;
     case "dropLink":
       popup.ownLinks = popup.ownLinks.filter((l) => l.word !== r.word);
       popup.writeLinks();
@@ -2102,12 +2959,16 @@ LayerPopup {
       Quickshell.execDetached(["qs", "ipc", "call", "Calendar", "day", r.calDay]);
       popup.closeCynosure();
       return;
+    case "kairosOpen":
+      Quickshell.execDetached(["qs", "ipc", "call", "Kairos", "open", r.kairos]);
+      popup.closeCynosure();
+      return;
     case "forecast":
       Quickshell.execDetached(["qs", "ipc", "call", "Chronos", "toggle"]);
       popup.closeCynosure();
       return;
     case "copyName":
-      popup.copyText(r.kind === "glyphs" ? (r.nerd ? (r.cells[popup.cellSel] || {}).cls : (r.cells[popup.cellSel] || {}).name) || "" : r.kind === "hist" ? r.key : r.label);
+      popup.copyText(r.kind === "glyphs" ? (r.nerd ? (r.cells[popup.cellSel] || {}).cls : (r.cells[popup.cellSel] || {}).name) || "" : r.kind === "hist" ? r.key : r.kind === "proc" ? r.args || r.name : r.label);
       popup.closeCynosure();
       return;
     case "copyPath": popup.copyText(r.path || (r.script ? r.script.path : "")); popup.closeCynosure(); return;
@@ -2132,7 +2993,10 @@ LayerPopup {
     case "drop":
       if (r.kind === "snip") popup.folio.dropSnippet(r.path); else popup.folio.dropClip(r.id);
       return;
-    case "markUp": popup.folio.annotateClip(r.id); return;
+    case "markUp":
+      if (r.kind === "shot") { popup.closeThen(() => Quickshell.execDetached(["qs", "ipc", "call", "Picasso", "annotate", r.path])); return; }
+      popup.folio.annotateClip(r.id);
+      return;
     case "viewPic": popup.folio.viewClip(r.id); return;
     case "savePic": popup.folio.saveClip(r.id); return;
     case "openUrl": Strings.openLink(String(r.label).trim()); popup.closeCynosure(); return;
@@ -3388,7 +4252,7 @@ LayerPopup {
           // on a row tall enough to see it
           readonly property bool isPic: r.kind === "clipimg"
           readonly property bool isStrip: r.kind === "glyphs"
-          readonly property bool isGrid: r.kind === "pics"
+          readonly property bool isGrid: r.kind === "pics" || r.kind === "shots"
           // the item of cell i, for the sliding cell cursor
           function cellItem(i) {
             return row.isGrid ? picRep.itemAt(i) : row.isStrip ? glyphRep.itemAt(i) : null;
@@ -3435,6 +4299,14 @@ LayerPopup {
                   onActiveChanged: {
                     if (!active) return;
                     popup.dragging = true;
+                    // a capture is a file already
+                    if (picCell.modelData.path) {
+                      const f = picCell.modelData.path;
+                      popup.offerDrag(picCell, { "text/uri-list": Strings.fileUrl(f) + "\r\n" },
+                        Terminus.basename(f), picCell.modelData.video ? "\u{F0567}" : "\uF03E",
+                        picCell.modelData.thumb ? "file://" + picCell.modelData.thumb : "");
+                      return;
+                    }
                     popup.folio.dragDecode(picCell.modelData.id, (file) => {
                       if (file === "") { popup.dragging = false; return; }
                       popup.offerDrag(picCell, { "text/uri-list": Strings.fileUrl(file) + "\r\n" },
@@ -3458,7 +4330,7 @@ LayerPopup {
                 Text {
                   anchors.centerIn: picThumb
                   visible: picThumb.status !== Image.Ready
-                  text: "\uF03E"
+                  text: picCell.modelData.video ? "\u{F0567}" : "\uF03E"
                   color: Zenon.muted
                   font.family: Zenon.face
                   font.pixelSize: Zenon.px(28)
@@ -3606,7 +4478,8 @@ LayerPopup {
             anchors.verticalCenter: parent.verticalCenter
             horizontalAlignment: Text.AlignHCenter
             text: row.r.glyph || ""
-            color: Zenon.white
+            // a picked color's swatch wears the color itself
+            color: row.r.ink || Zenon.white
             font.family: Zenon.face
             font.pixelSize: Zenon.px(17)
           }
@@ -3628,7 +4501,8 @@ LayerPopup {
                 : Strings.escapeHtml(row.r.label || "")
               textFormat: Text.StyledText
               color: Zenon.white
-              font.family: Zenon.face
+              // a font's row is drawn in the font itself
+              font.family: row.r.face || Zenon.face
               font.weight: 600
               font.pixelSize: Zenon.px(15)
             }
@@ -3656,8 +4530,8 @@ LayerPopup {
             KeyCap {
               anchors.verticalCenter: parent.verticalCenter
               // your alias for it, or a panel's own word
-              visible: !!row.r.alias || (row.r.kind === "shell" && !!(row.r.action && row.r.action.alias))
-              label: row.r.alias ? row.r.alias : row.r.action && row.r.action.alias ? row.r.action.alias : ""
+              visible: !!row.r.alias || !!row.r.cap || (row.r.kind === "shell" && !!(row.r.action && row.r.action.alias))
+              label: row.r.alias ? row.r.alias : row.r.cap ? row.r.cap : row.r.action && row.r.action.alias ? row.r.action.alias : ""
             }
             // the row's keys on ONE cap, as a hint writes them (user,
             // 2026-11-01: a cap per key read as several shortcuts): with alt
@@ -3800,5 +4674,6 @@ LayerPopup {
     queriesCat.running = true;
     glyphsCat.running = true;
     hotkeysCat.running = true;
+    favoritesCat.running = true;
   }
 }

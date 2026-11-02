@@ -68,6 +68,8 @@ bind("browser",        "SUPER + B",          "Open the browser",               h
 -- Cynosure is every quick panel since 2026-11-01 (the calculator, files,
 -- the clipboard, emoji, the dictionary, passwords): its one bind is theirs
 bind("cynosure",       "SUPER + SPACE",      "Cynosure, the launcher",         hl.dsp.exec_cmd("qs ipc call Cynosure toggle"))
+-- and with what is highlighted (else last copied) already typed in (2026-11-02)
+bind("cynosureSel",    "SUPER + SHIFT + SPACE", "Cynosure, on the copied text", hl.dsp.exec_cmd("qs ipc call Cynosure selection"))
 -- held, the sheet shows until the keys come up; tapped, it stays open
 bind("keysSheet",      "SUPER + SLASH",      "Shortcuts cheat sheet",          hl.dsp.exec_cmd("qs ipc call Keys hold"), { onRelease = hl.dsp.exec_cmd("qs ipc call Keys release") })
 bind("terminus",       "SUPER + E",          "Terminus, a new window",         hl.dsp.exec_cmd("qs ipc call Terminus spawn ''"))

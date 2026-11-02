@@ -205,6 +205,12 @@ function parseAsk(q) {
   if (/^(hostname|computer name|my hostname)$/.test(s)) return { kind: "hostname" };
   if (/^(wifi|wi-fi|which (wifi|wi-fi|network)( am i on)?|my network|network name|ssid)$/.test(s)) return { kind: "wifi" };
   if (/^(what('?s| is) playing|now playing|current song|what song is this|song)$/.test(s)) return { kind: "playing" };
+  // screen time, from Kairos (2026-11-02): "screen time", "screen time this
+  // week", "how long on firefox today"
+  if ((m = /^(?:my |what(?:'?s| is) my )?screen ?time(?: (today|yesterday|this week|the week|week))?$/.exec(s)))
+    return { kind: "screentime", span: /week/.test(m[1] || "") ? "week" : m[1] || "today", app: "" };
+  if ((m = /^how (?:long|much time)(?: have i (?:been|spent))?(?: (?:on|in|using) (.+?))(?: (today|yesterday|this week))?$/.exec(s)))
+    return { kind: "screentime", span: /week/.test(m[2] || "") ? "week" : m[2] || "today", app: m[1] };
   if ((m = /^what does (\S+) mean$/.exec(s)) || (m = /^(?:the )?meaning of (\S+)$/.exec(s))
       || (m = /^(\S+) meaning$/.exec(s)) || (m = /^define:(\S+)$/.exec(s)))
     return { kind: "define", word: m[1] };
@@ -365,7 +371,7 @@ function moonPhase(d) {
 // The card's heading for a kind
 function titleOf(kind) {
   return { time: "Time", date: "Date", week: "Week", coin: "Coin", dice: "Dice", random: "Random number",
-    uuid: "UUID", ip: "Network", battery: "Battery", uptime: "Uptime", weather: "Weather", color: "Color",
+    uuid: "UUID", ip: "Network", screentime: "Screen time", battery: "Battery", uptime: "Uptime", weather: "Weather", color: "Color",
     b64enc: "Base64", b64dec: "Base64", urlenc: "URL", urldec: "URL", hash: "Hash", count: "Count",
     lorem: "Lorem ipsum", unix: "Unix time", fromunix: "Unix time", moon: "Moon", memory: "Memory",
     disk: "Disk", cpu: "CPU", kernel: "Kernel", hostname: "Hostname", wifi: "Wi-Fi", playing: "Now playing",
@@ -477,6 +483,21 @@ function parseCommand(q) {
   if (/^(previous|prev|back)( song| track)$|^previous$/.test(s)) return { kind: "media", act: "previous" };
   if ((m = /^(?:go to |switch to )?(?:workspace|ws|desktop) (\d{1,2})$/.exec(s))) return { kind: "workspace", n: +m[1] };
   if ((m = /^(force )?(?:kill|quit|close|end) (?:all )?([\w.+-]{2,})$/.exec(s))) return { kind: "kill", name: m[2], force: !!m[1] };
+  // the window you were in, put somewhere (2026-11-02): "left half",
+  // "maximize", "next screen", "size 1280x720"
+  if ((m = /^(?:(?:move|put|snap) )?(?:the )?(?:window )?(?:to )?(?:the )?(left|right|top|bottom) half$/.exec(s)))
+    return { kind: "snap", where: m[1] };
+  if (/^(?:maximi[sz]e|fill the screen)(?: (?:the )?window)?$/.test(s)) return { kind: "snap", where: "max" };
+  if (/^(?:move (?:the )?(?:window )?)?(?:to )?(?:the )?(?:next|other) (?:screen|monitor|display)$/.test(s))
+    return { kind: "snap", where: "next" };
+  if ((m = /^(?:resize|size)(?: (?:the )?window)?(?: to)? (\d{2,5}) ?[x×* ] ?(\d{2,5})$/.exec(s)))
+    return { kind: "snap", where: "size", w: +m[1], h: +m[2] };
+  // "screenshot 5", "screenshot a window in 3s": Picasso's shot, after a
+  // wait (the plain three are verbs of their own)
+  if ((m = /^(?:take (?:a )?)?(?:screenshot|screen shot|shot)(?: (?:of )?(?:the |a )?(screen|window|region|area|selection))?(?: (?:in|after))? (\d{1,2}) ?(?:s|secs?|seconds?)?$/.exec(s))) {
+    const delay = Math.max(1, Math.min(60, +m[2]));
+    return { kind: "shot", mode: !m[1] || m[1] === "screen" ? "screen" : m[1] === "window" ? "window" : "region", delay };
+  }
   const t = parseTimer(s);
   if (t) return t;
   const raw = String(q || "").trim();
@@ -492,6 +513,9 @@ function parseCommand(q) {
 const UNIT_MIN = { h: 60, hr: 60, hrs: 60, hour: 60, hours: 60, m: 1, min: 1, mins: 1, minute: 1, minutes: 1,
   s: 1 / 60, sec: 1 / 60, secs: 1 / 60, second: 1 / 60, seconds: 1 / 60 };
 function parseTimer(s) {
+  // a break, Kairos' word for getting up (2026-11-02): five minutes unless said
+  const brk = /^(?:take|start) a break(?: (?:for )?(\d+) ?(?:m|min|mins|minutes?))?$/.exec(s);
+  if (brk) return { kind: "timer", minutes: brk[1] ? Math.max(1, +brk[1]) : 5, label: "Break" };
   let m = /^(?:set (?:a )?|start (?:a )?)?(timer|pomodoro|countdown)(?: for)?(?: (.*))?$/.exec(s);
   let rest;
   if (m) rest = m[2] || "";

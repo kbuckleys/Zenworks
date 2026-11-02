@@ -89,6 +89,28 @@ module.exports = {
 
     // ── commands that take an argument ───────────────────────────────────
     const c = (q) => A.parseCommand(q);
+    // a break is a five-minute timer unless said (2026-11-02)
+    t.eq("take a break", c("take a break"), { kind: "timer", minutes: 5, label: "Break" });
+    t.eq("for longer", c("take a break for 10 min").minutes, 10);
+    // screen time is asked of Kairos (2026-11-02)
+    t.eq("screen time", A.parseAsk("screen time"), { kind: "screentime", span: "today", app: "" });
+    t.eq("this week", A.parseAsk("my screen time this week").span, "week");
+    t.eq("an app", A.parseAsk("how long have i been on firefox today"), { kind: "screentime", span: "today", app: "firefox" });
+    t.eq("uptime is still uptime", A.parseAsk("how long have i been on").kind, "uptime");
+    // the window you were in, put somewhere (2026-11-02)
+    t.eq("left half", c("left half"), { kind: "snap", where: "left" });
+    t.eq("move the window to the right half", c("move window to the right half").where, "right");
+    t.eq("maximize", c("maximize").where, "max");
+    t.eq("next screen", c("move to the next monitor").where, "next");
+    t.eq("a size", c("size 1280x720"), { kind: "snap", where: "size", w: 1280, h: 720 });
+    t.eq("resize with a times sign", c("resize window to 800 \u00D7 600").h, 600);
+    t.eq("a bare product is the calculator's", c("1280x720"), null);
+    // a screenshot after a wait (2026-11-02); the plain three are verbs
+    t.eq("screenshot 5", JSON.stringify(c("screenshot 5")), JSON.stringify({ kind: "shot", mode: "screen", delay: 5 }));
+    t.eq("a window in 3s", JSON.stringify(c("screenshot a window in 3s")), JSON.stringify({ kind: "shot", mode: "window", delay: 3 }));
+    t.eq("an area is a region", c("take a screenshot of the area after 10 seconds").mode, "region");
+    t.eq("no wait, no command", c("screenshot"), null);
+    t.eq("the wait is capped", c("screenshot 99").delay, 60);
     t.eq("the volume", c("volume 30"), { kind: "volume", pct: 30 });
     t.eq("set it to", c("set volume to 45%"), { kind: "volume", pct: 45 });
     t.eq("up", c("volume up"), { kind: "volume", step: 10 });

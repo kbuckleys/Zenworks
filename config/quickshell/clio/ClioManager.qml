@@ -1054,6 +1054,28 @@ Scope {
     return true;
   }
   function tasks() { mgr.withWindow((w) => { w.showUp(); w.tasksOpen = true; }); }
+  // a task from elsewhere (Cynosure's "todo …" and "remind me …",
+  // 2026-11-02): a checklist item at the end of the note called "Tasks",
+  // made the first time; `due` (ms, 0 none) its reminder. done(id).
+  function addTask(words, due, done) {
+    mgr.whenLoaded(() => {
+      if (mgr.win) mgr.win.commit();
+      const item = N.block("check", N.escape(String(words || "").trim()), due > 0 ? { due: due } : null);
+      const n = mgr.notes.find((x) => !(x.deleted > 0) && x.kind === "note" && !x.sealed && N.titleOf(x, "") === "Tasks");
+      let id;
+      if (n) {
+        const bs = (n.blocks || []).slice();
+        // an empty last line is where it goes, not under it
+        while (bs.length > 1 && bs[bs.length - 1].k === "body" && N.plain(bs[bs.length - 1].h).trim() === "") bs.pop();
+        id = n.id;
+        mgr.setBlocks(id, bs.concat([item]));
+        mgr.changedHere(id);
+      } else {
+        id = mgr.newNote("", [N.block("title", "Tasks"), item]);
+      }
+      if (done) done(id);
+    });
+  }
   // a task's note, opened at the item (chronos' agenda)
   function openTask(id, h) { mgr.withWindow((w) => { w.showUp(); w.openAt(id, h); }); }
 

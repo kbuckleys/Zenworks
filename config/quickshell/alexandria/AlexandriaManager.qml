@@ -301,7 +301,7 @@ Scope {
   function open(paths) {
     const list = String(paths || "").split("\n").map((p) => p.trim()).filter((p) => p !== "");
     mgr.scan();
-    mgr.withWindow((w) => w.load(list));
+    mgr.withWindow((w, fresh) => w.load(list, fresh));
   }
   function glyphs(query) {
     mgr.scan();

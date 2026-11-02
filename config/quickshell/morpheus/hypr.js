@@ -64,6 +64,10 @@ function fullscreen() { return "hl.dsp.window.fullscreen()"; }
 function floatToggle() { return "hl.dsp.window.float({ action = \"toggle\" })"; }
 function center() { return "hl.dsp.window.center()"; }
 function moveToWorkspace(name) { return "hl.dsp.window.move({ workspace = " + lua(name) + " })"; }
+// floating, whatever it was (toggle would tile one already floating)
+function floatOn() { return "hl.dsp.window.float({ action = \"enable\" })"; }
+// "+1" is the next monitor, "-1" the one before
+function moveToMonitor(sel) { return "hl.dsp.window.move({ monitor = " + lua(sel) + " })"; }
 // closed as its own close button would (not killed): the app may ask first
 function closeWindow(selector) { return "hl.dsp.window.close({ window = " + lua(selector) + " })"; }
 
@@ -73,6 +77,15 @@ function moveOrResize_(verb, dx, dy, selector) {
 }
 function resizeBy(dx, dy, selector) { return moveOrResize_("resize", dx, dy, selector); }
 function moveBy(dx, dy, selector) { return moveOrResize_("move", dx, dy, selector); }
+// to a size, and to a place in layout coordinates (not relative)
+function resizeTo(w, h, selector) {
+  return "hl.dsp.window.resize({ x = " + Number(w || 0) + ", y = " + Number(h || 0)
+    + ", relative = false" + (selector ? ", window = " + lua(selector) : "") + " })";
+}
+function moveTo(x, y, selector) {
+  return "hl.dsp.window.move({ x = " + Number(x || 0) + ", y = " + Number(y || 0)
+    + ", relative = false" + (selector ? ", window = " + lua(selector) : "") + " })";
+}
 
 // ── submaps ───────────────────────────────────────────────────────────────
 // "reset" is the default one. Oracle's Shortcuts holds hyprland in

@@ -583,6 +583,10 @@ Item {
     id: tileEdit
     anchors.fill: parent
     horizontalAlignment: Text.AlignHCenter
+    // the field is as tall as the name it replaces — two lines for a long
+    // one — and the EditRing centers on it: a line drawn at the top sat on
+    // the ring's top edge (user, 2026-11-02), as EntryRow's field never did
+    verticalAlignment: TextInput.AlignVCenter
     color: Zenon.white
     // the accent, not selBg: the row being renamed is the selected row,
     // already filled in selBg, so the highlighted name was invisible on it

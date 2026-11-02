@@ -312,6 +312,19 @@ Scope {
     });
   }
 
+  // a file at a line (Cynosure's "in …"): the window used last, or a new
+  // one opened on it
+  function openAt(path, line) {
+    const p = mgr._expand(path);
+    if (p === "") return;
+    const w = mgr.current(false);
+    if (w) { w.openFileAt(p, line); w.raise(); return; }
+    mgr.spawn(p, "", false, () => {
+      const nw = mgr.wins[mgr.wins.length - 1];
+      if (nw) nw.openFileAt(p, line);
+    });
+  }
+
   // ── WAITING ON A FILE ──────────────────────────────────────────────
   // `plato --wait f`, which is how plato is $EDITOR: git, sudoedit and
   // crontab hand it a file and read it back when the editor exits, and a
@@ -377,6 +390,10 @@ Scope {
     // `qs ipc call Plato open ~/notes.md`
     function open(path: string): string {
       mgr.open(path);
+      return "ok";
+    }
+    function openAt(path: string, line: int): string {
+      mgr.openAt(path, Math.max(1, line));
       return "ok";
     }
     // whether a file is open in any window: yes, no or pending (holding())

@@ -179,5 +179,20 @@ Scope {
     function open(section: string): string { mgr.open(section); return "ok"; }
     function unit(name: string): string { mgr.showUnit(name); return "ok"; }
     function journal(unit: string): string { mgr.journal(unit); return "ok"; }
+    // start, stop or restart from elsewhere (Cynosure's "svc …",
+    // 2026-11-02); what came of it is said as a notification
+    function act(scope: string, verb: string, unit: string): string {
+      if (["start", "stop", "restart"].indexOf(verb) < 0 || unit === "") return "usage: act system|user start|stop|restart <unit>";
+      if (!mgr.act(scope === "user" ? "user" : "system", verb, unit)) return "busy";
+      mgr.tellOut = true;
+      return "ok";
+    }
+  }
+  // an act asked from outside is said where it can be seen
+  property bool tellOut: false
+  onActed: (ok, words) => {
+    if (!mgr.tellOut) return;
+    mgr.tellOut = false;
+    Quickshell.execDetached(["notify-send", "-a", "hestia", "--", ok ? words : "Not done", ok ? "" : words]);
   }
 }

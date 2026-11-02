@@ -81,12 +81,15 @@ PopupWindow {
     window: root.window
     // a rect the size of the padding box, so the CARD's corner lands on the
     // point and the shadow's room is taken out of the way on either side.
-    // A branch's card: the parent card's width, at its row — both shifted
-    // back by this surface's own inset, so the CARD lands flush against the
-    // parent card rather than a shadow's width away from it.
-    rect.x: root.parentCard ? root.parentCard.pad - root.pad : Math.round(root.at.x) - root.pad
+    // A branch's card: the parent card at its row, NARROWED by this
+    // surface's own inset at both ends, so the CARD lands flush against the
+    // parent card on whichever side it opens. Shifted rather than narrowed,
+    // it was flush on the right only: flipped left (FlipX mirrors the rect's
+    // edges) a sticky's Color card stood two insets, 72px, off its menu
+    // (user, 2026-11-02 — icarus never showed it: it hinges in code).
+    rect.x: root.parentCard ? root.parentCard.pad + root.pad : Math.round(root.at.x) - root.pad
     rect.y: root.parentCard ? root.parentCard.pad + root.hingeY - root.pad : Math.round(root.at.y) - root.pad
-    rect.width: root.parentCard ? root.parentCard.cardW : 2 * root.pad
+    rect.width: root.parentCard ? Math.max(1, root.parentCard.cardW - 2 * root.pad) : 2 * root.pad
     rect.height: root.parentCard ? 1 : 2 * root.pad
     edges: root.parentCard ? (Edges.Right | Edges.Top) : (Edges.Left | Edges.Top)
     gravity: Edges.Right | Edges.Bottom
