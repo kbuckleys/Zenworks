@@ -338,20 +338,24 @@ Item {
     // A NEW MODE MORPHS THE CARET: the block narrows to insert's bar, the
     // bar widens back, and replace's underline settles from the block —
     // briskly, so it reads as the same cursor changing rather than a swap.
-    // Clipped, so the block's letter never spills out of a bar.
+    // Its letter is clipped to it, not the caret, so the letter never spills
+    // out of a narrowing caret and the glow still reaches past it in every
+    // shape (user, 2026-11-02: normal mode glows too).
     Caret {
       id: caret
       field: view
       active: view.activeFocus
       steady: true
-      breathes: view.cursorBreathes
-      clip: true
+      // normal mode holds still (user, 2026-11-02): only the other modes
+      // breathe, when the setting lets them
+      breathes: view.cursorBreathes && view.ed.modeName !== "normal"
       // r waiting for its character: a thicker underline in peach, the
       // character above it left readable — what will be replaced
       readonly property int under: view.ed.replacePending ? 3 : 2
       y: view.shape === "underline" ? view.cellH - caret.under : 0
-      // insert's bar a pixel wider than it was (user, 2026-10-17)
-      width: view.shape === "bar" ? 3 : view.cellW
+      // insert's bar: 3 from 2026-10-17, back to 2 with every caret a
+      // pixel thinner (user, 2026-11-02)
+      width: view.shape === "bar" ? 2 : view.cellW
       height: view.shape === "underline" ? caret.under : view.cellH
       Behavior on width { NumberAnimation { duration: Zenon.brisk; easing.type: Zenon.travelEase } }
       Behavior on height { NumberAnimation { duration: Zenon.brisk; easing.type: Zenon.travelEase } }
@@ -361,21 +365,25 @@ Item {
 
       // a block covers its character, so the character is drawn again on
       // top of it in the background's color — the terminal's reverse video
-      Text {
-        visible: view.shape === "block"
-        width: view.cellW
-        height: view.cellH
-        verticalAlignment: Text.AlignVCenter
-        textFormat: Text.PlainText
-        font: fm.font
-        color: Zenon.black
-        text: {
-          view.ed.frame;
-          const w = view.ed.curWin;
-          if (!w) return "";
-          const r = view.ed.rowsOf(w.id)[view.ed.cursorRow];
-          if (!r) return "";
-          return Cells.chars(r.t)[view.ed.cursorChar] || "";
+      Item {
+        anchors.fill: parent
+        clip: true
+        Text {
+          visible: view.shape === "block"
+          width: view.cellW
+          height: view.cellH
+          verticalAlignment: Text.AlignVCenter
+          textFormat: Text.PlainText
+          font: fm.font
+          color: Zenon.black
+          text: {
+            view.ed.frame;
+            const w = view.ed.curWin;
+            if (!w) return "";
+            const r = view.ed.rowsOf(w.id)[view.ed.cursorRow];
+            if (!r) return "";
+            return Cells.chars(r.t)[view.ed.cursorChar] || "";
+          }
         }
       }
     }

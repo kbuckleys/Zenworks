@@ -461,6 +461,25 @@ Item {
           }
         }
 
+        // ── WHAT THE SIDEBAR'S PLACES LIST (user, 2026-11-02) ────────
+        SideHead { term: prefs.term; label: "SIDEBAR PLACES" }
+
+        Repeater {
+          model: term.placesRef.all
+          delegate: PrefRow {
+            required property var modelData
+            term: prefs.term
+            label: modelData.label
+            on: term.placesOff.indexOf(modelData.key) < 0
+            onToggled: {
+              const off = term.placesOff.filter((k) => k !== modelData.key);
+              if (off.length === term.placesOff.length) off.push(modelData.key);
+              term.placesOff = off;
+              term.viewSaveRef.restart();
+            }
+          }
+        }
+
         // Empty is the default and says so: xdg-terminal-exec is what
         // runs when nothing is typed here, and oracle's Default apps
         // keeps its list on the terminal chosen there — so the ghost

@@ -23,6 +23,12 @@
 // 1.5 s before it is rebuilt — a stall can hold a real map back that long
 // (lag.log has seen 1.4 s) — and one still unmapped 3 s on is not waited
 // for again: the next press rebuilds it there and then.
+//
+// A LIVE ENTRY, NOT A LEFTOVER (2026-11-02). Quickshell's list of Hyprland's
+// windows kept an "oracle" after its surface died (the same 0x300d) and
+// `hyprctl clients` had none — the watchdog saw it mapped and never fired;
+// only a shell restart brought Oracle back. A toplevel counts only with its
+// Wayland handle alive, and every arm asks Hyprland for the list afresh.
 
 import QtQuick
 import Quickshell.Hyprland
@@ -40,7 +46,7 @@ Timer {
   // Qt's word, and Hyprland's: shown is both
   readonly property bool qtShown: !!dog.owner && dog.owner.shown
   readonly property bool mapped: Hyprland.toplevels.values.some((t) => t.title === dog.tag
-    && (!t.wayland || t.wayland.appId === "org.quickshell"))
+    && !!t.wayland && t.wayland.appId === "org.quickshell")
   readonly property bool shown: dog.qtShown && dog.mapped
   // shown to Qt, not on screen: since when (0 when it is not)
   readonly property bool ghost: dog.qtShown && !dog.mapped
@@ -49,6 +55,7 @@ Timer {
   onShownChanged: if (dog.shown) { dog.asked = null; dog.rebuilt = false; dog.waited = false; }
 
   function arm(args) {
+    Hyprland.refreshToplevels();
     dog.asked = args;
     dog.armedAt = Date.now();
     dog.waited = false;

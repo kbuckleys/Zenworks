@@ -46,6 +46,7 @@
 // infinite animation on a full-screen surface.
 
 import QtQuick
+import QtQuick.Shapes
 import "."
 
 Rectangle {
@@ -65,12 +66,17 @@ Rectangle {
   // `breathes`: off, the caret is shown full and still (plato's "Breathing
   // cursor" setting)
   property bool breathes: true
-  onBreathesChanged: if (!caret.breathes) caret.opacity = 1
+  // and back on (plato leaving normal mode), a fresh breath from full, not
+  // wherever the old clock had got to
+  onBreathesChanged: if (!caret.breathes) caret.opacity = 1; else caret.wake(true)
 
   readonly property int stepHz: 30
   readonly property int restMs: 5000
 
-  width: caret.thick
+  // a pixel under `thick` (user, 2026-11-02: one thinner everywhere)
+  width: Math.max(1, caret.thick - 1)
+  // rounded (user, 2026-11-02): a bar's ends fully, a block's corners a touch
+  radius: Math.min(caret.width, caret.height, 4) / 2
   color: Zenon.cyan
   // and only while the field is drawn: a hidden key catcher (plato's
   // settings query, opacity 0) has focus all the time, and a caret
@@ -84,6 +90,65 @@ Rectangle {
   // sets this binds cursorVisible to the same.
   property bool active: caret.field !== null && caret.field.activeFocus
   opacity: 1
+
+  // ── A LIT FILAMENT (user, 2026-11-02, after a macOS search bar) ───────
+  // The theme's accent (the cyan slot, Oracle's Accent color over it) on
+  // every caret in the suite, plato's block and underline too, whatever
+  // color its owner gave it, glowing in the same color and breathing with
+  // it. The glow is a radial falloff under the caret (z -1), stretched to
+  // its height; a field that clips, or a caret that clips (plato's), trims
+  // it. All of it rides the caret's own opacity: the breath still costs one
+  // value a step. (Cyan over yellow, two tones, came and went the same day.)
+  property bool glows: true
+  // how far the glow reaches either side, px
+  property int spread: Math.max(8, caret.thick * 4)
+  property color tone: Zenon.cyan
+  // a bit faded (user, 2026-11-02): the core runs this far toward the
+  // window's ground (opaque, so an owner's own color never shows through),
+  // the glow at this much of its strength
+  property real fade: 0.8
+  readonly property color core: Qt.tint(caret.tone, Qt.alpha(Zenon.layerBg, 1 - caret.fade))
+  // The caret's own fill, as a gradient of one stop: a Rectangle's
+  // gradient wins over its color, so an owner's `color:` never shows, not
+  // even at the antialiased edge (a core drawn over it let a 1–2 px caret
+  // come out half the owner's color).
+  gradient: caret.glows ? coreFill : null
+  Gradient {
+    id: coreFill
+    GradientStop { position: 0; color: caret.core }
+    GradientStop { position: 1; color: caret.core }
+  }
+  Shape {
+    id: glow
+    z: -1
+    visible: caret.glows
+    readonly property real d: caret.width + 2 * caret.spread
+    width: glow.d
+    height: glow.d
+    x: -caret.spread
+    y: (caret.height - glow.d) / 2
+    transform: Scale {
+      origin.x: glow.d / 2
+      origin.y: glow.d / 2
+      yScale: Math.max(1, caret.height * 1.15 / glow.d)
+    }
+    ShapePath {
+      strokeColor: "transparent"
+      fillGradient: RadialGradient {
+        centerX: glow.d / 2; centerY: glow.d / 2; centerRadius: glow.d / 2
+        focalX: glow.d / 2; focalY: glow.d / 2
+        GradientStop { position: 0; color: Qt.alpha(caret.tone, (Zenon.light ? 0.35 : 0.7) * caret.fade) }
+        GradientStop { position: 0.3; color: Qt.alpha(caret.tone, (Zenon.light ? 0.15 : 0.32) * caret.fade) }
+        GradientStop { position: 0.65; color: Qt.alpha(caret.tone, (Zenon.light ? 0.05 : 0.1) * caret.fade) }
+        GradientStop { position: 1; color: Qt.alpha(caret.tone, 0) }
+      }
+      startX: 0; startY: 0
+      PathLine { x: glow.d; y: 0 }
+      PathLine { x: glow.d; y: glow.d }
+      PathLine { x: 0; y: glow.d }
+      PathLine { x: 0; y: 0 }
+    }
+  }
 
   // when this breath began, and when the caret last moved
   property double t0: 0

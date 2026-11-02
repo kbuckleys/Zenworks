@@ -45,6 +45,9 @@ Item {
   DialogButton {
     id: btn
     anchors.right: parent.right
+    // a width the owner sets reaches the button: at its own it ran left
+    // over its neighbor (Argus' shared-out Save, 2026-11-02)
+    width: parent.width
     label: bb.label
     glyph: bb.glyph
     ink: bb.ink

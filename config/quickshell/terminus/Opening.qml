@@ -175,6 +175,7 @@ Item {
         barViews: term.barViews,
         barSplit: term.barSplit,
         barZoom: term.barZoom,
+        placesOff: term.placesOff,
         defaultView: term.defaultView,
         confirmTrash: term.confirmTrash,
         termCmd: term.termCmd,
@@ -258,6 +259,8 @@ Item {
     if (typeof s.colHeadsOn === "boolean") term.colHeadsOn = s.colHeadsOn;
     for (const k of ["barNav", "barSideToggle", "barSort", "barViews", "barSplit", "barZoom"])
       if (typeof s[k] === "boolean") term[k] = s[k];
+    if (Array.isArray(s.placesOff))
+      term.placesOff = s.placesOff.filter((k) => typeof k === "string");
     if (typeof s.defaultView === "string"
         && (s.defaultView === "" || ["columns", "list", "grid"].indexOf(s.defaultView) >= 0))
       term.defaultView = s.defaultView;

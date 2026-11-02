@@ -67,11 +67,14 @@ Singleton {
 
   // `address` (0x or not) when the window knows its own: one of several
   // sharing a title (plato's)
+  // Only entries with a live Wayland handle: quickshell's list can keep a
+  // window Hyprland has dropped (2026-11-02: an "oracle" there after its
+  // surface died, focused by address on every press)
   function raise(title, address) {
     const want = root.norm(address);
-    const all = Hyprland.toplevels.values.filter((t) => want !== ""
+    const all = Hyprland.toplevels.values.filter((t) => !!t.wayland && (want !== ""
       ? root.norm(t.address) === want
-      : t.title === title && (!t.wayland || t.wayland.appId === "org.quickshell"));
+      : t.title === title && t.wayland.appId === "org.quickshell"));
     // not known to Hyprland yet (mapped this instant): the old dispatch
     if (all.length === 0) {
       Hyprland.dispatch(want !== "" ? Hypr.focusWindow(Hypr.byAddress(want)) : Hypr.focusTitle(title));
@@ -99,7 +102,7 @@ Singleton {
     const act = Hyprland.activeToplevel;
     const keep = root.asking.filter((a) => {
       const t = vals.find((x) => root.norm(x.address) === a);
-      return !!t && !(act && root.norm(act.address) === a && root.onScreen(t));
+      return !!t && !!t.wayland && !(act && root.norm(act.address) === a && root.onScreen(t));
     });
     if (keep.length !== root.asking.length) root.asking = keep;
   }

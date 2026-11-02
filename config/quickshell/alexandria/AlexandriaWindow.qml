@@ -1280,7 +1280,7 @@ FloatingWindow {
             TextInput {
               id: sampleField
               // the breathing caret, grown with the line it is in
-              cursorDelegate: Caret { field: sampleField; width: Math.max(2, Math.round(win.size / 24)) }
+              cursorDelegate: Caret { field: sampleField; width: Math.max(1, Math.round(win.size / 24) - 1) }
               anchors.left: parent.left
               anchors.right: parent.right
               text: win.sample

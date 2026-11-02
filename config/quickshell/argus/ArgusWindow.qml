@@ -49,13 +49,10 @@ FloatingWindow {
   onVisibleChanged: if (!aw.visible) Qt.callLater(() => { stopSave(); if (aw.mgr) aw.mgr.retire(aw); aw.destroy(); })
   onClosed: aw.visible = false
 
-  // the suite's toolbar height, as Calendar's and Stylus' (user, 2026-10-29: 60 was "too fat")
-  readonly property int headH: Zenon.toolbarH
   readonly property int sideW: 300
 
   // ── THE CLIP ───────────────────────────────────────────────────────────
   property string path: ""
-  readonly property string name: aw.path.replace(/.*\//, "")
   property real inMs: 0
   property real outMs: 0
   readonly property real dur: player.duration
@@ -668,7 +665,8 @@ FloatingWindow {
       // glyph gone, the buttons moved in here): a bar that stays put while
       // the settings scroll, what goes up under it frosted (ScrollEdge, laid
       // under the bar so its ground tints the ghosts). Show in Terminus and
-      // Share come on a second line once a cut is saved.
+      // Share come on a second line once a cut is saved; what the clip is sits
+      // over them all.
       ScrollEdge { view: sideFlick; x: 0; y: 0; width: side.width; height: sideBar.height; z: 1 }
       Item {
         id: sideBar
@@ -683,6 +681,20 @@ FloatingWindow {
           y: 12
           width: parent.width - 40
           spacing: 8
+          // what the clip is (ffprobe: size · fps · MB), back from the old
+          // head (user, 2026-11-02)
+          Text {
+            textFormat: Text.PlainText
+            width: parent.width
+            visible: aw.facts !== ""
+            horizontalAlignment: Text.AlignHCenter
+            elide: Text.ElideRight
+            text: aw.facts
+            color: Zenon.accentMuted
+            font.family: Zenon.face
+            font.weight: Zenon.weight
+            font.pixelSize: Zenon.px(14)
+          }
           // the sidebar's width shared out: at their own widths the three
           // ran past its left edge (user, 2026-11-02)
           Row {
@@ -692,13 +704,13 @@ FloatingWindow {
             readonly property real each: (width - 2 * spacing) / 3
             DialogButton {
               width: barRow1.each
-              label: "Open…"
+              label: "Open"
               ready: !aw.busy && !!aw.mgr && !!aw.mgr.fileManager
               onClicked: aw.openAsk()
             }
             DialogButton {
               width: barRow1.each
-              label: "Save as…"
+              label: "Save as"
               ready: !aw.busy && !!aw.mgr && !!aw.mgr.fileManager && aw.dur > 0
               onClicked: aw.saveAs()
             }

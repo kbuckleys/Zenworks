@@ -794,7 +794,7 @@ Item {
         active: bar.cmd
         steady: true
         x: parent.shift + parent.caretX
-        width: 2
+        width: 1
         height: fm.height
         anchors.verticalCenter: parent.verticalCenter
         color: Zenon.yellow

@@ -1078,6 +1078,7 @@ FloatingWindow {
     if (root.searchMode !== "") return "";
     for (let i = 0; i < root.bookmarks.length; ++i)
       if (root.bookmarks[i] === root.cwd) return "";
+    if (places.shownAt(root.cwd)) return "";
     let best = "";
     for (let j = 0; j < root.disks.length; ++j) {
       const m = String(root.disks[j].mount || "");
@@ -1821,6 +1822,8 @@ FloatingWindow {
   Bookmarks { id: bookmarks; term: root }
   // network places (the sidebar's Network): terminus/Network.qml
   Network { id: network; term: root }
+  // Home and the user directories (the sidebar's Places): terminus/Places.qml
+  Places { id: places; term: root }
   // Kept in the shell's own state directory, not next to the config: it is
   // something you accumulate by using terminus, not something you write by hand.
   property var bookmarks: []
@@ -4280,6 +4283,11 @@ FloatingWindow {
   property bool barSplit: true
   property bool barZoom: true         // the zoom meter
 
+  // ── WHICH PLACES THE SIDEBAR LISTS (user, 2026-11-02) ──────────────
+  // The keys of terminus/Places.qml turned off in the settings; empty is
+  // every one of them on.
+  property var placesOff: []
+
   // ── THE VIEW A DIRECTORY GETS WHEN IT HAS NONE OF ITS OWN ─────────────
   // "" keeps the old rule (whatever the last directory used); otherwise
   // one of the ring, and "Reset views" in the settings puts every
@@ -4321,6 +4329,7 @@ FloatingWindow {
   readonly property alias plugRef: plug
   readonly property alias spaceRef: space
   readonly property alias networkRef: network
+  readonly property alias placesRef: places
   readonly property alias connectRef: connect
   readonly property alias viewSaveRef: opening.viewSave
   readonly property alias confirmRef: confirm

@@ -251,10 +251,42 @@ Rectangle {
       // is written first — the leading heading wants no room above
       // it, and that is a different heading depending on what you
       // have.
+      // ── PLACES ──────────────────────────────────────────────
+      // Home and the user directories (terminus/Places.qml), each one
+      // put away or back from the settings. Lit as a bookmark is, and
+      // not while a bookmark of the same directory already is.
+      SideHead { term: side.term; ruled: false; ink: Zenon.accentMuted
+        label: "Places"
+        visible: !!term && term.placesRef.rows.length > 0
+        first: true
+      }
+
+      Repeater {
+        model: term.placesRef.rows
+
+        delegate: SideRow { term: side.term
+          required property var modelData
+          width: sideCol.width
+          slot: -1
+          label: modelData.label
+          glyph: Icons.glyphFor({ name: modelData.key, isDir: true })
+          active: term.searchMode === "" && modelData.path === term.cwd
+            && term.bookmarks.indexOf(modelData.path) < 0
+          dropPath: modelData.path
+          onChosen: term.goTo(modelData.path)
+          onTabbed: term.openInNewTab(modelData.path)
+        }
+      }
+
+      Item {
+        width: 1
+        height: term.placesRef.rows.length === 0 ? 0 : 8
+      }
+
       SideHead { term: side.term; ruled: false; ink: Zenon.accentMuted
         label: "Bookmarks"
         visible: !!term && term.bookmarks.length > 0
-        first: true
+        first: !!term && term.placesRef.rows.length === 0
       }
 
       Repeater {
@@ -318,7 +350,7 @@ Rectangle {
       SideHead { term: side.term; ruled: false; ink: Zenon.accentMuted
         label: "Tags"
         visible: !!term && term.sideTags.length > 0
-        first: !!term && term.bookmarks.length === 0
+        first: !!term && term.placesRef.rows.length === 0 && term.bookmarks.length === 0
       }
 
       Repeater {
@@ -362,7 +394,7 @@ Rectangle {
       SideHead { term: side.term; ruled: false; ink: Zenon.accentMuted
         label: "Collections"
         visible: !!term && term.sideCollections.length > 0
-        first: !!term && term.bookmarks.length === 0 && term.sideTags.length === 0
+        first: !!term && term.placesRef.rows.length === 0 && term.bookmarks.length === 0 && term.sideTags.length === 0
       }
 
       Repeater {
@@ -407,7 +439,7 @@ Rectangle {
       SideHead { term: side.term; ruled: false; ink: Zenon.accentMuted
         label: "Disks"
         visible: !!term && term.disks.length > 0
-        first: !!term && term.bookmarks.length === 0 && term.sideTags.length === 0
+        first: !!term && term.placesRef.rows.length === 0 && term.bookmarks.length === 0 && term.sideTags.length === 0
           && term.sideCollections.length === 0
       }
 
@@ -461,7 +493,7 @@ Rectangle {
         label: "Network"
         action: true
         onActed: term.connectRef.ask(null, null)
-        first: !!term && term.bookmarks.length === 0 && term.sideTags.length === 0
+        first: !!term && term.placesRef.rows.length === 0 && term.bookmarks.length === 0 && term.sideTags.length === 0
           && term.sideCollections.length === 0 && term.disks.length === 0
       }
 
