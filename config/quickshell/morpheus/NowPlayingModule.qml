@@ -53,7 +53,10 @@ Collapsible {
         // and the state is carried by the wash appearing rather than by the
         // words inverting. Zenon.cyan is the accent (theme, Accent color or
         // Follow Background), as the clock and counts wear it.
-        color: Zenon.cyan
+        // FRAMELESS (Oracle barBare) has no wash to carry the state, so the
+        // words do (user, 2026-11-02): green while it plays, the accent
+        // paused
+        color: Oracle.barBare && NowPlaying.playing ? Zenon.green : Zenon.cyan
         // A title is arbitrarily long and the pill is only 1000px wide. Capped
         // and elided here rather than letting one song push every other module
         // off the end of the bar.

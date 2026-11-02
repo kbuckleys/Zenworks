@@ -539,6 +539,8 @@ module.exports = {
 
       // ── clipboard transforms (2026-11-02) ─────────────────────────────────
       t.eq("title case", C.transformText("title", "hello wide world"), "Hello Wide World");
+      // no \p{L} (QV4 matches nothing with it); after a bracket too
+      t.eq("title case, accents and brackets", C.transformText("title", "ÉLAN ça-va (x)"), "Élan Ça-Va (X)");
       t.eq("slug", C.transformText("slug", "Héllo, World!"), "hello-world");
       t.eq("sorted", C.transformText("sort", "b\nA\n\nc"), "A\nb\nc");
       t.eq("pretty json", C.transformText("json", '{"a":1}'), '{\n  "a": 1\n}');

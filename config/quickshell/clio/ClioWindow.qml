@@ -1010,6 +1010,7 @@ FloatingWindow {
 
   InputShield { visible: win.moodOpen; onClicked: win.moodOpen = false }
   Sheet {
+    id: moodSheet
     shown: win.moodOpen
     fromTop: win.headH
     leftInset: listCol.x + listCol.width
@@ -1019,6 +1020,7 @@ FloatingWindow {
   }
   InputShield { visible: win.dateOpen; onClicked: win.dateOpen = false }
   Sheet {
+    id: dateSheet
     shown: win.dateOpen
     fromTop: win.headH
     leftInset: listCol.x + listCol.width
@@ -1028,6 +1030,7 @@ FloatingWindow {
   }
   InputShield { visible: win.sketching; onClicked: {} }
   Sheet {
+    id: sketchSheet
     shown: win.sketching
     fromTop: win.headH
     leftInset: side.width
@@ -1037,6 +1040,7 @@ FloatingWindow {
   }
   InputShield { visible: win.setOpen; onClicked: win.setOpen = false }
   Sheet {
+    id: setSheet
     shown: win.setOpen
     fromTop: win.headH
     // centered on the window, not on what is right of the sidebar
@@ -1049,6 +1053,7 @@ FloatingWindow {
   }
   InputShield { visible: win.picsOpen; onClicked: win.picsOpen = false }
   Sheet {
+    id: picsSheet
     shown: win.picsOpen
     fromTop: win.headH
     leftInset: side.width
@@ -1058,6 +1063,7 @@ FloatingWindow {
   }
   InputShield { visible: win.momentsOpen; onClicked: win.momentsOpen = false }
   Sheet {
+    id: momentsSheet
     shown: win.momentsOpen
     fromTop: win.headH
     leftInset: side.width
@@ -1069,6 +1075,7 @@ FloatingWindow {
   }
   InputShield { visible: win.highlightsOpen; onClicked: win.highlightsOpen = false }
   Sheet {
+    id: highlightsSheet
     shown: win.highlightsOpen
     fromTop: win.headH
     leftInset: side.width
@@ -1079,6 +1086,7 @@ FloatingWindow {
   }
   InputShield { visible: win.tasksOpen; onClicked: win.tasksOpen = false }
   Sheet {
+    id: tasksSheet
     shown: win.tasksOpen
     fromTop: win.headH
     leftInset: side.width
@@ -1097,6 +1105,7 @@ FloatingWindow {
   Binding { target: tasksLoader.item; property: "shown"; value: win.tasksOpen; when: !!tasksLoader.item }
   InputShield { visible: win.linkOpen; onClicked: win.linkOpen = false }
   Sheet {
+    id: linkSheet
     shown: win.linkOpen
     fromTop: win.headH
     leftInset: listCol.x + listCol.width
@@ -1109,6 +1118,91 @@ FloatingWindow {
       shown: win.linkOpen
       onPicked: (n) => { win.linkOpen = false; Qt.callLater(() => pane.editor.insertNoteLink(n.id, N.titleOf(n))); }
       onClosed: win.linkOpen = false
+    }
+  }
+
+  // ── THE OPEN SHEET'S TITLEBAR ──────────────────────────────────────────
+  // Terminus' way (user, 2026-11-02): while a sheet is up, the whole top of
+  // the window — the sidebar's top, the search, the note's head — is ONE
+  // bar wearing the sheet's glyph and name, and the sheet hangs from it. It
+  // fades in and out at a sheet's pace. Above the sheets in z, so their dim
+  // does not reach it; the bodies that named themselves no longer do.
+  //
+  // ONE PIECE WITH THE CARD (user, 2026-11-02, terminus' bar as the
+  // example): the bar wears the card's own ground at the seam — black, and
+  // a frosted card's veil over it (Sheet's glass; its frost fades in below
+  // the seam) — and its hairline opens across the card, so bar and card
+  // read as one surface.
+  // [glyph, name, glyph's ink, the sheet]; latched, so the fade out keeps it
+  // a question card first, nameless (its question is the card), as
+  // terminus' bar is for its confirmation
+  readonly property var sheetName: cards.carding ? ["", "", Zenon.cyan, cards.sheetRef]
+    : win.setOpen ? ["\u{F08BB}", "Settings", Zenon.cyan, setSheet]
+    : win.moodOpen ? ["\u{F01F2}", "Mood", Zenon.yellow, moodSheet]
+    : win.dateOpen ? ["\u{F00F0}", "Date", Zenon.cyan, dateSheet]
+    : win.sketching ? ["\u{F0F49}", "Sketch", Zenon.cyan, sketchSheet]
+    : win.picsOpen ? ["", "Pictures and files", Zenon.cyan, picsSheet]
+    : win.momentsOpen ? ["\u{F02EF}", "Moments", Zenon.magenta, momentsSheet]
+    : win.highlightsOpen ? ["\u{F0652}", "Highlights", Zenon.sand, highlightsSheet]
+    : win.tasksOpen ? ["\u{F0756}", "Tasks", Zenon.cyan, tasksSheet]
+    : win.linkOpen ? ["\u{F0339}", "Link a note", Zenon.cyan, linkSheet]
+    : null
+  property var barName: ["", "", Zenon.cyan, null]
+  readonly property var barSheet: win.barName[3]
+  onSheetNameChanged: if (win.sheetName) win.barName = win.sheetName
+  property real sheetInk: win.sheetOpen || cards.carding ? 1 : 0
+  Behavior on sheetInk { NumberAnimation { duration: Zenon.normal; easing.type: Zenon.ease } }
+  Item {
+    id: sheetBar
+    // over the question cards too, declared after it
+    z: 1
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.top: parent.top
+    height: win.headH
+    opacity: win.sheetInk
+    visible: opacity > 0.01
+    // what is under it takes no click while it is the bar
+    MouseArea { anchors.fill: parent }
+    Rectangle { anchors.fill: parent; color: Zenon.black }
+    Rectangle {
+      anchors.fill: parent
+      visible: !!win.barSheet && win.barSheet.frosted
+      color: win.barSheet ? Zenon.floor(Zenon.glass(win.barSheet.glass)) : "transparent"
+    }
+    // the hairline either side of the card, none across it
+    Rectangle {
+      anchors.bottom: parent.bottom
+      height: 1
+      width: win.barSheet ? Math.max(0, win.barSheet.drawnX) : parent.width
+      color: Zenon.border
+    }
+    Rectangle {
+      anchors.bottom: parent.bottom
+      height: 1
+      x: win.barSheet ? win.barSheet.drawnX + win.barSheet.drawnW : parent.width
+      width: Math.max(0, parent.width - x)
+      color: Zenon.border
+    }
+    Row {
+      anchors.centerIn: parent
+      spacing: 10
+      Text {
+        anchors.verticalCenter: parent.verticalCenter
+        text: win.barName[0]
+        color: win.barName[2]
+        font.family: Zenon.glyphFace
+        font.pixelSize: Zenon.px(17)
+      }
+      Text {
+        anchors.verticalCenter: parent.verticalCenter
+        textFormat: Text.PlainText
+        text: win.barName[1]
+        color: Zenon.ink
+        font.family: Zenon.face
+        font.weight: Zenon.titleWeight
+        font.pixelSize: Zenon.px(16)
+      }
     }
   }
 

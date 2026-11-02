@@ -9,6 +9,9 @@ import QtQuick
 import "."
 
 Collapsible {
+  id: slot
   openWidth: rule.implicitWidth
-  Divider { id: rule; anchors.centerIn: parent }
+  // the rule's strength, its room kept (a frameless bar, 0: shell.qml)
+  property real ink: 1
+  Divider { id: rule; anchors.centerIn: parent; opacity: slot.ink }
 }

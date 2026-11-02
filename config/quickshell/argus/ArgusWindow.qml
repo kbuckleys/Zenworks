@@ -505,98 +505,10 @@ FloatingWindow {
 
     Rectangle { anchors.fill: parent; color: Zenon.layerBg }
 
-    // ── the head ─────────────────────────────────────────────────────────
-    Item {
-      id: head
-      anchors.left: parent.left
-      anchors.right: parent.right
-      height: aw.headH
-      Rectangle { anchors.fill: parent; color: Zenon.headBg }
-      Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Zenon.border }
-      Text {
-        id: headGlyph
-        x: 20
-        anchors.verticalCenter: parent.verticalCenter
-        text: "\u{F16FF}"
-        color: Zenon.yellow
-        font.family: Zenon.glyphFace
-        font.pixelSize: Zenon.px(20)
-      }
-      Text {
-        textFormat: Text.PlainText
-        id: headTitle
-        anchors.left: headGlyph.right
-        anchors.leftMargin: 12
-        anchors.verticalCenter: parent.verticalCenter
-        width: Math.min(implicitWidth, parent.width * 0.45)
-        elide: Text.ElideMiddle
-        text: aw.name !== "" ? aw.name : "Argus"
-        color: Zenon.ink
-        font.family: Zenon.face
-        font.weight: Zenon.titleWeight
-        font.pixelSize: Zenon.px(18)
-      }
-      Text {
-        anchors.left: headTitle.right
-        anchors.leftMargin: 12
-        anchors.baseline: headTitle.baseline
-        anchors.right: headBtns.left
-        anchors.rightMargin: 16
-        elide: Text.ElideRight
-        text: aw.facts
-        color: Zenon.accentMuted
-        font.family: Zenon.face
-        font.weight: Zenon.weight
-        font.pixelSize: Zenon.px(14)
-      }
-      Row {
-        id: headBtns
-        anchors.right: parent.right
-        anchors.rightMargin: 14
-        anchors.verticalCenter: parent.verticalCenter
-        spacing: 8
-        DialogButton {
-          visible: aw.savedTo !== ""
-          label: "Show in Terminus"
-          onClicked: Quickshell.execDetached(["qs", "ipc", "call", "Terminus", "reveal", aw.savedTo])
-        }
-        // the cut just saved, out to something else (morpheus/Share)
-        DialogButton {
-          id: shareBtn
-          visible: aw.savedTo !== "" && !aw.savedDir
-          label: "Share \u25BE"
-          onClicked: {
-            const at = shareBtn.mapToItem(shareMenu, 0, shareBtn.height + 4);
-            shareMenu.open(at.x, at.y, Share.items([aw.savedTo], false, 1)
-              .map((t) => ({ text: t.label, icon: t.glyph, run: t.act })));
-          }
-        }
-        DialogButton {
-          label: "Open…"
-          ready: !aw.busy && !!aw.mgr && !!aw.mgr.fileManager
-          onClicked: aw.openAsk()
-        }
-        DialogButton {
-          label: "Save as…"
-          ready: !aw.busy && !!aw.mgr && !!aw.mgr.fileManager && aw.dur > 0
-          onClicked: aw.saveAs()
-        }
-        BusyButton {
-          label: "Save"
-          ink: Zenon.yellow
-          primary: true
-          ready: !aw.busy && aw.dur > 0
-          busy: aw.saving
-          busyText: Math.round(aw.progress * 100) + "%"
-          onClicked: aw.save("")
-        }
-      }
-    }
-
     // ── the picture ──────────────────────────────────────────────────────
     Rectangle {
       id: screen
-      anchors.top: head.bottom
+      anchors.top: parent.top
       anchors.left: parent.left
       anchors.right: side.left
       anchors.bottom: transport.top
@@ -745,17 +657,97 @@ FloatingWindow {
     // ── what to keep it as ───────────────────────────────────────────────
     Item {
       id: side
-      anchors.top: head.bottom
+      anchors.top: parent.top
       anchors.right: parent.right
       anchors.bottom: foot.top
       width: aw.sideW
       SideGlass { edge: "left" }
+
+      // ── THE BUTTONS, AT THE TOP OF THE SIDEBAR ─────────────────────────
+      // No head over the window any more (user, 2026-11-02: Argus' name and
+      // glyph gone, the buttons moved in here): a bar that stays put while
+      // the settings scroll, what goes up under it frosted (ScrollEdge, laid
+      // under the bar so its ground tints the ghosts). Show in Terminus and
+      // Share come on a second line once a cut is saved.
+      ScrollEdge { view: sideFlick; x: 0; y: 0; width: side.width; height: sideBar.height; z: 1 }
+      Item {
+        id: sideBar
+        z: 2
+        width: parent.width
+        height: barCol.implicitHeight + 24
+        Rectangle { anchors.fill: parent; color: Zenon.headBg }
+        Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Zenon.border }
+        Column {
+          id: barCol
+          x: 20
+          y: 12
+          width: parent.width - 40
+          spacing: 8
+          // the sidebar's width shared out: at their own widths the three
+          // ran past its left edge (user, 2026-11-02)
+          Row {
+            id: barRow1
+            width: parent.width
+            spacing: 6
+            readonly property real each: (width - 2 * spacing) / 3
+            DialogButton {
+              width: barRow1.each
+              label: "Open…"
+              ready: !aw.busy && !!aw.mgr && !!aw.mgr.fileManager
+              onClicked: aw.openAsk()
+            }
+            DialogButton {
+              width: barRow1.each
+              label: "Save as…"
+              ready: !aw.busy && !!aw.mgr && !!aw.mgr.fileManager && aw.dur > 0
+              onClicked: aw.saveAs()
+            }
+            BusyButton {
+              width: barRow1.each
+              label: "Save"
+              ink: Zenon.yellow
+              primary: true
+              ready: !aw.busy && aw.dur > 0
+              busy: aw.saving
+              busyText: Math.round(aw.progress * 100) + "%"
+              onClicked: aw.save("")
+            }
+          }
+          Row {
+            id: barRow2
+            width: parent.width
+            spacing: 6
+            visible: aw.savedTo !== ""
+            // one alone (a directory of frames has no Share) takes the line
+            readonly property real each: shareBtn.visible ? (width - spacing) / 2 : width
+            DialogButton {
+              width: barRow2.each
+              label: "Show in Terminus"
+              onClicked: Quickshell.execDetached(["qs", "ipc", "call", "Terminus", "reveal", aw.savedTo])
+            }
+            // the cut just saved, out to something else (morpheus/Share)
+            DialogButton {
+              id: shareBtn
+              width: barRow2.each
+              visible: !aw.savedDir
+              label: "Share \u25BE"
+              onClicked: {
+                const at = shareBtn.mapToItem(shareMenu, 0, shareBtn.height + 4);
+                shareMenu.open(at.x, at.y, Share.items([aw.savedTo], false, 1)
+                  .map((t) => ({ text: t.label, icon: t.glyph, run: t.act })));
+              }
+            }
+          }
+        }
+      }
 
       // the settings scroll when the window is too low for them all
       // (user, 2026-10-25: very low screens)
       Flickable {
         id: sideFlick
         anchors.fill: parent
+        // starts under the button bar; what scrolls up goes beneath it
+        anchors.topMargin: sideBar.height
         // clear of the readout below while something saves
         anchors.bottomMargin: aw.busy ? busyCol.height + 28 : 0
         contentWidth: width

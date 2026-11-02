@@ -662,7 +662,10 @@ function transformText(id, t) {
   switch (id) {
   case "upper": return s.toUpperCase();
   case "lower": return s.toLowerCase();
-  case "title": return s.toLowerCase().replace(/(^|[\s\-("'])(\p{L})/gu, (m, a, b) => a + b.toUpperCase());
+  // no \p{L}: Qt's engine takes it without a word and matches nothing
+  // (2026-11-02 audit). A word's first character, whatever it is: upper
+  // case leaves a digit or a mark as it was.
+  case "title": return s.toLowerCase().replace(/(^|[\s\-("'])([^\s\-("'])/g, (m, a, b) => a + b.toUpperCase());
   case "slug": return s.normalize("NFKD").replace(/[̀-ͯ]/g, "").toLowerCase()
     .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
   case "trim": return s.replace(/\s+/g, " ").trim();

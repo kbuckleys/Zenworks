@@ -75,7 +75,9 @@ FloatingWindow {
       nvim.openAt(path, line, 0);
       return;
     }
-    win.openFile(path);
+    // a new window made for this file has it as openPath already: through
+    // openFile it went on _later too and was opened twice
+    if (win.openPath !== path) win.openFile(path);
     if (win.openPath === path) win.openLine = line;
   }
   function openFile(path) {

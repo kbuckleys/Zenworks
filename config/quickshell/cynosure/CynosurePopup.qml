@@ -932,7 +932,7 @@ LayerPopup {
   // the panel opens empty.
   Process {
     id: selectionProc
-    command: ["sh", "-c", "wl-paste --primary --no-newline 2>/dev/null || wl-paste --no-newline --type text 2>/dev/null"]
+    command: ["sh", "-c", "wl-paste --primary --no-newline --type text 2>/dev/null || wl-paste --no-newline --type text 2>/dev/null"]
     stdout: StdioCollector {
       id: selectionOut
       waitForEnd: true
@@ -1279,8 +1279,9 @@ LayerPopup {
       p.running = true;
     }
   }
+  // run when the scripts are read (scriptsProc), not again on the list
+  // changing: that is the same reading, and each ran twice an open
   property var inlineAt: ({})
-  onInlineScriptsChanged: if (popup.shown) popup.runInlineScripts(true)
   Component {
     id: inlineComp
     Process {

@@ -145,8 +145,9 @@ Item {
     x: 20
     y: 16
     spacing: 12
-    Text { anchors.verticalCenter: parent.verticalCenter; text: "\u{F02EF}"; color: Zenon.magenta; font.family: Zenon.glyphFace; font.pixelSize: Zenon.px(18) }
-    Text { anchors.verticalCenter: parent.verticalCenter; text: "Moments"; color: Zenon.ink; font.family: Zenon.face; font.weight: Font.Bold; font.pixelSize: Zenon.px(19) }
+    // the Close button's height, so what is left of the row sits level with it
+    height: 28
+    // its glyph and name are on the window's bar while it is up (ClioWindow sheetBar)
     Text { anchors.verticalCenter: parent.verticalCenter; text: "pictures from the last 30 days, and things to write about"; color: Zenon.accentMuted; font.family: Zenon.face; font.weight: Zenon.weight; font.pixelSize: Zenon.px(13) }
   }
   DialogButton { anchors.right: parent.right; anchors.rightMargin: 20; y: 16; label: "Close"; onClicked: mo.closed() }

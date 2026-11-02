@@ -233,6 +233,7 @@ Scope {
     if (!w) return;
     // held until it has something to show — see revealWhenReady
     if (req.show) w.revealWhenReady();
+    if (req.after) req.after(w);
   }
 
   // ── DIRECTORY SIZES, SHARED ───────────────────────────────────────────────
@@ -404,15 +405,16 @@ Scope {
   // Asks for a window, now or as soon as there is one. Returns the window
   // when it could be made immediately, and null when the caller will have
   // to wait — which for every caller here means "say so and move on".
-  function request(path, show) {
+  // `after(w)`, when given, runs on the window once it is made
+  function request(path, show, after) {
     mgr.settle();
     if (mgr.compReady) {
-      const req = { path: path || "", show: show === true };
+      const req = { path: path || "", show: show === true, after: after || null };
       const before = mgr.wins.length;
       mgr.fulfil(req);
       return mgr.wins.length > before ? mgr.wins[mgr.wins.length - 1] : null;
     }
-    mgr.pending.push({ path: path || "", show: show === true });
+    mgr.pending.push({ path: path || "", show: show === true, after: after || null });
     mgr.beginCompile();
     return null;
   }
@@ -712,15 +714,21 @@ Scope {
       // Connect does — with what was saved for it, asking only if it must
       function place(uri: string): string {
         if (uri === "") return "usage: place <uri>";
+        const go = (w) => {
+          const net = w.networkRef;
+          const row = net.rows.find((r) => r.uri === uri)
+            || { uri: uri, name: "", user: "", domain: "", saved: false, path: "" };
+          net.open(row);
+          return row.path !== "" ? row.path : "connecting";
+        };
         const w = mgr.dataWin();
-        if (!w) return mgr.request(Paths.home(), true) ? "open" : "opening";
+        // terminus not compiled yet (just after a reload): the window it
+        // makes connects, rather than the address being dropped (audit
+        // 2026-11-02)
+        if (!w) return mgr.request(Paths.home(), true, go) ? "open" : "opening";
         w.shown = true;
         w.takeFocus();
-        const net = w.networkRef;
-        const row = net.rows.find((r) => r.uri === uri)
-          || { uri: uri, name: "", user: "", domain: "", saved: false, path: "" };
-        net.open(row);
-        return row.path !== "" ? row.path : "connecting";
+        return go(w);
       }
 
       function reveal(path: string): string {

@@ -29,24 +29,55 @@ Item {
   // the one under the pointer, named in the caption
   property var hovered: null
 
-  // the bar's order (shell.qml's barLayout), left to right; "" is the
-  // stretch between the workspaces and the clock
+  // the bar's order (shell.qml's barLayout), left to right, WITH ITS
+  // SPACERS (user, 2026-11-02: "represent the bar WYSIWYG"): the bar's row
+  // has no spacing of its own — every space is an item — so neither has
+  // this one. `div` is a Divider (or DividerSlot), `gap` a Gap between
+  // meters, each there under shell.qml's own rule (bs.spacerOn). The one
+  // liberty: a module switched off stays, faded, so it can be clicked back.
   readonly property var modules: [
     { key: "showUpdates",       label: "Pending updates", glyph: "󰏗", ink: "cyan" },
     { key: "showNotifications", label: "Notification bell", glyph: "󰂜", ink: "cyan" },
     { key: "showHermes",        label: "Control Hub", glyph: "\u{F05A9}", ink: "cyan" },
+    { div: "left" },
     { key: "showWorkspaces",    label: "Workspaces", kind: "ws" },
     { key: "showTray",          label: "System tray", glyph: "\u{F0379}", ink: "dimInk" },
-    { key: "" },
+    { div: "clock" },
     { key: "showClock",         label: "Clock", kind: "clock" },
+    { div: "meters" },
     { key: "showNetwork",       label: "Network meter", kind: "meter", inks: ["magenta", "blue"], value: 0.35 },
+    { gap: 0 },
     { key: "showGpu",           label: "GPU meter", kind: "meter", inks: ["pink"], value: 0.2 },
+    { gap: 1 },
     { key: "showCpu",           label: "CPU meter", kind: "meter", inks: ["red"], value: 0.45 },
+    { gap: 2 },
     { key: "showMemory",        label: "Memory meter", kind: "meter", inks: ["yellow"], value: 0.6 },
+    { gap: 3 },
     { key: "showVolume",        label: "Volume", kind: "meter", inks: ["green"], value: 0.7 },
+    { div: "audio" },
     { key: "showNowPlaying",    label: "Now playing", word: "Now playing" },
+    { div: "status" },
     { key: "showStatus",        label: "Microphone & recording", glyph: "󰍬", ink: "sand" }
   ]
+  // shell.qml's meterRun (jobs left out: the picture has none running)
+  readonly property var meterRun: [Oracle.showNetwork, Oracle.showGpu, Oracle.showCpu, Oracle.showMemory,
+    Oracle.showVolume || Oracle.showNowPlaying]
+  // whether a spacer is there, as the bar decides it
+  function spacerOn(m) {
+    if (m.gap !== undefined) {
+      if (!bs.meterRun[m.gap]) return false;
+      for (let k = m.gap + 1; k < bs.meterRun.length; ++k) if (bs.meterRun[k]) return true;
+      return false;
+    }
+    switch (m.div) {
+    case "left": return (Oracle.showUpdates || Oracle.showNotifications || Oracle.showHermes) && Oracle.showWorkspaces;
+    case "clock": return Oracle.showClock;
+    case "meters": return bs.meterRun.indexOf(true) >= 0;
+    case "audio": return Oracle.showVolume && Oracle.showNowPlaying;
+    case "status": return Oracle.showStatus;
+    }
+    return false;
+  }
 
   Text {
     id: caption
@@ -78,6 +109,34 @@ Item {
       GradientStop { position: 1; color: Zenon.alpha(bs.highlight, screen.barTop ? 0.10 : 0.30) }
     }
 
+    // the pill's light shadow at rest (shell.qml's LayerShadow, morph 0)
+    MenuShadow {
+      panel: pill
+      visible: !Oracle.barBare
+      cornerRadius: pill.radius
+      ink: Zenon.alpha(Zenon.menuShadowInk, Zenon.menuShadowInk.a * 0.55)
+      grow: 4
+      softness: 16
+      drop: 2
+      opacity: pill.opacity
+    }
+    // the pill's two outer rings (shell.qml), fainter outward; not frameless
+    Repeater {
+      model: Oracle.barBare ? [] : [[1, 1.2], [2, 0.7]]
+      Rectangle {
+        required property var modelData
+        x: pill.x - modelData[0]
+        y: pill.y - modelData[0]
+        width: pill.width + modelData[0] * 2
+        height: pill.height + modelData[0] * 2
+        radius: pill.radius + modelData[0]
+        color: "transparent"
+        border.width: 1
+        border.color: Qt.rgba(Zenon.border.r, Zenon.border.g, Zenon.border.b, Zenon.border.a * modelData[1])
+        opacity: pill.opacity
+      }
+    }
+
     Rectangle {
       id: pill
       anchors.horizontalCenter: parent.horizontalCenter
@@ -86,8 +145,9 @@ Item {
                       row.implicitWidth + 2 * Zenon.padBar)
       height: Zenon.slot
       radius: Zenon.pillRadius
-      color: Zenon.panelBg
-      border.width: 1
+      // Frameless: the modules alone, as shell.qml's pillFrame at rest
+      color: Oracle.barBare ? "transparent" : Zenon.panelBg
+      border.width: Oracle.barBare ? 0 : 1
       border.color: Qt.rgba(Zenon.border.r, Zenon.border.g, Zenon.border.b, Math.min(1, Zenon.border.a * 2.5))
       opacity: Oracle.barAutohide ? 0.6 : 1
       clip: true
@@ -97,7 +157,8 @@ Item {
         id: row
         x: Zenon.padBar
         height: parent.height
-        spacing: Zenon.gap
+        // none: every space is an item, as in the bar
+        spacing: 0
 
         Repeater {
           model: bs.modules
@@ -105,12 +166,23 @@ Item {
           Item {
             id: mod
             required property var modelData
-            readonly property bool stretch: mod.modelData.key === ""
+            // a divider or a gap: no module, only room (and a rule)
+            readonly property bool stretch: mod.modelData.key === undefined
             readonly property bool on: !mod.stretch && !!Oracle[mod.modelData.key]
             readonly property string kind: mod.modelData.kind || (mod.modelData.word ? "word" : "glyph")
-            // the stretch: room enough to read as the gap between the halves
-            width: mod.stretch ? Zenon.slot * 2 : body.implicitWidth + 2 * Zenon.padModule
+            visible: !mod.stretch || bs.spacerOn(mod.modelData)
+            width: mod.modelData.div ? Zenon.gap * 2 + 1 : mod.modelData.gap !== undefined ? Zenon.gap
+              : body.implicitWidth + 2 * Zenon.padModule
             height: row.height
+
+            // a divider's rule (morpheus Divider); frameless keeps its room only
+            Rectangle {
+              visible: !!mod.modelData.div && !Oracle.barBare
+              anchors.centerIn: parent
+              width: 1
+              height: parent.height
+              color: Zenon.border
+            }
 
             // under the pointer: the bar's own hover band
             Rectangle {

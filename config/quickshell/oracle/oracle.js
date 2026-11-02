@@ -473,7 +473,7 @@ const PAGES = {
     ["", ["barSample"]],
     ["Place", ["barPosition", "barMonitor", "barReserveSpace", "barAutohide", "barWindowGap"]],
     ["Size", ["barSlot", "barTextSize", "barGap", "barPadBar", "barPadModule"]],
-    ["Look", ["barOpacity", "barBlur", "barTooltips"]],
+    ["Look", ["barFrameless", "barOpacity", "barBlur", "barTooltips"]],
     ["Modules", ["showWorkspaces", "showClock", "showNotifications", "showUpdates", "showNetwork", "showCpu",
                  "showGpu", "showMemory", "showVolume", "showNowPlaying", "showStatus", "showHermes", "showTray"]]
   ],

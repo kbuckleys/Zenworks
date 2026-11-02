@@ -483,6 +483,14 @@ ShellRoot {
   // and the tuck, one over the other
   readonly property real barShown: root.barIntro * (1 - root.barTuck)
 
+  // ── FRAMELESS ────────────────────────────────────────────────────────
+  // Oracle's barFrameless (user, 2026-11-02): morpheus bare, the modules
+  // lying on the desktop on their own — no ground, no rings, no shadow, no
+  // dividers, and no now-playing wash (it takes the pill's own edge). The
+  // boxes about the workspaces stay, rounded (bg.boxR). The frame comes back over a morph, as the panel grows out of
+  // the pill, since a panel needs its ground: 0 bare, 1 framed.
+  readonly property real pillFrame: Oracle.barBare ? root.morphProgress : 1
+
   // ── startup slide + fade ─────────────────────────────────────────────
   // The pill rises from just below its rested position while fading in, so
   // the shell's first paint reads as an arrival rather than a pop-in.
@@ -581,8 +589,10 @@ ShellRoot {
     }
   }
 
-  // The collapsed pill shrink-wraps the morpheus row.
-  property int morpheusContentWidth: barLayout ? barLayout.implicitWidth + 24 : 800
+  // The collapsed pill shrink-wraps the morpheus row, its End caps (padBar,
+  // barLayout's margins) on both sides. A fixed 24 was End caps' default
+  // twice: any other value squeezed the row or left slack (audit 2026-11-02).
+  property int morpheusContentWidth: barLayout ? barLayout.implicitWidth + 2 * Zenon.padBar : 800
   property int barWidthCollapsed: Zenon.layerWidth(morpheusContentWidth)
   // The layers the pill can wear, under the names activeLayer uses.
   readonly property var layers: ({
@@ -876,7 +886,7 @@ ShellRoot {
     LayerShadow {
       panel: bg
       cornerRadius: root.pillRadius
-      fade: root.barShown
+      fade: root.barShown * root.pillFrame
       transform: Translate { y: pillLift.y }
       // A whisper, not the menus' full drop: the pill is always on screen,
       // so it only needs to lift off the desktop, not cast across it. But
@@ -912,7 +922,8 @@ ShellRoot {
         border.width: 1
         border.color: Qt.rgba(Zenon.border.r, Zenon.border.g, Zenon.border.b,
                               Zenon.border.a * modelData[1])
-        opacity: bg.opacity
+        opacity: bg.opacity * root.pillFrame
+        visible: opacity > 0
         transform: Translate { y: pillLift.y }
       }
     }
@@ -965,10 +976,11 @@ ShellRoot {
             ? Zenon.morphBezier : Zenon.morphExitBezier
         }
       }
-      color: Zenon.panelBg
+      // through pillFrame, not opacity: the modules inside stay whole
+      color: Zenon.alpha(Zenon.panelBg, Zenon.panelBg.a * root.pillFrame)
       // the firmer inner of the pill's two rings — see the outer one above
       border.color: Qt.rgba(Zenon.border.r, Zenon.border.g, Zenon.border.b,
-                            Math.min(1, Zenon.border.a * 2.5))
+                            Math.min(1, Zenon.border.a * 2.5) * root.pillFrame)
       border.width: 1
       // single uniform radius so all four corners stay even during morph
       radius: root.pillRadius
@@ -1013,8 +1025,8 @@ ShellRoot {
         // Faded rather than switched. BarText already eases its color, so
         // without this the wash vanished in one frame while the text was
         // still crossfading from black — half a beat of black on black.
-        visible: nowMod.active && rise > 0.01
-        opacity: root.pillRowFade
+        visible: nowMod.active && rise > 0.01 && opacity > 0
+        opacity: root.pillRowFade * root.pillFrame
         // Play is a sunrise and pause a sunset: rather than the whole wash
         // fading in place, its clear edge climbs up out of the pill's bottom
         // stroke while the accent deepens, and sinks back into it on pause.
@@ -1069,6 +1081,12 @@ ShellRoot {
       // hermes' icons count too: without them here the wash (and the tray
       // glow) ran from the pill's edge across them (user, 2026-10-24)
       readonly property bool leftHasContent: notifMod.active || updateMod.active || hermesMod.active
+      // FRAMELESS: with no pill around them, the boxes that sit about the
+      // workspaces (the special's fill, its urgent flash, the tray's
+      // sunrise) are pills of their own, every corner on the pill's inner
+      // curve, rather than squares cut to fit an edge that is not drawn
+      readonly property real boxR: Math.max(0, bg.radius - bg.border.width)
+      readonly property real boxLeftR: Oracle.barBare || !bg.leftHasContent ? bg.boxR : 0
       readonly property real specialX: bg.leftHasContent ? Zenon.padBar + workspacesMod.x - Zenon.gap : bg.border.width
       readonly property real specialW: bg.leftHasContent ? workspacesMod.width + Zenon.gap * 2 : Zenon.padBar + workspacesMod.x + workspacesMod.width + Zenon.gap - bg.border.width
       Rectangle {
@@ -1092,8 +1110,10 @@ ShellRoot {
         // 1px extra on the right so tray mode with special never shows a black strip next to the divider
         width: bg.specialW + 1
         radius: 0
-        topLeftRadius: bg.leftHasContent ? 0 : Math.max(0, bg.radius - bg.border.width)
-        bottomLeftRadius: bg.leftHasContent ? 0 : Math.max(0, bg.radius - bg.border.width)
+        topLeftRadius: bg.boxLeftR
+        bottomLeftRadius: bg.boxLeftR
+        topRightRadius: Oracle.barBare ? bg.boxR : 0
+        bottomRightRadius: Oracle.barBare ? bg.boxR : 0
       }
       // The special workspace's urgent blink, over the same span as its wash:
       // it has no number to flash, so the area does (Workspaces.specialFlash).
@@ -1113,6 +1133,8 @@ ShellRoot {
         width: specialTakeover.width
         topLeftRadius: specialTakeover.topLeftRadius
         bottomLeftRadius: specialTakeover.bottomLeftRadius
+        topRightRadius: specialTakeover.topRightRadius
+        bottomRightRadius: specialTakeover.bottomRightRadius
       }
 
       // tray sunrise wash — gap-to-gap like special, but warm and at bg level
@@ -1134,10 +1156,10 @@ ShellRoot {
         // 1px extra on the right so tray mode never shows a black strip right next to the divider
         width: bg.trayGlowW + 1
         radius: 0
-        topLeftRadius: bg.leftHasContent ? 0 : Math.max(0, bg.radius - bg.border.width)
-        bottomLeftRadius: bg.leftHasContent ? 0 : Math.max(0, bg.radius - bg.border.width)
-        topRightRadius: 0
-        bottomRightRadius: 0
+        topLeftRadius: bg.boxLeftR
+        bottomLeftRadius: bg.boxLeftR
+        topRightRadius: Oracle.barBare ? bg.boxR : 0
+        bottomRightRadius: Oracle.barBare ? bg.boxR : 0
         // bottom half yellow, seamlessly blending into the darker upper half — no hard line
         gradient: Gradient {
           orientation: Gradient.Vertical
@@ -1167,6 +1189,7 @@ ShellRoot {
           const screens = Quickshell.screens;
           const out = [
             { id: "autohide", text: "Autohide", icon: "\u{F06D1}", mark: Oracle.barAutohide },
+            { id: "frameless", text: "Frameless", icon: "\u{F00CD}", mark: Oracle.barBare },
             { id: "reserve", text: "Reserve space", icon: "\u{F0BCB}",
               mark: Oracle.barReserveSpace && !Oracle.barAutohide, enabled: !Oracle.barAutohide },
             { isSeparator: true },
@@ -1192,6 +1215,7 @@ ShellRoot {
         onPicked: (i) => {
           const id = barMenu.rows[i].id;
           if (id === "autohide") Oracle.set("barAutohide", !Oracle.barAutohide);
+          else if (id === "frameless") Oracle.set("barFrameless", !Oracle.barBare);
           else if (id === "reserve") Oracle.set("barReserveSpace", !Oracle.barReserveSpace);
           else if (id === "top" || id === "bottom") Oracle.set("barPosition", id);
           else if (id === "settings") oracle.open("bar");
@@ -1285,7 +1309,7 @@ ShellRoot {
             // that can empty its right.
             active: (notifMod.active || updateMod.active || hermesMod.active) && Oracle.showWorkspaces
             openWidth: Zenon.gap * 2 + 1
-            Divider { implicitHeight: Zenon.slot }
+            Divider { implicitHeight: Zenon.slot; opacity: root.pillFrame }
           }
           Workspaces {
             id: workspacesMod
@@ -1296,7 +1320,7 @@ ShellRoot {
 
           Item { Layout.fillWidth: true; implicitHeight: 1 }
 
-          Divider { implicitHeight: Zenon.slot; visible: Oracle.showClock }
+          Divider { implicitHeight: Zenon.slot; visible: Oracle.showClock; opacity: root.pillFrame }
           ClockModule {
             implicitHeight: Zenon.slot
             visible: Oracle.showClock
@@ -1312,7 +1336,7 @@ ShellRoot {
           // names the view it is about, so a click lands on what you clicked
           // rather than wherever the panel was left. Clicking the same meter
           // again closes it.
-          Divider { implicitHeight: Zenon.slot; visible: root.metersShown }
+          Divider { implicitHeight: Zenon.slot; visible: root.metersShown; opacity: root.pillFrame }
           // Copies, moves and extracts still running — terminus' jobs, which
           // outlive its windows now. They lead the meter run: a percentage in
           // the clock's ghosted digits, gone when there are none, and a click
@@ -1379,7 +1403,7 @@ ShellRoot {
                 visible: Oracle.showVolume
                 onActivated: zeus.toggleAt("sound")
               }
-              DividerSlot { active: Oracle.showVolume && nowMod.active }
+              DividerSlot { active: Oracle.showVolume && nowMod.active; ink: root.pillFrame }
               NowPlayingModule { id: nowMod; implicitHeight: Zenon.slot }
             }
 
@@ -1390,7 +1414,7 @@ ShellRoot {
           }
 
           // mic / screen-share / recording
-          DividerSlot { active: statusMod.active }
+          DividerSlot { active: statusMod.active; ink: root.pillFrame }
           StatusModule {
             id: statusMod
             implicitHeight: Zenon.slot

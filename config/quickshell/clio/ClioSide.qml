@@ -82,54 +82,12 @@ Item {
   // TERMINUS' AND PLATO'S TWO LAYERS: an inactive tab's glass, the sheet's veil
   SideGlass { edge: "right" }
 
-  // the name over it all
-  Item {
-    id: brand
-    width: parent.width
-    height: side.win ? side.win.headH : 50
-    Row {
-      x: 18
-      anchors.verticalCenter: parent.verticalCenter
-      spacing: 10
-      Text {
-        anchors.verticalCenter: parent.verticalCenter
-        text: ""
-        color: Zenon.sand
-        font.family: Zenon.glyphFace
-        font.pixelSize: Zenon.px(20)
-      }
-      Text {
-        anchors.verticalCenter: parent.verticalCenter
-        text: "Clio"
-        color: Zenon.ink
-        font.family: Zenon.face
-        font.weight: Font.Bold
-        font.pixelSize: Zenon.px(19)
-      }
-    }
-    // settings
-    Text {
-      id: gear
-      anchors.right: parent.right
-      anchors.rightMargin: 16
-      anchors.verticalCenter: parent.verticalCenter
-      text: "\u{F08BB}"
-      color: gearPress.pressed ? Zenon.ink : Zenon.accentMuted
-      font.family: Zenon.glyphFace
-      font.pixelSize: Zenon.px(16)
-      MouseArea {
-        id: gearPress
-        anchors.fill: parent
-        anchors.margins: -6
-        onClicked: side.win.setOpen = true
-      }
-      HoverHandler { onHoveredChanged: hovered ? side.win.tipsItem.show(gear, "Settings", "ctrl ,") : side.win.tipsItem.hide(gear) }
-    }
-  }
-
   Flickable {
     id: flick
-    anchors.top: brand.bottom
+    // no name over it now (user, 2026-11-02): the list from the top, its
+    // settings gone to the search bar's line, beside New note
+    anchors.top: parent.top
+    anchors.topMargin: 6
     anchors.bottom: trashFoot.top
     anchors.left: parent.left
     anchors.right: parent.right

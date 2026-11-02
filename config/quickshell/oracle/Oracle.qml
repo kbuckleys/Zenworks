@@ -99,6 +99,15 @@ Singleton {
   // edge (or a layer opens out of it), and while it is set nothing is
   // reserved for it — windows run under it, whatever Reserve space says.
   property bool barAutohide: false
+  // Frameless: the pill bare — no ground, rings or shadow, the modules on
+  // the desktop by themselves. A panel that grows out of it still has its
+  // ground (shell.qml pillFrame).
+  property bool barFrameless: false
+  // ...and never with Autohide (user, 2026-11-02): a bare pill over a window
+  // is noise on noise. set() turns one off for the other (`excludes`); this
+  // is what the bar reads, so a file or an import with both on is
+  // Autohide's
+  readonly property bool barBare: root.barFrameless && !root.barAutohide
 
   // The workspace strip (morpheus/WorkspaceStrip): a moment of the screen's
   // workspaces, low on it, every time the workspace changes.
@@ -997,6 +1006,9 @@ Singleton {
     { key: "barOpacity", section: "bar", alias: "bar opacity transparency translucency see-through morpheus pill background", label: "Opacity", type: "real",
       min: 0.1, max: 1, step: 0.05,
       help: "The morpheus pill's own background, and the small furniture painted to match it: tooltips, the now-playing card, chronos' day cells. Alpha over black, so lower is more transparent. With Blur behind on, in morpheus, it goes no lower than 0.52, where hyprland\u2019s blur stops." },
+    { key: "barFrameless", section: "bar", alias: "frameless bare borderless no background no border transparent minimal floating modules pill",
+      label: "Frameless", type: "bool", excludes: "barAutohide",
+      help: "No background, border, shadow or dividers: the modules lie on the desktop on their own, and the boxes around the workspaces are rounded. A quick panel opening out of the bar still has its background, at the Opacity and Blur behind set here. Not with Autohide: turning one on turns the other off. Also in the bar's right-click menu." },
     { key: "barBlur", section: "bar", alias: "blur transparency frosted glass background hyprland",
       label: "Blur behind", type: "bool",
       help: "The desktop behind the pill, frosted. Off, it shows through sharp at any Opacity. On, Opacity is held at 0.52 at the least — under that hyprland stops blurring." },
@@ -1028,8 +1040,8 @@ Singleton {
     { key: "barReserveSpace", section: "bar", label: "Reserve space", type: "bool",
       help: "Keep tiled windows clear of the pill. Off, it floats over them and nothing on the desktop moves for it. Autohide overrides it." },
     { key: "barAutohide", section: "bar", alias: "autohide auto hide hidden reveal slide away dock overlay",
-      label: "Autohide", type: "bool",
-      help: "The pill slides off the screen edge and comes back when the pointer touches that edge, or when something opens out of it. Nothing is reserved for it while it is set: windows run under it. Also in the bar's right-click menu." },
+      label: "Autohide", type: "bool", excludes: "barFrameless",
+      help: "The pill slides off the screen edge and comes back when the pointer touches that edge, or when something opens out of it. Nothing is reserved for it while it is set: windows run under it. Not with Frameless: turning one on turns the other off. Also in the bar's right-click menu." },
 
     // ── appearance ──
     // `pick` makes a text setting a button that opens terminus' picker
@@ -2080,7 +2092,13 @@ Singleton {
     if (s.hyprFile === "effects") { root.setEffect(key, value); return; }
     if (s.hyprFile) { root.setWakeBy(value); return; }
     const v = Ora.coerce(s, value);
-    if (Ora.same(root[key], v)) return;
+    if (Ora.same(root[key], v)) {
+      // ONE OR THE OTHER (below) even with no change: both on already (an
+      // old file, an import), turning one "on" again must still turn the
+      // other off, or the bar menu's Frameless did nothing (audit 2026-11-02)
+      if (s.excludes && v === true && root[s.excludes] === true) root.set(s.excludes, false);
+      return;
+    }
     root[key] = v;
     root.revision++;
     saveTimer.restart();
@@ -2090,6 +2108,10 @@ Singleton {
     // moving gives way, so the one you are moving does what you asked.
     if (s.pairMax && root[s.pairMax] < v) root.set(s.pairMax, v);
     if (s.pairMin && root[s.pairMin] > v) root.set(s.pairMin, v);
+    // ── ONE OR THE OTHER ─────────────────────────────────────────────
+    // Two switches that cannot both be on (Autohide and Frameless): the
+    // one turned on turns the other off, in the same undo step.
+    if (s.excludes && v === true && root[s.excludes] === true) root.set(s.excludes, false);
   }
 
   function nudge(key, dir) {

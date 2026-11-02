@@ -59,6 +59,9 @@ Item {
   readonly property var card: deck.lead ? deck.lead
     : deck.sheetQueue.length > 0 ? deck.sheetQueue[0] : null
   readonly property bool carding: deck.card !== null
+  // the Sheet the card hangs in, for a host whose bar takes its place
+  // (clio's sheetBar: its ground and the hairline either side)
+  readonly property var sheetRef: sheet
   property int cardPick: 0
   onCardChanged: {
     deck.cardPick = 0;

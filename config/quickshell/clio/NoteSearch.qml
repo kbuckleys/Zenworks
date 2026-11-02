@@ -93,8 +93,8 @@ Item {
   // a new note (or entry, or sticky) where you are
   DialogButton {
     id: newBtn
-    anchors.right: parent.right
-    anchors.rightMargin: 12
+    anchors.right: setBtn.left
+    anchors.rightMargin: 6
     anchors.verticalCenter: parent.verticalCenter
     // the search field's height, and square (user, 2026-10-17)
     height: box.height
@@ -114,6 +114,25 @@ Item {
       onHoveredChanged: hovered
         ? bar.win.tipsItem.show(newBtn, bar.win.inJournal ? "New entry" : bar.win.onDesktop ? "New sticky" : "New note", bar.win.inJournal ? "ctrl j" : "ctrl n")
         : bar.win.tipsItem.hide(newBtn)
+    }
+  }
+
+  // settings, beside it (user, 2026-11-02: off the sidebar, whose name
+  // went with it) — the same square, in the plain ink
+  DialogButton {
+    id: setBtn
+    anchors.right: parent.right
+    anchors.rightMargin: 12
+    anchors.verticalCenter: parent.verticalCenter
+    height: box.height
+    width: box.height
+    glyph: true
+    label: "\u{F08BB}"
+    // pressed for as long as its sheet is up (user, 2026-11-02)
+    held: !!bar.win && bar.win.setOpen
+    onClicked: bar.win.setOpen = true
+    HoverHandler {
+      onHoveredChanged: hovered ? bar.win.tipsItem.show(setBtn, "Settings", "ctrl ,") : bar.win.tipsItem.hide(setBtn)
     }
   }
 

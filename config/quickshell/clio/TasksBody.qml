@@ -33,8 +33,9 @@ Item {
     x: 20
     y: 16
     spacing: 12
-    Text { anchors.verticalCenter: parent.verticalCenter; text: "\u{F0756}"; color: Zenon.cyan; font.family: Zenon.glyphFace; font.pixelSize: Zenon.px(18) }
-    Text { anchors.verticalCenter: parent.verticalCenter; text: "Tasks"; color: Zenon.ink; font.family: Zenon.face; font.weight: Font.Bold; font.pixelSize: Zenon.px(19) }
+    // the Close button's height, so what is left of the row sits level with it
+    height: 28
+    // its glyph and name are on the window's bar while it is up (ClioWindow sheetBar)
     Text {
       anchors.verticalCenter: parent.verticalCenter
       text: tb.all.length === 0 ? "" : tb.all.length + " open"

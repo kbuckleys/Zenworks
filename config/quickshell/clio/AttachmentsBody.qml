@@ -41,8 +41,9 @@ Item {
     x: 20
     y: 16
     spacing: 12
-    Text { anchors.verticalCenter: parent.verticalCenter; text: ""; color: Zenon.cyan; font.family: Zenon.glyphFace; font.pixelSize: Zenon.px(18) }
-    Text { anchors.verticalCenter: parent.verticalCenter; text: "Pictures and files"; color: Zenon.ink; font.family: Zenon.face; font.weight: Font.Bold; font.pixelSize: Zenon.px(19) }
+    // the Close button's height, so what is left of the row sits level with it
+    height: 28
+    // its glyph and name are on the window's bar while it is up (ClioWindow sheetBar)
     Segments { anchors.verticalCenter: parent.verticalCenter; options: [["pictures", "Pictures"], ["files", "Files"]]; current: ab.kind; textSize: Zenon.px(12); onChose: (v) => ab.kind = v }
   }
   DialogButton { anchors.right: parent.right; anchors.rightMargin: 20; y: 16; label: "Close"; onClicked: ab.closed() }
