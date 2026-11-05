@@ -162,7 +162,7 @@ Item {
           font.pixelSize: Zenon.px(15)
         }
         Row {
-          spacing: 8
+          spacing: Zenon.buttonGap
           DialogButton { label: "Write"; ink: Zenon.magenta; onClicked: jl.win.newEntry(Date.now(), N.promptOfDay(Date.now(), jl.promptShift)) }
           DialogButton { label: "Another"; onClicked: jl.promptShift++ }
           DialogButton { label: "\u{F02EF}  Moments"; onClicked: jl.win.momentsOpen = true }
@@ -227,9 +227,9 @@ Item {
       height: backCol.implicitHeight + 20
       visible: !!back.e
       radius: Zenon.rad(9)
-      color: backMa.pressed ? Zenon.alpha(Zenon.cyan, 0.18) : Zenon.alpha(Zenon.cyan, 0.06)
+      color: backMa.pressed ? Zenon.alpha(Zenon.accent, 0.18) : Zenon.alpha(Zenon.accent, 0.06)
       border.width: 1
-      border.color: Zenon.alpha(Zenon.cyan, 0.28)
+      border.color: Zenon.alpha(Zenon.accent, 0.28)
       Column {
         id: backCol
         x: 14
@@ -238,7 +238,7 @@ Item {
         spacing: 4
         Text {
           text: "\u{F0B64}  FROM YOUR JOURNAL · " + (back.e ? N.dateLong(back.e.date).toUpperCase() : "")
-          color: Zenon.cyan
+          color: Zenon.accent
           font.family: Zenon.face
           font.weight: Zenon.titleWeight
           font.pixelSize: Zenon.px(11)
@@ -276,7 +276,7 @@ Item {
         options: [["", "All"], ["bookmarked", "\uF47A"], ["photos", ""], ["mood", "\u{F01F5}"], ["reflection", "\u{F0336}"]]
         current: jl.mgr ? jl.mgr.journalFilter : ""
         // the bookmark in the theme's accent, wherever it is drawn
-        inks: ({ bookmarked: Zenon.cyan })
+        inks: ({ bookmarked: Zenon.accent })
         textSize: Zenon.px(12)
         onChose: (v) => { jl.mgr.set("journalFilter", v); jl.win.wantTop = true; }
         onPointed: (v, item, inside) => inside
@@ -289,7 +289,7 @@ Item {
         anchors.verticalCenter: parent.verticalCenter
         glyph: true
         label: ""
-        ink: jl.calendar || jl.win.day !== "" ? Zenon.cyan : Zenon.accentMuted
+        ink: jl.calendar || jl.win.day !== "" ? Zenon.accent : Zenon.accentMuted
         onClicked: jl.calendar = !jl.calendar
         HoverHandler { onHoveredChanged: hovered ? jl.win.tipsItem.show(calBtn, "Calendar of entries") : jl.win.tipsItem.hide(calBtn) }
       }
@@ -317,7 +317,7 @@ Item {
         x: 12
         anchors.verticalCenter: parent.verticalCenter
         text: jl.win && jl.win.day !== "" ? (() => { const p = jl.win.day.split("-"); return N.dateLong(new Date(+p[0], +p[1] - 1, +p[2]).getTime()); })() : ""
-        color: Zenon.cyan
+        color: Zenon.accent
         font.family: Zenon.face
         font.weight: Font.DemiBold
         font.pixelSize: Zenon.px(13)

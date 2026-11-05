@@ -54,7 +54,7 @@ var PRESETS = [
   { name: "green",  ink: "green" },
   { name: "blue",   ink: "blue" },
   { name: "purple", ink: "magenta" },
-  { name: "grey",   ink: "muted" }
+  { name: "gray",   ink: "muted" }
 ];
 
 // The Zenon color name for a tag, or "" if it is not one of the seven.
@@ -205,7 +205,12 @@ var FAVORITE = "favorite";
 // still reads as starred, and is written back as "favorite" the next time
 // its tags are
 var FAVORITE_WAS = "favourite";
-function renamed(t) { return t === FAVORITE_WAS ? FAVORITE : t; }
+// the gray preset's name up to 0.2.3, in British spelling ("grey"): read as
+// "gray", and written back so the next time a file's tags are (user,
+// 2026-11-04)
+var GRAY = "gray";
+var GRAY_WAS = "grey";
+function renamed(t) { return t === FAVORITE_WAS ? FAVORITE : t === GRAY_WAS ? GRAY : t; }
 
 // The sidecar of `path`: one of `present` (a { sidecar path: true } of
 // those that exist) when there is one, else the name a new one gets.

@@ -29,7 +29,7 @@ Item {
   property string face: Zenon.face
   property color fgColor: Zenon.white
   property color dimColor: Zenon.accentMuted
-  property color highlight: Zenon.cyan
+  property color highlight: Zenon.accent
 
   readonly property var row: (Oracle.revision, Oracle.checkup ? Oracle.checkup.tools : null)
   readonly property var tools: tp.row && tp.row.list ? tp.row.list : []
@@ -242,7 +242,7 @@ Item {
 
     Row {
       visible: tp.needed.length + tp.optional.length > 0 && !tp.paruGone
-      spacing: 8
+      spacing: Zenon.buttonGap
       DialogButton {
         label: tp.busy ? "Installing…"
           : tp.chosen.length ? "Install " + tp.chosen.length + (tp.chosen.length === 1 ? " package" : " packages")

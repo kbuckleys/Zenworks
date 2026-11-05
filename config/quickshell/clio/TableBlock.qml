@@ -125,7 +125,7 @@ Item {
                 activeFocusOnPress: false
                 persistentSelection: false
                 color: Zenon.ink
-                selectionColor: Zenon.alpha(Zenon.cyan, 0.32)
+                selectionColor: Zenon.alpha(Zenon.accent, 0.32)
                 selectedTextColor: color
                 font.family: tbl.editor ? tbl.editor.face : Zenon.face
                 font.weight: rowItem.r === 0 ? Font.DemiBold : Zenon.weight

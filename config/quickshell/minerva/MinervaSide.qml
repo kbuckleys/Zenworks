@@ -13,6 +13,7 @@
 
 import QtQuick
 import "../morpheus"
+import "../terminus"
 import "minerva.js" as M
 
 Item {
@@ -90,49 +91,52 @@ Item {
   // the toolbar's foot, a hairline as the head's (user, 2026-10-21)
   Rectangle { z: 3; y: pages.y - 1; width: side.width; height: 1; color: Zenon.border }
 
-  // the four tabs, as a row of glyphs
-  Row {
+  // the tabs, as the suite's switch of pictures (terminus' Segments,
+  // `words: false`): one sliding highlight, its press, its arrows, and each
+  // tab's name as the window's tooltip, where the title under the tabs used
+  // to say it (user, 2026-10-21)
+  Segments {
     id: tabRow
     z: 3
     x: 12
     y: 10
-    spacing: 4
-    Repeater {
-      model: side.tabs
-      delegate: Rectangle {
-        id: tabCell
-        required property var modelData
-        readonly property bool here: side.tab === modelData.id
-        // its name on hover, where the title under the tabs used to say it
-        // (user, 2026-10-21)
-        HoverHandler { onHoveredChanged: if (side.tip) { if (hovered) side.tip.show(tabCell, tabCell.modelData.tip); else side.tip.hide(tabCell); } }
-        width: (side.width - 24 - 4 * (side.tabs.length - 1)) / side.tabs.length
-        height: 34
-        radius: Zenon.radiusControl
-        color: tabPress.pressed ? Zenon.pressTile(here) : here ? Zenon.menuHi : "transparent"
+    width: side.width - 24
+    even: true
+    words: false
+    artH: 18
+    tip: side.tip
+    options: side.tabs.map((t) => [t.id, t.tip])
+    current: side.tab
+    onChose: (v) => side.tab = v
+    art: Component {
+      // the glyph, and how many beside it for the three that count
+      Item {
+        readonly property string id_: parent ? parent.value : ""
+        readonly property var t: side.tabs.find((x) => x.id === id_) || null
+        readonly property int n: id_ === "marks" ? side.bookmarks.length
+          : id_ === "highlights" ? side.highlights.length
+          : id_ === "find" ? side.hits.length : 0
+        implicitWidth: glyph.implicitWidth
+        implicitHeight: 18
         Text {
+          id: glyph
           anchors.centerIn: parent
-          text: parent.modelData.glyph
-          color: parent.here ? Zenon.cyan : Zenon.accentMuted
+          text: parent.t ? parent.t.glyph : ""
+          color: parent.parent ? parent.parent.ink : Zenon.accentMuted
           font.family: Zenon.glyphFace
           font.pixelSize: Zenon.px(16)
         }
-        // how many, beside the glyph, for the three that count
         Text {
-          anchors.right: parent.right
-          anchors.rightMargin: 6
-          anchors.top: parent.top
-          anchors.topMargin: 3
-          readonly property int n: parent.modelData.id === "marks" ? side.bookmarks.length
-            : parent.modelData.id === "highlights" ? side.highlights.length
-            : parent.modelData.id === "find" ? side.hits.length : 0
-          visible: n > 0
-          text: n > 99 ? "99+" : String(n)
+          anchors.left: glyph.right
+          anchors.leftMargin: 2
+          anchors.top: glyph.top
+          anchors.topMargin: -4
+          visible: parent.n > 0
+          text: parent.n > 99 ? "99+" : String(parent.n)
           color: Zenon.accentMuted
           font.family: Zenon.face
           font.pixelSize: Zenon.px(10)
         }
-        MouseArea { id: tabPress; anchors.fill: parent; onClicked: side.tab = parent.modelData.id }
       }
     }
   }
@@ -184,7 +188,7 @@ Item {
         radius: Zenon.radiusControl
         color: pageRow.here ? Zenon.menuHi : "transparent"
         border.width: pageRow.here ? 2 : 0
-        border.color: Zenon.cyan
+        border.color: Zenon.accent
         FlashOver { flash: rowFlash; index: pageRow.index; radius: parent.radius }
         // the page is handed over before the small page is made (the
         // loader's own pageIx, read as it is built): set after, Qt's page
@@ -203,7 +207,7 @@ Item {
         anchors.top: frame.bottom
         anchors.topMargin: 4
         text: String(pageRow.index + 1)
-        color: pageRow.here ? Zenon.cyan : Zenon.accentMuted
+        color: pageRow.here ? Zenon.accent : Zenon.accentMuted
         font.family: Zenon.face
         font.weight: pageRow.here ? Zenon.titleWeight : Zenon.weight
         font.pixelSize: Zenon.px(12)
@@ -296,7 +300,7 @@ Item {
           elide: Text.ElideRight
           textFormat: side.tab === "find" ? Text.StyledText : Text.PlainText
           text: !row.r || side.tab === "contents" ? ""
-            : side.tab === "find" ? M.litSnippet(row.r.snippet || "", side.findWords, Zenon.cyan)
+            : side.tab === "find" ? M.litSnippet(row.r.snippet || "", side.findWords, Zenon.accent)
             : side.tab === "highlights" ? "“" + (row.r.text || "") + "”" : (row.r.text || "")
           color: Zenon.white
           font.family: side.tab === "highlights" ? side.serif : Zenon.face

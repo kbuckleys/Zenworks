@@ -88,6 +88,8 @@ const exact = {
   "Tag": "\u{F04FC}",                        // tag_outline
   "Tags": "\u{F12F7}",                       // tag_multiple_outline
   "Manage tags": "\u{F12F7}",
+  "Change glyph": "\u{F0832}",            // shape_outline
+  "Default glyph": "\u{F099B}",             // restore
   "Reindex tags": "\u{F1634}",               // database_refresh_outline
   "Bookmark": "\uF461",                       // oct-bookmark (user, 2026-10-24)
   "Bookmark this directory": "\uF461",

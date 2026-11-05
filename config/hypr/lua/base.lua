@@ -63,8 +63,15 @@ local okInput, input = pcall(require, "lua.input")
 if okInput and type(input) == "table" then
 	local nested = { "virtualkeyboard", "touchdevice", "tablettool", "touchpad", "tablet" }
 	local cfg = {}
+	-- tablet_region_size: hyprland's own default is 0 0 (the whole screen),
+	-- yet it refuses anything under 1 1 when set (vec2Range(1, 1, …), 0.57).
+	-- So "0 0", or any size with a side under 1, stays hyprland's.
+	local function unsetSize(v)
+		local x, y = tostring(v):match("^%s*(%-?[%d.]+)[%s,]+(%-?[%d.]+)%s*$")
+		return not x or tonumber(x) < 1 or tonumber(y) < 1
+	end
 	for k, v in pairs(input) do
-		if v ~= "" then
+		if v ~= "" and not (k == "tablet_region_size" and unsetSize(v)) then
 			local placed = false
 			for _, n in ipairs(nested) do
 				local p = n .. "_"
@@ -80,20 +87,42 @@ if okInput and type(input) == "table" then
 	end
 	pcall(hl.config, { input = cfg })
 end
+-- THE HYPER KEY: oracle's Shortcuts writes hyper.lua when one is chosen,
+-- naming a keymap of your layout with that key held as Ctrl+Alt+Shift+Super
+-- (quickshell/oracle/hyper.py). It replaces kb_layout and the rest, so it
+-- is made again whenever they change. A file that is gone costs the hyper
+-- key and nothing else.
+local okHyper, hyper = pcall(require, "lua.hyper")
+if okHyper and type(hyper) == "table" and type(hyper.file) == "string" and hyper.file ~= "" then
+	local f = io.open(hyper.file, "r")
+	if f then
+		f:close()
+		pcall(hl.config, { input = { kb_file = hyper.file } })
+	end
+end
 -- the click that focuses a window only focuses it, the way macOS does: it
 -- is not also a press on whatever is under the pointer (0.57). Not a
 -- setting: the old click-through is gone on purpose.
 hl.config({ input = { swallow_focus_click = true } })
 
--- CURSOR
-hl.env("HYPRCURSOR_THEME", "XCursor-Pro-Hyprcursor-Dark")
--- X apps (Spotify, Steam, anything under XWayland) cannot read hyprcursor:
--- theirs is the same design in X's own format (xcursor-pro-cursor-theme;
--- user, 2026-10-28: "my cursors are different in apps like spotify and
--- steam"). scripts/gtkscheme.sh tells GTK and ~/.icons/default the same.
-hl.env("XCURSOR_THEME", "XCursor-Pro-Dark")
-hl.env("HYPRCURSOR_SIZE", "24")
-hl.env("XCURSOR_SIZE", "24")
+-- CURSOR: oracle's Cursor rows, written to cursor.lua by quickshell's
+-- ThemeSync (which also runs `hyprctl setcursor` for the pointer now);
+-- XCursor-Pro at 24 with no file yet. X apps (Spotify, Steam, anything
+-- under XWayland) cannot read hyprcursor, so `x` is the same design in X's
+-- own format (user, 2026-10-28: "my cursors are different in apps like
+-- spotify and steam"). scripts/gtkscheme.sh tells GTK and ~/.icons/default.
+local okCursor, cursorFile = pcall(require, "lua.cursor")
+local cursor = { hypr = "XCursor-Pro-Hyprcursor-Dark", x = "XCursor-Pro-Dark", size = 24 }
+if okCursor and type(cursorFile) == "table" then
+	if type(cursorFile.hypr) == "string" and cursorFile.hypr ~= "" then cursor.hypr = cursorFile.hypr end
+	if type(cursorFile.x) == "string" and cursorFile.x ~= "" then cursor.x = cursorFile.x end
+	local n = tonumber(cursorFile.size)
+	if n and n >= 8 and n <= 256 then cursor.size = math.floor(n) end
+end
+hl.env("HYPRCURSOR_THEME", cursor.hypr)
+hl.env("XCURSOR_THEME", cursor.x)
+hl.env("HYPRCURSOR_SIZE", tostring(cursor.size))
+hl.env("XCURSOR_SIZE", tostring(cursor.size))
 
 -- QT APPS IN THE SHELL'S COLORS: qt6ct reads the scheme quickshell's
 -- ThemeSync writes (qt6ct/colors/zenworks.conf). Imported into systemd's

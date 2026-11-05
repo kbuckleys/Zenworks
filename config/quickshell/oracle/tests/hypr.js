@@ -44,6 +44,17 @@ module.exports = {
       'hl.dsp.workspace.toggle_special("magic")');
     t.eq("dpms on, as socordia wrote it", H.dpms(true), 'hl.dsp.dpms({ action = "enable" })');
     t.eq("dpms off", H.dpms(false), 'hl.dsp.dpms({ action = "disable" })');
+    t.eq("exec with rules, app restore's", H.execWith("kitty", { workspace: "2 silent", float: true, size: "700 500" }),
+      'hl.dsp.exec_cmd("kitty", { workspace = "2 silent", float = true, size = "700 500" })');
+    t.eq("exec, no rules", H.execWith("foot -e \"htop\"", {}), 'hl.dsp.exec_cmd("foot -e \\"htop\\"")');
+    t.eq("exec drops a key that is not a name", H.execWith("x", { "a) os.exit(": true }), 'hl.dsp.exec_cmd("x")');
+    t.eq("a Zenworks window placed, tiled", H.placeWindow("abc", { workspace: "2", floating: false }),
+      'hl.dispatch(hl.dsp.window.move({ workspace = "2", follow = false, window = "address:0xabc" }))\n'
+      + 'hl.dispatch(hl.dsp.window.float({ action = "disable", window = "address:0xabc" }))');
+    t.eq("floating: sized, then moved", H.placeWindow("0xabc", { floating: true, size: [800, 600], at: [40, 60] }),
+      'hl.dispatch(hl.dsp.window.float({ action = "enable", window = "address:0xabc" }))\n'
+      + 'hl.dispatch(hl.dsp.window.resize({ x = 800, y = 600, relative = false, window = "address:0xabc" }))\n'
+      + 'hl.dispatch(hl.dsp.window.move({ x = 40, y = 60, relative = false, window = "address:0xabc" }))');
     t.eq("a submap", H.submap("oracle-keys"), 'hl.dsp.submap("oracle-keys")');
     t.eq("none is the default one", H.submap(""), 'hl.dsp.submap("reset")');
     t.eq("quotes cannot end the Lua string", H.lua('a"b\\c'), '"a\\"b\\\\c"');

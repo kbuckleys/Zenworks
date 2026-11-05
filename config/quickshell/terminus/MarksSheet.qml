@@ -60,7 +60,7 @@ Rectangle {
         name: p === Paths.home() ? "Home" : Terminus.basename(p),
         glyph: Icons.glyphFor({
           name: p === Paths.home() ? "home" : Terminus.basename(p),
-          isDir: true })
+          isDir: true, path: p })
       });
     }
     return out;
@@ -278,7 +278,7 @@ Rectangle {
           horizontalAlignment: Text.AlignHCenter
           anchors.verticalCenter: parent.verticalCenter
           text: markRow.modelData.glyph
-          color: Zenon.cyan
+          color: Zenon.accent
           font.family: Zenon.face
           font.weight: Zenon.weight
           font.pixelSize: Zenon.px(16)
@@ -372,6 +372,8 @@ Rectangle {
 
 
     // morpheus/HintBar, as every strip (ceres' height, ground and rule)
+    // the rows still to come run on under the keys' pill, which frosts them
+    ScrollEdge { view: marksList; below: true; follow: true; bar: marksFoot }
     HintBar {
       id: marksFoot
       anchors.bottom: parent.bottom

@@ -32,6 +32,14 @@ module.exports = {
     t.ok("a directory named like an extension is still a directory",
       T.glyphFor({ name: "src.old", isDir: true })
         !== T.glyphFor({ name: "src.old" }));
+    // Ubisoft's launcher directories, by any of their names (2026-11-05)
+    t.eq("Ubisoft's directories wear its glyph",
+      ["Ubisoft", "Ubisoft Connect", "Ubisoft Game Launcher"].map((n) => T.glyphFor({ name: n, isDir: true })),
+      ["\u{F0BDA}", "\u{F0BDA}", "\u{F0BDA}"]);
+    t.eq("the game stores' directories wear theirs",
+      [".minecraft", "GOG Games", "Battle.net", "itch", "EA Desktop", "Humble App", "SteamLibrary", "XboxGames"]
+        .map((n) => T.glyphFor({ name: n, isDir: true })),
+      ["\u{F0373}", "\u{F0BA1}", "\uEF94", "\uEF99", "\u{F0B43}", "\u{F0744}", "\uF1B7", "\u{F05B9}"]);
     t.eq("a directory nothing names gets the plain folder",
       T.glyphFor({ name: "zzqq", isDir: true }),
       T.glyphFor({ name: "wwvv", isDir: true }));
@@ -186,10 +194,50 @@ module.exports = {
       T.appGlyph(["org.telegram.desktop"]), T.appGlyph(["telegram"]));
     t.eq("a spaced name hyphenated", T.appGlyph(["Google Chrome"]), T.appGlyph(["google-chrome"]));
     t.eq("nothing claims it, nothing is drawn", T.appGlyph(["kitty", "Kitty terminal"]), "");
+    // a browser the font has no logo for wears md-web (user, 2026-11-04),
+    // known by its desktop file's categories; one it has keeps its own
+    const web = "\u{F059F}";
+    t.eq("a browser known by its categories", T.appGlyph(["vivaldi-stable", "Vivaldi"], ["Network", "WebBrowser"]), web);
+    t.eq("not a browser, no glyph", T.appGlyph(["kitty"], ["System", "TerminalEmulator"]), "");
+    t.eq("a file transfer app by its category", T.appGlyph(["transmission-gtk", "Transmission"], ["Network", "FileTransfer", "P2P", "GTK"]), "\u{F1065}");
+    t.eq("a logo beats the category", T.appGlyph(["firefox"], ["Network", "WebBrowser"]) !== web, true);
+    t.eq("Brave Origin by name, no desktop file", T.appGlyph(["Brave Origin"]), web);
+    t.eq("Helium by name", T.appGlyph(["net.imput.helium", "Helium"]), web);
+    t.eq("a browser with a logo keeps it", T.appGlyph(["firefox"]) !== "\u{F059F}", true);
     t.eq("no names, no glyph", T.appGlyph([]), "");
     t.eq("the prototype is not a program", T.appGlyph(["constructor"]), "");
     t.eq("a program and its folder are one picture",
       T.appGlyph(["nvim"]), T.glyphFor({ name: "nvim", isDir: true }));
     t.eq("the most specific name wins", T.appGlyph(["spoot", "Spotify"]), T.appGlyph(["spotify"]));
+
+    // ── the 11-05 additions ───────────────────────────────────────────────
+    // Each reuses its relative's glyph where there is one, so a kind never
+    // wears two pictures.
+    const g = (name, isDir) => T.glyphFor({ name: name, isDir: !!isDir });
+    t.eq("Ubisoft's directory", g("Ubisoft Game Launcher", true), "\u{F0BDA}");
+    t.eq("Steam's library", g("SteamLibrary", true), "");
+    t.eq("a .jsonl is JSON", g("events.jsonl"), g("a.json"));
+    t.eq("a WAL is its database", g("x.sqlite-wal"), g("x.sqlite"));
+    t.eq("an LevelDB table is a database", g("000003.ldb"), g("a.db"));
+    t.eq("a compiled zsh file is zsh", g(".zcompdump.zwc"), g("a.zsh"));
+    t.eq("a .node addon is a library", g("addon.node"), g("libx.so"));
+    t.eq("an Electron .asar is an archive", g("app.asar"), g("a.zip"));
+    t.eq("shaders share one glyph", g("blur.frag"), g("blur.vert"));
+    t.eq("a model file", g("model.safetensors"), g("model.onnx"));
+    t.eq("a Steam manifest", g("appmanifest_1.acf"), g("SteamLibrary", true));
+    t.eq("nvim's shada is vim's", g("main.shada"), g("a.vim"));
+    t.eq("a .desktop's .directory twin", g("x.directory"), g("x.desktop"));
+    t.eq("a .backup is a .bak", g("f.backup"), g("f.bak"));
+    t.eq("a file named lock", g("lock"), g("a.lock"));
+    t.eq("a file named log", g("log"), g("a.log"));
+    t.eq("qmldir is Qt's", g("qmldir"), g("a.qml"));
+    t.eq("a shell history", g(".zsh_history"), g("a.history"));
+    t.eq("an xbel is bookmarks", g("recently-used.xbel"), g("bookmarks"));
+    t.eq("glab's directory is GitLab's", g("glab-cli", true), g("gitlab", true));
+    t.eq("a git remote is not EA's Origin", g("origin", true), g("zzqq", true));
+    t.eq("Chromium's directory", g("chromium", true), T.appGlyph(["chrome"]));
+    t.eq("fontconfig wears fonts", g("fontconfig", true), g("fonts", true));
+    t.eq("a suite app's directory is its app", g("ceres", true), T.appGlyph(["ceres"]));
+    t.eq("dirs still ignore EXTS", g("x.jsonl", true) !== g("x.jsonl"), true);
   }
 };

@@ -5,7 +5,7 @@
 //
 // THE LOOK-UP CARD (user, 2026-10-21: "word lookup can use lexi. you could
 // also add translate, lexi covers that too"): the words selected, defined
-// from Wiktionary or translated — both asked of lexi/lexi.js through the
+// from Wiktionary or translated — both asked of cynosure/lexi/lexi.js through the
 // manager — in a card over the page's corner. "Open in Lexi" carries them
 // over to Lexi itself, for its history, its pronunciation and the rest.
 //
@@ -131,6 +131,14 @@ Rectangle {
       clip: true
       interactive: false
       ElasticScroll { view: defs }
+      // on the Flickable itself, not its content, so it stays put
+      Scrollbar {
+        parent: defs
+        flick: defs
+        anchors.right: parent.right
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+      }
       Column {
         id: defCol
         width: defs.width
@@ -187,11 +195,10 @@ Rectangle {
     }
 
     Row {
-      spacing: 8
+      spacing: Zenon.buttonGap
       DialogButton {
         id: langBtn
         visible: card.mode === "translate"
-        implicitHeight: 30
         held: card.win.heldBy(langBtn)
         label: (card.result && card.result.source ? card.mgr.languageName(card.result.source) + "  →  " : "")
           + (card.mgr ? card.mgr.languageName(card.win.settings.translateTo) : "")
@@ -201,9 +208,8 @@ Rectangle {
         })))
       }
       DialogButton {
-        implicitHeight: 30
         label: "Open in Lexi"
-        ink: Zenon.cyan
+        ink: Zenon.accent
         onClicked: { card.mgr.openInLexi(card.words, card.mode === "translate"); card.shown = false; card.closed(); }
       }
     }

@@ -73,5 +73,19 @@ module.exports = {
     t.eq("limit words", [K.limitWords(0), K.limitWords(30), K.limitWords(60), K.limitWords(90)], ["No limit", "30 min", "1 h", "1 h 30 min"]);
     t.eq("time against a limit", K.againstLimit(3900, 60), "1h 05m of 1 h");
     t.eq("a break due", [K.breakDue(1199, 20), K.breakDue(1200, 20), K.breakDue(99999, 0)], [false, true, false]);
+    // focus sessions and auto quit (2026-11-03)
+    t.eq("rules read, bad entries dropped", K.parseRules('{"block":["discord",3,""],"autoQuit":{"slack":30,"x":0},"focus":null}'),
+      { block: ["discord"], autoQuit: { slack: 30 }, focus: null });
+    t.eq("no file is no rules", K.parseRules(""), { block: [], autoQuit: {}, focus: null });
+    t.eq("a session kept", K.parseRules(K.serializeRules({ block: [], autoQuit: {}, focus: { until: 9, label: "Writing", minutes: 25, dndWas: true } })).focus,
+      { until: 9, label: "Writing", minutes: 25, dndWas: true });
+    t.eq("set aside, once", K.withBlocked(K.withBlocked(["a"], "b", true), "b", true), ["a", "b"]);
+    t.eq("and allowed", K.withBlocked(["a", "b"], "a", false), ["b"]);
+    t.eq("auto quit off", K.withAutoQuit({ a: 30 }, "a", 0), {});
+    t.eq("a name is a key", K.keyOfName(" Discord "), "discord");
+    t.eq("quit when unused long enough", [K.quitDue(30, 1000, 1000 + 1800000, false), K.quitDue(30, 1000, 1000 + 1799999, false),
+      K.quitDue(30, 1000, 1000 + 1800000, true)], [true, false, false]);
+    t.eq("time left", [K.leftWords(30000), K.leftWords(18 * 60000), K.leftWords(65 * 60000)],
+      ["Less than a minute left", "18 min left", "1 h 5 min left"]);
   }
 };

@@ -28,7 +28,9 @@ Rectangle {
   // how far a click leans it: the way it goes for the sides
   property real nudge: tab.edge === "left" ? -6 : tab.edge === "right" ? 6 : -4
   // the long side, and how far it stands out at rest / under the pointer
-  property real length: 52
+  // (52 both ways until 2026-11-03: the user asked for taller prev/next and
+  // a wider strip handle, to be seen better)
+  property real length: tab.side ? 88 : 84
   property real rest: 17
   property real grown: 22
   property real glyphSize: Zenon.px(tab.side ? 16 : 14)
@@ -51,8 +53,9 @@ Rectangle {
   // solid: the strip's color, laid over black rather than over what is
   // behind it
   readonly property color base: Qt.tint(Qt.tint(Zenon.ground, Zenon.layerBg), Zenon.headBg)
-  color: tabMa.pressed ? Qt.tint(tab.base, Qt.rgba(Zenon.cyan.r, Zenon.cyan.g, Zenon.cyan.b, 0.28))
-    : tab.hot ? Qt.tint(tab.base, Qt.rgba(Zenon.cyan.r, Zenon.cyan.g, Zenon.cyan.b, 0.16))
+  // no hover tint (user, 2026-11-04): it grows under the pointer and only
+  // a press colors it
+  color: tabMa.pressed ? Qt.tint(tab.base, Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.28))
     : tab.base
   border.width: 1
   border.color: Zenon.border
@@ -84,7 +87,7 @@ Rectangle {
     anchors.horizontalCenterOffset: tab.edge === "left" ? -1 : tab.edge === "right" ? 1 : 0
     anchors.verticalCenterOffset: tab.side ? 0 : 1
     text: tab.glyph
-    color: tab.hot ? Zenon.cyan : Zenon.accentMuted
+    color: tabMa.pressed ? Zenon.accent : Zenon.accentMuted
     font.family: Zenon.face
     font.weight: Zenon.weight
     font.pixelSize: tab.glyphSize

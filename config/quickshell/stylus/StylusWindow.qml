@@ -750,10 +750,10 @@ FloatingWindow {
                     // not it is the one chosen
                     readonly property var verdict: sw.verdictOf(driveRows.modelData)
                     glyphInk: verdict && verdict.level === "bad" ? Zenon.red : verdict && verdict.level === "warn" ? Zenon.yellow
-                      : sw.sel === driveRows.modelData.block ? Zenon.cyan : "transparent"
+                      : sw.sel === driveRows.modelData.block ? Zenon.accent : "transparent"
                     label: S.driveTitle(driveRows.modelData)
                     count: sw.jobCount(driveRows.modelData) || Terminus.formatSize(driveRows.modelData.size)
-                    countInk: sw.jobCount(driveRows.modelData) !== "" ? Zenon.cyan : Zenon.accentMuted
+                    countInk: sw.jobCount(driveRows.modelData) !== "" ? Zenon.accent : Zenon.accentMuted
                     here: sw.sel === driveRows.modelData.block && sw.part === ""
                     onClicked: { sw.choose(driveRows.modelData); sw.refocus(); }
                     TapHandler {
@@ -808,11 +808,10 @@ FloatingWindow {
         id: sideBtn
         x: 14
         anchors.verticalCenter: parent.verticalCenter
-        implicitHeight: 30
         glyph: true
         // the sidebar shown or not, minerva's glyphs for the left side
         label: sw.sideOpen ? "\u{EC02}" : "\u{EBF3}"
-        ink: sw.sideOpen ? Zenon.cyan : Zenon.muted
+        ink: sw.sideOpen ? Zenon.accent : Zenon.muted
         onClicked: sw.setSidebar(!sw.sideOpen)
         HoverHandler { onHoveredChanged: hovered ? tip.show(sideBtn, "Sidebar") : tip.hide(sideBtn) }
       }
@@ -866,10 +865,9 @@ FloatingWindow {
             id: toolBtn
             required property var modelData
             readonly property string why: modelData.id === "write" && sw.job ? "" : modelData.id === "backup" ? "" : sw.off(modelData.id)
-            implicitHeight: 30
             glyph: true
             label: modelData.glyph
-            ink: modelData.id === "write" && sw.busy ? Zenon.cyan : Zenon.accentMuted
+            ink: modelData.id === "write" && sw.busy ? Zenon.accent : Zenon.accentMuted
             ready: toolBtn.why === "" && !(sw.busy && modelData.id !== "write" && modelData.id !== "mount")
             held: modelData.id === "write" ? sw.sheetOpen : modelData.id === "partition" ? sw.partOpen : modelData.id === "backup" ? sw.backupOpen : (modelData.id === "repair" || modelData.id === "erase") && tool.open && (tool.mode === "format") === (modelData.id === "erase")
             onClicked: modelData.run()
@@ -878,7 +876,6 @@ FloatingWindow {
         }
         DialogButton {
           id: moreBtn
-          implicitHeight: 30
           glyph: true
           label: "\u{F01D8}"
           held: menu.isOpen && menu.held === moreBtn
@@ -914,7 +911,7 @@ FloatingWindow {
             anchors.verticalCenter: parent.verticalCenter
             // a volume wears the drive's glyph, quieter
             text: S.driveGlyph(sw.drive)
-            color: sw.vol ? Zenon.accentMuted : Zenon.cyan
+            color: sw.vol ? Zenon.accentMuted : Zenon.accent
             font.family: Zenon.glyphFace
             font.pixelSize: Zenon.px(48)
           }
@@ -1017,7 +1014,7 @@ FloatingWindow {
           // every drive: one that keeps no SMART can still be read end to end
           visible: !sw.vol && !!sw.drive && sw.drive.kind !== "loop"
           glyph: "\u{F05F6}"
-          glyphInk: !healthCard.verdict ? Zenon.cyan : healthCard.verdict.level === "bad" ? Zenon.red
+          glyphInk: !healthCard.verdict ? Zenon.accent : healthCard.verdict.level === "bad" ? Zenon.red
             : healthCard.verdict.level === "warn" ? Zenon.yellow : Zenon.green
           title: "Health"
           note: healthCard.verdict ? healthCard.verdict.words : "It keeps no SMART data"

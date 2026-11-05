@@ -113,7 +113,7 @@ Item {
   }
 
 
-  // A cyan flare on the tile that was just opened — OpenFlare, below.
+  // An accent flare on the tile that was just opened — OpenFlare, below.
   Connections {
     target: term
     // Files only, the same rule the list rows follow. Opening a DIRECTORY
@@ -160,7 +160,7 @@ Item {
     // was this border, and a border drawn per tile cannot travel:
     // the cursor slid invisibly and the outline teleported.
     //
-    // SelectCell carries the cyan outline now, so the thing you can
+    // SelectCell carries the accent outline now, so the thing you can
     // actually see on a grid of pictures is the thing that moves.
     // What stays here is the outline for the case the bar stands
     // down for — passive pane, or anything ticked — and the flare,
@@ -171,7 +171,7 @@ Item {
     // was the flare gone. At rest it is Zenon.border like everything else.
     border.width: (tile.current && tile.cursorOnly) ? 1 : 0
     // As a row's — see EntryRow's border.
-    border.color: !tile.passive ? Zenon.cyan : Zenon.border
+    border.color: !tile.passive ? Zenon.accent : Zenon.border
 
     // the flare itself, over the tile's own fill
     OpenFlare {
@@ -494,7 +494,7 @@ Item {
             // NON-BREAKING spaces: this is markup now, and StyledText
             // collapses a run of ordinary ones to a single space, so the gap
             // asked for was never the gap drawn.
-            ? "<font color=\"" + Zenon.hex(Zenon.cyan) + "\">\uF47A</font>&#160;&#160;" : "")
+            ? "<font color=\"" + Zenon.hex(Zenon.accent) + "\">\uF47A</font>&#160;&#160;" : "")
           // Tags last, nearest the name, one colored mark each — the
           // list's tag column, said inline for the same reason as above.
           + tile.tagList.map((t) => "<font color=\"" + Zenon.hex(term.tagInk(t))
@@ -590,7 +590,7 @@ Item {
     color: Zenon.white
     // the accent, not selBg: the row being renamed is the selected row,
     // already filled in selBg, so the highlighted name was invisible on it
-    selectionColor: Zenon.alpha(Zenon.cyan, 0.22)
+    selectionColor: Zenon.alpha(Zenon.accent, 0.22)
     selectedTextColor: Zenon.white
     font.family: Zenon.face
     font.weight: Zenon.weight
@@ -684,7 +684,7 @@ Item {
     height: Math.max(0, Math.min(parent.height - 8, tile.usedH - 4))
     z: 6
     visible: tile.dropTarget
-    color: Qt.rgba(Zenon.cyan.r, Zenon.cyan.g, Zenon.cyan.b, 0.12)
+    color: Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.12)
     border.width: 1
     border.color: Zenon.border
     radius: Zenon.windowRadius

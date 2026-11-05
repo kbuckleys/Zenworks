@@ -55,7 +55,7 @@ Collapsible {
         anchors.centerIn: parent
         text: root.owed ? "󰚰" : "󰏗"
         // the theme's accent, as Control Hub's icon wears it (user, 2026-10-23)
-        color: Zenon.cyan
+        color: Zenon.accent
         numeric: true
         font.pixelSize: Zenon.clockSize
       }

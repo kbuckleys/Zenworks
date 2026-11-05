@@ -162,7 +162,6 @@ FloatingWindow {
         anchors.right: parent.right
         anchors.rightMargin: 14
         anchors.verticalCenter: parent.verticalCenter
-        implicitHeight: 32
         // the refresh glyph, not words (user, 2026-10-22)
         glyph: true
         label: "\u{F0450}"
@@ -195,6 +194,12 @@ FloatingWindow {
       lasts: 3200
     }
 
+    // the rows still to come run on under the keys' pill, which frosts them
+    ScrollEdge { view: overviewPage.view; below: true; follow: true; bar: foot; visible: overviewPage.visible }
+    ScrollEdge { view: systemPage.view; below: true; follow: true; bar: foot; visible: systemPage.visible }
+    ScrollEdge { view: userPage.view; below: true; follow: true; bar: foot; visible: userPage.visible }
+    ScrollEdge { view: timersPage.view; below: true; follow: true; bar: foot; visible: timersPage.visible }
+    ScrollEdge { view: journalPage.view; below: true; follow: true; bar: foot; visible: journalPage.visible }
     HintBar {
       id: foot
       z: 3

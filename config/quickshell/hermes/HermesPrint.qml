@@ -289,7 +289,7 @@ Column {
   HermesCard {
     visible: page.info.cups.running
     glyph: H.G.printer
-    glyphInk: page.rows.length > 0 ? Zenon.cyan : Zenon.accentMuted
+    glyphInk: page.rows.length > 0 ? Zenon.accent : Zenon.accentMuted
     title: "Printers"
     note: page.rows.length > 0 && page.rows[0].default ? "Default · " + page.rows[0].info : ""
     EmptyState {
@@ -322,7 +322,7 @@ Column {
               anchors.verticalCenter: parent.verticalCenter
               width: 24
               text: H.printerGlyph(prRow.p)
-              color: H.reasonWords(prRow.p.reasons) !== "" ? Zenon.yellow : prRow.p.state === "printing" ? Zenon.cyan : Zenon.accentMuted
+              color: H.reasonWords(prRow.p.reasons) !== "" ? Zenon.yellow : prRow.p.state === "printing" ? Zenon.accent : Zenon.accentMuted
               font.family: Zenon.glyphFace
               font.pixelSize: Zenon.px(17)
             }
@@ -358,7 +358,7 @@ Column {
               anchors.rightMargin: 18
               anchors.verticalCenter: parent.verticalCenter
               text: H.printerWords(prRow.p)
-              color: prRow.p.state === "printing" ? Zenon.cyan : H.reasonWords(prRow.p.reasons) !== "" ? Zenon.yellow : Zenon.accentMuted
+              color: prRow.p.state === "printing" ? Zenon.accent : H.reasonWords(prRow.p.reasons) !== "" ? Zenon.yellow : Zenon.accentMuted
               font.family: Zenon.face
               font.weight: Zenon.weight
               font.pixelSize: Zenon.px(13)
@@ -376,7 +376,7 @@ Column {
     Row {
       x: 18
       visible: !!page.picked
-      spacing: 8
+      spacing: Zenon.buttonGap
       height: 44
       DialogButton { anchors.verticalCenter: parent.verticalCenter; label: "Print a test page"; onClicked: page.testPage(page.picked) }
       DialogButton {
@@ -402,7 +402,7 @@ Column {
   HermesCard {
     visible: page.info.cups.running && page.info.jobs.length > 0
     glyph: H.G.printer
-    glyphInk: Zenon.cyan
+    glyphInk: Zenon.accent
     title: "Waiting to print"
     note: page.info.jobs.length + (page.info.jobs.length === 1 ? " job" : " jobs")
     Column {
@@ -443,7 +443,7 @@ Column {
   HermesCard {
     visible: page.info.cups.running
     glyph: H.G.printerSearch
-    glyphInk: page.finding ? Zenon.cyan : Zenon.accentMuted
+    glyphInk: page.finding ? Zenon.accent : Zenon.accentMuted
     title: "Add a printer"
     note: page.foundOnce && !page.finding ? page.found.length + " found" : ""
     trailing: [
@@ -516,7 +516,7 @@ Column {
   HermesCard {
     visible: page.info.known
     glyph: H.G.scanner
-    glyphInk: page.scanners.length > 0 ? Zenon.cyan : Zenon.accentMuted
+    glyphInk: page.scanners.length > 0 ? Zenon.accent : Zenon.accentMuted
     title: "Scanners"
     note: page.scannedOnce && !page.lookingScan ? page.scanners.length + " found" : ""
     trailing: [
@@ -566,7 +566,7 @@ Column {
             width: 24
             // the one scans go to: a tick, as the chosen one in a menu wears it
             text: scRow.index === page.scanSel ? H.G.check : ""
-            color: scRow.index === page.scanSel ? Zenon.cyan : Zenon.accentMuted
+            color: scRow.index === page.scanSel ? Zenon.accent : Zenon.accentMuted
             font.family: Zenon.glyphFace
             font.pixelSize: Zenon.px(16)
           }

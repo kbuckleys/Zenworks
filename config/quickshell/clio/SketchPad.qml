@@ -68,7 +68,7 @@ Item {
     id: tools
     x: 18
     y: 14
-    spacing: 8
+    spacing: Zenon.buttonGap
     Repeater {
       model: pad.pens
       delegate: Rectangle {
@@ -79,7 +79,7 @@ Item {
         anchors.verticalCenter: parent.verticalCenter
         color: Zenon[modelData] || Zenon.ink
         border.width: pad.pen === modelData && !pad.erasing ? 3 : 1
-        border.color: pad.pen === modelData && !pad.erasing ? Zenon.cyan : Zenon.border
+        border.color: pad.pen === modelData && !pad.erasing ? Zenon.accent : Zenon.border
         MouseArea { anchors.fill: parent; onClicked: { pad.pen = modelData; pad.erasing = false; } }
       }
     }
@@ -92,7 +92,7 @@ Item {
         width: 30
         height: 30
         radius: Zenon.windowRadius
-        color: Math.abs(pad.width_ - modelData[0]) < 0.001 ? Zenon.alpha(Zenon.cyan, 0.16) : "transparent"
+        color: Math.abs(pad.width_ - modelData[0]) < 0.001 ? Zenon.alpha(Zenon.accent, 0.16) : "transparent"
         border.width: 1
         border.color: Zenon.border
         Rectangle { anchors.centerIn: parent; width: modelData[1]; height: width; radius: width / 2; color: Zenon.ink }
@@ -110,9 +110,9 @@ Item {
     anchors.right: parent.right
     anchors.rightMargin: 18
     y: 14
-    spacing: 8
+    spacing: Zenon.buttonGap
     DialogButton { label: "Cancel"; onClicked: pad.finished(null, false) }
-    DialogButton { label: "Done"; ink: Zenon.cyan; primary: true; onClicked: pad.finished(pad.strokes, true) }
+    DialogButton { label: "Done"; ink: Zenon.accent; primary: true; onClicked: pad.finished(pad.strokes, true) }
   }
 
   // ── THE PAPER ──

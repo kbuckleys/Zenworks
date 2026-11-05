@@ -1,3 +1,5 @@
+-- multicursor.nvim by jake-stewart — https://github.com/jake-stewart/multicursor.nvim (MIT)
+--
 -- multicursor.nvim: several cursors at once, each doing what you type.
 -- Run by plato after the plugin loads; edit freely (plato's plugin panel,
 -- "configure", opens this file).

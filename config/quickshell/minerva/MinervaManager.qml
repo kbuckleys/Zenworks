@@ -28,7 +28,7 @@ import Quickshell.Io
 import "../morpheus"
 import "../morpheus/lagnotes.js" as LagNotes
 import "../ceres"
-import "../lexi/lexi.js" as Lexicon
+import "../cynosure/lexi/lexi.js" as Lexicon
 import "minerva.js" as M
 
 Scope {

@@ -593,7 +593,7 @@ PlatoSheet {
       font.family: Zenon.faceMono
       font.weight: Zenon.weight
       font.pixelSize: Zenon.px(17)
-      color: Zenon.cyan
+      color: Zenon.accent
       text: picker.glyph
     }
     // grep's state, at the field's end: still looking, or how much it found
@@ -606,10 +606,10 @@ PlatoSheet {
       font.family: Zenon.face
       font.weight: Zenon.weight
       font.pixelSize: Zenon.px(14)
-      color: picker.grepBusy ? Zenon.cyan : Zenon.accentMuted
+      color: picker.grepBusy ? Zenon.accent : Zenon.accentMuted
       text: picker.grepBusy ? "Searching\u2026 " + (picker.results.length || "")
-        : picker.results.length >= 300 ? "first 300"
-        : picker.results.length === 0 ? "no matches"
+        : picker.results.length >= 300 ? "First 300"
+        : picker.results.length === 0 ? "No matches"
         : picker.results.length + (picker.results.length === 1 ? " match" : " matches")
     }
     TextInput {
@@ -715,7 +715,7 @@ PlatoSheet {
         text: {
           if (picker.mode !== "files") return "";
           const p = String(item.modelData.path || "");
-          return Icons.glyphFor({ name: p.slice(p.lastIndexOf("/") + 1), isDir: false });
+          return Icons.glyphFor({ name: p.slice(p.lastIndexOf("/") + 1), isDir: false, path: p });
         }
       }
       Text {
@@ -752,11 +752,11 @@ PlatoSheet {
         font.pixelSize: picker.mode === "grep" || picker.mode === "yanks" || picker.mode === "refs" ? picker.face.pixelSize - 1 : Zenon.px(16)
         // a verb you can run in white (the user's call, 2026-10-05: terminus'
         // yellow read as a warning here); a diagnostic in its severity's;
-        // where the undo history is now, in cyan
+        // where the undo history is now, in accent
         color: item.modelData.action || picker.mode === "menu" ? Zenon.white
           : item.modelData.sev === 1 ? Zenon.red : item.modelData.sev === 2 ? Zenon.yellow
-          : item.modelData.sev === 3 ? Zenon.blue : item.modelData.sev === 4 ? Zenon.cyan
-          : item.modelData.current ? Zenon.cyan : Zenon.white
+          : item.modelData.sev === 3 ? Zenon.blue : item.modelData.sev === 4 ? Zenon.accent
+          : item.modelData.current ? Zenon.accent : Zenon.white
         text: (item.modelData.glyph ? item.modelData.glyph + "  " : "")
           + item.modelData.label + (item.modelData.mark ? "  " + item.modelData.mark : "")
       }
@@ -872,9 +872,9 @@ PlatoSheet {
     codeWeight: picker.codeWeight
     pixelSize: picker.face.pixelSize
     imageMargin: 14
-    message: preview.kind === "binary" ? "binary file — nothing to show"
-      : picker.mode === "undo" ? (preview.kind === "empty" ? "this is where you are" : "")
-      : preview.kind === "empty" ? "empty file"
-      : preview.kind === "" && picker.results.length === 0 ? "no file to preview" : ""
+    message: preview.kind === "binary" ? "Binary file — nothing to show"
+      : picker.mode === "undo" ? (preview.kind === "empty" ? "This is where you are" : "")
+      : preview.kind === "empty" ? "Empty file"
+      : preview.kind === "" && picker.results.length === 0 ? "No file to preview" : ""
   }
 }

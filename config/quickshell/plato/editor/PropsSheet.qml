@@ -50,7 +50,7 @@ PlatoSheet {
   title: card.many ? card.rows.length + " items" : (sheet.row ? sheet.row.name : "Info")
   glyph: card.many ? "\uf0c5" : (sheet.row ? sheet.row.glyph || "" : "")
   // a repository's in git's magenta, as the tree and terminus draw it
-  glyphInk: !sheet.row ? Zenon.cyan : host.isRepo(sheet.row) ? Zenon.magenta : Terminus.inkOf(sheet.row)
+  glyphInk: !sheet.row ? Zenon.accent : host.isRepo(sheet.row) ? Zenon.magenta : Terminus.inkOf(sheet.row)
   renamable: !!sheet.row
   onRenamed: (n) => {
     if (!sheet.row) return;

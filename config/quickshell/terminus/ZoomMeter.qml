@@ -43,7 +43,7 @@ Item {
     segLength: 2
     segGap: 1
     thickness: 7
-    accent: zoomMa.containsMouse || zoomMa.pressed ? Zenon.white : Zenon.cyan
+    accent: zoomMa.pressed ? Zenon.white : Zenon.accent
     Behavior on accent {
       ColorAnimation { duration: Zenon.fast; easing.type: Zenon.ease }
     }

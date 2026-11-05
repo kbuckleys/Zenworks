@@ -154,18 +154,16 @@ Item {
       anchors.right: parent.right
       anchors.rightMargin: 20
       anchors.verticalCenter: parent.verticalCenter
-      spacing: 8
+      spacing: Zenon.buttonGap
       DialogButton {
         id: shelfBtn
-        implicitHeight: 30
         label: (lib.settings.shelf !== "" ? "\u{F125F}  " + lib.settings.shelf : "\u{F125F}  All shelves")
-        ink: lib.settings.shelf !== "" ? Zenon.cyan : Zenon.muted
+        ink: lib.settings.shelf !== "" ? Zenon.accent : Zenon.muted
         held: !!lib.win && lib.win.heldBy(shelfBtn)
         onClicked: lib.win.shelfMenu(shelfBtn)
       }
       DialogButton {
         id: sortBtn
-        implicitHeight: 30
         label: "\u{F04BA}  " + lib.sortNames[lib.settings.sort]
         held: !!lib.win && lib.win.heldBy(sortBtn)
         onClicked: lib.win.openMenu(sortBtn, M.SORTS.map((k) => ({
@@ -299,7 +297,7 @@ Item {
               width: parent.width * (lib.hero ? lib.hero.progress : 0)
               height: parent.height
               radius: 3
-              color: Zenon.cyan
+              color: Zenon.accent
             }
           }
           Text {
@@ -315,9 +313,8 @@ Item {
           Item { width: 1; height: 8 }
           DialogButton {
             label: "Continue"
-            ink: Zenon.cyan
+            ink: Zenon.accent
             primary: true
-            implicitHeight: 32
             onClicked: lib.goOn()
           }
         }
@@ -348,25 +345,23 @@ Item {
         anchors.margins: 6
         radius: Zenon.radiusCard
         visible: cell.isMarked
-        color: Zenon.alpha(Zenon.cyan, 0.12)
+        color: Zenon.alpha(Zenon.accent, 0.12)
         border.width: 1
-        border.color: Zenon.alpha(Zenon.cyan, 0.6)
+        border.color: Zenon.alpha(Zenon.accent, 0.6)
       }
       ChosenFlash { id: cellFlash; anchors.margins: 6; radius: Zenon.radiusCard }
 
-      // the cover: its own, or the title set on a plain board — lifted a
-      // little under the pointer
+      // the cover: its own, or the title set on a plain board
       Rectangle {
         id: coverBox
         anchors.horizontalCenter: parent.horizontalCenter
-        y: 16 - (hover.hovered ? 4 : 0)
-        Behavior on y { NumberAnimation { duration: Zenon.normal; easing.type: Easing.OutCubic } }
+        y: 16
         width: grid.cellWidth - 36
         height: Math.round(width * 1.42)
         radius: Zenon.radiusControl
         color: Zenon.wash(0.06)
         border.width: 1
-        border.color: hover.hovered ? Zenon.alpha(Zenon.cyan, 0.55) : Zenon.border
+        border.color: Zenon.border
         clip: true
         property string src: ""
         Component.onCompleted: coverBox.fetch()
@@ -422,7 +417,7 @@ Item {
           anchors.bottom: parent.bottom
           width: parent.width * (cell.book ? cell.book.progress : 0)
           height: 4
-          color: Zenon.cyan
+          color: Zenon.accent
           visible: !!cell.book && cell.book.progress > 0 && cell.state_ !== "finished"
         }
         // finished: a tick in the corner; never opened: "New"
@@ -434,12 +429,12 @@ Item {
           width: cell.state_ === "finished" ? 26 : badge.implicitWidth + 14
           height: 22
           radius: Zenon.radiusControl
-          color: cell.state_ === "finished" ? Zenon.green : Zenon.cyan
+          color: cell.state_ === "finished" ? Zenon.green : Zenon.accent
           Text {
             id: badge
             anchors.centerIn: parent
             text: cell.state_ === "finished" ? "\u{F012C}" : "New"
-            color: Zenon.onAccent
+            color: Zenon.inkOnAccent
             font.family: cell.state_ === "finished" ? Zenon.glyphFace : Zenon.face
             font.weight: Font.Bold
             font.pixelSize: Zenon.px(cell.state_ === "finished" ? 14 : 11)
@@ -448,7 +443,7 @@ Item {
       }
       Column {
         anchors.top: coverBox.bottom
-        anchors.topMargin: 10 + (hover.hovered ? 4 : 0)
+        anchors.topMargin: 10
         anchors.horizontalCenter: parent.horizontalCenter
         width: coverBox.width
         spacing: 2
@@ -484,7 +479,6 @@ Item {
           font.pixelSize: Zenon.px(12)
         }
       }
-      HoverHandler { id: hover }
       MouseArea {
         anchors.fill: parent
         acceptedButtons: Qt.LeftButton | Qt.RightButton
@@ -552,7 +546,7 @@ Item {
     width: band.held.width
     height: band.held.height
     radius: Zenon.windowRadius
-    color: Zenon.alpha(Zenon.cyan, 0.12)
+    color: Zenon.alpha(Zenon.accent, 0.12)
     border.width: 1
     border.color: Zenon.border
   }

@@ -131,20 +131,20 @@ PopupWindow {
           // Where "follow" currently lands, shown softly — the corner the
           // toasts are actually in, without claiming it was picked.
           readonly property bool followed: root.autoOn && cell.here
-          readonly property color ink: cell.chosen ? Zenon.cyan
-            : cell.followed ? Qt.rgba(Zenon.cyan.r, Zenon.cyan.g, Zenon.cyan.b, 0.55)
+          readonly property color ink: cell.chosen ? Zenon.accent
+            : cell.followed ? Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.55)
             : Qt.rgba(Zenon.muted.r, Zenon.muted.g, Zenon.muted.b, 0.7)
 
           width: root.cellW
           height: root.cellH
           radius: Zenon.rad(3)
           color: cell.chosen
-            ? Qt.rgba(Zenon.cyan.r, Zenon.cyan.g, Zenon.cyan.b, 0.30)
+            ? Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.30)
             : (cellMa.pressed ? Zenon.wash(0.12)
                                     : Zenon.wash(0.05))
           border.width: 1
-          border.color: cell.chosen ? Zenon.cyan
-            : cell.followed ? Qt.rgba(Zenon.cyan.r, Zenon.cyan.g, Zenon.cyan.b, 0.55)
+          border.color: cell.chosen ? Zenon.accent
+            : cell.followed ? Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.55)
             : (cellMa.pressed ? Zenon.keyInk : Zenon.border)
           Behavior on color {
             ColorAnimation { duration: Zenon.fast; easing.type: Zenon.ease }
@@ -244,7 +244,7 @@ PopupWindow {
         horizontalAlignment: Text.AlignHCenter
         visible: root.autoOn
         text: "\uF00C"
-        color: Zenon.cyan
+        color: Zenon.accent
         font.family: Zenon.face
         font.weight: Zenon.weight
         font.pixelSize: Zenon.px(13)

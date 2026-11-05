@@ -146,7 +146,7 @@ FocusScope {
           anchors.fill: parent
           radius: band.radius
           frac: S.phaseFrac(body.job)
-          ink: body.job && body.job.result && !body.job.result.ok ? Zenon.red : Zenon.cyan
+          ink: body.job && body.job.result && !body.job.result.ok ? Zenon.red : Zenon.accent
         }
       }
       Text {
@@ -164,7 +164,7 @@ FocusScope {
 
     Row {
       anchors.right: parent.right
-      spacing: 10
+      spacing: Zenon.buttonGap
       DialogButton {
         visible: body.face !== "done"
         label: body.face === "running" ? "Hide" : "Cancel"
@@ -181,7 +181,7 @@ FocusScope {
         visible: body.face !== "running"
         label: body.face === "done" ? "Done" : "Download"
         primary: true
-        ink: Zenon.cyan
+        ink: Zenon.accent
         ready: body.face === "done" || !!body.entry
         onClicked: body.go()
       }

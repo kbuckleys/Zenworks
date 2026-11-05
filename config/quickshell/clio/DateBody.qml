@@ -65,7 +65,7 @@ Column {
     Row {
       anchors.right: parent.right
       anchors.verticalCenter: parent.verticalCenter
-      spacing: 4
+      spacing: Zenon.stepGap
       DialogButton { glyph: true; label: ""; onClicked: db.step(-1) }
       DialogButton { glyph: true; label: ""; onClicked: db.step(1) }
     }
@@ -85,13 +85,13 @@ Column {
           width: 32
           height: 32
           radius: height / 2
-          color: parent.chosen ? Zenon.cyan : "transparent"
+          color: parent.chosen ? Zenon.accent : "transparent"
           border.width: N.dayKey(modelData.ms) === N.dayKey(Date.now()) ? 1.5 : 0
           border.color: Zenon.sand
           Text {
             anchors.centerIn: parent
             text: modelData.day
-            color: parent.parent.chosen ? Zenon.onAccent : modelData.out ? Zenon.alpha(Zenon.accentMuted, 0.5) : Zenon.ink
+            color: parent.parent.chosen ? Zenon.inkOnAccent : modelData.out ? Zenon.alpha(Zenon.accentMuted, 0.5) : Zenon.ink
             font.family: Zenon.face
             font.weight: Zenon.weight
             font.pixelSize: Zenon.px(13)
@@ -102,7 +102,7 @@ Column {
     }
   }
   Row {
-    spacing: 10
+    spacing: Zenon.buttonGap
     Text { anchors.verticalCenter: parent.verticalCenter; text: "Time"; color: Zenon.accentMuted; font.family: Zenon.face; font.weight: Zenon.weight; font.pixelSize: Zenon.px(14) }
     DialogButton { glyph: true; label: ""; onClicked: { const t = (db.hour * 60 + db.minute - 15 + 1440) % 1440; db.hour = Math.floor(t / 60); db.minute = t % 60; } }
     Text {
@@ -121,9 +121,9 @@ Column {
     height: 30
     Row {
       anchors.right: parent.right
-      spacing: 8
+      spacing: Zenon.buttonGap
       DialogButton { label: "Cancel"; onClicked: db.closed() }
-      DialogButton { label: "Set date"; ink: Zenon.cyan; primary: true; onClicked: db.save() }
+      DialogButton { label: "Set date"; ink: Zenon.accent; primary: true; onClicked: db.save() }
     }
   }
 }

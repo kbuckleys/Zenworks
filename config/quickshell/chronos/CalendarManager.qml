@@ -124,5 +124,7 @@ Item {
     function open(section: string): string { mgr.open(); return "ok"; }
     function day(iso: string): string { mgr.day(iso); return "ok"; }
     function add(iso: string): string { mgr.add(iso); return "ok"; }
+    // the online accounts sheet, for the setup assistant's Accounts step
+    function accounts(): string { mgr.accounts(); return "ok"; }
   }
 }

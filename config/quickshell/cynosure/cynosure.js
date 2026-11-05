@@ -7,9 +7,9 @@
 .import qs.morpheus as Morpheus
 .import Quickshell as QuickshellModule
 .import "../artemis/artemis.js" as Artemis
-.import "../folio/folio.js" as Folio
-.import "../ideo/ideo.js" as Ideo
-.import "../lexi/lexi.js" as Lexicon
+.import "folio/folio.js" as Folio
+.import "ideo/ideo.js" as Ideo
+.import "lexi/lexi.js" as Lexicon
 .import "../ceres/store.js" as Store
 .import "../clio/notes.js" as Notes
 .import "../chronos/chronos.js" as Chr
@@ -31,9 +31,43 @@ function freqPath() {
   return Paths.cacheDir() + "/cynosure-freq";
 }
 
+// ── WHAT YOU PICK FOR WHAT YOU TYPE (2026-11-04, Raycast's) ───────────────
+// "br" and then Brave: next time "br" has Brave first, whatever else fits
+// it better. Kept per line typed and per start of it from two letters ("bra"
+// teaches "br" too, the whole line twice as much); the newest PICKS_MAX lines
+// are kept. { line: { key: count } }
+const PICKS_MAX = 400;
+function picksPath() {
+  return Paths.cacheDir() + "/cynosure-picks.json";
+}
+// a plain { } of its own, as the aliases file is
+function parsePicks(text) { return parseAliases(text); }
+function serializePicks(picks) { return JSON.stringify(picks || {}) + "\n"; }
+function notePick(picks, query, key) {
+  const q = String(query || "").trim().toLowerCase();
+  const out = Object.assign({}, picks || {});
+  if (!key || q === "" || q.length > 40) return out;
+  for (let n = Math.min(2, q.length); n <= q.length; n++) {
+    const line = q.slice(0, n);
+    const was = Object.assign({}, out[line] || {});
+    was[key] = (was[key] || 0) + (n === q.length ? 2 : 1);
+    // touched lines move to the end, so the oldest are the first dropped
+    delete out[line];
+    out[line] = was;
+  }
+  const lines = Object.keys(out);
+  for (let i = 0; i < lines.length - PICKS_MAX; i++) delete out[lines[i]];
+  return out;
+}
+function pickCount(picks, query, key) {
+  const m = picks && picks[String(query || "").trim().toLowerCase()];
+  return m && m[key] || 0;
+}
+
 // ── WHAT YOU SEARCHED (2026-11-01) ─────────────────────────────────────────
-// The lines that led somewhere, newest first, for up on an empty line to
-// bring back (a shell's history). Kept in the cache with the frecency.
+// The lines that led somewhere, newest first: "history" lists them, and a
+// chip with nothing after it leads with its own. Kept in the cache with the
+// frecency.
 const QUERIES_MAX = 30;
 function queriesPath() {
   return Paths.cacheDir() + "/cynosure-searches";
@@ -104,9 +138,9 @@ function parseLexi(query) {
 // Oracle's pages and rows, found from the line ("bluetooth", "font size",
 // "dark mode") by Oracle's own filter (oracle.js matches: label, help, key,
 // alias): return opens Oracle on that page, at that row. In any line only
-// the ones whose NAME starts with a word of it, three at most, so a search
-// for an app is not buried; "settings …" lists every match.
-const SETTINGS_ANY = 3;
+// the ones whose NAME starts with a word of it (the list keeps three, and
+// a row for the rest), so a search for an app is not buried; "settings …"
+// lists every match.
 // What each row is searched by, worked out once per schema (it is rebuilt
 // only when Oracle's settings change) instead of on every key
 let settingsIndexOf = null, settingsIndex = null;
@@ -156,7 +190,7 @@ function settingsRows(schema, sections, query, scoped) {
       section: "Settings" });
   }
   out.sort((a, b) => a.rank - b.rank);
-  return out.slice(0, scoped ? 60 : SETTINGS_ANY);
+  return out.slice(0, 60);
 }
 
 // ── THE STORE (2026-11-01) ────────────────────────────────────────────────
@@ -218,7 +252,7 @@ function noteRows(notes, query, scoped) {
     hits.push({ n, s });
   }
   hits.sort((a, b) => (b.s - a.s) || ((b.n.modified || 0) - (a.n.modified || 0)));
-  return hits.slice(0, scoped ? 40 : 3).map((h) => {
+  return hits.slice(0, 40).map((h) => {
     const d = h.n.d || Notes.derive(h.n);
     const locked = !!(h.n.sealed || h.n.locked);
     return { kind: "note", key: "note:" + h.n.id, id: h.n.id, text: d.title || "Untitled",
@@ -343,8 +377,11 @@ function outputRows(sinks, inUse, query) {
 function colorRows(palette, query) {
   const q = String(query || "").trim().toLowerCase().replace(/^#/, "");
   return (palette || []).filter((h) => q === "" || h.slice(1).indexOf(q) >= 0)
-    .map((h) => ({ kind: "pcolor", key: "pc:" + h, hex: h, text: h.toUpperCase(), label: h.toUpperCase(),
-      sub: "", ink: h, glyph: "\u{F0765}", section: "Colors you picked" }));
+    .map((h) => {
+      const forms = Answers.colorForms(h);
+      return { kind: "pcolor", key: "pc:" + h, hex: h, text: h.toUpperCase(), label: h.toUpperCase(),
+        sub: forms[1][1] + " \u00B7 " + forms[2][1], forms, ink: h, glyph: "\u{F0765}", section: "Colors you picked" };
+    });
 }
 
 // ── GLYPHS YOU USED (2026-11-01) ───────────────────────────────────────────
@@ -450,7 +487,9 @@ function renderHotkeysLua(list) {
 // network places (terminus-network.json + what gvfs has mounted, network.js
 // rows) and the directories artemis has opened most; return opens Terminus
 // there, a network place not mounted yet connects first (Terminus place).
-function placeRows(bookmarks, places, dirs, query, home) {
+// `glyphOf` (morpheus' glyphFor, handed in): a directory wears its glyph
+// from the map, as Terminus shows it (2026-11-05)
+function placeRows(bookmarks, places, dirs, query, home, glyphOf) {
   const q = String(query || "").trim().toLowerCase();
   const hit = (name, path) => q === "" || (name + " " + path).toLowerCase().indexOf(q) >= 0;
   const out = [];
@@ -463,7 +502,7 @@ function placeRows(bookmarks, places, dirs, query, home) {
     if (!hit(name, shown)) return;
     seen[path] = true;
     out.push({ kind: "place", key: "place:" + path, path, uri: "", text: name, label: name,
-      sub: shown, glyph, section });
+      sub: shown, glyph: (glyphOf ? glyphOf({ name, isDir: true, path }) : "") || glyph, section });
   };
   for (const b of bookmarks || []) dirRow(b, "Bookmarks", "");
   for (const p of places || []) {
@@ -491,7 +530,38 @@ function snapRect(mon, gaps, where, size) {
   const aw = W - r[0] - r[2] - 2 * g, ah = H - r[1] - r[3] - 2 * g;
   const half = Math.round(g / 2);
   const R = (x, y, w, h) => ({ x: Math.round(x), y: Math.round(y), w: Math.round(w), h: Math.round(h) });
+  // thirds and quarters (2026-11-03): a third is a third of the width less
+  // its share of the gaps between; two thirds take the gap in between too
+  const third = (aw - 2 * g) / 3;
+  const qw = aw / 2 - half, qh = ah / 2 - half;
   switch (where) {
+  case "left3": return R(ax, ay, third, ah);
+  case "center3": return R(ax + third + g, ay, third, ah);
+  case "right3": return R(ax + 2 * (third + g), ay, third, ah);
+  case "left23": return R(ax, ay, 2 * third + g, ah);
+  case "right23": return R(ax + third + g, ay, 2 * third + g, ah);
+  case "tl": return R(ax, ay, qw, qh);
+  case "tr": return R(ax + aw / 2 + half, ay, qw, qh);
+  case "bl": return R(ax, ay + ah / 2 + half, qw, qh);
+  case "br": return R(ax + aw / 2 + half, ay + ah / 2 + half, qw, qh);
+  case "centerHalf": return R(ax + aw / 4, ay, aw / 2, ah);
+  case "almost": return R(ax + aw * 0.05, ay + ah * 0.05, aw * 0.9, ah * 0.9);
+  // the window's own place (`size` { x, y, w, h }): a tenth larger or
+  // smaller about its middle, or as wide / as tall as there is room
+  case "grow": case "shrink": {
+    const f = where === "grow" ? 1.1 : 1 / 1.1;
+    const w = Math.min(aw, size.w * f), h = Math.min(ah, size.h * f);
+    const x = Math.max(ax, Math.min(ax + aw - w, size.x + (size.w - w) / 2));
+    const y = Math.max(ay, Math.min(ay + ah - h, size.y + (size.h - h) / 2));
+    return R(x, y, w, h);
+  }
+  case "maxW": return R(ax, Math.max(ay, size.y), aw, Math.min(ah, size.h));
+  case "maxH": return R(Math.max(ax, size.x), ay, Math.min(aw, size.w), ah);
+  // the middle, at the size it has (`size`) or the size asked
+  case "center": {
+    const w = Math.min(aw, size.w), h = Math.min(ah, size.h);
+    return R(ax + (aw - w) / 2, ay + (ah - h) / 2, w, h);
+  }
   case "left": return R(ax, ay, aw / 2 - half, ah);
   case "right": return R(ax + aw / 2 + half, ay, aw / 2 - half, ah);
   case "top": return R(ax, ay, aw, ah / 2 - half);
@@ -513,6 +583,34 @@ function gapsOf(text) {
     const n = parseInt(String(v).trim().split(/\s+/)[0], 10);
     return isNaN(n) ? 0 : n;
   } catch (e) { return 0; }
+}
+
+// ── DARK MODE, LIGHT MODE (2026-11-03) ───────────────────────────────────
+// The theme on the other side of the one worn: its family's own (Gruvbox
+// Dark ↔ Gruvbox Light, Tokyo Night ↔ Tokyo Night Day), else the name with
+// dark and light (day and night) swapped, else Zenon's. `options` is
+// Oracle's themeOptions ({ value, light }); null when it is already that side.
+const THEME_PAIRS = { "zenon": "zenon-light", "ayu-dark": "ayu-light", "ayu-mirage": "ayu-light",
+  "catppuccin-mocha": "catppuccin-latte", "catppuccin-macchiato": "catppuccin-latte", "catppuccin-frappe": "catppuccin-latte",
+  "nightfox": "dayfox", "kanagawa-wave": "kanagawa-lotus", "kanagawa-dragon": "kanagawa-lotus",
+  "rose-pine": "rose-pine-dawn", "rose-pine-moon": "rose-pine-dawn", "tokyo-night": "tokyo-night-day",
+  "tokyo-night-storm": "tokyo-night-day", "one-dark": "one-light" };
+function themeSide(current, wantLight, options) {
+  const opts = options || [];
+  const has = (v) => opts.some((o) => o.value === v);
+  const isLight = (v) => v === "zenon-light" || opts.some((o) => o.value === v && o.light);
+  if (isLight(current) === wantLight) return null;
+  // the pair either way round (a light theme's first dark partner)
+  for (const dark in THEME_PAIRS) {
+    if (wantLight && dark === current && has(THEME_PAIRS[dark])) return THEME_PAIRS[dark];
+    if (!wantLight && THEME_PAIRS[dark] === current && has(dark)) return dark;
+  }
+  const swaps = wantLight ? [["dark", "light"], ["night", "day"]] : [["light", "dark"], ["day", "night"]];
+  for (const [a, b] of swaps) {
+    const v = String(current).replace(new RegExp("\\b" + a + "\\b"), b);
+    if (v !== current && has(v) && isLight(v) === wantLight) return v;
+  }
+  return wantLight ? "zenon-light" : "zenon";
 }
 
 // ── PROCESSES AND PORTS (2026-11-02) ──────────────────────────────────────
@@ -745,7 +843,7 @@ function contentCommand(query, home) {
     + " -- " + Strings.shellQuote(query) + " " + h + " $( [ -d " + h + "/.config/zenworks ] && printf '%s' " + h + "/.config/zenworks )"
     + " 2>/dev/null | head -n 80";
 }
-function contentRows(text, home) {
+function contentRows(text, home, glyphOf) {
   const out = [];
   for (const line of String(text || "").split("\n")) {
     const m = /^(.+?):(\d+):(.*)$/.exec(line);
@@ -753,24 +851,31 @@ function contentRows(text, home) {
     const shown = Artemis.shownPath(m[1], home);
     out.push({ kind: "hit", key: "hit:" + m[1] + ":" + m[2], path: m[1], line: +m[2],
       text: m[3].trim(), label: m[3].trim().slice(0, 160) || "(an empty line)",
-      sub: shown + ":" + m[2], glyph: "", section: "Matches" });
+      sub: shown + ":" + m[2], glyph: (glyphOf ? glyphOf({ name: Artemis.basename(m[1]), isDir: false, path: m[1] }) : "") || "",
+      section: "Matches" });
   }
   return out;
 }
 
 // ── FONTS (2026-11-02) ────────────────────────────────────────────────────
 // "font …": the installed families (Alexandria's own reading of fc-list,
-// alexandria.js parseList), each drawn in itself; return opens it in
-// Alexandria
-function fontRows(families, query) {
+// alexandria.js parseList) as a grid, Raycast's (user, 2026-11-03):
+// `perRow` tiles a row, each the family's name in itself; a tile is what a
+// font row was (kind "font"), and return opens it in Alexandria
+function fontRows(families, query, perRow) {
   const q = String(query || "").trim().toLowerCase();
-  return (families || []).filter((f) => q === "" || f.name.toLowerCase().indexOf(q) >= 0)
+  const items = (families || []).filter((f) => q === "" || f.name.toLowerCase().indexOf(q) >= 0)
     .slice(0, 60)
-    .map((f) => ({ kind: "font", key: "font:" + f.name, family: f.name, files: f.files, face: f.variants[0] || f.name,
-      text: f.name, label: f.name,
+    .map((f) => ({ kind: "font", id: f.name, family: f.name, files: f.files, face: f.variants[0] || f.name,
+      text: f.name, label: f.name, name: f.name,
       sub: [f.styles.length + (f.styles.length === 1 ? " style" : " styles"), f.mono ? "monospace" : "",
-        f.nerd ? "nerd glyphs" : "", f.user ? "yours" : ""].filter((x) => x).join(" · "),
-      glyph: "", section: "Fonts" }));
+        f.nerd ? "nerd glyphs" : "", f.user ? "yours" : ""].filter((x) => x).join(" \u00B7 ") }));
+  const per = Math.max(1, perRow || 4);
+  const out = [];
+  for (let i = 0; i < items.length; i += per)
+    out.push({ kind: "fonts", key: "fonts:" + items[i].family, section: "Fonts", text: "", label: "",
+      cells: items.slice(i, i + per) });
+  return out;
 }
 
 // ── SCREENSHOTS AND RECORDINGS (2026-11-02) ───────────────────────────────
@@ -825,7 +930,7 @@ const HELP = [
   ["Find", "in", "Words inside your files", "in TODO", "in "],
   ["Find", "go", "Bookmarks, network places, directories you use", "go projects", "go "],
   ["Find", "win", "Open windows", "win firefox", "win "],
-  ["Find", "cb", "The clipboard and snippets", "cb pictures", "cb "],
+  ["Find", "cb", "The clipboard and snippets (also: cb links, files, colors, pinned)", "cb pictures", "cb "],
   ["Find", "notes", "Clio's notes", "notes #work", "notes "],
   ["Find", "todos", "Open tasks (also: tasks)", "todos", "todos "],
   ["Find", "book", "Minerva's library", "book dune", "book "],
@@ -834,6 +939,12 @@ const HELP = [
   ["Find", "rec", "Recordings", "rec", "rec "],
   ["Find", "colors", "Colors you picked", "colors", "colors "],
   ["Find", "notif", "Notification history", "notif ceres", "notif "],
+  ["Find", "bm", "Your browsers' bookmarks", "bm arch wiki", "bm "],
+  ["Find", "browsed", "Your browsers' history", "browsed reddit", "browsed "],
+  ["Find", "github", "Notifications, pull requests, issues (also: prs, issues)", "prs zenworks", "github "],
+  ["Find", "music", "Music on this computer (also: videos)", "music miles", "music "],
+  ["Find", "menu", "The tray apps' menus", "menu pause", "menu "],
+  ["Find", "contacts", "Your contacts (~/Documents/Contacts, and synced ones)", "contacts ada", "contacts "],
   ["Find", "settings", "Settings", "settings font size", "settings "],
   ["Find", "store", "Apps in the store (also: install)", "store gimp", "store "],
   ["Find", "pkg", "Every package and the AUR", "pkg htop", "pkg "],
@@ -844,7 +955,7 @@ const HELP = [
   ["Find", "output", "Sound outputs", "output", "output "],
   ["Find", "bt", "Bluetooth devices", "bt buds", "bt "],
   ["Find", "wifi", "Wi-Fi networks", "wifi", "wifi "],
-  ["Find", "em", "Emoji", "em heart", "em "],
+  ["Find", "em", "Emoji (also: a colon, :heart)", "em heart", "em "],
   ["Find", "nf", "Nerd glyphs", "nf folder", "nf "],
   ["Find", "pw", "Passwords", "pw github", "pw "],
   ["Make", "note", "A new note", "note buy milk", "note "],
@@ -852,6 +963,13 @@ const HELP = [
   ["Make", "remind me", "A reminder", "remind me in 20 min to call mom", "remind me "],
   ["Make", "event", "A calendar event", "event lunch friday 1pm", "event "],
   ["Make", "timer", "A timer (also: pomodoro)", "timer 25m tea", "timer "],
+  ["Make", "new contact", "A contact: a name, then an email or a phone number", "new contact Ada Lovelace ada@example.org", "new contact "],
+  ["Make", "confetti", "A burst of confetti (also: celebrate)", "confetti", "confetti"],
+  ["Do", "camera", "Your camera, mirrored, in a window (also: mirror)", "camera", "camera"],
+  ["Make", "focus", "A focus session: do not disturb, apps set aside", "focus 50m writing", "focus "],
+  ["Make", "focus block", "An app set aside while you focus (also: focus allow)", "focus block discord", "focus block "],
+  ["Make", "end focus", "Ends the session early", "end focus", "end focus"],
+  ["Make", "auto quit", "An app quit after a while unused (also: auto quit … off)", "auto quit slack after 1h", "auto quit "],
   ["Make", "take a break", "A five-minute break", "take a break for 10 min", "take a break"],
   ["Ask", "calc", "The calculator; numbers, units and currencies work anywhere", "12% of 80, 5 usd to eur", "calc "],
   ["Ask", "def", "A word's meaning (also: define)", "def serendipity", "def "],
@@ -863,6 +981,8 @@ const HELP = [
   ["Ask", "battery", "Also: ip, uptime, memory, disk, cpu, kernel", "battery", "battery"],
   ["Ask", "rgb()", "A color in other forms (also: a hex color, hsl())", "rgb(255, 136, 0)", "rgb("],
   ["Ask", "base64", "Also: url encode, md5, sha256, count, lorem", "base64 hello", "base64 "],
+  ["Ask", "qr", "A QR code of the words", "qr https://example.com", "qr "],
+  ["Ask", "speed test", "How fast the connection is", "speed test", "speed test"],
   ["Ask", "coin", "Also: dice, d20, random 1 100, uuid, moon, week", "flip a coin", "flip a coin"],
   ["Ask", "playing", "What is playing", "what's playing", "what's playing"],
   ["Do", "volume", "Volume to a level, up or down (also: mute)", "volume 30", "volume "],
@@ -870,15 +990,42 @@ const HELP = [
   ["Do", "wifi on", "Also: bluetooth, night light, dnd — on or off", "wifi off", "wifi "],
   ["Do", "play", "Also: pause, next, previous", "next", "next"],
   ["Do", "workspace", "Go to a workspace", "workspace 3", "workspace "],
+  ["Do", "move to workspace", "Takes the window you were in there (also: send window to)", "move to workspace 3", "move to workspace "],
   ["Do", "quit", "End an app (also: force quit)", "quit firefox", "quit "],
+  ["Do", "restart", "End an app and open it again", "restart firefox", "restart "],
   ["Do", "screenshot", "After a wait (also: a window, a region)", "screenshot a window in 3s", "screenshot "],
+  ["Do", "snap", "Every place the window you were in can go, as a list", "snap", "snap "],
   ["Do", "left half", "The window you were in (also: right, top, bottom half)", "left half", "left half"],
-  ["Do", "maximize", "Fill the screen (also: next screen, size 1280x720)", "maximize", "maximize"],
+  ["Do", "maximize", "Fill the screen (also: almost maximize, next screen, size 1280x720)", "maximize", "maximize"],
+  ["Do", "left third", "Also: center, right third, left two thirds, center half", "left third", "left third"],
+  ["Do", "top left quarter", "Also: top right, bottom left, bottom right", "top left quarter", "top left quarter"],
+  ["Do", "center", "The window in the middle, at its size", "center", "center"],
+  ["Do", "restore", "The window back where it was before", "restore", "restore"],
+  ["Do", "larger", "The window a tenth larger (also: smaller, maximize width, maximize height)", "larger", "larger"],
+  ["Do", "fullscreen", "The window full screen, or back (also: previous screen)", "fullscreen", "fullscreen"],
+  ["Do", "dark mode", "The theme's dark side (also: light mode, toggle appearance)", "dark mode", "dark mode"],
+  ["Do", "show desktop", "An empty workspace", "show desktop", "show desktop"],
+  ["Do", "quit all", "Closes every window", "quit all apps", "quit all apps"],
+  ["Do", "empty trash", "Deletes what is in the trash for good", "empty trash", "empty trash"],
+  ["Do", "eject", "Every removable drive, safe to unplug", "eject", "eject"],
+  ["Do", "screens off", "Until a key is pressed", "screens off", "screens off"],
+  ["Do", "clear clipboard", "Forgets the clipboard history (pins stay)", "clear clipboard", "clear clipboard"],
+  ["Do", "join meeting", "Opens the link of the next meeting on your calendar", "join meeting", "join meeting"],
+  ["Do", "save layout", "Where every window is, kept by name (also: forget layout)", "save layout coding", "save layout "],
+  ["Do", "layout", "Puts the windows back as saved, opening what is missing", "layout coding", "layout "],
+  ["Do", "clear layouts", "Forgets every saved layout", "clear layouts", "clear layouts"],
+  ["Do", "clear window places", "Forgets where windows were, for restore", "clear window places", "clear window places"],
+  ["Do", "ocr", "Copy the text in a region of the screen", "copy text from screen", "ocr"],
+  ["Do", "scan qr", "Read a QR code on the screen", "scan qr", "scan qr"],
   ["Do", "an address", "Opens in the browser", "github.com", ""],
-  ["Keys", "shift return", "What else the chosen row can do", "", ""],
+  ["Make", "{argument}", "In a snippet, a value asked for each time: {argument name=\"client\" default=\"Acme\"}", "", ""],
+  ["Keys", "shift return", "What else the chosen row can do: hide it, move a fallback, the browser a link opens in", "", ""],
   ["Keys", "alt 1", "Opens that row at once (alt 1 to alt 9)", "", ""],
-  ["Keys", "up", "On an empty line: what you searched before", "", ""],
-  ["Keys", "tab", "Completes a name, opens a panel's row", "", ""],
+  ["Find", "history", "What you searched before, to search again", "history", "history "],
+  ["Keys", "tab", "Completes a name; on a word like def, win or quit, makes it a chip so only its own list shows", "", ""],
+  ["Keys", "tab again", "With a chip in place: moves it on to the next of its kin (Windows, Snap, Quit, Layouts); shift tab goes back", "", ""],
+  ["Keys", "backspace", "On an empty line: takes the chip away", "", ""],
+  ["Keys", "down", "On the empty compact field: shows your favorites and suggestions", "", ""],
   ["Keys", "esc", "Clears the line, then closes", "", ""],
   ["Keys", "super shift space", "Opens on the text you copied", "", ""]
 ];
@@ -987,16 +1134,63 @@ function parseLinks(text) {
     return Array.isArray(j) ? j.filter((l) => l && l.word && /^https?:\/\//i.test(String(l.url || ""))) : [];
   } catch (e) { return []; }
 }
+// the quick links with `word` opened in `app` (a .desktop id, "" for the
+// default browser): your own link changed, a built-in kept as a stand-in
+// that says only which app (allLinks puts the built-in under it)
+function withLinkApp(own, word, app, appName) {
+  const list = (own || []).slice();
+  const at = list.findIndex((l) => l.word === word);
+  const builtin = QUICKLINKS.find((x) => x.word === word);
+  if (at >= 0 && !list[at].builtin) {
+    list[at] = Object.assign({}, list[at], { app: app || "", appName: app ? appName || "" : "" });
+    if (!app) { delete list[at].app; delete list[at].appName; }
+    return list;
+  }
+  if (at >= 0) list.splice(at, 1);
+  if (app && builtin) list.push({ word, url: builtin.url, builtin: true, app, appName: appName || "" });
+  return list;
+}
+// `grep -H ^Name=` over the .desktop files that take https: [{ id, name }]
+function parseBrowsers(text) {
+  const out = [];
+  const seen = {};
+  for (const line of String(text || "").split("\n")) {
+    const m = /([^/]+)\.desktop:Name=(.+)$/.exec(line);
+    if (!m || seen[m[1]]) continue;
+    seen[m[1]] = true;
+    out.push({ id: m[1], name: m[2].trim() });
+  }
+  return out;
+}
 function serializeLinks(list) {
   return JSON.stringify(list || [], null, 2) + "\n";
 }
 // the built-ins with yours over them (yours marked `own`)
-function allLinks(own) {
+// Oracle's Web search (Cynosure › Search): where "web …" goes, unless a
+// quick link of your own is named web
+const WEB_ENGINES = {
+  duckduckgo: { url: "https://duckduckgo.com/?q={q}", home: "https://duckduckgo.com" },
+  google: { url: "https://www.google.com/search?q={q}", home: "https://www.google.com" },
+  brave: { url: "https://search.brave.com/search?q={q}", home: "https://search.brave.com" },
+  startpage: { url: "https://www.startpage.com/do/search?q={q}", home: "https://www.startpage.com" },
+  kagi: { url: "https://kagi.com/search?q={q}", home: "https://kagi.com" },
+  bing: { url: "https://www.bing.com/search?q={q}", home: "https://www.bing.com" },
+  ecosia: { url: "https://www.ecosia.org/search?q={q}", home: "https://www.ecosia.org" }
+};
+function allLinks(own, engine) {
   const out = [];
   const mine = {};
+  const web = WEB_ENGINES[engine];
   for (const l of own || []) mine[l.word] = true;
-  for (const l of QUICKLINKS) if (!mine[l.word]) out.push(l);
-  for (const l of own || []) out.push(Object.assign({ glyph: "\uF0C1" }, l, { own: true }));
+  for (const l of QUICKLINKS) if (!mine[l.word]) out.push(l.word === "web" && web ? Object.assign({}, l, web) : l);
+  for (const l of own || []) {
+    // a built-in kept only for the app it opens in (2026-11-04): the
+    // built-in itself, today's engine and all, with that app
+    const b = l.builtin ? QUICKLINKS.find((x) => x.word === l.word) : null;
+    if (l.builtin && !b) continue;
+    out.push(b ? Object.assign({}, b, b.word === "web" && web ? web : {}, { app: l.app || "", appName: l.appName || "", own: true, builtin: true })
+      : Object.assign({ glyph: "\uF0C1" }, l, { own: true }));
+  }
   return out;
 }
 // the site's name, said from its address: "github.com" → "Github"
@@ -1017,14 +1211,24 @@ function readLink(line) {
   if (!/^https?:\/\//i.test(m[2])) return { problem: "The address starts with https://" };
   return { link: { word, name: siteName(m[2]), url: m[2] } };
 }
+// `{clipboard}` and `{selection}` (2026-11-03) are filled when it opens
+// (fillLinkFrom): a link of those alone opens as it is
+const FROM_DESK = /\{(clipboard|selection)\}/;
 function linkUrl(l, rest) {
   const q = String(rest || "").trim();
+  if (q === "" && FROM_DESK.test(l.url) && l.url.indexOf("{q}") < 0) return l.url;
   if (q === "") return l.home || (/^https?:\/\/[^/]+/i.exec(l.url) || [l.url])[0];
   return l.url.indexOf("{q}") >= 0 ? l.url.split("{q}").join(encodeURIComponent(q)) : l.url;
 }
+function wantsDesk(url) { return FROM_DESK.test(String(url || "")); }
+function fillLinkFrom(url, clip, sel) {
+  return String(url).split("{clipboard}").join(encodeURIComponent(String(clip || "").trim()))
+    .split("{selection}").join(encodeURIComponent(String(sel || "").trim()));
+}
 function linkRow(l, rest, section) {
   const q = String(rest || "").trim();
-  return { kind: "link", key: "link:" + l.word, word: l.word, own: !!l.own, url: linkUrl(l, q),
+  return { kind: "link", key: "link:" + l.word, word: l.word, own: !!l.own, builtin: !!l.builtin,
+    app: l.app || "", appName: l.appName || "", url: linkUrl(l, q),
     glyph: l.glyph || "\uF0C1", text: q || l.name,
     label: q ? "Search " + l.name + " for \u201C" + q + "\u201D" : "Open " + l.name,
     sub: (/^https?:\/\/(?:www\.)?([^/?#]+)/i.exec(l.url) || ["", ""])[1], section: section || "Quick link" };
@@ -1048,7 +1252,9 @@ function linkActions(links) {
 // the words Cynosure answers to itself: a panel's ("cb …") or the calculator's
 const RESERVED = ["f", "cb", "calc", "def", "define", "tr", "translate", "em", "nf", "pw", "win", "settings",
   "store", "install", "notes", "note", "pkg", "event", "todo", "todos", "tasks", "book", "books", "output",
-  "colors", "go", "ps", "port", "bt", "wifi", "repo", "svc", "notif", "in", "font", "shots", "rec", "help", "?"];
+  "colors", "go", "ps", "port", "bt", "wifi", "repo", "svc", "notif", "in", "font", "shots", "rec", "help", "?",
+  "bm", "browsed", "github", "prs", "issues", "music", "videos", "menu", "qr", "focus", "layout", "layouts",
+  "contact", "contacts", "confetti", "camera", "history", "quit", "snap", "snaps"];
 function aliasProblem(word) {
   const w = String(word || "").trim().toLowerCase();
   if (w === "") return "";
@@ -1165,7 +1371,8 @@ const SHELL_ACTIONS = [
   { name: "Screenshot a region", glyph: "\u{F0A6D}", keys: "picasso screenshot region area selection shot capture print", sh: "sleep 0.35 && qs ipc call Picasso shot region" },
   { name: "Colors you picked", glyph: "\u{F03D8}", keys: "picasso palette picker eyedropper colours hex", line: "colors " },
   { name: "Measure on screen", glyph: "\u{F046D}", keys: "picasso ruler measure pixels distance size", sh: "sleep 0.35 && qs ipc call Picasso measure" },
-  { name: "New note", glyph: "\uF24A", keys: "clio sticky desktop", ipc: "Clio add" },
+  { name: "New sticky note", glyph: "\uF24A", keys: "clio sticky desktop note", ipc: "Clio add" },
+  { name: "Show the shelf", glyph: "\uF01C", keys: "shelf drop drag hold yoink dropover tray", ipc: "Shelf toggle" },
   { name: "New journal entry", glyph: "\u{F0B64}", keys: "clio journal diary write reflect mood", ipc: "Clio journal" },
   { name: "Today's journal entry", glyph: "\u{F00F6}", keys: "clio journal today daily diary", ipc: "Clio today" },
   { name: "Quick note", glyph: "\u{F140B}", keys: "clio capture jot quick note inbox", ipc: "Clio capture" },
@@ -1176,7 +1383,7 @@ const SHELL_ACTIONS = [
   // Cynosure's own (see CynosurePopup.runInline)
   { name: "Clipboard pictures", glyph: "\uF03E", keys: "folio clipboard images screenshots pics copied", line: "cb pictures" },
   { name: "New script", glyph: "\uF489", keys: "script command raycast shell bash python automate", inline: "newScript" },
-  { name: "Scripts folder", glyph: "\uF07C", keys: "scripts commands directory", inline: "scriptsDir" },
+  { name: "Scripts directory", glyph: "\uF07C", keys: "scripts commands directory", inline: "scriptsDir" },
   { name: "New quick link", glyph: "\uF0C1", keys: "quick link url bookmark search engine keyword web site", inline: "newLink" },
   { name: "New snippet", glyph: "\uEB66", keys: "folio snippet text expand write template paste again", inline: "newSnippet" },
   { name: "Clipboard", glyph: "\uF0EA", keys: "folio paste history copy", ipc: "Folio toggle",
@@ -1419,6 +1626,32 @@ const SECTION_OF = { app: "Applications", shell: "Commands", hist: "History" };
 // the panels that are the list itself rather than a row in it
 const LISTED = { artemis: true, metis: true, lexi: true, folio: true, ideo: true, calypso: true };
 const SUGGESTED = 5;
+// ── SHORT SECTIONS (2026-11-04) ── a section of the whole list shows its
+// best three; the rest are a row ("12 more files") that puts the section's
+// word in the field as its chip, the line after it. Only sections a chip
+// can open; a section one past the cap is shown whole (the row saves none)
+const SECTION_CAP = 3;
+const MORE_OF = { Files: ["f", "files"], Windows: ["win", "windows"], Clipboard: ["cb", "clips"],
+  Snippets: ["cb", "snippets"], Notes: ["notes", "notes"], Settings: ["settings", "settings"] };
+function capSections(rows, q, cap) {
+  const count = {}, seen = {};
+  for (const r of rows) count[r.section] = (count[r.section] || 0) + 1;
+  const out = [];
+  for (const r of rows) {
+    const m = MORE_OF[r.section];
+    if (!m || count[r.section] <= cap + 1) { out.push(r); continue; }
+    const n = seen[r.section] = (seen[r.section] || 0) + 1;
+    if (n > cap) continue;
+    out.push(r);
+    if (n === cap) {
+      const line = m[0] + " " + q;
+      out.push({ kind: "more", key: "more:" + r.section, text: line, line,
+        label: (count[r.section] - cap) + " more " + m[1], sub: "\u201C" + line + "\u201D", glyph: "\uF141",
+        section: r.section });
+    }
+  }
+  return out;
+}
 
 // How well a row answers the query: its name starting with it beats a word
 // of it starting with it beats the letters anywhere. -1 is not at all.
@@ -1431,25 +1664,242 @@ function matchRank(r, q) {
   if (name.indexOf(q) >= 0) return 2;
   const hay = ((r.exec || "") + " " + (r.keys || "") + " " + (r.words || "") + " " + (r.sub || "")).toLowerCase();
   if ((" " + hay).indexOf(" " + q) >= 0) return 3;
-  return hay.indexOf(q) >= 0 ? 4 : -1;
+  if (hay.indexOf(q) >= 0) return 4;
+  // looser (2026-11-04), after every plain match, and never for a line you
+  // ran (those are what you typed, not names)
+  if (r.kind === "hist") return -1;
+  return looseRank(String(r.text || ""), q);
+}
+// first letters ("vsc": Visual Studio Code) 5, the letters in order with
+// gaps ("frfx": Firefox) 6, one slip in a word's start ("fierfox") 7
+function looseRank(text, q) {
+  if (q.length < 2 || /\s/.test(q)) return -1;
+  const words = String(text).replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase().split(/[\s\-_.]+/).filter((w) => w !== "");
+  if (words.length > 1 && words.map((w) => w[0]).join("").startsWith(q)) return 5;
+  if (q.length >= 3) {
+    const name = String(text).toLowerCase();
+    let at = 0;
+    for (const ch of q) { at = name.indexOf(ch, at); if (at < 0) break; at++; }
+    if (at > 0 && name[0] === q[0]) return 6;
+  }
+  if (q.length >= 4)
+    for (const w of words)
+      for (const n of [q.length - 1, q.length, q.length + 1])
+        if (n <= w.length && slips(q, w.slice(0, n)) <= 1) return 7;
+  return -1;
+}
+// how many single letters wrong, missing, extra or swapped: a over b
+function slips(a, b) {
+  const m = a.length, n = b.length;
+  if (Math.abs(m - n) > 1) return 2;
+  const d = [];
+  for (let i = 0; i <= m; i++) { d.push([i]); for (let j = 1; j <= n; j++) d[i].push(i === 0 ? j : 0); }
+  for (let i = 1; i <= m; i++)
+    for (let j = 1; j <= n; j++) {
+      d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1);
+    }
+  return d[m][n];
 }
 
 // `rows` already in frecency order (buildRows); a stable sort on the rank
-// keeps that order among equals
-function rankRows(rows, query) {
+// keeps that order among equals. `picks` (notePick): what you chose for this
+// very line goes first, the most chosen first
+// `ranks` (a Map, optional) is given each kept row's rank, for topRows to
+// read instead of matching every row a second time
+function rankRows(rows, query, picks, ranks) {
   const q = (query || "").trim().toLowerCase();
   if (q === "") return rows.slice();
   const scored = [];
   for (let i = 0; i < rows.length; ++i) {
-    const k = matchRank(rows[i], q);
-    if (k >= 0) scored.push({ r: rows[i], k, i });
+    const p = pickCount(picks, q, rows[i].key);
+    const k = p > 0 ? -2 : matchRank(rows[i], q);
+    if (k !== -1) { scored.push({ r: rows[i], k, i, p }); if (ranks) ranks.set(rows[i], k); }
   }
-  scored.sort((a, b) => (a.k - b.k) || (a.i - b.i));
+  scored.sort((a, b) => (a.k - b.k) || (b.p - a.p) || (a.i - b.i));
   return scored.map((x) => x.r);
 }
 
 function inSection(r, section) {
   return Object.assign({}, r, { section });
+}
+
+// ── A WORD MADE A CHIP (2026-11-04, user: "def tab now makes Define a
+// chip") ── Tab on a word that narrows the list ("def", "win", "quit")
+// takes it out of the line and into the field as a chip: what is typed after
+// is only what is looked for. [word, its other spellings, the chip's name]
+const CHIPS = [
+  ["f", [], "Files"], ["in", [], "Inside files"], ["go", [], "Places"], ["win", [], "Windows"],
+  ["cb", [], "Clipboard"], ["notes", [], "Notes"], ["note", [], "New note"], ["todo", [], "New task"],
+  ["todos", ["tasks"], "Tasks"], ["books", ["book"], "Books"], ["font", ["fonts"], "Fonts"], ["shots", [], "Screenshots"],
+  ["rec", [], "Recordings"], ["colors", [], "Colors you picked"], ["def", ["define"], "Dictionary"],
+  ["tr", ["translate"], "Translate"], ["em", ["emoji"], "Emoji"], ["nf", [], "Nerd glyphs"], ["settings", [], "Settings"],
+  ["store", ["install"], "Store"], ["pkg", [], "Packages"], ["event", [], "New event"], ["output", [], "Sound output"],
+  ["ps", [], "Processes"], ["bt", [], "Bluetooth"], ["wifi", [], "Wi-Fi"], ["repo", [], "Repositories"],
+  ["svc", [], "Services"], ["notif", [], "Notifications"], ["help", [], "Help"], ["calc", [], "Calculator"],
+  ["bm", [], "Bookmarks"], ["browsed", [], "Browsed"], ["history", [], "History"], ["github", [], "GitHub"], ["prs", [], "Pull requests"],
+  ["issues", [], "Issues"], ["music", [], "Music"], ["videos", [], "Videos"], ["menu", [], "Menus"],
+  ["contacts", ["contact"], "Contacts"], ["quit", [], "Quit"], ["layout", ["layouts"], "Layouts"], ["snap", ["snaps"], "Snap"]
+];
+// the chip a word is: { word (as the line reads it), text }, or null; your
+// quick links and scripts that take words are chips too
+function chipFor(word, links, scripts) {
+  const w = String(word || "").toLowerCase();
+  if (w === "") return null;
+  for (const c of CHIPS) if (c[0] === w || c[1].indexOf(w) >= 0) return { word: c[0] === "em" && w === "emoji" ? "em" : c[0], text: c[2] };
+  const l = (links || []).find((x) => x.word === w);
+  if (l) return { word: l.word, text: l.name };
+  const sc = (scripts || []).find((x) => x.word === w && x.argument);
+  return sc ? { word: sc.word, text: sc.title } : null;
+}
+// the one chip a start of a word can be ("lay" → layout), or null: two or
+// more letters, and only one chip begins so
+function chipComplete(prefix, links, scripts) {
+  const p = String(prefix || "").toLowerCase();
+  if (p.length < 2) return null;
+  const found = {};
+  for (const c of CHIPS) if (c[0].startsWith(p) || c[1].some((a) => a.startsWith(p))) found[c[0]] = true;
+  for (const l of links || []) if (l.word.startsWith(p)) found[l.word] = true;
+  for (const sc of scripts || []) if (sc.argument && sc.word.startsWith(p)) found[sc.word] = true;
+  const words = Object.keys(found);
+  return words.length === 1 ? chipFor(words[0], links, scripts) : null;
+}
+
+// ── RELATED CHIPS (2026-11-04) ── with a chip in place, Tab moves it to the
+// next of its kin (Windows → Snap → Quit → Layouts → Windows), shift tab
+// back; the line after it is kept. A chip in no ring stays as it is; the
+// dictionary's and the translator's are in none, their card's tab is its
+// recents and languages
+const CHIP_RINGS = [["win", "snap", "quit", "layout"], ["f", "in", "go"], ["em", "nf", "font"],
+  ["notes", "todos"], ["bm", "browsed"], ["github", "prs", "issues", "repo"],
+  ["music", "videos"], ["shots", "rec", "colors"], ["ps", "svc"], ["wifi", "bt", "output"], ["store", "pkg"]];
+function chipNext(word, back) {
+  const ring = CHIP_RINGS.find((r) => r.indexOf(word) >= 0);
+  if (!ring) return null;
+  const i = ring.indexOf(word);
+  return chipFor(ring[(i + (back ? ring.length - 1 : 1)) % ring.length]);
+}
+
+// "snap …": every place the window you were in can go, each one a row
+// (2026-11-04, user: "is there any command that lists all available window
+// actions"); each also has its words ("left half"), the sub says them
+const SNAPS = [
+  ["left", "Left half", "left half", "\u{F10AA}"], ["right", "Right half", "right half", "\u{F10AB}"],
+  ["top", "Top half", "top half", "\u{F1513}"], ["bottom", "Bottom half", "bottom half", "\u{F10A9}"],
+  ["left3", "Left third", "left third", "\u{F056D}"], ["center3", "Center third", "center third", "\u{F056D}"],
+  ["right3", "Right third", "right third", "\u{F056D}"], ["left23", "Left two thirds", "left two thirds", "\u{F056D}"],
+  ["right23", "Right two thirds", "right two thirds", "\u{F056D}"], ["tl", "Top left quarter", "top left quarter", "\u{F0570}"],
+  ["tr", "Top right quarter", "top right quarter", "\u{F0570}"], ["bl", "Bottom left quarter", "bottom left quarter", "\u{F0570}"],
+  ["br", "Bottom right quarter", "bottom right quarter", "\u{F0570}"], ["centerHalf", "Center half", "center half", "\uF2D0"],
+  ["center", "Center", "center", "\uF0B2"], ["max", "Fill the screen", "maximize", "\u{F0293}"],
+  ["almost", "Almost fill the screen", "almost maximize", "\u{F0293}"], ["maxW", "Full width", "maximize width", "\u{F084E}"],
+  ["maxH", "Full height", "maximize height", "\u{F084F}"], ["grow", "A tenth larger", "larger", "\u{F004C}"],
+  ["shrink", "A tenth smaller", "smaller", "\u{F0044}"], ["next", "To the next screen", "next screen", "\u{F037A}"],
+  ["prev", "To the previous screen", "previous screen", "\u{F037A}"], ["restore", "Back where it was", "restore", "\uF0E2"]
+];
+function snapRows(query, windowName) {
+  const q = String(query || "").trim().toLowerCase();
+  return SNAPS.filter((x) => q === "" || (x[1] + " " + x[2]).toLowerCase().indexOf(q) >= 0)
+    .map((x) => ({ kind: "argcmd", key: "snap:" + x[0], cmd: { kind: "snap", where: x[0] }, text: x[2], label: x[1],
+      sub: "\u201C" + x[2] + "\u201D \u00B7 " + (windowName || "the window you were in"), glyph: x[3], section: "Window" }));
+}
+// "history …": your searches, newest first (the queries file), to search again
+function searchRows(queries, query) {
+  const q = String(query || "").trim().toLowerCase();
+  return (queries || []).filter((line) => q === "" || String(line).toLowerCase().indexOf(q) >= 0).slice(0, 60)
+    .map((line, i) => ({ kind: "search", key: "search:" + i + ":" + line, text: line, label: line, sub: "",
+      glyph: "\uF1DA", section: "Searches" }));
+}
+// ── EACH CHIP ITS LAST SEARCHES (2026-11-04) ── a chip with nothing typed
+// after it leads with what you last looked for under it ("def" → the words
+// you last looked up), from the same searches "history" lists; return
+// searches one again
+const CHIP_RECENT = 3;
+// the chips whose card draws its own recents as chips (Lexi's dictionary
+// and translator, Metis' sums): no second list of them under it (user,
+// 2026-11-04: "any card that has its own history chips")
+const CHIPS_OWN_RECENTS = ["def", "tr", "calc"];
+function chipRecentRows(queries, word, links, scripts) {
+  const out = [], seen = {};
+  if (CHIPS_OWN_RECENTS.indexOf(word) >= 0) return out;
+  for (const line of queries || []) {
+    const m = /^\s*(\S+)\s+(.+?)\s*$/.exec(String(line));
+    if (!m) continue;
+    const c = chipFor(m[1], links, scripts);
+    if (!c || c.word !== word || seen[m[2].toLowerCase()]) continue;
+    seen[m[2].toLowerCase()] = true;
+    out.push({ kind: "search", key: "recent:" + line, text: c.word + " " + m[2], label: m[2], sub: "",
+      glyph: "\uF1DA", section: "Recent" });
+    if (out.length >= CHIP_RECENT) break;
+  }
+  return out;
+}
+// "quit …": the apps with windows open, one row each, to quit as their
+// close buttons would (every window closed); `nameOf(appId)` their names.
+// `tray` (bin/trayapps.py: [{ pid, comm, classes }]): an app running in
+// the tray with no window open (Steam, user 2026-11-04) is one too, ended
+// by its process; one with windows is quit with them, its process too, or
+// it would stay on in the tray
+function quitRows(wins, query, glyphOf, nameOf, tray) {
+  const q = String(query || "").trim().toLowerCase();
+  const apps = {};
+  const order = [];
+  for (const w of wins || []) {
+    const app = String(w.app || "");
+    if (app === "" || app === "org.quickshell") continue;
+    if (!apps[app]) { apps[app] = { app, name: (nameOf ? nameOf(app) : "") || app, titles: [], addresses: [] }; order.push(app); }
+    apps[app].titles.push(String(w.title || ""));
+    apps[app].addresses.push(w.address);
+  }
+  const out = [];
+  for (const id of order) {
+    const a = apps[id];
+    if (q !== "" && (a.name + " " + a.app + " " + a.titles.join(" ")).toLowerCase().indexOf(q) < 0) continue;
+    const n = a.addresses.length;
+    const pids = (tray || []).filter((t) => (t.classes || []).indexOf(id) >= 0).map((t) => t.pid);
+    out.push({ kind: "argcmd", key: "quit:" + id, cmd: { kind: "quitApp", app: id, name: a.name, addresses: a.addresses, pids },
+      text: a.name, label: "Quit " + a.name, sub: n === 1 ? a.titles[0] : n + " windows",
+      glyph: (glyphOf ? glyphOf([id, a.titles[0] || ""]) : "") || "\uF00D", section: "Open apps" });
+  }
+  for (const t of tray || []) {
+    const pid = Number(t.pid) || 0;
+    const comm = String(t.comm || "");
+    // never the shell itself, nor the session it runs in
+    if (pid <= 1 || comm === "" || (t.classes || []).length > 0 || /^(\.?quickshell|qs|hyprland)/i.test(comm)) continue;
+    const name = (nameOf ? nameOf(comm) : "") || trayName(comm);
+    if (q !== "" && (name + " " + comm).toLowerCase().indexOf(q) < 0) continue;
+    out.push({ kind: "argcmd", key: "quitTray:" + pid, cmd: { kind: "quitTray", pid, name }, text: name,
+      label: "Quit " + name, sub: "In the tray, no window open",
+      glyph: (glyphOf ? glyphOf([comm, name]) : "") || "\uF00D", section: "Open apps" });
+  }
+  return out;
+}
+// a process's name said as an app's: "claude-desktop" → "Claude"
+function trayName(comm) {
+  const w = String(comm || "").replace(/[-_](desktop|bin|app|tray|client)$/i, "").replace(/[-_]+/g, " ").trim();
+  return w.charAt(0).toUpperCase() + w.slice(1);
+}
+// "layout …": the saved layouts to put back, and the line saved as one
+// when no layout has that name
+function layoutRows(layouts, query) {
+  const q = String(query || "").trim();
+  const names = Object.keys(layouts || {}).sort();
+  const out = [];
+  for (const name of names) {
+    if (q !== "" && name.toLowerCase().indexOf(q.toLowerCase()) < 0) continue;
+    const n = (layouts[name] || []).length;
+    out.push({ kind: "argcmd", key: "layout:" + name, cmd: { kind: "layoutUse", name }, text: name,
+      label: "Put the windows as \u201C" + name + "\u201D", sub: n + (n === 1 ? " window" : " windows") + "; missing apps are opened",
+      glyph: "\uF009", section: "Layouts" });
+  }
+  if (q === "" && names.length === 0)
+    out.push({ kind: "info", key: "layouts:none", text: "", label: "No layouts saved yet",
+      sub: "Type a name, then return: where every window is, kept by that name", glyph: "\uF009", section: "Layouts" });
+  if (q !== "" && names.indexOf(q) < 0)
+    out.push({ kind: "argcmd", key: "layoutSave:" + q, cmd: { kind: "layoutSave", name: q }, text: q,
+      label: "Save this layout as \u201C" + q + "\u201D", sub: "Where each window is, on every workspace",
+      glyph: "\uF0C7", section: "Layouts" });
+  return out;
 }
 
 // "cb invoice" → the clipboard, searching for "invoice". The first word is a
@@ -1506,7 +1956,7 @@ function fileRows(paths, home, glyphOf) {
     const name = Artemis.basename(p) || shown;
     out.push({ kind: "file", key: p, path: p, isDir, text: name, label: name,
       sub: cut > 0 ? shown.slice(0, cut) : "",
-      glyph: glyphOf ? glyphOf({ name, isDir }) : "" });
+      glyph: glyphOf ? glyphOf({ name, isDir, path: p }) : "" });
   }
   return out;
 }
@@ -1516,16 +1966,26 @@ function fileRows(paths, home, glyphOf) {
 // typed after the word); otherwise the few text clips and snippets that
 // match the line, under the others. `stampOf(id)` is folio's "when";
 // `thumbOf(id)` its picture, "" until it is made.
-function clipRows(entries, imageIds, snippets, query, scoped, stampOf, thumbOf, perRow) {
-  const q = String(query || "").trim();
+// `more` (2026-11-03): { pins: Folio's [{ id, text }], turn: ids marked to
+// paste in turn }. "cb links", "cb files", "cb colors", "cb pinned" show
+// that kind alone; pins lead the plain "cb". `more.glyphOf` (morpheus'
+// glyphFor, handed in) and `more.home` give a path clip its file's glyph
+const CLIP_FILTER = [[/^(links?|urls?)$/i, "link"], [/^files?$/i, "file"], [/^colou?rs?$/i, "color"],
+  [/^(pinned|pins?)$/i, "pinned"]];
+function clipRows(entries, imageIds, snippets, query, scoped, stampOf, thumbOf, perRow, more) {
+  let q = String(query || "").trim();
+  const pins = (more && more.pins) || [], turn = (more && more.turn) || [];
+  const kws = (more && more.keywords) || {};
+  const only = scoped ? (CLIP_FILTER.find((f) => f[0].test(q)) || [null, ""])[1] : "";
+  if (only !== "") q = "";
   const out = [];
   if (!scoped && q.length < 2) return out;
   // the pictures as a grid: rows of `perRow` thumbnails ("pics"), a cell
   // chosen in the chosen row as an emoji is in its strip
   const per = Math.max(1, perRow || 4);
-  const grid = (ids) => {
+  const grid = (ids, section) => {
     for (let i = 0; i < ids.length; i += per)
-      out.push({ kind: "pics", key: "pics:" + ids[i], section: "Pictures", text: "", label: "",
+      out.push({ kind: "pics", key: "pics:" + ids[i], section: section || "Pictures", text: "", label: "",
         cells: ids.slice(i, i + per).map((id) => ({ id, thumb: thumbOf ? thumbOf(id) : "",
           stamp: stampOf ? stampOf(id) : "" })) });
   };
@@ -1536,15 +1996,53 @@ function clipRows(entries, imageIds, snippets, query, scoped, stampOf, thumbOf, 
   }
   // with nothing typed after "cb", the newest two rows of them above the
   // words
-  if (scoped && q === "") grid((imageIds || []).slice(0, per * 2));
-  for (const e of Folio.filterEntries(entries || [], q).slice(0, scoped ? 60 : 3)) {
+  if (scoped && q === "" && only === "") grid((imageIds || []).slice(0, per * 2));
+  const pinned = {};
+  for (const p of pins) pinned[p.id] = p;
+  const byId = {};
+  for (const e of entries || []) byId[e.id] = e;
+  // a clip that is one file's path wears that file's glyph (Folio.clipPath,
+  // 2026-11-05); a pin keeps its pin, plain words the clip
+  const glyphOf = more && more.glyphOf, home = (more && more.home) || "";
+  const fileGlyph = (e) => {
+    const fp = glyphOf ? Folio.clipPath(e.content || e.preview) : null;
+    if (!fp) return "";
+    const path = home !== "" && /^~(\/|$)/.test(fp.path) ? home + fp.path.slice(1) : fp.path;
+    const g = glyphOf({ name: fp.name, isDir: fp.isDir, path });
+    // nothing in the map knew it: a copied directory (Terminus copies them
+    // without a "/") or a slash-word (/shrug) — the clip glyph says less
+    // that is wrong than a page does (audit 11-05)
+    return !fp.isDir && g === glyphOf({ name: "\u0001" }) ? "" : g;
+  };
+  const clip = (e, section) => {
     const line = String(e.preview || "").replace(/\s+/g, " ").trim();
-    out.push({ kind: "clip", key: "clip:" + e.id, id: e.id, text: line, label: line,
-      sub: stampOf ? stampOf(e.id) : "", glyph: "\uF0EA", section: "Clipboard" });
+    // a renamed clip is its name, what it holds said after when it came;
+    // one marked to paste in turn its place in the turn first
+    const when = stampOf ? stampOf(e.id) : "";
+    const at = turn.indexOf(e.id);
+    const sub = (at >= 0 ? "In turn " + (at + 1) + " \u00B7 " : "")
+      + (e.name ? [when, line].filter((x) => x).join(" \u00B7 ") : when);
+    return { kind: "clip", key: "clip:" + e.id, id: e.id, text: e.name || line, label: e.name || line,
+      name: e.name || "", sub, pinned: !!pinned[e.id], pinText: pinned[e.id] ? pinned[e.id].text : e.content || "",
+      gone: !!e.gone, turn: at + 1, glyph: e.gone || pinned[e.id] ? "\uF08D" : fileGlyph(e) || "\uF0EA", section };
+  };
+  // pins first (on the plain "cb", and as all of "cb pinned"), a pin
+  // cliphist has let go from its own words
+  if (scoped && (only === "pinned" || (only === "" && q === "")))
+    for (const p of pins) {
+      const e = byId[p.id] || { id: p.id, preview: p.text, content: p.text, gone: true };
+      if (String(e.preview || "") !== "") out.push(clip(e, "Pinned"));
+    }
+  if (only !== "pinned") {
+    const found = Folio.filterEntries(entries || [], q)
+      .filter((e) => only === "" ? !(scoped && q === "" && pinned[e.id]) : Folio.clipType(e.content || e.preview) === only);
+    for (const e of found.slice(0, 60)) out.push(clip(e, "Clipboard"));
   }
-  for (const sn of Folio.snippetRows(snippets || [], q).slice(0, scoped ? 40 : 3))
+  if (only !== "") return out;
+  for (const sn of Folio.snippetRows(snippets || [], q).slice(0, 40))
     out.push({ kind: "snip", key: "snip:" + sn.path, path: sn.path, content: sn.content,
-      text: sn.preview, label: sn.preview, sub: sn.sub, glyph: "\uEB66", section: "Snippets" });
+      text: sn.preview, label: sn.preview, keyword: kws[sn.path] || "",
+      sub: (kws[sn.path] ? kws[sn.path] + " \u00B7 " : "") + sn.sub, glyph: "\uEB66", section: "Snippets" });
   return out;
 }
 
@@ -1554,20 +2052,22 @@ function clipRows(entries, imageIds, snippets, query, scoped, stampOf, thumbOf, 
 // while nothing is typed after the word (capped: past that, type).
 // `recent` (this set's list from parseGlyphs) leads: its own "Recently used"
 // strips first, then the rest without them
-function glyphRows(entries, query, nerd, scoped, per, recent) {
+// `tone`: Oracle's Skin tone, the emoji that have one shown in it
+function glyphRows(entries, query, nerd, scoped, per, recent, tone) {
   const q = String(query || "").trim();
   if (!scoped && q.length < 2) return [];
   const n = Math.max(1, per || 14);
   const all = Ideo.filterEntries(entries || [], q);
   const order = {};
   (recent || []).forEach((c, i) => { order[c] = i; });
-  const used = all.filter((e) => e.char in order).sort((a, b) => order[a.char] - order[b.char]);
-  const rest = all.filter((e) => !(e.char in order)).slice(0, Math.max(0, (scoped ? n * 12 : n) - (scoped ? 0 : used.length)));
+  const ch = (e) => nerd ? e.char : Ideo.toned(e, tone);
+  const used = all.filter((e) => ch(e) in order).sort((a, b) => order[ch(a)] - order[ch(b)]);
+  const rest = all.filter((e) => !(ch(e) in order)).slice(0, Math.max(0, (scoped ? n * 12 : n) - (scoped ? 0 : used.length)));
   const out = [];
   const strips = (list, section, tag) => {
     for (let i = 0; i < list.length; i += n)
       out.push({ kind: "glyphs", key: (nerd ? "nf:" : "em:") + tag + i, nerd: !!nerd, section,
-        cells: list.slice(i, i + n).map((e) => ({ char: e.char, name: e.name || e.cls || "", cls: e.cls || "" })),
+        cells: list.slice(i, i + n).map((e) => ({ char: ch(e), name: e.name || e.cls || "", cls: e.cls || "" })),
         text: "", label: "" });
   };
   strips(used.slice(0, scoped ? RECENT_GLYPHS : n), "Recently used", "r");
@@ -1584,20 +2084,22 @@ function glyphRows(entries, query, nerd, scoped, per, recent) {
 // file), then apps before commands before files before history.
 const TOP = 3;
 const TOP_ORDER = { app: 0, shell: 1, file: 2, hist: 3 };
-function topRows(ranked, files, query, freq, fileFreq) {
+function topRows(ranked, files, query, freq, fileFreq, picks, ranks) {
   const q = String(query || "").trim().toLowerCase();
   if (q === "") return [];
   const cands = [];
   for (const r of ranked || []) {
-    const k = matchRank(r, q);
-    if (k <= 1) cands.push({ r, k, use: (freq || {})[r.key] || 0 });
+    // what you chose for this line before, ahead of all
+    const p = pickCount(picks, q, r.key);
+    const k = p > 0 ? -2 : ranks && ranks.has(r) ? ranks.get(r) : matchRank(r, q);
+    if (k !== -1 && k <= 1) cands.push({ r, k, use: p > 0 ? 1e6 + p : (freq || {})[r.key] || 0 });
   }
   for (const f of files || []) {
     const k = matchRank({ text: f.label, alias: f.alias }, q);
     if (k >= 0 && k <= 1) cands.push({ r: f, k, use: (fileFreq || {})[f.path] || 0 });
   }
-  // an alias typed whole is first of all
-  for (const c of cands) if (c.r.alias === q) c.k = -1;
+  // an alias typed whole is first of all, over a pick too
+  for (const c of cands) if (c.r.alias === q) c.k = -3;
   cands.sort((a, b) => (a.k - b.k) || (b.use - a.use) || (TOP_ORDER[a.r.kind] - TOP_ORDER[b.r.kind]));
   return cands.slice(0, TOP).map((c) => c.r);
 }
@@ -1707,24 +2209,112 @@ function windowRows(wins, query, scoped, glyphOf) {
   }
   // where you already are is the last place to go
   out.sort((a, b) => (a.focused ? 1 : 0) - (b.focused ? 1 : 0));
-  return out.slice(0, scoped ? 40 : 5);
+  return out.slice(0, 40);
 }
 
 // `extra`: { files: fileRows(…), filesOnly: the line is "f …", fileFreq:
 // artemis' frecency for the Top results, clips:
 // clipRows(…), clipsOnly: the line is "cb …" }. The calculator is not a
 // row: it draws itself over the list (CynosurePopup).
+// ── WHAT YOU TOOK OUT OF THE LIST (2026-11-04, Raycast's disabled
+// commands) ── Oracle's cynosureHidden: a line an app, command, script or
+// quick link, "id<TAB>name"; the id is its kind and key ("app:firefox.desktop").
+// A hidden one is gone from the list and its fallbacks, nothing else: its
+// word ("lock", "f …") still works when typed in full as a command.
+const HIDEABLE = { app: true, shell: true, link: true };
+function hideId(r) { return r ? r.kind + ":" + r.key : ""; }
+function parseHidden(text) {
+  const out = [];
+  const seen = {};
+  for (const line of String(text || "").split("\n")) {
+    const [id, name] = line.split("\t");
+    if (!id || seen[id]) continue;
+    seen[id] = true;
+    out.push({ id, name: name || id.replace(/^[a-z]+:/, "") });
+  }
+  return out;
+}
+function hiddenText(list) { return list.map((h) => h.id + "\t" + String(h.name || "").replace(/[\t\n]/g, " ")).join("\n"); }
+function withHidden(text, id, name, on) {
+  const list = parseHidden(text).filter((h) => h.id !== id);
+  if (on) list.push({ id, name });
+  return hiddenText(list);
+}
+function hiddenSet(text) {
+  const set = {};
+  for (const h of parseHidden(text)) set[h.id] = true;
+  return set;
+}
+
+// ── THE OTHER WAYS, YOUR ORDER (2026-11-04, Raycast's fallback commands)
+// Oracle's cynosureFallbackList: their words in your order, "-" before one
+// you turned off ("tr,-pkg,web"); "" is this order, all on. One missing
+// from your list (a new one) comes on, at the end.
+const FALLBACKS = [
+  { word: "web", name: "Search the web", sub: "", glyph: "\uF0AC" },
+  { word: "f", name: "Search files", sub: "Artemis", glyph: "\uF002" },
+  { word: "cb", name: "Search the clipboard", sub: "Folio", glyph: "\uF0EA" },
+  { word: "settings", name: "Search settings", sub: "Oracle", glyph: "\uF013" },
+  { word: "store", name: "Search the store", sub: "Ceres", glyph: "\uF07A" },
+  { word: "pkg", name: "Search packages", sub: "Ceres", glyph: "\uF187", one: true },
+  { word: "notes", name: "Search notes", sub: "Clio", glyph: "NOTE" },
+  { word: "note", name: "New note", sub: "Clio", glyph: "NOTE" },
+  { word: "event", name: "New event", sub: "Chronos", glyph: "\uF073" },
+  { word: "todo", name: "New task", sub: "Clio", glyph: "TASK" },
+  { word: "go", name: "Go to a directory", sub: "Terminus", glyph: "\uF07B" },
+  { word: "in", name: "Search inside files", sub: "Ripgrep", glyph: "\uF15C", min: 3 },
+  { word: "def", name: "Define", sub: "Lexi", glyph: "\uF02D", one: true },
+  { word: "tr", name: "Translate", sub: "Lexi", glyph: "\uF1AB" },
+  { word: "em", name: "Find emoji", sub: "Ideo", glyph: "\uF118" },
+  { word: "run:t", name: "Run in the terminal", sub: "", glyph: "TERM" },
+  { word: "run:p", name: "Run in the background", sub: "", glyph: "PROC" }
+];
+function fallbackList(text) {
+  const known = {};
+  for (const f of FALLBACKS) known[f.word] = f;
+  const out = [];
+  const seen = {};
+  for (const raw of String(text || "").split(",")) {
+    const w = raw.trim();
+    const off = w.startsWith("-");
+    const word = off ? w.slice(1) : w;
+    if (!known[word] || seen[word]) continue;
+    seen[word] = true;
+    out.push(Object.assign({}, known[word], { on: !off }));
+  }
+  for (const f of FALLBACKS) if (!seen[f.word]) out.push(Object.assign({}, f, { on: true }));
+  return out;
+}
+// a fallback's glyph, its stand-in words made the real glyph
+function fallbackGlyph(g) { return g === "NOTE" ? NOTE_GLYPH : g === "TASK" ? TASK_GLYPH : g === "TERM" ? ICON_T : g === "PROC" ? ICON_P : g; }
+function fallbackText(list) { return list.map((f) => (f.on ? "" : "-") + f.word).join(","); }
+// one moved by `by` (−1 up, +1 down), or turned on or off
+function fallbackMoved(text, word, by) {
+  const list = fallbackList(text);
+  const i = list.findIndex((f) => f.word === word);
+  const j = i + by;
+  if (i < 0 || j < 0 || j >= list.length) return fallbackText(list);
+  const t = list[i]; list[i] = list[j]; list[j] = t;
+  return fallbackText(list);
+}
+function fallbackSet(text, word, on) {
+  return fallbackText(fallbackList(text).map((f) => f.word === word ? Object.assign(f, { on }) : f));
+}
+
 function rootRows(rows, query, freq, actions, extra) {
   const q = (query || "").trim();
   const out = [];
   const ex = extra || {};
+  // what you took out of the list (Oracle's cynosureHidden)
+  if (ex.hidden) rows = rows.filter((r) => !ex.hidden[hideId(r)]);
   if (q === "") {
     // your favorites first, in your order, and not again below
     const taken = {};
     for (const r of ex.favorites || []) { out.push(inSection(r, "Favorites")); taken[r.kind + "\u0000" + r.key] = true; }
-    const used = rows.filter((r) => (freq || {})[r.key] > 0 && !taken[r.kind + "\u0000" + r.key]).slice(0, SUGGESTED);
+    const used = rows.filter((r) => (freq || {})[r.key] > 0 && !taken[r.kind + "\u0000" + r.key])
+      .slice(0, ex.suggested === undefined ? SUGGESTED : Math.max(0, ex.suggested));
     for (const r of used) { out.push(inSection(r, "Suggestions")); taken[r.kind + "\u0000" + r.key] = true; }
-    for (const kind of ["app", "shell", "hist"])
+    for (const kind of ex.history === false ? ["app", "shell"] : ["app", "shell", "hist"])
       for (const r of rows)
         if (r.kind === kind && !taken[r.kind + "\u0000" + r.key]) out.push(inSection(r, SECTION_OF[kind]));
     return out;
@@ -1761,6 +2351,8 @@ function rootRows(rows, query, freq, actions, extra) {
   if (ex.fontsOnly) return (ex.fonts || []).slice();
   if (ex.capturesOnly) return (ex.captures || []).slice();
   if (ex.helpOnly) return (ex.help || []).slice();
+  // the lookups' words (Lookups.qml: bm, browsed, github, music, menu …)
+  if (ex.only) return ex.only.slice();
   // "wifi off" is still the switch, over the networks
   if (ex.radiosOnly) return (ex.command ? [ex.command] : []).concat(ex.radios || []);
   const scoped = scopedRow(actions, query);
@@ -1773,10 +2365,11 @@ function rootRows(rows, query, freq, actions, extra) {
   if (link) out.push(link);
   const script = scoped || link ? null : scriptFor(ex.scripts, query);
   if (script) out.push(script);
-  const ranked = rankRows(rows, q);
+  const ranks = new Map();
+  const ranked = rankRows(rows, q, ex.picks, ranks);
   // the best few of everything named, first; each is then left out of its
   // own section below
-  const top = topRows(ranked, files, q, freq, ex.fileFreq);
+  const top = topRows(ranked, files, q, freq, ex.fileFreq, ex.picks, ranks);
   const taken = {};
   for (const t of top) { out.push(inSection(t, "Top results")); taken[t.kind + "\u0000" + t.key] = true; }
   const free = (r) => !taken[r.kind + "\u0000" + r.key];
@@ -1789,35 +2382,35 @@ function rootRows(rows, query, freq, actions, extra) {
   for (const f of files) if (free(f)) out.push(f);
   for (const c of clips) out.push(c);
   for (const g of glyphs) out.push(g);
-  for (const r of ranked)
-    if (r.kind === "hist" && free(r)) out.push(inSection(r, SECTION_OF.hist));
-  if (!scoped) {
+  if (ex.history !== false)
+    for (const r of ranked)
+      if (r.kind === "hist" && free(r)) out.push(inSection(r, SECTION_OF.hist));
+  // each long section its best few, and a row that opens all of it
+  if (!scoped && ex.sectionCap !== false) out.splice(0, out.length, ...capSections(out, q, ex.sectionCap || SECTION_CAP));
+  // Offer other ways off (Oracle): what matched, and nothing more
+  if (!scoped && ex.fallbacks !== false) {
     const quoted = "\u201C" + q + "\u201D";
     // Raycast's fallbacks: the line handed to each panel that can take it,
     // then run as a command
     const use = "Use " + quoted + " with\u2026";
     const fb = (name, glyph, word, sub) => out.push({ kind: "fallback", key: "fb:" + word, text: q,
       glyph, label: name, sub, action: { line: word + " " + q }, section: use });
-    const web = (ex.links || []).find((l) => l.word === "web");
-    if (web && !link) out.push(Object.assign(linkRow(web, q, use), { label: "Search the web", sub: "" }));
-    fb("Search files", "\uF002", "f", "Artemis");
-    fb("Search the clipboard", "\uF0EA", "cb", "Folio");
-    fb("Search settings", "\uF013", "settings", "Oracle");
-    fb("Search the store", "\uF07A", "store", "Ceres");
-    if (/^\S+$/.test(q)) fb("Search packages", "\uF187", "pkg", "Ceres");
-    fb("Search notes", NOTE_GLYPH, "notes", "Clio");
-    fb("New note", NOTE_GLYPH, "note", "Clio");
-    fb("New event", "\uF073", "event", "Chronos");
-    fb("New task", TASK_GLYPH, "todo", "Clio");
-    fb("Go to a directory", "\uF07B", "go", "Terminus");
-    if (q.length >= 3) fb("Search inside files", "\uF15C", "in", "Ripgrep");
-    if (/^\S+$/.test(q)) fb("Define", "\uF02D", "def", "Lexi");
-    fb("Translate", "\uF1AB", "tr", "Lexi");
-    fb("Find emoji", "\uF118", "em", "Ideo");
-    out.push({ kind: "run", key: "run:t", mode: "Terminal", text: q, glyph: ICON_T,
-      label: "Run " + quoted + " in the terminal", section: use });
-    out.push({ kind: "run", key: "run:p", mode: "Process", text: q, glyph: ICON_P,
-      label: "Run " + quoted + " in the background", section: use });
+    const glyphOf = fallbackGlyph;
+    for (const f of fallbackList(ex.fallbackList)) {
+      if (!f.on || (f.one && !/^\S+$/.test(q)) || (f.min && q.length < f.min)) continue;
+      if (f.word === "web") {
+        const web = (ex.links || []).find((l) => l.word === "web");
+        if (web && !link && !(ex.hidden && ex.hidden["link:" + web.word]))
+          out.push(Object.assign(linkRow(web, q, use), { label: "Search the web", sub: "", fbWord: "web" }));
+      } else if (f.word === "run:t" || f.word === "run:p") {
+        const t = f.word === "run:t";
+        out.push({ kind: "run", key: f.word, mode: t ? "Terminal" : "Process", text: q, glyph: glyphOf(f.glyph),
+          label: "Run " + quoted + (t ? " in the terminal" : " in the background"), section: use, fbWord: f.word });
+      } else {
+        fb(f.name, glyphOf(f.glyph), f.word, f.sub);
+        out[out.length - 1].fbWord = f.word;
+      }
+    }
   }
   return out;
 }
@@ -1850,16 +2443,26 @@ function rowActions(r) {
     out.splice(1, 0, ...favActs(r, (id, text, icon, hint) => ({ id, text, icon, hint: hint || "" })));
   return out;
 }
+// a fallback's place among them (Oracle's cynosureFallbackList)
+function fallbackActs(r, a) {
+  if (!r || !r.fbWord) return [];
+  return [a("fbUp", "Move up among the other ways", "\uF062"), a("fbDown", "Move down among the other ways", "\uF063"),
+    a("fbOff", "Do not offer this", "\uF070")];
+}
+// out of the list (Oracle's cynosureHidden)
+function hideActs(r, a) {
+  return r && HIDEABLE[r.kind] ? [a("hide", "Hide from the list", "\uF070")] : [];
+}
 function kindActions(r) {
   if (!r) return [];
   const a = (id, text, icon, hint) => ({ id, text, icon, hint: hint || "" });
   switch (r.kind) {
   case "app":
     return [a("go", "Open", A_OPEN, "return"), ...aliasActs(r, a), ...hotkeyActs(r, a), a("copyName", "Copy name", A_COPY),
-      a("forget", "Forget how often it is used", A_FORGET)];
+      a("forget", "Forget how often it is used", A_FORGET), ...hideActs(r, a)];
   case "shell":
     return [a("go", r.action && r.action.view ? "Open" : "Run", A_RUN, "return"), ...aliasActs(r, a), ...hotkeyActs(r, a),
-      a("copyName", "Copy name", A_COPY), a("forget", "Forget how often it is used", A_FORGET)];
+      a("copyName", "Copy name", A_COPY), a("forget", "Forget how often it is used", A_FORGET), ...hideActs(r, a)];
   case "hist":
     return [a("go", "Run", A_RUN, "return"), a("runTerminal", "Run in the terminal", "\uEA85"),
       a("runProcess", "Run in the background", "\uEB7F"), ...hotkeyActs(r, a), a("copyName", "Copy command", A_COPY),
@@ -1875,6 +2478,10 @@ function kindActions(r) {
     return [a("go", "Copy", A_COPY, "return"),
       ...(/^https?:\/\/\S+$/i.test(String(r.label || "").trim()) ? [a("openUrl", "Open link", A_OPEN)] : []),
       a("keep", "Keep as snippet", "\uEB66", "ctrl s"),
+      a("rename", "Rename", "\uF044", "ctrl r"),
+      a("pin", r.pinned ? "Unpin" : "Pin to the top", "\uF08D", "ctrl p"),
+      ...(r.gone ? [] : [a("turn", r.turn ? "Leave out of the turn" : "Mark to paste in turn", "\uF0CB", "ctrl space")]),
+      ...(r.turn ? [a("inTurn", "Paste the marked in turn", "\uF0EA", "ctrl return")] : []),
       ...TRANSFORMS.map((x) => a("as:" + x.id, "Paste as " + x.text, "\uF0EA")),
       a("drop", "Remove from the clipboard", A_FORGET, "delete")];
   case "clipimg": case "pics":
@@ -1883,6 +2490,7 @@ function kindActions(r) {
       a("drop", "Remove from the clipboard", A_FORGET, "delete")];
   case "snip":
     return [a("go", "Copy", A_COPY, "return"), a("pasteSnip", "Paste", "\uF0EA"), a("edit", "Edit", "\uF040", "ctrl e"),
+      a("snipKey", r.keyword ? "Change keyword" : "Set keyword", "\uF11C", "ctrl k"),
       a("newSnippet", "New snippet", "\uEB66", "ctrl n"), a("drop", "Move to the trash", A_FORGET, "delete")];
   case "glyphs":
     // the three formats Ideo's own strip offered (glyph, class, codepoint)
@@ -1924,7 +2532,9 @@ function kindActions(r) {
   case "output":
     return [a("go", "Use for sound", "\u{F04C3}", "return"), a("copyName", "Copy name", A_COPY)];
   case "pcolor":
-    return [a("go", "Copy hex", A_COPY, "return"), a("copyRgb", "Copy rgb()", A_COPY), a("copyHsl", "Copy hsl()", A_COPY)];
+    // every form it has (Answers.colorForms), the hex first
+    return [a("go", "Copy hex", A_COPY, "return"),
+      ...(r.forms || []).slice(1).map((f) => a("form:" + f[0], "Copy as " + f[0], A_COPY))];
   case "place":
     return [a("go", r.path === "" ? "Connect and open" : "Open in Terminus", A_OPEN, "return"),
       ...(r.path === "" ? [] : [a("openTerm", "Open a terminal here", "\uEA85"), a("copyPath", "Copy path", A_COPY)]),
@@ -1986,11 +2596,25 @@ function kindActions(r) {
       a("copyName", "Copy title", A_COPY)];
   case "argcmd":
     return [a("go", "Do it", A_RUN, "return")];
+  case "search":
+    return [a("go", "Search again", A_RUN, "return")];
+  case "more":
+    return [a("go", "Show all", A_RUN, "return")];
+  case "web":
+    return [a("go", "Open in the browser", A_OPEN, "return"), a("copyUrl", "Copy address", A_COPY)];
+  case "contact":
+    return [...(r.email ? [a("go", "Write an email", "\uF0E0", "return"), a("copyEmail", "Copy email", A_COPY)] : []),
+      ...(r.phone ? [a(r.email ? "copyPhone" : "go", "Copy phone number", A_COPY, r.email ? "" : "return")] : []),
+      a("copyName", "Copy name", A_COPY), ...(r.path ? [a("reveal", "Show in Terminus", "\uF07C")] : [])];
+  case "traymenu":
+    return [a("go", "Choose", A_RUN, "return")];
   case "link":
-    return [a("go", "Open in the browser", A_OPEN, "return"), ...hotkeyActs(r, a), a("copyUrl", "Copy address", A_COPY),
-      ...(r.own ? [a("dropLink", "Remove quick link", A_FORGET)] : [])];
+    // the browsers to always open it in are put in after "go" by the popup
+    return [a("go", r.app ? "Open in " + (r.appName || r.app) : "Open in the browser", A_OPEN, "return"), ...hotkeyActs(r, a),
+      a("copyUrl", "Copy address", A_COPY), ...fallbackActs(r, a), ...hideActs(r, a),
+      ...(r.own && !r.builtin ? [a("dropLink", "Remove quick link", A_FORGET)] : [])];
   case "run": case "fallback": case "scoped":
-    return [a("go", r.kind === "run" ? "Run" : "Use", A_RUN, "return")];
+    return [a("go", r.kind === "run" ? "Run" : "Use", A_RUN, "return"), ...fallbackActs(r, a)];
   }
   return [];
 }
@@ -2032,13 +2656,18 @@ function verbOf(r) {
   if (r.kind === "help") return r.fill ? "type it" : "";
   if (r.kind === "sitem") return r.item.open ? "open" : r.item.paste ? "paste" : r.item.run ? "run" : "copy";
   if (r.kind === "hit") return "open in plato";
-  if (r.kind === "font") return "open in alexandria";
+  if (r.kind === "font" || r.kind === "fonts") return "open in alexandria";
   if (r.kind === "shots") return "open";
   if (r.kind === "newevent") return r.bad ? "" : "add to calendar";
   if (r.kind === "storeapp") return "open in ceres";
   if (r.kind === "fallback") return "use";
-  if (r.kind === "link") return "open";
+  if (r.kind === "link" || r.kind === "web") return "open";
+  if (r.kind === "traymenu") return "choose";
+  if (r.kind === "contact") return r.email ? "email" : r.phone ? "copy number" : "copy";
+  if (r.kind === "info") return "";
   if (r.kind === "argcmd") return "do it";
+  if (r.kind === "search") return "search again";
+  if (r.kind === "more") return "show all";
   if (r.kind === "window") return "go to it";
   if (r.kind === "script") return "run";
   if (r.kind === "clip" || r.kind === "clipimg" || r.kind === "pics" || r.kind === "snip") return "copy";
@@ -2053,7 +2682,12 @@ function kindName(r) {
   if (r.kind === "file") return r.isDir ? "Directory" : "File";
   if (r.kind === "fallback") return "Command";
   if (r.kind === "link") return "Quick link";
+  if (r.kind === "web") return "Page";
+  if (r.kind === "traymenu") return "Menu item";
+  if (r.kind === "contact") return "Contact";
+  if (r.kind === "info") return "";
   if (r.kind === "argcmd") return "Command";
+  if (r.kind === "search") return "Search";
   if (r.kind === "window") return r.focused ? "This window" : "Window";
   if (r.kind === "script") return "Script";
   if (r.kind === "setting") return "Setting";
@@ -2076,6 +2710,7 @@ function kindName(r) {
   if (r.kind === "sitem") return "Script";
   if (r.kind === "hit") return "Line";
   if (r.kind === "font") return "Font";
+  if (r.kind === "fonts") return "";
   if (r.kind === "shots") return "";
   if (r.kind === "newevent") return r.bad ? "" : "New event";
   if (r.kind === "storeapp") return r.installed ? "Installed" : "App";

@@ -62,6 +62,21 @@ THEMES = {
    muted="#666c7a", dim="#b9c3c3", border="#9aa3ad",
    red="#c4474e", orange="#c25f22", yellow="#8f7a1c", green="#4a8538", cyan="#337b7b",
    blue="#2f6fbe", magenta="#8550b6", pink="#bc5f72"),
+ # ── Monochrome (2026-11-04) ── neutral grays with no tint, the accent a
+ # near-white (dark) or near-black (light) gray: the chrome is monochrome,
+ # the colors are not. Every hue keeps its color (user, same day: "should
+ # still retain the colors") and they are Zenon's own, the dark side's and
+ # Zenon Light's, so a tag, a calendar or a terminal reads as it does there.
+ "monochrome-dark": dict(name="Monochrome Dark", mode="dark",
+   ground="#111111", card="#1a1a1a", surface="#262626", ink="#e6e6e6", soft="#b3b3b3", keyInk="#cccccc",
+   muted="#8a8a8a", dim="#3a3a3a", border="#555555",
+   red="#e78284", orange="#fab387", yellow="#e5c890", green="#b6e0a4", cyan="#d4d4d4",
+   blue="#9fcbfc", magenta="#c8a4e0", pink="#eebebe", sand="#dfc6a6"),
+ "monochrome-light": dict(name="Monochrome Light", mode="light",
+   ground="#f4f4f4", card="#ebebeb", surface="#dedede", ink="#161616", soft="#444444", keyInk="#333333",
+   muted="#6b6b6b", dim="#c4c4c4", border="#9e9e9e",
+   red="#c4474e", orange="#c25f22", yellow="#8f7a1c", green="#4a8538", cyan="#2e2e2e",
+   blue="#2f6fbe", magenta="#8550b6", pink="#bc5f72", sand="#9d7d51"),
  # ── Catppuccin ──
  "catppuccin-frappe": dict(name="Catppuccin Frappé", mode="dark",
    ground="#232634", card="#292c3c", surface="#414559", ink="#c6d0f5", soft="#a5adce", keyInk="#b5bfe2",
@@ -301,6 +316,18 @@ def legible(stem, key, h, ground, need=3.0):
     ADJUSTED.append(f"{stem:22} {key:8} {h} -> {out} ({contrast(h, ground):.2f} -> {contrast(out, ground):.2f})")
     return out
 
+# THE SHIPPED SANDS WERE SET BY HAND after sand_of — every theme's at oklch
+# hue ~73–81, L .84 C .052 dark, L .61 C .072 light — and sand_of no longer
+# makes them (a full run on 2026-11-04 walked all 32 back). So a theme whose
+# file is already written keeps the sand it has; sand_of only seeds a new
+# theme that names none, and a palette's own `sand` always wins.
+def shipped_sand(stem):
+    try:
+        with open(os.path.join(OUT, stem + ".json")) as fh:
+            return json.load(fh)["colors"].get("sand")
+    except (OSError, ValueError, KeyError):
+        return None
+
 def build(p, stem=""):
     light = p["mode"] == "light"
     if light:
@@ -316,7 +343,7 @@ def build(p, stem=""):
         "ground": p["ground"], "surface": p["surface"], "card": p["card"],
         "ink": p["ink"], "muted": p["muted"], "soft": soft, "keyInk": key,
         "red": p["red"], "green": p["green"], "yellow": p["orange"], "blue": p["blue"],
-        "magenta": p["magenta"], "cyan": p["cyan"], "pink": pink, "sand": p.get("sand") or sand_of(p, light),
+        "magenta": p["magenta"], "accent": p["cyan"], "pink": pink, "sand": p.get("sand") or shipped_sand(stem) or sand_of(p, light),
         "dim": p["dim"],
         "sparkFill": a(0.2, p["cyan"]),
         "border": a(0.4 if light else 0.3, p["border"]),
@@ -335,7 +362,7 @@ for stem, p in THEMES.items():
     c = t["colors"]
     g = c["ground"]
     checks = [("ink", 4.5), ("keyInk", 3.5), ("soft", 3.0), ("muted", 2.4)] + \
-             [(k, 2.6) for k in ("red", "green", "yellow", "blue", "magenta", "cyan", "sand")]
+             [(k, 2.6) for k in ("red", "green", "yellow", "blue", "magenta", "accent", "sand")]
     for k, need in checks:
         r = contrast(c[k], g)
         if r < need:

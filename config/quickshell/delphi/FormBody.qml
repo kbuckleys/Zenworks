@@ -178,11 +178,11 @@ Item {
     width: parent.width
     question: fb.form ? fb.form.title || "" : ""
     glyph: fb.form && fb.form.glyph ? fb.form.glyph : ""
-    glyphInk: fb.form && fb.form.ink ? fb.form.ink : Zenon.cyan
+    glyphInk: fb.form && fb.form.ink ? fb.form.ink : Zenon.accent
     detail: fb.form && fb.form.detail ? fb.form.detail : ""
     items: fb.form && fb.form.items ? fb.form.items : []
     choices: [{ label: fb.form && fb.form.verb ? fb.form.verb : "OK",
-                ink: fb.ready ? (fb.form && fb.form.verbInk ? fb.form.verbInk : Zenon.cyan) : Zenon.accentMuted,
+                ink: fb.ready ? (fb.form && fb.form.verbInk ? fb.form.verbInk : Zenon.accent) : Zenon.accentMuted,
                 busy: fb.busy, busyText: fb.busyText },
               { label: fb.form && fb.form.cancelLabel ? fb.form.cancelLabel : "Cancel", ink: Zenon.accentMuted }]
     pick: fb.pick
@@ -231,7 +231,6 @@ Item {
         BulkDrop {
           id: fdrop
           visible: fcol.choice
-          width: Math.max(implicitWidth, Math.min(parent.width, 260))
           host: fb
           overlay: dropLayer
           textSize: Zenon.px(15)

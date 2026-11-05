@@ -20,7 +20,7 @@
 // Used as:
 //
 //     Working { running: Picasso.scanning }
-//     Working { running: popup.dictLoading; ink: Zenon.cyan; dot: 5 }
+//     Working { running: popup.dictLoading; ink: Zenon.accent; dot: 5 }
 //
 // It occupies no space when it is not running, so a Row it sits in closes
 // up rather than leaving a hole where the dots were.

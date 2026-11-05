@@ -56,13 +56,14 @@ Rectangle {
   radius: Zenon.radiusControl
   color: "transparent"
   border.width: 2
-  border.color: Zenon.alpha(Zenon.cyan, 0.6)
+  border.color: Zenon.alpha(Zenon.accent, 0.6)
 
   visible: opacity > 0.01
   opacity: ring.on ? 1 : 0
   scale: ring.on ? 1 : 0.94
   Behavior on opacity { NumberAnimation { duration: Zenon.fast; easing.type: Zenon.ease } }
   Behavior on scale {
-    NumberAnimation { duration: Zenon.normal; easing.type: Easing.OutBack; easing.overshoot: 2.2 }
+    // OutBack only arriving (polish-round rule); going, a plain ease
+    NumberAnimation { duration: Zenon.normal; easing.type: ring.on ? Easing.OutBack : Zenon.ease; easing.overshoot: 2.2 }
   }
 }

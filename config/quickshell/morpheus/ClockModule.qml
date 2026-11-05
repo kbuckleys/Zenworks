@@ -44,7 +44,7 @@ Item {
         numeric: true
         // the same ink an unlit meter notch uses: it is the same idea, an
         // element of the accent that is present but not lit
-        color: Zenon.trough(Zenon.cyan)
+        color: Zenon.trough(Zenon.accent)
       }
 
       BarText {
@@ -57,7 +57,7 @@ Item {
         text: Helpers.pad(root.shownHour) + ":" + Helpers.pad(clock.minutes)
           + (Oracle.clockSeconds ? ":" + Helpers.pad(clock.seconds) : "")
         numeric: true
-        color: Zenon.cyan
+        color: Zenon.accent
       }
     }
 

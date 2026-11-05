@@ -30,10 +30,10 @@ Rectangle {
   radius: Zenon.windowRadius
   // No hover tint — the suite's buttons answer only at rest, lit and
   // pressed (user, 2026-10-11); pressed is the wash Segments presses with.
-  color: verb.on ? Zenon.alpha(Zenon.cyan, 0.16)
+  color: verb.on ? Zenon.alpha(Zenon.accent, 0.16)
     : verbPress.pressed ? Zenon.pressWash(0.12) : Zenon.wash(0.04)
   border.width: 1
-  border.color: verb.on ? Zenon.cyan : Zenon.border
+  border.color: verb.on ? Zenon.accent : Zenon.border
   Behavior on color { ColorAnimation { duration: Zenon.fast } }
   Behavior on border.color { ColorAnimation { duration: Zenon.fast } }
 
@@ -42,7 +42,7 @@ Rectangle {
     id: verbText
     anchors.centerIn: parent
     text: verb.label
-    color: verb.on ? Zenon.cyan : Zenon.white
+    color: verb.on ? Zenon.accent : Zenon.white
     font.family: Zenon.face
     font.weight: Zenon.weight
     font.pixelSize: Zenon.px(13)

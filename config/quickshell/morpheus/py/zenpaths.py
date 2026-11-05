@@ -13,6 +13,8 @@
 #                                sockets, locks
 #   data_dir(app)                $XDG_DATA_HOME/<app> (~/.local/share)
 #   cache_dir(app)               $XDG_CACHE_HOME/<app> (~/.cache)
+#   state_dir(app)               $XDG_STATE_HOME/<app> (~/.local/state):
+#                                what one session leaves the next (apprestore)
 #
 # Each is made when asked for. Lifted out of clio (write_atomic) and calypso
 # (runtime_dir) on 2026-10-18. Named zenpaths, not files
@@ -57,3 +59,7 @@ def data_dir(app):
 
 def cache_dir(app):
     return _xdg("XDG_CACHE_HOME", "~/.cache", app)
+
+
+def state_dir(app):
+    return _xdg("XDG_STATE_HOME", "~/.local/state", app)

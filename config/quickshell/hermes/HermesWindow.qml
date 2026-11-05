@@ -124,6 +124,13 @@ FloatingWindow {
   property var pskNet: null
   property bool pskFailed: false
   property bool askSwitch: false
+  // the switch sheet's lit answer: 0 Switch, 1 Cancel
+  property int switchPick: 0
+  function answerSwitch(i) {
+    hw.askSwitch = false;
+    if (i === 0) Hermes.setup("networkmanager");
+    hw.refocus();
+  }
   function submitPsk(pw) {
     if (!hw.pskNet || pw === "") return;
     Hermes.join(hw.pskNet, pw);
@@ -156,7 +163,8 @@ FloatingWindow {
       }
       if (hw.askSwitch) {
         if (e.key === Qt.Key_Escape) hw.askSwitch = false;
-        else if (e.key === Qt.Key_Return || e.key === Qt.Key_Enter) { hw.askSwitch = false; Hermes.setup("networkmanager"); }
+        else if (e.key === Qt.Key_Return || e.key === Qt.Key_Enter) hw.answerSwitch(hw.switchPick);
+        else if (e.key === Qt.Key_Left || e.key === Qt.Key_Right || e.key === Qt.Key_Tab) hw.switchPick = 1 - hw.switchPick;
         return;
       }
       if (e.key === Qt.Key_Escape) { hw.visible = false; return; }
@@ -237,7 +245,7 @@ FloatingWindow {
         anchors.right: parent.right
         anchors.rightMargin: 14
         anchors.verticalCenter: parent.verticalCenter
-        spacing: 8
+        spacing: Zenon.buttonGap
         BusyButton {
           visible: hw.section === "bluetooth" && Hermes.btReady && Hermes.btOn
           label: "Search"
@@ -321,7 +329,7 @@ FloatingWindow {
   }
 
   readonly property var hintRows: hw.pskNet ? [["return", "join"], ["esc", "back"]]
-    : hw.askSwitch ? [["return", "switch"], ["esc", "cancel"]]
+    : hw.askSwitch ? [["← →", "pick"], ["return", hw.switchPick === 0 ? "switch" : "cancel"], ["esc", "cancel"]]
     : hw.section === "network" && Hermes.wifiReady ? [["↑↓", "network"], ["return", "join, leave"], ["delete", "forget"], ["ctrl 1-5", "section"], ["esc", "close"]]
     : hw.section === "bluetooth" && Hermes.btReady ? [["↑↓", "device"], ["return", "connect"], ["s", "search"], ["delete", "forget"], ["ctrl 1-5", "section"], ["esc", "close"]]
     : hw.section === "printers" && hw.page && hw.page.count > 0 ? [["↑↓", "printer"], ["delete", "remove"], ["ctrl 1-5", "section"], ["ctrl r", "look again"], ["esc", "close"]]
@@ -346,7 +354,7 @@ FloatingWindow {
         Text {
           anchors.verticalCenter: parent.verticalCenter
           text: H.G.wifiLock
-          color: Zenon.cyan
+          color: Zenon.accent
           font.family: Zenon.glyphFace
           font.pixelSize: Zenon.px(18)
         }
@@ -380,41 +388,19 @@ FloatingWindow {
     shown: hw.askSwitch
     fromTop: hw.headH
     cardW: Math.min(hw.width - 80, 600)
-    cardH: switchCol.implicitHeight + 40
-    Column {
-      id: switchCol
-      x: 22
-      y: 20
-      width: parent.width - 44
-      spacing: 14
-      Text {
-        text: "Switch to NetworkManager?"
-        color: Zenon.ink
-        font.family: Zenon.face
-        font.weight: Zenon.titleWeight
-        font.pixelSize: Zenon.px(19)
-      }
-      Text {
-        width: parent.width
-        wrapMode: Text.WordWrap
-        text: "Ceres installs NetworkManager, turns " + H.stackWords(Hermes.probe.stack)
-          + " off and starts NetworkManager in its place, now and at every boot. The network drops for a few seconds while they swap. "
-          + "A wired link set up by DHCP comes straight back; a static address or anything set in /etc/systemd/network has to be set again in NetworkManager."
-        color: Zenon.accentMuted
-        font.family: Zenon.face
-        font.weight: Zenon.weight
-        font.pixelSize: Zenon.px(14)
-      }
-      Row {
-        spacing: 8
-        DialogButton { label: "Cancel"; onClicked: { hw.askSwitch = false; hw.refocus(); } }
-        DialogButton {
-          label: "Switch"
-          primary: true
-          onClicked: { hw.askSwitch = false; Hermes.setup("networkmanager"); hw.refocus(); }
-        }
-      }
+    cardH: switchBody.implicitHeight
+    ConfirmBody {
+      id: switchBody
+      width: parent.width
+      question: "Switch to NetworkManager?"
+      detail: "Ceres installs NetworkManager, turns " + H.stackWords(Hermes.probe.stack)
+        + " off and starts NetworkManager in its place, now and at every boot. The network drops for a few seconds while they swap. "
+        + "A wired link set up by DHCP comes straight back; a static address or anything set in /etc/systemd/network has to be set again in NetworkManager."
+      choices: [{ label: "Switch", ink: Zenon.accent }, { label: "Cancel", ink: Zenon.accentMuted }]
+      pick: hw.switchPick
+      onPicked: (i) => hw.switchPick = i
+      onChose: (i) => hw.answerSwitch(i)
     }
   }
-  onAskSwitchChanged: if (hw.askSwitch) keySink.forceActiveFocus()
+  onAskSwitchChanged: if (hw.askSwitch) { hw.switchPick = 0; keySink.forceActiveFocus(); }
 }

@@ -1,3 +1,5 @@
+-- mini.nvim by Evgeni Chasnovski — https://github.com/nvim-mini/mini.nvim (MIT)
+--
 -- mini.nvim: a library of small modules, each switched on by its setup().
 -- Run by plato after the plugin loads; edit freely (plato's plugin panel,
 -- "configure", opens this file). mini.nvim is one of plato's core plugins —

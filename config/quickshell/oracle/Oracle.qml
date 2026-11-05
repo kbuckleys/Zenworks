@@ -203,7 +203,7 @@ Singleton {
   // ── ACCENT COLOR ──────────────────────────────────────────────────
   // "#rrggbb" laid over whatever theme is worn — Zenon, a file, Follow
   // Background, Follow Daytime's day and night alike — as its accent (the
-  // cyan slot; Zenon.cyan). "" is the theme's own.
+  // accent slot; Zenon.accent). "" is the theme's own.
   property string accentColor: ""
   // a new background (the main monitor's, as Follow Background reads it)
   // puts the accent back to the theme's — picasso/FollowBackground
@@ -241,6 +241,157 @@ Singleton {
     themeDel.running = true;
   }
   Process { id: themeDel; onExited: root.scanThemes() }
+
+  // ── THE CURSOR (2026-11-04) ──────────────────────────────────────────
+  // The Cursor rows. ThemeSync wears the pair (Ora.cursorPair) once the
+  // scan is back: cursorThemesScanned keeps it from writing a guess first.
+  property string cursorTheme: "XCursor-Pro-Dark"
+  property int cursorSize: 24
+  // picked by hand (2026-11-04): "" is the Theme row's pairing
+  property string cursorHypr: ""
+  property string cursorX: ""
+  property var cursorScanned: ({ h: [], x: [], m: [], dir: {} })
+  property var cursorThemes: []
+  property bool cursorThemesScanned: false
+  readonly property var cursorPair: Ora.cursorPair(root.cursorThemes, root.cursorTheme, root.cursorHypr, root.cursorX)
+  // the Theme row's entry, or null for one not installed
+  readonly property var cursorEntry: root.cursorThemes.find((o) => o.value === root.cursorTheme) || null
+  function scanCursors() {
+    if (!cursorProc.running) cursorProc.running = true;
+    if (!cursorToolProc.running) cursorToolProc.running = true;
+  }
+  // ── HYPRCURSOR ── the library and hyprcursor-util come in one package
+  // (hyprcursor, which Hyprland needs, so it is missed only on a broken
+  // install); xcur2png is what Make needs besides. Missing at a start, a
+  // notice offers to install it (Ceres, through OracleManager).
+  property var cursorTools: ({ scanned: false, hyprcursor: false, xcur2png: false, version: "" })
+  property bool cursorMaking: false
+  property bool cursorMakeAfterInstall: false
+  property bool cursorAskedOnce: false
+  signal cursorInstallAsked(var pkgs, string why)
+  Process {
+    id: cursorToolProc
+    command: ["sh", "-c", "command -v hyprcursor-util >/dev/null 2>&1 && echo hyprcursor; "
+      + "command -v xcur2png >/dev/null 2>&1 && echo xcur2png; "
+      + "v=$(pacman -Q hyprcursor 2>/dev/null) && echo \"version ${v#* }\"; exit 0"]
+    stdout: StdioCollector {
+      id: cursorToolOut
+      waitForEnd: true
+      onStreamFinished: {
+        const l = String(cursorToolOut.text).split("\n");
+        const v = l.find((x) => x.indexOf("version ") === 0);
+        root.cursorTools = { scanned: true, hyprcursor: l.indexOf("hyprcursor") >= 0,
+          xcur2png: l.indexOf("xcur2png") >= 0, version: v ? v.slice(8).trim() : "" };
+        root.revision++;
+        if (!root.cursorTools.hyprcursor && !root.cursorAskedOnce) {
+          root.cursorAskedOnce = true;
+          if (!cursorAskProc.running) cursorAskProc.running = true;
+        }
+      }
+    }
+  }
+  // a notice with an Install button: notify-send waits for the answer
+  Process {
+    id: cursorAskProc
+    command: ["notify-send", "-a", "oracle", "-A", "install=Install", "--", "Hyprcursor is not installed",
+      "Hyprland draws every cursor in its older XCursor form without it, blurry at large sizes. Install it?"]
+    stdout: StdioCollector {
+      id: cursorAskOut
+      waitForEnd: true
+      onStreamFinished: if (String(cursorAskOut.text).trim() === "install")
+        root.cursorInstallAsked(["hyprcursor"], "for sharp cursors (Oracle \u203a Cursor)")
+    }
+  }
+  // OracleManager's answer once Ceres is done
+  function cursorInstalled(ok) {
+    const make = root.cursorMakeAfterInstall;
+    root.cursorMakeAfterInstall = false;
+    root.revision++;
+    if (!ok) return;
+    cursorToolProc.running = false;
+    cursorToolProc.running = true;
+    if (make) cursorMakeTimer.restart();
+  }
+  // after the tools are looked at again
+  Timer { id: cursorMakeTimer; interval: 1500; onTriggered: root.cursorMake() }
+  // the Make button's word
+  function cursorMakeVerb() {
+    if (root.cursorMaking) return "Making\u2026";
+    if (root.cursorTools.scanned && (!root.cursorTools.hyprcursor || !root.cursorTools.xcur2png)) return "Install and make";
+    return "Make";
+  }
+  // MAKE: a Hyprcursor version of the Theme row's X theme
+  // (oracle/hyprcursor.sh), named <name>-Hyprcursor so the row pairs it
+  function cursorMake() {
+    if (root.cursorMaking) return;
+    const e = root.cursorEntry;
+    const say = (title, body) => Quickshell.execDetached(["notify-send", "-a", "oracle", "--", title, body]);
+    if (!e || !e.x) {
+      say("Nothing to make", e ? e.value + " is a Hyprcursor theme already." : root.cursorTheme + " is not installed.");
+      return;
+    }
+    if (e.sharp && root.cursorScanned.m.indexOf(e.hypr) < 0) {
+      say("Already sharp", e.value + " has a Hyprcursor version of its own: " + e.hypr + ".");
+      return;
+    }
+    const need = [];
+    if (!root.cursorTools.hyprcursor) need.push("hyprcursor");
+    if (!root.cursorTools.xcur2png) need.push("xcur2png");
+    if (need.length > 0) {
+      root.cursorMakeAfterInstall = true;
+      root.cursorInstallAsked(need, "to make a Hyprcursor version of " + e.value);
+      return;
+    }
+    const src = root.cursorScanned.dir[e.x];
+    if (!src) { say("Could not make it", "Where " + e.x + " is installed was not found."); return; }
+    root.cursorMaking = true;
+    root.revision++;
+    cursorMakeProc.made = Ora.cursorMadeName(e.x);
+    cursorMakeProc.command = [Quickshell.shellDir + "/oracle/hyprcursor.sh", src, cursorMakeProc.made,
+      (Quickshell.env("XDG_DATA_HOME") || (Quickshell.env("HOME") + "/.local/share")) + "/icons"];
+    cursorMakeProc.running = true;
+  }
+  Process {
+    id: cursorMakeProc
+    property string made: ""
+    stderr: StdioCollector { id: cursorMakeErr }
+    onExited: (code) => {
+      root.cursorMaking = false;
+      root.revision++;
+      if (code === 0) {
+        // the rescan pairs it, and ThemeSync wears it (cursor.lua, setcursor)
+        root.scanCursors();
+        Quickshell.execDetached(["notify-send", "-a", "oracle", "--", "Hyprcursor version made",
+          cursorMakeProc.made + " is in your icons, and Hyprland wears it now."]);
+        return;
+      }
+      Quickshell.execDetached(["notify-send", "-a", "oracle", "--", "Could not make it",
+        String(cursorMakeErr.text || "").trim().split("\n").slice(-3).join(" ") || ("hyprcursor.sh failed (" + code + ")")]);
+    }
+  }
+  Process {
+    id: cursorProc
+    // every icon directory XDG names, yours first; a theme by a name
+    // already seen is the one worn (the first), so it is listed once
+    command: ["sh", "-c",
+      "IFS=:; for d in \"${XDG_DATA_HOME:-$HOME/.local/share}/icons\" \"$HOME/.icons\" "
+      + "$(for x in ${XDG_DATA_DIRS:-/usr/local/share:/usr/share}; do printf '%s/icons:' \"$x\"; done); do "
+      + "[ -n \"$d\" ] || continue; for t in \"$d\"/*/; do t=${t%/}; n=${t##*/}; "
+      + "{ [ -f \"$t/manifest.hl\" ] || [ -f \"$t/manifest.toml\" ]; } && printf 'h\\t%s\\n' \"$n\"; "
+      + "[ -f \"$t/.zenworks-made\" ] && printf 'm\\t%s\\n' \"$n\"; "
+      + "[ -d \"$t/cursors\" ] && printf 'x\\t%s\\t%s\\n' \"$n\" \"$t\"; done; done; exit 0"]
+    stdout: StdioCollector {
+      id: cursorOut
+      waitForEnd: true
+      onStreamFinished: {
+        root.cursorScanned = Ora.cursorScan(cursorOut.text);
+        root.cursorThemes = Ora.cursorThemes(root.cursorScanned);
+        root.cursorThemesScanned = true;
+      }
+    }
+  }
+  onCursorThemesChanged: if (root.defaultsTaken) root.buildSchema()
+  onCursorScannedChanged: if (root.defaultsTaken) root.buildSchema()
 
   // ── THE INSTALLED FONTS ──────────────────────────────────────────────
   // The Font row's families, from fontconfig (Ora.fontFamilies). Scanned at
@@ -460,6 +611,14 @@ Singleton {
   property int notifQuietFrom: 22
   property int notifQuietTo: 7
   property int notifHistoryCap: 200
+  // APPS HELD BACK (2026-11-03): muted (no toast, still in the bell,
+  // quietly) or blocked (dropped). "state<TAB>name" lines — Ora's
+  // NOTIFICATION SOURCES. Set from a bell row's menu, managed in the fold.
+  property string notifSources: ""
+  readonly property var notifSourceMap: Ora.sourceMap(root.notifSources)
+  function setSource(name, state) {
+    root.set("notifSources", Ora.withSource(root.notifSources, name, state));
+  }
   // The card's gutter on every side, and the icon's from the text. Five put
   // the longest line of a list six pixels off the border; a toast is a panel
   // and reads like one at a dozen.
@@ -491,7 +650,7 @@ Singleton {
     { value: "yellow",  label: "Yellow" },
     { value: "blue",    label: "Blue" },
     { value: "magenta", label: "Magenta" },
-    { value: "cyan",    label: "Cyan" },
+    { value: "cyan",    label: "Accent" },
     { value: "pink",    label: "Pink" },
     { value: "sand",    label: "Sand" }
   ]
@@ -626,6 +785,8 @@ Singleton {
   // blur gets it for the length of the lock — see CerberusLock's frost.
   // 5 (hyprlock's) was too frosty live (user, 2026-10-14)
   property int lockFrost: 4
+  // "frost" the live desktop blurred, "plain" the background alone, sharp
+  property string lockBackground: "frost"
   property int lockClockSize: 18
   property int lockDateSize: 14
   // How wide the password field is, as a fraction of the monitor.
@@ -845,8 +1006,46 @@ Singleton {
   property bool menuShowDisplay: true
   // The one row on the desktop menu that had no switch of its own.
   property bool menuShowNote: true
-  property int menuWidth: 220
   property int menuRowHeight: 30
+
+  // ── cynosure (2026-11-03: its own pages, as Raycast's settings have) ──
+  // where it opens: out of the bar's pill, or on its own at an edge, a
+  // third of the way down, in the middle or two thirds down
+  property string cynosurePlace: "bar"
+  property int cynosureWidth: 760
+  property int cynosureRows: 9
+  property bool cynosureDim: false
+  property real cynosureDimStrength: 0.3
+  // what the list mixes in as you type, past apps and commands
+  property bool cynosureRootFiles: true
+  property bool cynosureRootWindows: true
+  property bool cynosureRootSettings: true
+  property bool cynosureRootNotes: true
+  property bool cynosureRootClips: true
+  property bool cynosureRootEmoji: true
+  property int cynosureSuggested: 5
+  property bool cynosureRemember: true
+  property bool cynosureFallbacks: true
+  property string cynosureWebEngine: "duckduckgo"
+  property string cynosureEsc: "clear"
+  property int cynosureKeepLine: 0
+  property bool cynosureAnswers: true
+  property bool cynosureExpand: true
+  property bool cynosureRememberPlaces: true
+  property int cynosureLayoutWait: 5
+  // 2026-11-04: what you hid from the list ("id<TAB>name" lines), the other
+  // ways in your order ("tr,-pkg,web"), the field alone until you type,
+  // the skin emoji come in
+  property string cynosureHidden: ""
+  property string cynosureFallbackList: ""
+  property bool cynosureCompact: false
+  property string cynosureSkinTone: "none"
+
+  // ── the hyper key (2026-11-03): one key held as Ctrl+Alt+Shift+Super,
+  // a keymap of your layout written by oracle/hyper.py, Hyprland pointed at
+  // it through hypr/lua/hyper.lua ──
+  property string hyperKey: "off"
+  property bool hyperCapsShift: true
 
   // ── how the panel describes itself ────────────────────────────────────
   // The order here is the order the sidebar reads, and it is deliberate: the
@@ -862,6 +1061,9 @@ Singleton {
       blurb: "the palette \u2014 the theme, Follow Daytime and Follow Background, the accent, the background" },
     { id: "fonts", group: "looks", label: "Fonts", icon: "\uF031",
       blurb: "the type every component reads \u2014 the font, the monospace, their sizes" },
+    // the pointer's theme and size, for Hyprland and X apps alike (2026-11-04)
+    { id: "cursor", group: "looks", label: "Cursor", icon: "\u{F01BF}",
+      blurb: "the pointer \u2014 its theme and its size, in Hyprland, GTK and X apps" },
     { id: "surfaces", group: "looks", label: "Surfaces", icon: "\uF24D",
       blurb: "what every layer is made of \u2014 the corners, the width, opacity, shadows and frost" },
     // hyprland's blur, shadow, glow and corners in detail (2026-10-29)
@@ -880,8 +1082,19 @@ Singleton {
       blurb: "switching workspaces, and each workspace's screen and layout" },
     { id: "bar", group: "desktop", label: "Bar", icon: "",
       blurb: "morpheus — the pill and what it carries" },
+    { id: "corners", group: "desktop", label: "Hot corners", icon: "\uF065",
+      blurb: "what each corner of the screen does when the pointer rests there" },
     { id: "menu", group: "desktop", label: "Desktop menu", icon: "",
       blurb: "icarus — what right-clicking the desktop offers" },
+    // ── CYNOSURE: the launcher, a part of the shell and set like one ──
+    { id: "cynosure", group: "cynosure", label: "Look & place", icon: "\uF002",
+      blurb: "cynosure \u2014 where it opens, how wide and how tall, and what is behind it" },
+    { id: "cynosureSearch", group: "cynosure", label: "Search", icon: "\uF0B0",
+      blurb: "what the list mixes in as you type, suggestions, and what is offered when nothing fits" },
+    { id: "cynosureKeys", group: "cynosure", label: "Keys & behavior", icon: "\uF11C",
+      blurb: "Esc, the line kept between openings, answers, and snippet keywords typed anywhere" },
+    { id: "cynosureWindows", group: "cynosure", label: "Windows & layouts", icon: "\uF2D2",
+      blurb: "window places and saved layouts, and forgetting what cynosure remembers" },
     // ── INPUT ──
     { id: "input", group: "input", label: "Keyboard & mouse", icon: "\uF11C",
       blurb: "hyprland's keyboard, mouse, touchpad and tablet \u2014 layout, speed, focus" },
@@ -918,7 +1131,7 @@ Singleton {
 
   // the sidebar's headings (user, 2026-10-27: a sidebar, as macOS' System
   // Settings has; then related items together under more of them)
-  readonly property var sectionGroups: ({ looks: "Appearance", desktop: "Desktop", input: "Input",
+  readonly property var sectionGroups: ({ looks: "Appearance", desktop: "Desktop", cynosure: "Cynosure", input: "Input",
                                           alerts: "Alerts & time", capture: "Capture", computer: "This computer" })
 
   // ── THE MARK ──────────────────────────────────────────────────────────
@@ -1049,6 +1262,10 @@ Singleton {
     // ONE ROW with Follow Background's tone (the user asked): the tone's
     // dropdown stands beside the theme only while the theme IS Follow
     // Background (`also` + the tone's `onlyWhen`)
+    // the desktop first, under no heading (LookSample.qml): the background
+    // and the theme's colors, the palette beside
+    { key: "lookSample", section: "look", type: "sample", sample: "look", label: "Desktop", pin: true,
+      alias: "preview sample desktop theme palette colors background accent" },
     { key: "theme", section: "look", alias: "colours colors palette dark light scheme zenon daytime follow background tone auto",
       label: "Theme", type: "enum", optionsFrom: "themes", also: ["followMode"], open: true, chipW: 208,
       help: "The palette every component paints with. Zenon is the shell's own and the default; the rest are files in themes/, and anything a theme leaves out is Zenon's. A theme you saved yourself can be deleted: point at it in the list and press Delete." },
@@ -1116,6 +1333,31 @@ Singleton {
     { key: "lexiTextStep", section: "fonts", alias: "lexi dictionary translate translation font text size zoom",
       label: "Lexicon text", type: "int", min: -8, max: 12, step: 1, unit: "px",
       help: "Lexi's text, larger or smaller than where it starts. Ctrl + and Ctrl − in lexi do the same, and Ctrl 0 puts it back." },
+    // ── the cursor (2026-11-04): what ThemeSync writes to hypr/lua/cursor.lua
+    // and tells hyprctl setcursor; gtkscheme.sh carries it to GTK and X ──
+    { key: "cursorTheme", section: "cursor", label: "Theme", type: "enum",
+      optionsFrom: "cursorThemes", open: true, chipW: 260,
+      alias: "cursor pointer mouse arrow theme hyprcursor xcursor icons",
+      help: "The pointer everywhere: Hyprland, the shell, GTK and Qt apps, and X apps such as Steam and Spotify. A theme with a Hyprcursor twin (XCursor-Pro's) is worn sharp by Hyprland and in its X form by X apps. Listed from ~/.local/share/icons, ~/.icons and /usr/share/icons. Apps already open keep the old one until they start again." },
+    { key: "cursorSize", section: "cursor", label: "Size", type: "int",
+      min: 16, max: 64, step: 4, unit: "px",
+      alias: "cursor pointer mouse arrow size large big small",
+      help: "How large the pointer is. A theme drawn in fixed sizes (most X ones) shows its nearest; Hyprcursor themes draw any size sharp." },
+    // picked by hand, over the Theme row's pairing (user, 2026-11-04)
+    { key: "cursorHypr", section: "cursor", label: "Hyprland wears", type: "enum",
+      optionsFrom: "cursorHyprThemes", open: true, chipW: 260,
+      alias: "cursor pointer hyprland hyprcursor theme pick by hand twin override",
+      help: "The theme Hyprland draws the pointer with, the shell's windows and Wayland apps included. Automatic is the Theme row's: its Hyprcursor version where it has one." },
+    { key: "cursorX", section: "cursor", label: "X apps wear", type: "enum",
+      optionsFrom: "cursorXThemes", open: true, chipW: 260,
+      alias: "cursor pointer x11 xwayland gtk steam spotify theme pick by hand twin override",
+      help: "The theme X apps (Steam, Spotify, anything under XWayland) and GTK draw the pointer with. Only XCursor themes are listed; Automatic is the Theme row's." },
+    { key: "infoHyprcursor", section: "cursor", label: "Hyprcursor", type: "info",
+      alias: "hyprcursor installed sharp svg cursor version",
+      help: "Hyprcursor is Hyprland's own cursor format: drawn sharp at any size, where XCursor is a few fixed sizes scaled. Hyprland comes with it." },
+    { key: "actionCursorMake", section: "cursor", label: "Hyprcursor version", type: "action", verb: "Make",
+      alias: "hyprcursor convert make xcursor theme sharp hyprcursor-util xcur2png",
+      help: "Makes a Hyprcursor version of the theme in the Theme row, from its X cursors, into ~/.local/share/icons as <name>-Hyprcursor; Hyprland wears it at once. It needs xcur2png, which is installed first if it is missing. Dim when the theme is Hyprcursor already, a version made here included. The pictures are the X theme's, so it is no sharper than they are, but it is drawn the Hyprcursor way." },
     // what these make, drawn: a panel and a menu over a striped ground
     // (OracleWindow's SurfaceSample) — a menu's opacity and shadow are
     // otherwise seen only with a menu open
@@ -1200,6 +1442,10 @@ Singleton {
       help: "How long after launch the arrival aims to land. A deadline, not a wait." },
 
     // ── notifications ──
+    // the screen first, under no heading (NotifySample.qml): where the
+    // toasts stack and how many, to the main monitor's scale
+    { key: "notifySample", section: "notify", type: "sample", sample: "notify", label: "Screen", pin: true,
+      alias: "preview sample toasts stack position corner screen where howler" },
     { key: "notifTimeout", section: "notify", label: "Timeout", type: "int",
       min: 0, max: 30000, step: 500, unit: "ms",
       help: "How long an ordinary notification stays up when it names no timeout of its own." },
@@ -1252,6 +1498,12 @@ Singleton {
     { key: "notifHistoryCap", section: "notify", label: "History kept", type: "int",
       min: 10, max: 1000, step: 10,
       help: "How many notifications the bell remembers across restarts." },
+    { key: "infoNotifSources", section: "notify", label: "Muted apps", type: "info",
+      fold: "sources",
+      alias: "mute muted block blocked silence app apps source sender ignore hide toast notification howler bell",
+      help: "Apps whose toasts are held back. Muted ones still land in the bell, quietly; blocked ones are dropped. Critical ones are held back too. Set from a notification's right-click menu in the bell. Click to unfold." },
+    { key: "notifSources", section: "notify", within: "infoNotifSources", label: "Muted apps", type: "sources",
+      fallback: "" },
     { key: "notifFontSize", section: "notify", label: "Text size", type: "int",
       min: 10, max: 28, step: 1, unit: "px" },
     { key: "notifTextAlign", section: "notify", label: "Text alignment", type: "enum", segments: true, art: "align",
@@ -1395,11 +1647,21 @@ Singleton {
       help: "The Logitech devices, through solaar, whose lighting is dimmed when you go idle and brought back to where it was when you return. Auto is the first one that has lighting to dim." },
     { key: "idleInhibitPlayback", section: "idle", label: "Stay awake while playing", type: "bool",
       help: "Anything playing audio, holding an idle inhibitor, or publishing a media session holds the timers off." },
+    // first under Lock screen (LockSample.qml), not pinned: the lock close up
+    { key: "lockSample", section: "idle", type: "sample", sample: "lock", label: "Lock screen",
+      alias: "preview sample lock screen clock date password field frost dimming" },
     { key: "lockHideCursor", section: "idle", label: "Hide the cursor", type: "bool",
       help: "On the lock screen." },
     { key: "lockShade", section: "idle", label: "Lock dimming", type: "real",
       min: 0, max: 1, step: 0.05,
       help: "How far the blurred desktop is darkened behind the lock." },
+    // what is behind the lock (user, 2026-11-03): the desktop frosted, or
+    // the background picture alone — sharp, no windows, no bar
+    { key: "lockBackground", section: "idle", label: "Behind the lock", type: "enum", segments: true,
+      alias: "lock screen background wallpaper blur frost plain sharp desktop windows",
+      options: [ { value: "frost", label: "Frosted desktop" },
+                 { value: "plain", label: "Background only" } ],
+      help: "Frosted desktop blurs everything on screen behind the lock. Background only shows your background picture as it is, sharp, with none of the windows or the bar. Lock frost applies only to the first." },
     { key: "lockFrost", section: "idle", label: "Lock frost", type: "int",
       min: 1, max: 8, step: 1, alias: "blur lock screen frosted",
       help: "How heavily the desktop behind the lock is blurred. Higher is more frosted." },
@@ -1496,10 +1758,95 @@ Singleton {
                  { value: "sound",  label: "Sound" } ],
       help: "Which view the system panel lands on when opened without being told. Clicking a meter still goes to what that meter is about." },
 
+    // ── hot corners ──
+    // the screen, a dropdown in each corner (CornersSample.qml): the four
+    // corners are drawn there, `within` it, not as rows of their own
+    { key: "cornersSample", section: "corners", type: "sample", sample: "corners", label: "Screen", pin: true,
+      alias: "preview sample hot corners screen picture top left right bottom action trigger" },
+    { key: "hotCornerTL", section: "corners", within: "cornersSample", appKey: "hotCornerTLApp", label: "Top left", type: "enum", chipW: 190,
+      alias: "hot corner top left action trigger",
+      options: [ { value: "none", label: "Nothing" },
+                 { value: "cynosure", label: "Cynosure" },
+                 { value: "hub", label: "Control Hub" },
+                 { value: "notifications", label: "Notifications" },
+                 { value: "background", label: "Show the background" },
+                 { value: "lock", label: "Lock the screen" },
+                 { value: "screensOff", label: "Screens off" },
+                 { value: "app", label: "Open an app" },
+                 { value: "command", label: "Run a command" } ],
+      help: "What happens when the pointer rests in the top left corner of a screen." },
+    { key: "hotCornerTR", section: "corners", within: "cornersSample", appKey: "hotCornerTRApp", label: "Top right", type: "enum", chipW: 190,
+      alias: "hot corner top right action trigger",
+      options: [ { value: "none", label: "Nothing" },
+                 { value: "cynosure", label: "Cynosure" },
+                 { value: "hub", label: "Control Hub" },
+                 { value: "notifications", label: "Notifications" },
+                 { value: "background", label: "Show the background" },
+                 { value: "lock", label: "Lock the screen" },
+                 { value: "screensOff", label: "Screens off" },
+                 { value: "app", label: "Open an app" },
+                 { value: "command", label: "Run a command" } ],
+      help: "What happens when the pointer rests in the top right corner of a screen." },
+    { key: "hotCornerBL", section: "corners", within: "cornersSample", appKey: "hotCornerBLApp", label: "Bottom left", type: "enum", chipW: 190,
+      alias: "hot corner bottom left action trigger",
+      options: [ { value: "none", label: "Nothing" },
+                 { value: "cynosure", label: "Cynosure" },
+                 { value: "hub", label: "Control Hub" },
+                 { value: "notifications", label: "Notifications" },
+                 { value: "background", label: "Show the background" },
+                 { value: "lock", label: "Lock the screen" },
+                 { value: "screensOff", label: "Screens off" },
+                 { value: "app", label: "Open an app" },
+                 { value: "command", label: "Run a command" } ],
+      help: "What happens when the pointer rests in the bottom left corner of a screen." },
+    { key: "hotCornerBR", section: "corners", within: "cornersSample", appKey: "hotCornerBRApp", label: "Bottom right", type: "enum", chipW: 190,
+      alias: "hot corner bottom right action trigger",
+      options: [ { value: "none", label: "Nothing" },
+                 { value: "cynosure", label: "Cynosure" },
+                 { value: "hub", label: "Control Hub" },
+                 { value: "notifications", label: "Notifications" },
+                 { value: "background", label: "Show the background" },
+                 { value: "lock", label: "Lock the screen" },
+                 { value: "screensOff", label: "Screens off" },
+                 { value: "app", label: "Open an app" },
+                 { value: "command", label: "Run a command" } ],
+      help: "What happens when the pointer rests in the bottom right corner of a screen." },
+    // the app an "Open an app" corner opens, chosen in terminus' AppPicker
+    // (OracleWindow's appSheet), not a row
+    { key: "hotCornerTLApp", section: "corners", within: "cornersSample", type: "text",
+      label: "Top left app", help: "The app the top left corner opens: a desktop entry's id, or zen: and one of the suite's." },
+    { key: "hotCornerTRApp", section: "corners", within: "cornersSample", type: "text",
+      label: "Top right app", help: "The app the top right corner opens: a desktop entry's id, or zen: and one of the suite's." },
+    { key: "hotCornerBLApp", section: "corners", within: "cornersSample", type: "text",
+      label: "Bottom left app", help: "The app the bottom left corner opens: a desktop entry's id, or zen: and one of the suite's." },
+    { key: "hotCornerBRApp", section: "corners", within: "cornersSample", type: "text",
+      label: "Bottom right app", help: "The app the bottom right corner opens: a desktop entry's id, or zen: and one of the suite's." },
+    { key: "hotCornerTLCmd", section: "corners", label: "Top left", type: "text",
+      placeholder: "a command, run by sh",
+      alias: "hot corner top left custom command script run shell",
+      help: "Run when the top left corner is set to Run a command." },
+    { key: "hotCornerTRCmd", section: "corners", label: "Top right", type: "text",
+      placeholder: "a command, run by sh",
+      alias: "hot corner top right custom command script run shell",
+      help: "Run when the top right corner is set to Run a command." },
+    { key: "hotCornerBLCmd", section: "corners", label: "Bottom left", type: "text",
+      placeholder: "a command, run by sh",
+      alias: "hot corner bottom left custom command script run shell",
+      help: "Run when the bottom left corner is set to Run a command." },
+    { key: "hotCornerBRCmd", section: "corners", label: "Bottom right", type: "text",
+      placeholder: "a command, run by sh",
+      alias: "hot corner bottom right custom command script run shell",
+      help: "Run when the bottom right corner is set to Run a command." },
+    { key: "hotCornerDelay", section: "corners", label: "Delay", type: "int",
+      min: 100, max: 1000, step: 50, unit: "ms",
+      alias: "hot corner delay dwell wait hold time accident",
+      help: "How long the pointer has to rest in a corner before it acts, so passing through one does nothing." },
+
     // ── desktop menu ──
-    { key: "menuWidth", section: "menu", label: "Menu width", type: "int",
-      min: 160, max: 400, step: 10, unit: "px",
-      help: "The desktop menu's cards and every submenu that hangs off them, the tray menu, and the dropdowns in here. Terminus' right-click menu measures itself against its own rows instead, because its entries carry key hints." },
+    // the menu first, under no heading (MenuSample.qml): icarus' card and
+    // Home's beside it, at their real size
+    { key: "menuSample", section: "menu", type: "sample", sample: "menu", label: "Menu", pin: true,
+      alias: "preview sample desktop right click menu card rows width height entries home" },
     { key: "menuRowHeight", section: "menu", label: "Row height", type: "int",
       min: 22, max: 48, step: 1, unit: "px",
       help: "Every row in every menu — icarus', the tray's, terminus' right-click menu, and the cards picasso and this panel open." },
@@ -1526,8 +1873,115 @@ Singleton {
     { key: "menuShowBackground", section: "menu", label: "Set background", type: "bool" },
     { key: "menuShowDisplay", section: "menu", label: "Display settings", type: "bool",
       help: "Opens this panel at Display, for the monitors." },
-    { key: "menuShowNote", section: "menu", label: "New note", type: "bool",
+    { key: "menuShowNote", section: "menu", label: "New sticky note", type: "bool",
       help: "The row that makes a sticky note on the desktop." },
+
+    // ── cynosure ──
+    { key: "cynosureSample", section: "cynosure", type: "sample", sample: "cynosure", label: "Cynosure", pin: true,
+      alias: "preview sample launcher spotlight raycast place position center" },
+    { key: "cynosurePlace", section: "cynosure", label: "Opens", type: "enum",
+      alias: "position place where morph morphing pill center middle top bottom upper lower off-center raycast spotlight",
+      options: [ { value: "bar",    label: "Morphing" },
+                 { value: "top",    label: "Top" },
+                 { value: "upper",  label: "Upper, off-center" },
+                 { value: "center", label: "Center" },
+                 { value: "lower",  label: "Lower, off-center" },
+                 { value: "bottom", label: "Bottom" } ],
+      help: "Morphing, the bar's pill itself becomes the panel. Anywhere else it opens on its own on the screen you are on, from that spot: upper and lower are a third of the way from the top and the bottom." },
+    { key: "cynosureWidth", section: "cynosure", label: "Width", type: "int",
+      min: 560, max: 1200, step: 20, unit: "px", alias: "wide size",
+      help: "The panel with its list. With a preview beside the list it is wider by the same share." },
+    { key: "cynosureRows", section: "cynosure", label: "Rows", type: "int",
+      min: 5, max: 14, step: 1, alias: "tall height size list",
+      help: "How many rows the list shows before it scrolls. The panel is only as tall as what it has, up to this." },
+    { key: "cynosureDim", section: "cynosure", label: "Dim the screen behind", type: "bool",
+      alias: "shade darken scrim focus backdrop",
+      help: "A shade over everything else while it is open, the panel left clear." },
+    { key: "cynosureDimStrength", section: "cynosure", label: "Dim strength", type: "real",
+      min: 0.1, max: 0.7, step: 0.05, alias: "shade darken scrim",
+      help: "How dark the shade is." },
+    { key: "cynosureCompact", section: "cynosure", label: "Compact", type: "bool",
+      alias: "small minimal field only spotlight empty list",
+      help: "Only the field when it opens: the list, the suggestions and the hints come once you type, or press down." },
+    { key: "cynosureRootFiles", section: "cynosureSearch", label: "Files", type: "bool",
+      help: "Files from artemis' index, under the apps. \u201Cf \u2026\u201D still finds only files." },
+    { key: "cynosureRootWindows", section: "cynosureSearch", label: "Open windows", type: "bool",
+      help: "Windows whose app or title matches. \u201Cwin \u2026\u201D still lists only windows." },
+    { key: "cynosureRootSettings", section: "cynosureSearch", label: "Settings", type: "bool",
+      help: "This panel's settings, by name. \u201Csettings \u2026\u201D still lists only them." },
+    { key: "cynosureRootNotes", section: "cynosureSearch", label: "Notes", type: "bool",
+      help: "Clio's notes, by title. \u201Cnotes \u2026\u201D still lists only notes." },
+    { key: "cynosureRootClips", section: "cynosureSearch", label: "Clipboard and snippets", type: "bool",
+      help: "What you copied and your snippets. \u201Ccb \u2026\u201D still lists only them." },
+    { key: "cynosureRootEmoji", section: "cynosureSearch", label: "Emoji and glyphs", type: "bool",
+      help: "Emoji by name. \u201Cem \u2026\u201D and \u201Cnf \u2026\u201D still list only them." },
+    { key: "cynosureSkinTone", section: "cynosureSearch", label: "Skin tone", type: "enum",
+      alias: "emoji skin tone color hand people",
+      options: [ { value: "none",         label: "Default yellow" },
+                 { value: "light",        label: "Light" },
+                 { value: "medium-light", label: "Medium-light" },
+                 { value: "medium",       label: "Medium" },
+                 { value: "medium-dark",  label: "Medium-dark" },
+                 { value: "dark",         label: "Dark" } ],
+      help: "The tone emoji of people and hands come in, wherever one has tones." },
+    { key: "infoCynosureHidden", section: "cynosureSearch", label: "Hidden from the list", type: "info",
+      fold: "cyhidden", alias: "hide hidden disable disabled command app link remove",
+      help: "Apps, commands and quick links you took out of the list with Ctrl+K \u203A Hide. Typed in full, a command still works. Click to unfold." },
+    { key: "cynosureHidden", section: "cynosureSearch", within: "infoCynosureHidden", label: "Hidden from the list", type: "sources",
+      fallback: "" },
+    { key: "cynosureSuggested", section: "cynosureSearch", label: "Suggestions", type: "int",
+      min: 0, max: 10, step: 1, alias: "frequent recent top",
+      help: "What you open most, over an empty line. 0 shows none." },
+    { key: "cynosureRemember", section: "cynosureSearch", label: "Learn what you open", type: "bool",
+      alias: "history frequency frecency ranking privacy",
+      help: "What you open, and how often, ranks the list and fills Suggestions and History. Off, nothing new is kept." },
+    { key: "actionCynosureForget", section: "cynosureSearch", label: "What it has learned", type: "action",
+      verb: "Forget", alias: "history frequency clear reset privacy",
+      help: "The ranking, the suggestions, the History section and your searches (\u201Chistory\u201D), all cleared." },
+    { key: "cynosureFallbacks", section: "cynosureSearch", label: "Offer other ways", type: "bool",
+      alias: "fallback search the web use with",
+      help: "Under what matched: the line handed to the web, the files, the store, the dictionary and the rest, and run as a command." },
+    { key: "infoCynosureFallbacks", section: "cynosureSearch", label: "The other ways", type: "info",
+      fold: "cyfallbacks", alias: "fallback order reorder web files store dictionary translate",
+      help: "Which of them are offered, and in what order. Ctrl+K on one in the list moves it too. Click to unfold." },
+    { key: "cynosureFallbackList", section: "cynosureSearch", within: "infoCynosureFallbacks", label: "The other ways", type: "sources",
+      fallback: "" },
+    { key: "cynosureWebEngine", section: "cynosureSearch", label: "Web search", type: "enum",
+      alias: "search engine google duckduckgo brave startpage kagi bing ecosia",
+      options: [ { value: "duckduckgo", label: "DuckDuckGo" },
+                 { value: "google",     label: "Google" },
+                 { value: "brave",      label: "Brave Search" },
+                 { value: "startpage",  label: "Startpage" },
+                 { value: "kagi",       label: "Kagi" },
+                 { value: "bing",       label: "Bing" },
+                 { value: "ecosia",     label: "Ecosia" } ],
+      help: "Where \u201Cweb \u2026\u201D and Search the web go. Your own quick link named web wins over this." },
+    { key: "cynosureEsc", section: "cynosureKeys", label: "Esc", type: "enum", segments: true,
+      alias: "escape close clear key",
+      options: [ { value: "clear", label: "Clears, then closes" },
+                 { value: "close", label: "Closes" } ],
+      help: "With something typed, Esc can clear the line first or close straight away. Clearing takes the words, then a search chip, then closes." },
+    { key: "cynosureKeepLine", section: "cynosureKeys", label: "Keep the line", type: "int",
+      min: 0, max: 600, step: 15, unit: "s", alias: "remember last query reopen pop to root",
+      help: "Opened again within this long, the line you left is back, selected, so typing replaces it. 0 always starts empty." },
+    { key: "cynosureAnswers", section: "cynosureKeys", label: "Answers as you type", type: "bool",
+      alias: "calculator conversion weather time answer card",
+      help: "Cards over the list for questions it can answer: the time somewhere, the weather, a QR code, your IP. \u201Ccalc \u2026\u201D still works when this is off." },
+    { key: "cynosureExpand", section: "cynosureKeys", label: "Snippet keywords anywhere", type: "bool",
+      alias: "snippet expansion keyword text expander typed",
+      help: "A snippet's keyword (Ctrl+K on it in the clipboard list) typed in any app is replaced by the snippet. The keyboard is read for your keywords and nothing else; nothing typed is kept." },
+    { key: "cynosureRememberPlaces", section: "cynosureWindows", label: "Remember where windows were", type: "bool",
+      alias: "restore snap place window",
+      help: "A window placed by \u201Cleft half\u201D, \u201Ccenter\u201D and the rest can go back with \u201Crestore\u201D. Kept until the shell restarts." },
+    { key: "actionCynosureForgetPlaces", section: "cynosureWindows", label: "Window places", type: "action",
+      verb: "Forget", alias: "clear restore",
+      help: "Where windows were before they were placed: the same as \u201Cclear window places\u201D." },
+    { key: "cynosureLayoutWait", section: "cynosureWindows", label: "Wait for apps a layout opens", type: "int",
+      min: 2, max: 30, step: 1, unit: "s", alias: "layout delay launch",
+      help: "A layout opens the apps it lacks, then places their windows once more after this long." },
+    { key: "actionCynosureForgetLayouts", section: "cynosureWindows", label: "Saved layouts", type: "action",
+      verb: "Forget all", alias: "clear layouts",
+      help: "Every layout saved with \u201Csave layout \u2026\u201D: the same as \u201Cclear layouts\u201D, without asking." },
 
     // ── default apps ──
     // The two fixed rows. The rest are built from what is installed — see
@@ -1546,6 +2000,20 @@ Singleton {
 
     // ── shortcuts ──
     // The fixed row. The binds' own are read out of binds.lua — see keysSpecs.
+    // THE HYPER KEY (2026-11-03): its own part at the head of the page,
+    // drawn (HyperSample.qml), so the key it takes reads as no ordinary one
+    { key: "hyperSample", section: "keys", type: "sample", sample: "hyper", label: "Hyper key", pin: true,
+      alias: "hyper key caps lock modifier raycast" },
+    { key: "hyperKey", section: "keys", label: "Hyper key", type: "enum", segments: true,
+      alias: "hyper caps lock modifier ctrl alt shift super all four raycast",
+      options: [ { value: "off",   label: "Off" },
+                 { value: "caps",  label: "Caps Lock" },
+                 { value: "rctrl", label: "Right Ctrl" },
+                 { value: "menu",  label: "Menu" } ],
+      help: "The key held is Ctrl+Alt+Shift+Super at once: chords no app has taken. Give any bind below a Hyper chord by pressing that key with another. Written into your keyboard layout, so it works everywhere, and kept when the layout changes." },
+    { key: "hyperCapsShift", section: "keys", label: "Caps Lock from both Shift keys", type: "bool",
+      alias: "caps lock shift both",
+      help: "With Caps Lock taken for Hyper, pressing both Shift keys together turns Caps Lock on and off." },
     { key: "infoKeysPath", section: "keys", label: "Written to", type: "info",
       elideLeft: true,
       help: "Only the chords moved off binds.lua's own, read back on every change — editing either by hand works too. Click a chord, then press the new one: Esc keeps it, Backspace turns it off. No two binds may share a chord." },
@@ -1554,6 +2022,12 @@ Singleton {
     // Two rows that fold open into their lists: WindowRules.qml and
     // StartupApps.qml (fold "rules", "startup"). The lists live in hypr
     // files Oracle writes and reads back — see Ora's WINDOW RULES, STARTUP.
+    // the screens first, under no heading (WorkspacesSample.qml)
+    { key: "workspacesSample", section: "workspaces", type: "sample", sample: "workspaces", label: "Screens", pin: true,
+      alias: "preview sample workspaces screens monitors layouts" },
+    // the screen first, under no heading (TilingSample.qml)
+    { key: "tilingSample", section: "tiling", type: "sample", sample: "tiling", label: "Screen", pin: true,
+      alias: "preview sample tiling layout dwindle master scrolling group tabs" },
     { key: "workspaceStrip", section: "workspaces", alias: "workspace strip switcher osd overview numbers switch",
       label: "Workspace strip", type: "bool",
       help: "Every time the workspace changes, its number and the apps on each workspace show low on the screen for a moment." },
@@ -1592,6 +2066,16 @@ Singleton {
       fold: "rules",
       alias: "window rule rules float floating size workspace opacity transparent pin blur maximize fullscreen idle inhibit app class",
       help: "How an app's windows open: floating and at what size, centered, on which workspace, how opaque, pinned, without blur, kept awake. Click to unfold. Kept in ~/.config/zenworks/hypr/lua/windows.lua." },
+    { key: "appRestore", section: "windows", label: "Reopen apps at login", type: "bool",
+      alias: "restore reopen apps session resume login logout shutdown remember windows",
+      help: "The apps open when you log out or shut down open again at the next login, on their workspace, and a floating one at its size and place, Zenworks windows too. A Chromium browser gets its tabs back; Firefox needs its own Open previous windows and tabs. Off by default. What could not be reopened is noted in ~/.local/state/zenworks/apprestore.log." },
+    { key: "shelfOn", section: "windows", label: "Drop shelf", type: "bool",
+      alias: "shelf drop drag hold yoink dropover tray edge files text pictures",
+      help: "Drag files, words or a picture to the screen's edge to put them down on a shelf, then drag them out into any app. Files stay where they are; words and pictures are kept until you log out." },
+    { key: "shelfEdge", section: "windows", label: "Shelf edge", type: "enum", segments: true,
+      alias: "shelf drop edge side left right",
+      options: [ { value: "left", label: "Left" }, { value: "right", label: "Right" } ],
+      help: "Which edge of the screen the shelf comes out of." },
     { key: "infoStartup", section: "windows", label: "Startup apps", type: "info",
       fold: "startup",
       alias: "startup autostart login boot launch start exec apps programs",
@@ -1763,6 +2247,14 @@ Singleton {
       if (s.optionsFrom === "screens") c.options = root.screenOptionsFor(s);
       if (s.optionsFrom === "themes") c.options = root.themeOptions;
       if (s.optionsFrom === "themesNoSun") c.options = root.themeOptions.filter((o) => o.value !== "sun");
+      if (s.optionsFrom === "cursorHyprThemes") c.options = Ora.cursorHyprOptions(root.cursorScanned);
+      if (s.optionsFrom === "cursorXThemes") c.options = Ora.cursorXOptions(root.cursorScanned);
+      if (s.optionsFrom === "cursorThemes") {
+        // the one worn is listed even when it is not installed (any more)
+        const all = root.cursorThemes;
+        c.options = all.some((o) => o.value === root.cursorTheme) || root.cursorTheme === "" ? all
+          : [{ value: root.cursorTheme, label: root.cursorTheme + " (not installed)" }].concat(all);
+      }
       if (s.optionsFrom === "fontFamilies" || s.optionsFrom === "monoFamilies") {
         // the one worn is listed even when fontconfig has not answered yet
         const all = root[s.optionsFrom];
@@ -1867,6 +2359,27 @@ Singleton {
       if (!root.computer) return "";
       return root.computer.ok ? root.computer.summary : root.computer.why;
     }
+    if (key === "infoNotifSources") return Ora.sourcesSummary(root.notifSources);
+    if (key === "infoHyprcursor") {
+      const tl = root.cursorTools;
+      if (!tl.scanned) return "checking\u2026";
+      if (!tl.hyprcursor) return "Not installed: Hyprland draws every theme in its XCursor form";
+      const v = "Installed" + (tl.version ? " (" + tl.version + ")" : "");
+      if (root.hyprValues["hl:cursor:enable_hyprcursor"] === false) return v + " \u00b7 turned off below";
+      if (root.cursorHypr !== "") return v + " \u00b7 Hyprland wears " + root.cursorHypr + ", picked by hand";
+      const e = root.cursorEntry;
+      if (!e) return v;
+      if (!e.sharp) return v + " \u00b7 " + e.value + " is XCursor only: Make gives it a Hyprcursor version";
+      return v + " \u00b7 drawn as " + e.hypr + (root.cursorScanned.m.indexOf(e.hypr) >= 0 ? ", made here" : "") + ", sharp at any size";
+    }
+    if (key === "infoCynosureHidden") {
+      const n = root.cynosureHidden.split("\n").filter((l) => l.trim() !== "").length;
+      return n === 0 ? "None" : n === 1 ? "1 hidden" : n + " hidden";
+    }
+    if (key === "infoCynosureFallbacks") {
+      const off = root.cynosureFallbackList.split(",").filter((w) => w.trim().startsWith("-")).length;
+      return root.cynosureFallbackList === "" ? "All, the usual order" : off === 0 ? "All, your order" : off + " off";
+    }
     if (key === "infoWindowRules") return Ora.windowRulesSummary(root.windowRules, root.shippedRules);
     if (key === "infoStartup") {
       const n = root.startupApps.length, on = root.startupApps.filter((a) => a.on).length;
@@ -1878,6 +2391,11 @@ Singleton {
     if (key === "infoInputPath") return root.inputPath;
     if (key === "infoKeysPath") return root.keysPath;
     // a group's head: how many it holds, and how many of those you moved
+    if (key === "keysHead:hyper") {
+      const n = root.hyperBinds().length;
+      return n + (n === 1 ? " bind" : " binds") + (root.hyperKey === "off" ? " \u00b7 doing nothing until moved or Hyper is back"
+        : " \u00b7 doing nothing without Hyper");
+    }
     if (key.indexOf("keysHead:") === 0) {
       const g = root.bindList.filter((b) => b.group === key.slice(9));
       const moved = g.filter((b) => root.keyValues["bind:" + b.id] !== b.chord).length;
@@ -2077,6 +2595,13 @@ Singleton {
   function set(key, value) {
     const s = root.spec(key);
     if (!s || !Ora.stored(s)) return;
+    // Hyper going with binds on it: asked first (see hyperOffAsked)
+    if (key === "hyperKey" && value === "off" && root.hyperKey !== "off" && !root._hyperOffOk
+        && root.hyperBinds().length > 0) {
+      root.hyperOffAsked = true;
+      root.revision++;
+      return;
+    }
     root._beginStep();
     try { root._set(s, key, value); } finally { root._endStep(); }
   }
@@ -2192,6 +2717,9 @@ Singleton {
   // so "reset a section" can mean the one you are looking at without the
   // action needing a second control beside it.
   signal updateAsked()
+  // Cynosure's Forget buttons: it answers (CynosurePopup), Oracle cannot
+  // reach it — "learned", "places" or "layouts"
+  signal cynosureForgetAsked(string what)
   signal exportAsked()
   signal importAsked()
   signal zshAsked()
@@ -2215,13 +2743,34 @@ Singleton {
 
   signal keysSheetAsked()
   property bool keysSheetOpen: false
-  // then its second card, Make it yours (WelcomeLook), the same way
-  signal welcomeLookAsked()
-  property bool welcomeLookOpen: false
+  // the setup assistant (SetupAssistant, 2026-11-04), from the start or on
+  // one step ("look"); open while it is up or still applying what it was
+  // told, so the terminal question waits for it
+  signal setupAsked(string step)
+  property bool setupOpen: false
+  // its Terminal step left unticked: an answer, so never asked again
+  signal zshDeclined()
+  // ZshSetup's answer, for the assistant to know whether to ask
+  property string zshAnswer: ""
   // An action still out from its last press: its button dims and ignores
   // another (the panel's ActionControl reads this).
   function actionBusy(key) {
+    if (key === "actionCursorMake") return root.cursorMaking;
     return key === "actionCheckup" ? root.checking : false;
+  }
+  // a row with nothing to do for what is chosen now: drawn dim, its
+  // control idle (OracleWindow's settingRow)
+  function rowIdle(key) {
+    if (key === "actionCursorMake") {
+      const e = root.cursorEntry;
+      return !!e && (e.sharp || !e.x);
+    }
+    return false;
+  }
+  // a button whose word follows what it would do; "" is its spec's verb
+  function actionVerb(key) {
+    if (key === "actionCursorMake") return root.cursorMakeVerb();
+    return "";
   }
   function run(key, context) {
     if (key === "actionCheckup") { root.runCheckup(); return; }
@@ -2231,12 +2780,16 @@ Singleton {
     if (key === "actionImSettings") { root.imSettings(); return; }
     if (key === "actionReload") { root.reloadFromDisk(); return; }
     if (key === "actionSaveFollow") { root.nameFollowRequested(); return; }
+    if (key === "actionCursorMake") { root.cursorMake(); return; }
     if (key === "actionResetSection") { root.resetSection(context); return; }
     if (key === "actionResetAll") { root.resetAll(); return; }
     // the shell's side opens Ceres' Updates (OracleManager: Oracle cannot
     // reach Ceres itself)
     if (key === "actionUpdate") { root.updateAsked(); return; }
     if (key === "actionExport") { root.exportAsked(); return; }
+    if (key === "actionCynosureForget") { root.cynosureForgetAsked("learned"); return; }
+    if (key === "actionCynosureForgetPlaces") { root.cynosureForgetAsked("places"); return; }
+    if (key === "actionCynosureForgetLayouts") { root.cynosureForgetAsked("layouts"); return; }
     if (key === "actionImport") { root.importAsked(); return; }
     if (key === "actionZsh") { root.zshAsked(); return; }
     if (key === "actionRestart") {
@@ -2268,7 +2821,7 @@ Singleton {
 
   // Each monitor's own ink, so its rows read as one group and the groups as
   // different monitors — and so its box in the Arrangement is the same color
-  // as its settings below. Cyan and the orange are left out: they already
+  // as its settings below. Accent and the orange are left out: they already
   // mean "selected" and "changed" in this panel.
   // The Zenon SLOT, not the color: Oracle cannot import Zenon, which
   // imports Oracle, so the caller reads it — Zenon[Oracle.displayAccent(n)]
@@ -2742,6 +3295,25 @@ Singleton {
   property int hyprBorder: 1
   property string hyprLayout: "dwindle"
   property bool hyprResizeBorder: false
+  // Reopen apps at login: morpheus/AppRestore (2026-11-04), off by default
+  property bool appRestore: false
+  // the drop shelf on a screen edge: morpheus/DropShelf (2026-11-04)
+  property bool shelfOn: true
+  // hot corners: morpheus/HotCorners (2026-11-04), every one "none" by default
+  property string hotCornerTL: "none"
+  property string hotCornerTR: "none"
+  property string hotCornerBL: "none"
+  property string hotCornerBR: "none"
+  property string hotCornerTLApp: ""
+  property string hotCornerTRApp: ""
+  property string hotCornerBLApp: ""
+  property string hotCornerBRApp: ""
+  property string hotCornerTLCmd: ""
+  property string hotCornerTRCmd: ""
+  property string hotCornerBLCmd: ""
+  property string hotCornerBRCmd: ""
+  property int hotCornerDelay: 300
+  property string shelfEdge: "right"
   property real hyprDimInactive: 0
   property real hyprInactiveOpacity: 1
   readonly property var effectSpecs: root.specs.filter((s) => s.hyprFile === "effects")
@@ -2799,10 +3371,44 @@ Singleton {
     onTriggered: root.bindRefusal = null
   }
 
+  // ── BINDS ON HYPER, WHEN HYPER GOES (user, 2026-11-03) ──────────────
+  // Hyper turned off while binds are on it is asked first (hyperOffAsked,
+  // the panel's bar), and those binds are gathered into one frame of their
+  // own, "Using Hyper", opened for you — and stay gathered while Hyper is
+  // off, since they do nothing until it is back or they are moved.
+  property bool hyperOffAsked: false
+  property bool _hyperOffOk: false
+  function hyperBinds() {
+    return root.bindList.filter((b) => Ora.isHyper(root.keyValues["bind:" + b.id] || ""));
+  }
+  function hyperGathered() {
+    return root.hyperOffAsked || (root.hyperKey === "off" && root.hyperBinds().length > 0);
+  }
+  function hyperOffConfirm() {
+    root.hyperOffAsked = false;
+    root._hyperOffOk = true;
+    try { root.set("hyperKey", "off"); } finally { root._hyperOffOk = false; }
+  }
+  function hyperOffKeep() { root.hyperOffAsked = false; }
+  onHyperOffAskedChanged: root.buildSchema()
+
   function keysSpecs() {
     const out = [];
     let group = null;
+    const gathered = root.hyperGathered() ? root.hyperBinds() : [];
+    const onHyper = ({});
+    for (const b of gathered) onHyper[b.id] = true;
+    if (gathered.length) {
+      out.push({ key: "keysHead:hyper", section: "keys", type: "info", foldGroup: "hyper",
+        label: root.hyperKey === "off" ? "Using Hyper, which is off" : "Using Hyper", help: "",
+        alias: "hyper caps lock broken off" });
+      for (const b of gathered)
+        out.push({ key: "bind:" + b.id, section: "keys", type: "chord", bindKey: true, inGroup: "hyper",
+          bindId: b.id, bindDefault: b.chord, label: b.label,
+          alias: "shortcut keybind key bind chord hyper " + Ora.bindGroupLabel(b.group) + " " + b.chord.toLowerCase() });
+    }
     for (const b of root.bindList) {
+      if (onHyper[b.id]) continue;
       if (b.group !== group) {
         group = b.group;
         // a head the group's binds fold under, each group in its own frame —
@@ -2852,9 +3458,12 @@ Singleton {
     const next = ({});
     for (const k in root.keyValues) next[k] = root.keyValues[k];
     next[s.key] = v;
+    const gatheredBefore = root.hyperGathered();
     root.keyValues = next;
     root.revision++;
     keysSaveTimer.restart();
+    // a bind moved on or off Hyper while they are gathered: the frame changes
+    if (gatheredBefore || root.hyperGathered()) root.buildSchema();
   }
 
   function writeKeys() {
@@ -3260,6 +3869,66 @@ Singleton {
     root.inputRaw = out;
     inputFile.setText(Ora.renderInputLua(out));
     reloadHypr.restart();
+    // the hyper keymap is the layout's: made again for the new one
+    if (root.hyperKey !== "off") hyperTimer.restart();
+  }
+
+  // ── THE HYPER KEY ─────────────────────────────────────────────────────
+  // hyper.lua says which keymap Hyprland reads (base.lua: input kb_file);
+  // the keymap is your layout with the one key made all four modifiers
+  // (oracle/hyper.py). Written again when the key, the Caps Lock choice or
+  // the layout changes — and only then: what it would write is compared
+  // with what is there, so a start or an import that changes nothing
+  // reloads nothing.
+  readonly property string hyperLuaPath: root.hyprLuaDir + "/hyper.lua"
+  readonly property string hyperXkbPath: root.zenworksDir + "/hypr/hyper.xkb"
+  onHyperKeyChanged: { hyperTimer.restart(); root.hyperOffAsked = false; root.buildSchema(); }
+  onHyperCapsShiftChanged: hyperTimer.restart()
+  Timer { id: hyperTimer; interval: 300; onTriggered: root.writeHyper() }
+  function hyperArgs() {
+    const iv = (k) => String(root.inputValues["input:" + k] || "");
+    const opts = iv("kb_options").split(",").map((o) => o.trim()).filter((o) => o !== "");
+    if (root.hyperKey === "caps" && root.hyperCapsShift && opts.indexOf("shift:both_capslock") < 0) opts.push("shift:both_capslock");
+    return [iv("kb_layout") || "us", iv("kb_variant"), opts.join(","), iv("kb_model"), iv("kb_rules")];
+  }
+  function writeHyper() {
+    if (!root.inputLoaded || !hyperLua.ready) { hyperTimer.restart(); return; }
+    const on = root.hyperKey !== "off";
+    const want = Ora.renderHyperLua(on ? root.hyperXkbPath : "", root.hyperKey, on ? root.hyperArgs().join("|") : "");
+    if (want === hyperLua.text()) return;
+    // none, and never one: nothing to write
+    if (!on && String(hyperLua.text() || "") === "") return;
+    if (!on) { hyperLua.setText(want); reloadHypr.restart(); return; }
+    hyperProc.want = want;
+    hyperProc.command = ["python3", "-I", Quickshell.shellDir + "/oracle/hyper.py", root.hyperXkbPath, root.hyperKey].concat(root.hyperArgs());
+    hyperProc.running = true;
+  }
+  FileView {
+    id: hyperLua
+    property bool ready: false
+    path: root.hyperLuaPath
+    blockLoading: true
+    printErrors: false
+    onLoaded: ready = true
+    onLoadFailed: ready = true
+  }
+  Process {
+    id: hyperProc
+    property string want: ""
+    stderr: StdioCollector { id: hyperErr }
+    onExited: (code) => {
+      if (code !== 0) {
+        // off, not left as it was: the old hyper.xkb stands in for the
+        // layout itself (kb_file), so a new layout would never take (audit 11-04)
+        const off = Ora.renderHyperLua("", root.hyperKey, "");
+        if (hyperLua.text() !== off) { hyperLua.setText(off); reloadHypr.restart(); }
+        Quickshell.execDetached(["notify-send", "-a", "oracle", "--", "Hyper key",
+          "Your layout could not be written with it, so it is used without the Hyper key for now: " + (hyperErr.text.trim() || "xkbcli failed")]);
+        return;
+      }
+      hyperLua.setText(hyperProc.want);
+      reloadHypr.restart();
+    }
   }
 
   Timer {
@@ -3745,6 +4414,7 @@ Singleton {
     root.scanSolaar();
     root.scanThemes();
     root.scanFonts();
+    root.scanCursors();
     root.scanDisplays();
     root.scanInputDevices();
     root.readTimedate();

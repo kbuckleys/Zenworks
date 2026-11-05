@@ -132,7 +132,7 @@ Column {
     spacing: 6
     Repeater {
       model: N.ABOUT
-      delegate: MoodChip { required property string modelData; word: modelData; on: mb.about.indexOf(modelData) >= 0; ink: Zenon.cyan; onClicked: mb.about = mb.toggle(mb.about, modelData) }
+      delegate: MoodChip { required property string modelData; word: modelData; on: mb.about.indexOf(modelData) >= 0; ink: Zenon.accent; onClicked: mb.about = mb.toggle(mb.about, modelData) }
     }
   }
   Item {
@@ -140,10 +140,10 @@ Column {
     height: 32
     Row {
       anchors.right: parent.right
-      spacing: 8
+      spacing: Zenon.buttonGap
       DialogButton { visible: !!mb.n && !!mb.n.mood; label: "Clear"; ink: Zenon.red; onClicked: mb.save(true) }
       DialogButton { label: "Cancel"; onClicked: mb.closed() }
-      DialogButton { label: "Save"; ink: Zenon.cyan; primary: true; ready: mb.chosen; onClicked: mb.save(false) }
+      DialogButton { label: "Save"; ink: Zenon.accent; primary: true; ready: mb.chosen; onClicked: mb.save(false) }
     }
   }
 }

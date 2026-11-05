@@ -29,6 +29,8 @@ import "../morpheus"
 
 Item {
   id: drop
+  // open, over the dropdowns after it in a row (its header widens)
+  z: drop.joined !== "" ? 1 : 0
   // whoever keeps the one open dropdown — see the header
   property var host: null
   // [[value, label], ...] rather than two parallel lists, so a row cannot
@@ -48,6 +50,14 @@ Item {
   property real listX: 0
   property real listY: 0
   property real listH: 0
+  // the list hangs above the chip rather than below it (no room below)
+  property bool up: false
+  // ONE SURFACE WITH THE CHIP (morpheus DropFace, 2026-11-04): the list
+  // unrolls out of the chip's edge and folds back into it, and the chip
+  // stays joined until it has
+  property real shade: drop.expanded ? 1 : 0
+  Behavior on shade { NumberAnimation { duration: Zenon.menuFade; easing.type: Easing.OutCubic } }
+  readonly property string joined: drop.shade > 0.01 ? (drop.up ? "above" : "below") : ""
 
   // THE SAME CONTRACT A FIELD OFFERS. The card owns the tab ring and hands
   // focus round it by calling claim() and asking focused — a control that
@@ -126,8 +136,9 @@ Item {
     const want = drop.options.length * rowH + 2;   // + the border
     if (!drop.overlay) {
       drop.listX = 0;
-      drop.listY = drop.height + 4;
+      drop.listY = drop.height - 1;
       drop.listH = want;
+      drop.up = false;
       return;
     }
     const pt = drop.mapToItem(drop.overlay, 0, 0);
@@ -135,13 +146,16 @@ Item {
     const above = pt.y - 6;
     drop.listX = pt.x;
     // Downwards by preference — that is where a menu is looked for — and
-    // upwards only when down genuinely has less room.
+    // upwards only when down genuinely has less room. Flush either way, the
+    // list's hairline on the chip's: one outline (DropFace).
     if (want <= below || below >= above) {
       drop.listH = Math.min(want, Math.max(rowH + 2, below));
-      drop.listY = pt.y + drop.height + 4;
+      drop.listY = pt.y + drop.height - 1;
+      drop.up = false;
     } else {
       drop.listH = Math.min(want, Math.max(rowH + 2, above));
-      drop.listY = pt.y - drop.listH - 4;
+      drop.listY = pt.y - drop.listH + 1;
+      drop.up = true;
     }
   }
 
@@ -164,55 +178,46 @@ Item {
       if (drop.options[i][0] === drop.value) return drop.options[i][1];
     return "";
   }
-  // Sized to the WIDEST option, not to the current one: a control that
-  // changes width when you change its value shoves the field beside it.
-  //
-  // Measured in a FUNCTION and stored, not computed in the binding —
-  // measuring means writing to the TextMetrics, and writing to something
-  // a binding is reading is how a binding loop starts.
-  property real widest: 0
-  function remeasure() {
-    let w = 0;
-    for (let i = 0; i < drop.options.length; ++i) {
-      dropMetric.text = drop.options[i][1];
-      w = Math.max(w, dropMetric.width);
-    }
-    drop.widest = w;
-  }
-  onOptionsChanged: drop.remeasure()
-  Component.onCompleted: drop.remeasure()
-
-  implicitWidth: drop.widest + 34
+  // AS WIDE AS ITS CHOICE (user, 2026-11-05), and as its list while that
+  // is out — the chip widens rightwards over what is beside it, and the
+  // control keeps its closed width, so nothing beside it moves
+  implicitWidth: dropChip.restWidth
   // Grows with the text it carries, so a card that wants larger type
   // does not end up with larger words in a chip sized for smaller ones.
   property int textSize: 13
   implicitHeight: Math.max(28, drop.textSize + 15)
 
+  // what the closed chip shows, measured for its width (DropFace)
   TextMetrics {
-    id: dropMetric
+    id: labelMetric
+    text: drop.label
     font.family: Zenon.face
     font.weight: Zenon.weight
     font.pixelSize: drop.textSize
   }
 
-  Rectangle {
+  // the list's header while it is out: one surface (DropFace)
+  DropFace {
     id: dropChip
-    anchors.fill: parent
+    anchors.left: parent.left
+    anchors.top: parent.top
+    anchors.bottom: parent.bottom
     radius: Zenon.windowRadius
+    joined: drop.joined
+    leftInset: 9
+    contentWidth: labelMetric.advanceWidth
+    menuWidth: listFit.cardW
     // PRESSED, DARKENED as every button in the suite (user, 2026-10-17)
-    color: dropPress.pressed ? Zenon.pressFill
-      : drop.expanded ? Zenon.headBg
-      : Qt.rgba(Zenon.white.r, Zenon.white.g, Zenon.white.b, 0.05)
-    border.width: 1
-    border.color: drop.expanded || drop.activeFocus ? Zenon.cyan
-                                                    : Zenon.border
-    Behavior on color { ColorAnimation { duration: Zenon.fast } }
-    Behavior on border.color { ColorAnimation { duration: Zenon.fast } }
+    pressed: dropPress.pressed
+    restColor: Qt.rgba(Zenon.white.r, Zenon.white.g, Zenon.white.b, 0.05)
+    lit: drop.activeFocus
+    chevronInk: Zenon.white
+    chevronSize: drop.textSize - 2
 
     Text {
       textFormat: Text.PlainText
       anchors.left: parent.left
-      anchors.leftMargin: 9
+      anchors.leftMargin: dropChip.inset
       anchors.verticalCenter: parent.verticalCenter
       text: drop.label
       color: Zenon.white
@@ -220,22 +225,15 @@ Item {
       font.weight: Zenon.weight
       font.pixelSize: drop.textSize
     }
-    Text {
-      anchors.right: parent.right
-      anchors.rightMargin: 9
-      anchors.verticalCenter: parent.verticalCenter
-      // Down, not right: it opens downwards, and the arrow on a menu row
-      // that opens sideways is the one glyph this must not borrow.
-      text: "\uF078"
-      color: Zenon.white
-      font.family: Zenon.faceMono
-      font.weight: Zenon.weight
-      font.pixelSize: drop.textSize - 2
-    }
   }
   MouseArea {
     id: dropPress
-    anchors.fill: parent
+    // the open header is wider than the closed chip: all of it takes the
+    // press, and it stands over the next dropdown in a row (audit 11-05)
+    anchors.left: parent.left
+    anchors.top: parent.top
+    anchors.bottom: parent.bottom
+    width: Math.max(parent.width, dropChip.width)
     onClicked: {
       drop.claim();
       if (!drop.expanded) drop.cursor = drop.indexOfValue();
@@ -245,91 +243,33 @@ Item {
 
   // The list. Parented to the drop and drawn with a z of its own, which
   // is why patRow lifts its whole self while one is open — see there.
-  Rectangle {
+  // THE SUITE'S MENU CARD (morpheus/CardBody, 2026-11-04): it was a hand
+  // list with its own band, rounded end rows and a hover tint. The chosen
+  // option carries the card's tick, as every dropdown's does.
+  // the one measure every card fits by (MenuFit)
+  MenuFit { id: listFit; model: dropList.model; again: drop.expanded }
+  CardBody {
     id: dropList
-    visible: drop.expanded
+    visible: drop.shade > 0.01
+    shade: drop.shade
+    // laid against the chip, the chip its header
+    joinEdge: drop.up ? "bottom" : "top"
+    // inside the window: its frost laid solid (Zenon.dropFrostSolid)
+    inWindow: true
+    joinSpan: dropChip.targetWidth
+    joinRadius: dropChip.radius
     parent: drop.overlay ? drop.overlay : drop
-    x: drop.listX
-    y: drop.listY
-    // FROM THE MEASUREMENT, not from the Column inside it. dropCol is
-    // anchored to this rectangle, and its rows size to dropCol — so asking
-    // dropCol how wide it wants to be is asking a child how wide its own
-    // parent should be. That is a polish loop, and a polish loop does not
-    // warn and carry on: layout never settles and the whole window comes
-    // up blank.
-    width: Math.max(drop.width, drop.widest + 24)
-    height: drop.listH
-    // THE SAME SURFACE THIS WINDOW'S OTHER MENUS ARE. panelBg is
-    // rgba(0,0,0,panelOpacity) — a color built for a layer surface with
-    // the compositor's blur behind it. There is no blur behind anything
-    // inside a window, so it was simply see-through, and the verb chips
-    // underneath read straight through the list.
-    radius: Zenon.menuRadius
-    color: Zenon.menuBgSolid
-    border.width: 1
-    border.color: Zenon.border
     z: 100
-
-    ListView {
-      id: dropView
-      anchors.fill: parent
-      // flush to the 1px border on all four sides, as every menu's band
-      // (users, 2026-10-10 and 2026-10-17 — folio's cursor)
-      anchors.margins: 1
-      clip: true
-      model: drop.options
-      // Follows the keyboard, so arrowing past the bottom of a clamped
-      // list scrolls rather than moving a cursor nobody can see.
-      currentIndex: drop.cursor
-      onCurrentIndexChanged: dropView.positionViewAtIndex(
-        dropView.currentIndex, ListView.Contain)
-      boundsBehavior: Flickable.DragAndOvershootBounds
-      boundsMovement: Flickable.FollowBoundsBehavior
-      ElasticScroll { view: dropView; step: drop.host && drop.host.wheelStep ? drop.host.wheelStep : 120 }
-
-      delegate: Rectangle {
-        id: dropRow
-        required property var modelData
-        required property int index
-        width: dropView.width
-        height: Zenon.menuRowHeight
-        // Either pointer: the keyboard's row and the mouse's row light
-        // the same way, because they are the same thing said twice.
-        color: rowHov.hovered || drop.cursor === dropRow.index
-          ? Zenon.menuHi
-          : "transparent"
-        // the first and last follow the list's corners, just inside the
-        // border (a plain Rectangle, so nothing clips them round for it)
-        topLeftRadius: dropRow.index === 0 ? Math.max(0, Zenon.menuRadius - 1) : 0
-        topRightRadius: topLeftRadius
-        bottomLeftRadius: dropRow.index === drop.options.length - 1 ? Math.max(0, Zenon.menuRadius - 1) : 0
-        bottomRightRadius: bottomLeftRadius
-
-        Text {
-          textFormat: Text.PlainText
-          anchors.left: parent.left
-          anchors.leftMargin: 12
-          anchors.right: parent.right
-          anchors.rightMargin: 10
-          anchors.verticalCenter: parent.verticalCenter
-          elide: Text.ElideRight
-          text: dropRow.modelData[1]
-          // The chosen one keeps the cyan a state is owed; the rest are
-          // plain white, the same as every other pickable label here.
-          color: dropRow.modelData[0] === drop.value ? Zenon.cyan
-                                                     : Zenon.white
-          font.family: Zenon.face
-          font.weight: Zenon.weight
-          font.pixelSize: drop.textSize
-        }
-
-        HoverHandler { id: rowHov }
-        MouseArea {
-          anchors.fill: parent
-          onClicked: drop.choose(dropRow.index)
-        }
-      }
-    }
-    ScrollRail { target: dropView; visible: dropView.visible; anchors.right: parent.right; anchors.top: dropView.top; anchors.bottom: dropView.bottom }
+    pad: 12
+    x: drop.listX - pad
+    y: drop.listY - pad
+    // the chip's open width, which is the list's own (DropFace.menuWidth)
+    width: Math.max(dropChip.restWidth, listFit.cardW) + 2 * pad
+    height: drop.listH + 2 * pad
+    model: drop.options.map((o) => ({ text: String(o[1]), mark: o[0] === drop.value ? "\u2713" : "" }))
+    activeIndex: drop.cursor
+    onHovered: (i) => drop.cursor = i
+    onChosen: (i) => drop.choose(i)
   }
+  onCursorChanged: if (drop.expanded) dropList.showRow(drop.cursor)
 }

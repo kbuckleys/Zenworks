@@ -35,6 +35,9 @@ Item {
   property real holeW: 0
   property real holeH: 0
   property real holeRadius: Zenon.dialogRadius
+  // how dark at full ink: a sheet's own, unless the caller has one of its
+  // own (Cynosure's Dim strength, Oracle)
+  property real strength: Zenon.sheetDim
 
   opacity: dim.ink
   visible: dim.ink > 0.001 && dim.width > 0 && dim.height > 0
@@ -45,7 +48,7 @@ Item {
     preferredRendererType: Shape.CurveRenderer
     ShapePath {
       fillRule: ShapePath.OddEvenFill
-      fillColor: Zenon.darken(Zenon.sheetDim)
+      fillColor: Zenon.darken(dim.strength)
       strokeColor: "transparent"
       strokeWidth: 0
       PathRectangle {

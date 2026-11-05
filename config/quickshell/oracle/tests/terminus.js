@@ -50,6 +50,10 @@ module.exports = {
     t.eq("ansi: and its color too", md.indexOf("color:rgb(1,2,3)") > 0, true);
     t.eq("ansi: italic, underline, struck",
       ["font-style:italic", "text-decoration:underline", "text-decoration:line-through"].every((x) => md.indexOf(x) > 0), true);
+    // ANSI cyan (36, 96, 38;5;6/14) is the accent slot: never undefined
+    // (audit 11-04: zenonHex still said cyan after the accent rename)
+    const cy = T.ansiToRich("\u001b[36ma\u001b[96mb\u001b[38;5;6mc\u001b[38;5;14md\u001b[0m");
+    t.eq("ansi: cyan runs take the accent", cy.indexOf("undefined") < 0 && cy.split("#9bbfbf").length - 1 >= 4, true);
     t.eq("and bat's range", /--line-range=40:\+89 /.test(T.batCommand("/x/a.js", 40)), true);
     // a minified file is one line: capped before it reaches rich text
     const huge = "x".repeat(600000);
@@ -257,6 +261,11 @@ module.exports = {
       t.ok("...and Qt opens it itself", !T.qtBlind("photo." + e));
     }
     t.ok("case does not matter", T.qtBlind("PHOTO.CR2"));
+    // a failed decode never marks Qt's own formats: that is one bad file
+    t.ok("a JPEG is always Qt's", T.qtSure("half-written.JPG"));
+    t.ok("...and so is a PNG", T.qtSure("shot.png"));
+    t.ok("a raw is not", !T.qtSure("photo.cr2"));
+    t.ok("no extension is not", !T.qtSure("README"));
     t.ok("a file with no extension is not blind", !T.qtBlind("noextension"));
     t.ok("and nor is something that is not an image at all",
       !T.qtBlind("notes.txt"));
@@ -936,6 +945,13 @@ module.exports = {
 
         fs.mkdirSync(path.join(src, "sub"));
         fs.writeFileSync(path.join(src, "sub", "a"), "");
+        // a directory and one inside it, asked together: each its own total
+        fs.writeFileSync(path.join(src, "sub", "b"), "12345");
+        const nest = run(T.shArgv(T.dirSizeCommand([path.join(src, "sub"), src])));
+        const nestSizes = T.parseDirSizes(nest.stdout);
+        t.ok("a nested directory is still measured", nestSizes[path.join(src, "sub")] >= 5);
+        t.ok("and its parent counts it too", nestSizes[src] >= nestSizes[path.join(src, "sub")]);
+        fs.unlinkSync(path.join(src, "sub", "b"));
         const ct = run(T.shArgv(T.countCommand(paths.concat([path.join(src, "sub")]))));
         started("the count starts", ct);
         t.eq("and counts what is inside the folders", ct.stdout.trim().split("\n"), ["1", "0"]);
@@ -1111,12 +1127,23 @@ module.exports = {
     t.eq("export: never blown up", ex.script.indexOf('${px}x${px}>') > 0, true);
 
     const art = T.artExportCommand(["/a/b c.png"], "", "pixel");
-    t.eq("art export: the kind and the paths travel as arguments", art.args, ["", "pixel", "96", "16", "0", "-pixel.png", "/a/b c.png"]);
+    t.eq("art export: the kind and the paths travel as arguments", art.args, ["", "pixel", "96", "16", "0", "-pixel.png", "", "", "", "/a/b c.png"]);
     t.eq("art export: the block size and grays travel too",
       T.artExportCommand(["/a.png"], "", "ascii", { blocks: 24, by: 64, gray: true }).args.slice(2, 5), ["24", "64", "1"]);
     t.eq("art export: through the free-name helper", art.script.indexOf("terminus_free") >= 0, true);
     t.eq("art export: each kind names its own copy",
-      ["pixel", "ascii", "text"].map(T.artSuffix), ["-pixel.png", "-ascii.png", "-ascii.txt"]);
+      ["pixel", "ascii", "text", "grain"].map(T.artSuffix), ["-pixel.png", "-ascii.png", "-ascii.txt", "-bitgrain.png"]);
+    t.eq("bitgrain export: its method and two colors travel as arguments",
+      T.artExportCommand(["/a.png"], "", "grain", { blocks: 200, by: 8, method: "bayer", dark: "gray15", light: "oldlace" }).args.slice(2, 10),
+      ["200", "8", "0", "-bitgrain.png", "bayer", "gray15", "oldlace", "/a.png"]);
+    t.eq("bitgrain preview: its settings in the script",
+      T.artScript("grain", { method: "halftone", dark: "#1e2030", light: "white" }).trim().split("\n").pop(),
+      'art_one "$1" "$2" grain 400 4 0 halftone "#1e2030" "white"');
+    t.eq("bitgrain preview: no colors is eight colors",
+      T.artScript("grain", { method: "diffuse" }).trim().split("\n").pop(), 'art_one "$1" "$2" grain 400 4 0 diffuse "" ""');
+    t.eq("bitgrain preview: an unknown method or a color with a quote never reaches the script",
+      T.artScript("grain", { method: "$(rm)", dark: "a\"; rm", light: "white" }).trim().split("\n").pop(),
+      'art_one "$1" "$2" grain 400 4 0 atkinson "" ""');
     t.eq("art preview: its settings in the script, the paths as $1 and $2",
       T.artScript("ascii", { gray: true }).trim().split("\n").pop(), 'art_one "$1" "$2" ascii 96 16 1');
     t.eq("art preview: an unknown kind is pixel art", T.artScript("rm -rf", {}).indexOf("rm -rf\n") < 0, true);

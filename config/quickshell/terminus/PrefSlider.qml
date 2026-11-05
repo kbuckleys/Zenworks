@@ -115,7 +115,7 @@ Item {
     font.pixelSize: Zenon.px(13)
   }
   readonly property color readInk: (sl.neutral >= 0 && Math.abs(sl.value - sl.neutral) < 0.001)
-    ? Zenon.accentMuted : Zenon.cyan
+    ? Zenon.accentMuted : Zenon.accent
   Row {
     anchors.right: slRead.right
     anchors.verticalCenter: parent.verticalCenter
@@ -169,7 +169,7 @@ Item {
       anchors.bottom: parent.bottom
       width: Math.round(sl.frac * slTrack.width)
       radius: 2
-      color: Zenon.cyan
+      color: Zenon.accent
     }
 
     Rectangle {
@@ -178,7 +178,7 @@ Item {
       width: 12
       height: 12
       radius: height / 2
-      color: slArea.pressed ? Zenon.white : Zenon.cyan
+      color: slArea.pressed ? Zenon.white : Zenon.accent
       border.width: 1
       border.color: Zenon.border
     }

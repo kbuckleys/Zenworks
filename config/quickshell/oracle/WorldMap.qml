@@ -11,11 +11,12 @@
 // Repainted once a minute while shown — the terminator moves a quarter of a
 // degree in that time, under a pixel at this size.
 //
-// EDGE TO EDGE, NEVER STRETCHED (user, 2026-10-29): a band the page's full
-// width at one height, the world at that height's scale, centered on
-// `center` and WRAPPING — a wider window shows more of it round the back,
-// as a globe would, instead of pulling it wider. Chukotka meets the rest
-// of Russia across the date line rather than sticking out of the west.
+// ONE WORLD, NEVER STRETCHED (user, 2026-11-04: no repeat — it wrapped
+// edge to edge from 2026-10-29): the world once, as large as the box lets
+// it be at one scale both ways, centered in it, nothing past its edges.
+// Its west edge is the Bering Strait, so Chukotka meets the rest of Russia
+// across the date line rather than sticking out of the west (the copies
+// either side are still drawn, and `box` clips them to that seam).
 //
 // THE NIGHT RUNS ON PAST THE BAND (user, 2026-10-31): the map's south edge
 // is 60°S, but the terminator goes on to the pole — the canvas reaches
@@ -25,7 +26,7 @@
 // keep to the band itself.
 //
 // IN THE ACCENT (user, 2026-10-31): the land, its coast, the sun and the
-// pinned city are `highlight` (Zenon.cyan, the theme's or your own accent);
+// pinned city are `highlight` (Zenon.accent, the theme's or your own accent);
 // only the names stay in the ink.
 
 import QtQuick
@@ -38,21 +39,26 @@ Item {
   property string face: Zenon.face
   property color fgColor: Zenon.white
   property color dimColor: Zenon.accentMuted
-  property color highlight: Zenon.cyan
+  property color highlight: Zenon.accent
 
   // the longitude in the middle, chosen so the LEFT edge is the Bering
   // Strait: the Americas first, Chukotka last (user, 2026-10-29: a piece of
-  // Russia stuck out of the west); a window wider than the world shows
-  // Alaska again past it on the right
+  // Russia stuck out of the west)
   readonly property real west: -169
-  readonly property real center: wm.west + cv.width / 2 / Math.max(0.01, wm.k)
-  // pixels a degree, the same both ways
-  readonly property real k: wm.height / (World.NORTH - World.SOUTH)
+  readonly property real center: wm.west + 180
+  // pixels a degree, the same both ways: the height's, or the width's when
+  // the whole world would not fit across
+  readonly property real k: Math.max(0.01, Math.min(wm.height / (World.NORTH - World.SOUTH), wm.width / 360))
+  // the world's own box in the canvas: centered across, and down when the
+  // width is what bounds it
+  readonly property real boxX: cv.width / 2 - 180 * wm.k
+  readonly property real boxW: 360 * wm.k
+  readonly property real oy: Math.max(0, (wm.height - (World.NORTH - World.SOUTH) * wm.k) / 2)
   // how far past the band's bottom the night goes on: down to the pole
   readonly property real spill: (World.SOUTH + 90) * wm.k
   // lon, lat → the map's pixels; `turn` is which copy of the world, −1 west
   function px(lon, turn) { return cv.width / 2 + (lon + 360 * (turn || 0) - wm.center) * wm.k; }
-  function py(lat) { return (World.NORTH - lat) * wm.k; }
+  function py(lat) { return wm.oy + (World.NORTH - lat) * wm.k; }
   // the copies any of which shows, and of a point the one nearest the middle
   function turns() {
     const out = [];
@@ -69,8 +75,14 @@ Item {
     return best;
   }
 
+  // PICKING, NOT SETTING (the setup assistant, 2026-11-04): with `picking`
+  // a click says `picked` and pins `chosen`; the zone is set later, with
+  // the assistant's other password asks. Without, it is Oracle's own.
+  property bool picking: false
+  property string chosen: ""
+  signal picked(string zone)
   readonly property var here: {
-    const zone = (Oracle.revision, Oracle.timedate.zone);
+    const zone = wm.picking && wm.chosen !== "" ? wm.chosen : (Oracle.revision, Oracle.timedate.zone);
     return Oracle.zones.find((z) => z.zone === zone) || null;
   }
   // the city under the pointer, while it is over the map
@@ -93,6 +105,11 @@ Item {
       const inkA = (a) => Qt.rgba(ink.r, ink.g, ink.b, a);
       const sun = Ora.subsolar(Date.now());
       const turns = wm.turns();
+      // the one world: its copies and the night past its edges cut off
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(wm.boxX, wm.oy, wm.boxW, full - wm.oy);
+      ctx.clip();
       const land = () => {
         ctx.beginPath();
         for (const t of turns)
@@ -186,6 +203,7 @@ Item {
         }
         ctx.stroke();
       }
+      ctx.restore();
     }
   }
 
@@ -260,10 +278,12 @@ Item {
     anchors.fill: parent
     hoverEnabled: true
     onPositionChanged: (m) => {
-      wm.hovered = Ora.nearestZone(Oracle.zones, World.NORTH - m.y / wm.k,
+      // off the world, beside or above it: nothing
+      if (m.x < wm.boxX || m.x > wm.boxX + wm.boxW || m.y < wm.oy || m.y > wm.py(World.SOUTH)) { wm.hovered = null; return; }
+      wm.hovered = Ora.nearestZone(Oracle.zones, World.NORTH - (m.y - wm.oy) / wm.k,
                                    wm.center + (m.x - width / 2) / wm.k);
     }
     onExited: wm.hovered = null
-    onClicked: if (wm.hovered) Oracle.setTimeZone(wm.hovered.zone)
+    onClicked: if (wm.hovered) { if (wm.picking) wm.picked(wm.hovered.zone); else Oracle.setTimeZone(wm.hovered.zone); }
   }
 }

@@ -34,7 +34,7 @@ Column {
       readonly property var modelData: page.wireds[index] || ({})
       readonly property bool up: modelData.carrier && modelData.up
       glyph: up ? H.G.wired : H.G.wiredOff
-      glyphInk: up ? Zenon.cyan : Zenon.accentMuted
+      glyphInk: up ? Zenon.accent : Zenon.accentMuted
       title: "Wired"
       note: modelData.name
       HermesFact { label: "Status"; value: up ? "Connected" + (modelData.speed ? " · " + H.speedWords(modelData.speed) : "") : "Unplugged" }
@@ -84,7 +84,7 @@ Column {
     id: wifiCard
     visible: Hermes.wifiReady
     glyph: Hermes.wifiOn ? (Hermes.wifiNet ? H.wifiGlyph(Hermes.wifiNet.strength) : H.G.wifi[0]) : H.G.wifiOff
-    glyphInk: Hermes.wifiOn ? Zenon.cyan : Zenon.accentMuted
+    glyphInk: Hermes.wifiOn ? Zenon.accent : Zenon.accentMuted
     title: "Wi-Fi"
     note: !Hermes.wifiOn ? "Off" : Hermes.wifiNet ? Hermes.wifiNet.name : "Not connected"
     trailing: [

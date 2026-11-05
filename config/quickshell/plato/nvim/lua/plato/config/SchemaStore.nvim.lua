@@ -1,3 +1,5 @@
+-- SchemaStore.nvim by Maddison Cohodas — https://github.com/b0o/SchemaStore.nvim (Apache-2.0)
+--
 -- SchemaStore.nvim: the schemas of common JSON and YAML files — package.json,
 -- tsconfig, GitHub workflows, docker-compose and hundreds more — handed to
 -- the JSON and YAML language servers, which then complete and check them.

@@ -69,5 +69,24 @@ module.exports = {
          { what: "At login", command: "x", off: true },
          { what: "Terminal", command: "kitty", off: false }]);
     t.eq("none", O.bundleCommands({ "oracle.json": "{}" }), []);
+    // every app's own choices (2026-11-03)
+    t.eq("an app's file may come", ["apps/terminus-view.json", "apps/cynosure-links.json", "apps/terminus-bookmarks"].map(O.bundlePathOk), [true, true, true]);
+    t.eq("but not one unnamed", ["apps/howler-history.json", "apps/../oracle.json", "apps/usage.json"].map(O.bundlePathOk), [false, false, false]);
+    t.eq("only an app's settings go", JSON.parse(O.appSettingsOf("apps/calypso.json",
+      '{"accounts":[{"email":"a@b"}],"lockAfter":5,"recent":["x"],"sort":"name"}')), { sort: "name", lockAfter: 5 });
+    t.eq("a file of no settings is nothing", O.appSettingsOf("apps/calypso.json", '{"accounts":[]}'), "");
+    t.eq("not JSON is nothing", O.appSettingsOf("apps/terminus-view.json", "{"), "");
+    t.eq("laid over what is here, the rest kept", JSON.parse(O.appSettingsInto("apps/calypso.json", '{"lockAfter":9,"accounts":["evil"]}',
+      '{"accounts":["mine"],"lockAfter":5}')), { accounts: ["mine"], lockAfter: 9 });
+    t.eq("a whole file replaces", JSON.parse(O.appSettingsInto("apps/cynosure-links.json", '[{"word":"gh"}]', '[{"word":"old"}]')), [{ word: "gh" }]);
+    t.eq("lines keep only lines", O.appSettingsOf("apps/terminus-bookmarks", "/home/a\n\n/home/b\u0007\n/srv"), "/home/a\n/srv\n");
+    t.eq("said on the sheet", O.bundleWords({ "oracle.json": "{}", "apps/terminus-view.json": "{}" }), ["Settings", "Terminus"]);
+    t.eq("an app's sanitized as data", O.sanitizeBundleFile("apps/stylus.json", '{"sidebar":true,"x":1}'), '{"sidebar":true}');
+    // the hyper key
+    t.has("hyper.lua names its keymap", O.renderHyperLua("/h/hyper.xkb", "caps", "us|||"), 'file = "/h/hyper.xkb"');
+    t.has("none, none", O.renderHyperLua("", "caps", "x"), 'key  = "off"');
+    t.eq("Hyper is the four", O.normChord("hyper + t"), "SUPER + SHIFT + CONTROL + ALT + T");
+    t.eq("and is drawn as one cap", O.chordCaps("SUPER + SHIFT + CONTROL + ALT + T"), ["Hyper", "T"]);
+    t.eq("three is not Hyper", O.chordCaps("SUPER + SHIFT + ALT + T"), ["Super", "Shift", "Alt", "T"]);
   }
 };

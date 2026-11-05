@@ -184,7 +184,7 @@ Rectangle {
           Terminus.usedFraction(diskRow.live.avail, diskRow.live.fsSize)
 
         // ── MOUNTED SAYS SO DOWN THE EDGE ─────────────────────────
-        // The same 3px cyan bar the sidebar puts against the row you are
+        // The same 3px accent bar the sidebar puts against the row you are
         // standing in. Saying it with the glyph's color alone made two
         // states of one mark, which is a difference you have to know to
         // look for; a bar is either there or it is not.
@@ -194,7 +194,7 @@ Rectangle {
           width: 3
           height: parent.height - 12
           radius: 1
-          color: Zenon.cyan
+          color: Zenon.accent
           visible: diskRow.mounted
         }
 
@@ -204,7 +204,7 @@ Rectangle {
           anchors.leftMargin: 16
           anchors.verticalCenter: parent.verticalCenter
           text: diskRow.modelData.removable ? "\uF0A0" : "\uF1C0"
-          color: diskRow.mounted ? Zenon.cyan : Zenon.accentMuted
+          color: diskRow.mounted ? Zenon.accent : Zenon.accentMuted
           font.family: Zenon.faceMono
           font.weight: Zenon.weight
           font.pixelSize: Zenon.px(16)
@@ -274,7 +274,7 @@ Rectangle {
           visible: diskRow.mounted && diskRow.used >= 0
           vertical: false
           value: diskRow.used
-          accent: diskRow.used > 0.9 ? Zenon.red : Zenon.cyan
+          accent: diskRow.used > 0.9 ? Zenon.red : Zenon.accent
           thickness: 5
           segLength: 4
           segGap: 2
@@ -306,6 +306,8 @@ Rectangle {
 
 
     // morpheus/HintBar, as every strip (ceres' height, ground and rule)
+    // the rows still to come run on under the keys' pill, which frosts them
+    ScrollEdge { view: disksList; below: true; follow: true; bar: disksFoot }
     HintBar {
       id: disksFoot
       anchors.bottom: parent.bottom

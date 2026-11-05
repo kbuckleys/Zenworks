@@ -24,7 +24,7 @@ Item {
   property string face: Zenon.face
   property color fgColor: Zenon.white
   property color dimColor: Zenon.accentMuted
-  property color highlight: Zenon.cyan
+  property color highlight: Zenon.accent
 
   // the one under the pointer, named in the caption
   property var hovered: null
@@ -229,8 +229,8 @@ Item {
                     required property int index
                     numeric: true
                     src: modelData
-                    textColor: index === 1 ? Zenon.cyan
-                      : Zenon.light ? Zenon.dimInk : Zenon.mix(Zenon.dimInk, Zenon.cyan, 0.5)
+                    textColor: index === 1 ? Zenon.accent
+                      : Zenon.light ? Zenon.dimInk : Zenon.mix(Zenon.dimInk, Zenon.accent, 0.5)
                   }
                 }
               }
@@ -240,7 +240,7 @@ Item {
                 visible: mod.kind === "clock"
                 numeric: true
                 src: Oracle.clock24h ? "13:00" : "1:00"
-                textColor: Zenon.cyan
+                textColor: Zenon.accent
               }
               // the meters, at rest at a made-up reading
               Row {

@@ -6,7 +6,7 @@
 // A FIELD'S LITTLE BUTTON — copy, reveal, open: a glyph in a small rounded
 // square at the end of a field's row, its name in the window's tooltip
 // (morpheus/WindowTip). No hover tint (the suite's buttons answer none,
-// user 2026-10-11): it darkens while pressed, and `on` turns the glyph cyan
+// user 2026-10-11): it darkens while pressed, and `on` turns the glyph accent
 // (a field shown, a copy just made).
 //
 //     FieldAct { glyph: "…"; tip: "Copy"; tips: win.tipsItem; onClicked: … }
@@ -33,7 +33,7 @@ Rectangle {
   Text {
     anchors.centerIn: parent
     text: act.glyph
-    color: act.on ? Zenon.cyan : act.ink
+    color: act.on ? Zenon.accent : act.ink
     font.family: Zenon.glyphFace
     font.pixelSize: Zenon.px(14)
     Behavior on color { ColorAnimation { duration: Zenon.fast } }

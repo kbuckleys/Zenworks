@@ -80,7 +80,7 @@ Item {
     ["spot",      "\uf0eb", "s", "Spotlight"],
     ["crop",      "\uf125", "c", "Crop"]
   ]
-  readonly property var inks: [Zenon.red, Zenon.yellow, Zenon.green, Zenon.cyan,
+  readonly property var inks: [Zenon.red, Zenon.yellow, Zenon.green, Zenon.accent,
                                Zenon.blue, Zenon.magenta, "#ffffff", "#000000"]
 
   // Sizes in the PICTURE's pixels, scaled to how big the picture is, so
@@ -472,7 +472,7 @@ Item {
         Text {
           anchors.centerIn: parent
           text: ""
-          color: backMa.pressed ? Zenon.cyan : Zenon.white
+          color: backMa.pressed ? Zenon.accent : Zenon.white
           font.family: Zenon.face
           font.weight: Zenon.weight
           font.pixelSize: Zenon.px(16)
@@ -500,15 +500,15 @@ Item {
             required property var modelData
             readonly property bool on: ann.tool === modelData[0]
             width: 34; height: 34; radius: Zenon.windowRadius
-            color: on ? Qt.rgba(Zenon.cyan.r, Zenon.cyan.g, Zenon.cyan.b, 0.20)
+            color: on ? Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.20)
               : (toolMa.pressed ? Zenon.wash(0.06) : "transparent")
             border.width: on ? 1 : 0
-            border.color: Zenon.cyan
+            border.color: Zenon.accent
             Text {
               textFormat: Text.PlainText
               anchors.centerIn: parent
               text: modelData[1]
-              color: on ? Zenon.cyan : Zenon.white
+              color: on ? Zenon.accent : Zenon.white
               font.family: Zenon.face
               font.weight: Zenon.weight
               font.pixelSize: Zenon.px(16)
@@ -654,7 +654,7 @@ Item {
       anchors.right: parent.right
       anchors.rightMargin: 12
       anchors.verticalCenter: parent.verticalCenter
-      spacing: 8
+      spacing: Zenon.buttonGap
       // measured even while the icons stand in (see `tight`), so it stays
       // laid out and only goes see-through and deaf
       opacity: bar.tight ? 0 : 1
@@ -670,7 +670,7 @@ Item {
       }
       DialogButton { label: "Copy"; ink: Zenon.accentMuted; onClicked: ann.copy() }
       DialogButton { label: "Save new"; ink: Zenon.white; onClicked: ann.saveNew() }
-      DialogButton { label: "Save"; ink: Zenon.cyan; primary: true; ready: ann.dirty
+      DialogButton { label: "Save"; ink: Zenon.accent; primary: true; ready: ann.dirty
                      onClicked: ann.saveTo(ann.path) }
     }
 
@@ -686,7 +686,7 @@ Item {
         model: [
           { g: "\uf0c5", name: "Copy", key: "", ink: Zenon.accentMuted, live: true, act: () => ann.copy() },
           { g: "\uf0c7", name: "Save new", key: "", ink: Zenon.white, live: true, act: () => ann.saveNew() },
-          { g: "\uf00c", name: "Save", key: "", ink: Zenon.cyan, live: ann.dirty, act: () => ann.saveTo(ann.path) }
+          { g: "\uf00c", name: "Save", key: "", ink: Zenon.accent, live: ann.dirty, act: () => ann.saveTo(ann.path) }
         ]
         delegate: Rectangle {
           required property var modelData
@@ -950,7 +950,7 @@ Item {
           z: -1
           color: "transparent"
           border.width: 1 / paper.fit
-          border.color: Zenon.cyan
+          border.color: Zenon.accent
         }
         function finish(keep) {
           const t = textEdit.text.replace(/\s+$/, "");
@@ -1040,7 +1040,7 @@ Item {
         anchors.right: parent.right
         anchors.bottom: parent.bottom
         anchors.margins: 14
-        spacing: 8
+        spacing: Zenon.buttonGap
         DialogButton { label: "Keep editing"; ink: Zenon.accentMuted; onClicked: discard.open = false }
         DialogButton { label: "Discard"; ink: Zenon.red; primary: true
                        onClicked: { discard.open = false; ann.dirty = false; ann.finished(); } }

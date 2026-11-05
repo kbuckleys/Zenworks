@@ -109,11 +109,11 @@ Rectangle {
         readonly property color ink: jobRow.model.state === "failed"
           ? Zenon.red
           : (jobRow.ended || jobRow.model.cancelled ? Zenon.muted : Zenon.white)
-        // What the graph is drawn in: cyan while it runs, then the way it
+        // What the graph is drawn in: accent while it runs, then the way it
         // ended.
         readonly property color accent: jobRow.model.state === "failed" ? Zenon.red
           : jobRow.model.state === "done" ? Zenon.green
-          : (jobRow.ended || jobRow.model.cancelled ? Zenon.muted : Zenon.cyan)
+          : (jobRow.ended || jobRow.model.cancelled ? Zenon.muted : Zenon.accent)
 
         // ── A SPEED GRAPH, NOT A METER ───────────────────────────────
         // The percentage is already in words beside the ×; what a meter
@@ -211,7 +211,7 @@ Rectangle {
               visible: jobRowLabel.hasTo
               text: jobRow.model.toGlyph || "\uF07B"
               rightPadding: 5
-              color: jobRow.ended ? jobRow.ink : Zenon.cyan
+              color: jobRow.ended ? jobRow.ink : Zenon.accent
               font.family: Zenon.face
               font.weight: Zenon.weight
               font.pixelSize: Zenon.px(14)
@@ -222,7 +222,7 @@ Rectangle {
               text: jobRow.model.to || ""
               width: Math.min(implicitWidth, Math.max(40, jobRowLabel.room - jobWhat.width))
               elide: Text.ElideMiddle
-              color: jobRow.ended ? jobRow.ink : Zenon.cyan
+              color: jobRow.ended ? jobRow.ink : Zenon.accent
               font.family: Zenon.face
               font.weight: Zenon.weight
               font.pixelSize: Zenon.px(14)
@@ -262,7 +262,7 @@ Rectangle {
               + (jobRow.model.eta !== "" ? jobRow.model.eta + " left  \u00b7  " : "")
               + jobRow.model.pct + "%"
           color: jobRow.model.state === "done" ? Zenon.green
-            : jobRow.model.cancelled ? Zenon.muted : Zenon.cyan
+            : jobRow.model.cancelled ? Zenon.muted : Zenon.accent
           font.family: Zenon.face
           font.weight: Font.Bold
           font.pixelSize: Zenon.px(14)

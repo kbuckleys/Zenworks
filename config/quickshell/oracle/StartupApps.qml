@@ -33,7 +33,7 @@ Item {
   property string face: Zenon.face
   property color fgColor: Zenon.white
   property color dimColor: Zenon.accentMuted
-  property color highlight: Zenon.cyan
+  property color highlight: Zenon.accent
 
   readonly property var apps: (Oracle.revision, Oracle.startupApps)
   property int open: -1
@@ -314,16 +314,12 @@ Item {
           x: 6
           y: 6
           width: parent.width - 12
-          Text {
+          EmptyState {
             visible: sa.installed.length === 0
-            leftPadding: 10
+            width: parent.width
             height: 28
             verticalAlignment: Text.AlignVCenter
-            text: "No app by that name."
-            color: sa.dimColor
-            font.family: sa.face
-            font.weight: Zenon.weight
-            font.pixelSize: Zenon.px(14)
+            text: "No app by that name"
           }
           Repeater {
             model: sa.installed
@@ -333,7 +329,7 @@ Item {
               width: pickList.width
               height: 28
               radius: Zenon.windowRadius
-              color: instTap.pressed ? Zenon.pressFill : instHover.hovered ? Zenon.wash(0.06) : "transparent"
+              color: instTap.pressed ? Zenon.pressFill : "transparent"
               Text {
                 textFormat: Text.PlainText
                 id: instName
@@ -358,7 +354,6 @@ Item {
                 font.family: Zenon.faceMono
                 font.pixelSize: Zenon.px(13)
               }
-              HoverHandler { id: instHover }
               TapHandler { id: instTap; onTapped: sa.add(inst.modelData.name, inst.modelData.command) }
             }
           }
@@ -367,7 +362,7 @@ Item {
     }
 
     Row {
-      spacing: 8
+      spacing: Zenon.buttonGap
       DialogButton {
         label: sa.picking ? "Cancel" : "Add app"
         ink: sa.picking ? sa.fgColor : sa.highlight

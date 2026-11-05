@@ -217,7 +217,7 @@ Item {
       anchors.centerIn: parent
       anchors.horizontalCenterOffset: -0.5
       text: "\uEAAE"
-      color: Zenon.onAccent
+      color: Zenon.inkOnAccent
       font.family: Zenon.glyphFace
       font.pixelSize: Zenon.clockSize
       opacity: wsLayer.glyphShow
@@ -311,7 +311,7 @@ Item {
               width: urgentWash.width
               height: urgentWash.height
               radius: urgentWash.radius
-              color: Zenon.cyan
+              color: Zenon.accent
               property real flash: 0
               opacity: btn.isUrgent ? 0 : bellWash.flash
               visible: opacity > 0.01
@@ -339,7 +339,7 @@ Item {
               font.weight: wsLabel.font.weight
               // on the special workspace's accent fill: a trace of its ink
               color: root.specialWorkspace !== null && root.specialFocused
-                ? Zenon.alpha(Zenon.onAccent, 0.12) : Zenon.trough(Zenon.cyan)
+                ? Zenon.alpha(Zenon.inkOnAccent, 0.12) : Zenon.trough(Zenon.accent)
             }
 
             BarText {
@@ -357,15 +357,15 @@ Item {
                   // inverted on the special workspace's accent fill
                   // (shell.qml specialTakeover; user, 2026-10-26): red was
                   // the fill, and red is the urgent flash's alone
-                  return btn.isActive ? Zenon.onAccent : Zenon.alpha(Zenon.onAccent, 0.6)
+                  return btn.isActive ? Zenon.inkOnAccent : Zenon.alpha(Zenon.inkOnAccent, 0.6)
                 // Inactive in a dark theme: halfway from dim to the lit
-                // cyan. Plain dim sat barely above the unlit "8" behind it
-                // (wsGhost, trough cyan) and the numbers all but vanished
+                // accent. Plain dim sat barely above the unlit "8" behind it
+                // (wsGhost, trough accent) and the numbers all but vanished
                 // (user, dark-workspace.png, 2026-10-08); this stands well
                 // clear of the ghost and still well under the active one.
                 // Light keeps dimInk (muted), its own earlier fix.
-                return btn.isActive ? Zenon.cyan
-                  : Zenon.light ? Zenon.dimInk : Zenon.mix(Zenon.dimInk, Zenon.cyan, 0.5)
+                return btn.isActive ? Zenon.accent
+                  : Zenon.light ? Zenon.dimInk : Zenon.mix(Zenon.dimInk, Zenon.accent, 0.5)
               }
               // DSEG7 Classic ships Light, Regular and Bold only — ExtraBold
               // and Black fell back to the same Bold file, so active and
@@ -481,9 +481,9 @@ Item {
             anchors.fill: parent
             visible: trayIcon.status === Image.Ready
             property var source: trayIcon
-            // the clock's ink (ClockModule: Zenon.cyan), as the bell's when caught up;
+            // the clock's ink (ClockModule: Zenon.accent), as the bell's when caught up;
             // onAccent over the special workspace's accent fill (shell.qml)
-            property color ink: root.specialWorkspace !== null && root.specialFocused ? Zenon.onAccent : Zenon.cyan
+            property color ink: root.specialWorkspace !== null && root.specialFocused ? Zenon.inkOnAccent : Zenon.accent
             property real floorAlpha: 0.25
             fragmentShader: Qt.resolvedUrl("shaders/inktint.frag.qsb")
           }

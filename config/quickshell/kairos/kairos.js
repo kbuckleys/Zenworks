@@ -220,3 +220,40 @@ function limitWords(mins) {
 // time against a limit: "1h 05m of 1 h"
 function againstLimit(secs, mins) { return fmt(secs) + (mins > 0 ? " of " + limitWords(mins) : ""); }
 function breakDue(stretchSecs, everyMins) { return everyMins > 0 && stretchSecs >= everyMins * 60; }
+
+// ── FOCUS SESSIONS AND AUTO QUIT (2026-11-03) ──────────────────────────────
+// kairos-rules.json: the apps a focus session sets aside (keys), the apps
+// quit after a while unused (key → minutes), and the session running, if
+// any ({ until: ms, label, minutes, dndWas }), so a restart keeps it.
+function parseRules(text) {
+  let j = {};
+  try { j = JSON.parse(String(text || "")) || {}; } catch (e) { j = {}; }
+  const block = Array.isArray(j.block) ? j.block.filter((k) => typeof k === "string" && k !== "") : [];
+  const autoQuit = {};
+  for (const k in j.autoQuit || {}) if (j.autoQuit[k] > 0) autoQuit[k] = Math.round(j.autoQuit[k]);
+  const f = j.focus;
+  const focus = f && f.until > 0 ? { until: +f.until, label: String(f.label || "Focus"), minutes: +f.minutes || 0, dndWas: !!f.dndWas } : null;
+  return { block, autoQuit, focus };
+}
+function serializeRules(r) {
+  return JSON.stringify({ block: r.block || [], autoQuit: r.autoQuit || {}, focus: r.focus || null }, null, 2) + "\n";
+}
+function withBlocked(block, key, on) {
+  const out = (block || []).filter((k) => k !== key);
+  return on ? out.concat([key]) : out;
+}
+function withAutoQuit(map, key, mins) {
+  const out = Object.assign({}, map || {});
+  if (mins > 0) out[key] = Math.round(mins); else delete out[key];
+  return out;
+}
+// what an app typed in Cynosure is as a key ("Discord" → "discord")
+function keyOfName(name) { return String(name || "").trim().toLowerCase(); }
+// an app unused for long enough: not the one in front, and last in front
+// (or first seen, `seen`) `mins` or more ago
+function quitDue(mins, seen, now, inFront) { return !inFront && mins > 0 && seen > 0 && now - seen >= mins * 60000; }
+// "18 min left", "1 h 5 min left", "less than a minute left"
+function leftWords(ms) {
+  const m = Math.ceil(Math.max(0, ms) / 60000);
+  return m <= 1 && ms < 60000 ? "Less than a minute left" : limitWords(m) + " left";
+}

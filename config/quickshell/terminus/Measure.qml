@@ -9,6 +9,7 @@
 
 import QtQuick
 import Quickshell.Io
+import "../morpheus"
 import "terminus.js" as Terminus
 
 Item {
@@ -19,12 +20,21 @@ Item {
 
   Process {
     id: duProc
+    // how long a walk takes here, so a re-measure waits in proportion — see
+    // restale
+    property real began: 0
+    onRunningChanged: if (duProc.running) duProc.began = Date.now();
+              else measure.lastWalk = Date.now() - duProc.began
     stdout: StdioCollector {
       id: duOut
       waitForEnd: true
       onStreamFinished: {
         const got = Terminus.parseDirSizes(duOut.text);
         const next = Object.assign({}, term.dirSizes, got);
+        // A re-measured directory du had nothing to say about is gone, or
+        // can no longer be read: its old total is no answer either.
+        for (const p of measure.reasked) if (got[p] === undefined) delete next[p];
+        measure.reasked = [];
         term.dirSizes = next;
         // and handed to the manager, so the NEXT window starts measured —
         // see revealWhenReady
@@ -55,6 +65,180 @@ Item {
       }
     }
   }
+  // ── A TOTAL IS ONLY AS OLD AS THE LAST CHANGE UNDER IT ─────────────────
+  // dirSizes was kept for as long as the window was open, so a directory
+  // measured once said the same number however much was written into it
+  // afterwards, and so did every directory above it. The window already
+  // hears about changes (DirWatch, and deepProc below for what lies under
+  // a measured directory); a change now marks every measured total it sits
+  // under as stale.
+  //
+  // A stale total on screen is MEASURED AGAIN, quietly, and keeps its old
+  // number until the new one lands, so the column never blinks to a dash.
+  // One that is not on screen is dropped, so it is measured fresh the next
+  // time it is wanted rather than served from before the change.
+  property var stale: ({})
+  property var reasked: []
+  property real lastWalk: 0
+  // `paths` changed, so every total they sit in is stale; `under` are
+  // directories that came or went whole, so totals INSIDE them are too.
+  function sizesMoved(paths, under) {
+    const sizes = term.dirSizes;
+    const st = measure.stale;
+    const deep = (under || []).map((u) => u === "/" ? "/" : u + "/");
+    let any = false;
+    for (const k in sizes) {
+      if (st[k]) continue;
+      const pre = k === "/" ? "/" : k + "/";
+      let hit = false;
+      for (const p of paths) if (p === k || p.indexOf(pre) === 0) { hit = true; break; }
+      if (!hit) for (const d of deep) if (k.indexOf(d) === 0) { hit = true; break; }
+      if (hit) { st[k] = true; any = true; }
+    }
+    if (any && !restale.running) restale.start();
+  }
+  // Everything measured, after the window has been hidden and watching
+  // nothing — see catchUp.
+  function sizesAllMoved() {
+    for (const k in term.dirSizes) measure.stale[k] = true;
+    if (Object.keys(measure.stale).length > 0 && !restale.running) restale.start();
+  }
+  // The directories on screen whose TOTAL is drawn: every row of a list
+  // (its size column shows any total there is) and every row while the
+  // usage view, a size sort or the space map is up; otherwise only the
+  // marked ones (the selection's total) and the one under the cursor (the
+  // columns view's footer). A total nobody is shown is not worth a walk.
+  function shownDirs() {
+    const out = ({});
+    const cur = term.currentRow();
+    const panes = [term.act, term.dual ? term.pas : null];
+    for (const pane of panes) {
+      if (!pane) continue;
+      const all = term.sizing || pane.viewMode === "list";
+      const v = pane.view || [];
+      for (let i = 0; i < v.length; ++i) {
+        const r = v[i];
+        if (!r || !r.isDir) continue;
+        if (all || (pane === term.act && (term.marked[r.path]
+            || (cur && cur.path === r.path)))) out[r.path] = true;
+      }
+    }
+    return out;
+  }
+  // STARTED, NEVER RESTARTED: the first change of a burst is answered after
+  // one interval, however long the writing goes on, and a walk is never
+  // asked for more often than five times what the last one took — a busy
+  // ~/.cache must not keep du walking it back to back.
+  Timer {
+    id: restale
+    interval: Math.max(1500, 5 * measure.lastWalk)
+    onTriggered: {
+      if (duProc.running) { restale.start(); return; }
+      const keys = Object.keys(measure.stale);
+      measure.stale = ({});
+      if (keys.length === 0) return;
+      const shown = term.shown ? measure.shownDirs() : ({});
+      const ask = [], drop = [];
+      for (const k of keys) {
+        if (term.dirSizes[k] === undefined) continue;
+        (shown[k] ? ask : drop).push(k);
+      }
+      if (drop.length > 0) {
+        const next = Object.assign({}, term.dirSizes);
+        const tried = Object.assign({}, term.duTried);
+        const sel = Object.assign({}, term.selTried);
+        for (const k of drop) { delete next[k]; delete tried[k]; delete sel[k]; }
+        term.duTried = tried;
+        term.selTried = sel;
+        term.dirSizes = next;
+        if (term.mgr) term.mgr.forgetSizes(drop);
+      }
+      if (ask.length === 0) return;
+      measure.reasked = ask;
+      term.duQuiet = true;
+      duProc.command = Terminus.shArgv(Terminus.dirSizeCommand(ask));
+      duProc.running = true;
+    }
+  }
+
+  // ── AND WHAT LIES UNDER A MEASURED DIRECTORY ──────────────────────────
+  // The listing's watch is one level deep, so a file growing two directories
+  // down inside a measured row moves that row's total without a single
+  // event reaching the window. One recursive inotifywait over the measured
+  // directories on screen hears it.
+  //
+  // CAPPED, because -r costs a watch per directory underneath: each one is
+  // counted first (`find | head`, which stops at the cap rather than walking
+  // the whole tree), and one that would take the set past deepCap is left
+  // out. A directory that big is still re-measured when something changes
+  // at a level the listing watches, and whenever the window is shown again.
+  readonly property int deepCap: 8000
+  readonly property string deepWant: {
+    if (!term || !term.shown) return "";
+    const sizes = term.dirSizes;
+    const shown = Object.keys(measure.shownDirs()).filter((p) => sizes[p] !== undefined);
+    shown.sort();
+    // a directory inside one already listed is already covered by it
+    const out = [];
+    for (const p of shown) {
+      const last = out.length > 0 ? out[out.length - 1] : "";
+      if (last !== "" && p.indexOf(last === "/" ? "/" : last + "/") === 0) continue;
+      out.push(p);
+    }
+    return out.join("\n");
+  }
+  onDeepWantChanged: deepAim.restart()
+  property string deepArmed: ""
+  Timer {
+    id: deepAim
+    interval: 300
+    onTriggered: {
+      const key = measure.deepWant;
+      if (key === measure.deepArmed && (key === "" || deepProc.running)) return;
+      measure.deepArmed = key;
+      deepProc.running = false;
+      if (key === "") return;
+      deepProc.command = Paths.tether(["sh", "-c",
+        'left=' + measure.deepCap + '; n=$#; while [ "$n" -gt 0 ]; do d=$1; shift; n=$((n-1)); '
+        + 'if [ -d "$d" ] && [ -r "$d" ] && [ -x "$d" ]; then '
+        + 'c=$(find "$d" -type d 2>/dev/null | head -n "$left" | wc -l); '
+        + 'if [ "$c" -lt "$left" ]; then left=$((left-c)); set -- "$@" "$d"; fi; fi; done; '
+        + '[ "$#" -gt 0 ] || exit 0; '
+        + 'exec inotifywait -m -q -r --format %w -e create -e delete -e moved_to '
+        + '-e moved_from -e close_write -e modify -- "$@"',
+        "sh"].concat(key.split("\n")));
+      deepProc.running = true;
+    }
+  }
+  property var deepHits: ({})
+  Process {
+    id: deepProc
+    stdout: SplitParser {
+      splitMarker: "\n"
+      // %w: the directory the change happened in, with its slash
+      onRead: (line) => {
+        let p = String(line || "");
+        if (p.length > 1 && p.charAt(p.length - 1) === "/") p = p.slice(0, -1);
+        if (p === "") return;
+        measure.deepHits[p] = true;
+        if (!deepFlush.running) deepFlush.start();
+      }
+    }
+    // see shutWatchProc in DirWatch: forgotten, so the next aim starts it again
+    onExited: (code) => { if (!deepProc.running) measure.deepArmed = ""; }
+  }
+  // a modify per write() is hundreds of lines a second during a copy; they
+  // are gathered here and the totals looked over once per interval
+  Timer {
+    id: deepFlush
+    interval: 250
+    onTriggered: {
+      const hits = Object.keys(measure.deepHits);
+      measure.deepHits = ({});
+      if (hits.length > 0) measure.sizesMoved(hits, []);
+    }
+  }
+
   Process {
     id: gitProc
     stdout: StdioCollector {

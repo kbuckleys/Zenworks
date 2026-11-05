@@ -1,0 +1,27 @@
+{
+  "name": "Monochrome Dark",
+  "mode": "dark",
+  "colors": {
+    "ground": "#111111",
+    "surface": "#262626",
+    "card": "#1a1a1a",
+    "ink": "#e6e6e6",
+    "muted": "#8a8a8a",
+    "soft": "#b3b3b3",
+    "keyInk": "#cccccc",
+    "red": "#e78284",
+    "green": "#b6e0a4",
+    "yellow": "#fab387",
+    "blue": "#9fcbfc",
+    "magenta": "#c8a4e0",
+    "accent": "#d4d4d4",
+    "pink": "#eebebe",
+    "sand": "#dfc6a6",
+    "dim": "#3a3a3a",
+    "sparkFill": "#33d4d4d4",
+    "border": "#4c555555",
+    "headBg": "#66262626",
+    "selBg": "#4c3a3a3a",
+    "onAccent": "#111111"
+  }
+}

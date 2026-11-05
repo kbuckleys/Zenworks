@@ -361,7 +361,7 @@ Singleton {
   // ── disk ──────────────────────────────────────────────────────────────
   // Two inks, like the network's, because it is the same kind of reading: two
   // directions through one pipe.
-  readonly property color diskReadInk: Zenon.cyan
+  readonly property color diskReadInk: Zenon.accent
   readonly property color diskWriteInk: Zenon.green
   property real diskRead: 0        // bytes/sec
   property real diskWrite: 0

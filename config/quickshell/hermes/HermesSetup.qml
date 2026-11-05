@@ -21,7 +21,7 @@ Column {
   // a second, plain answer beside the first ("Turn off Bluetooth")
   property string action2: ""
   property bool busy: false
-  property color ink: Zenon.cyan
+  property color ink: Zenon.accent
   signal go()
   signal go2()
 
@@ -52,7 +52,7 @@ Column {
   Item { width: 1; height: 4; visible: s.action !== "" }
   Row {
     anchors.horizontalCenter: parent.horizontalCenter
-    spacing: 10
+    spacing: Zenon.buttonGap
     visible: s.action !== ""
     DialogButton {
       visible: s.action2 !== ""

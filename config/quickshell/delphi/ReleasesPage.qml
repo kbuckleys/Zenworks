@@ -76,7 +76,7 @@ Item {
   readonly property var buttons: pg.edit ? [
     { label: "Cancel", run: () => pg.cancelEdit() },
     { label: pg.edit.mode === "new" ? (pg.edit.draft ? "Save the draft" : "Publish") : (pg.edit.wasDraft && !pg.edit.draft ? "Publish" : "Save"),
-      ink: Zenon.cyan, primary: true, ready: pg.edit.tag.trim() !== "", run: () => pg.save() },
+      ink: Zenon.accent, primary: true, ready: pg.edit.tag.trim() !== "", run: () => pg.save() },
   ] : [
     // the list asked again (r): a release made or changed on the web, or in
     // another of Delphi's windows, without waiting (user, 2026-10-25) —
@@ -85,7 +85,7 @@ Item {
     { label: "Delete", ink: Zenon.red, visible: !!pg.rel, run: () => pg.remove() },
     { label: "Edit", visible: !!pg.rel, run: () => pg.editRel(pg.rel) },
     { label: "On the web", visible: !!pg.rel, run: () => pg.web() },
-    { label: "New release", ink: Zenon.cyan, primary: true, visible: !!pg.hub, run: () => pg.create() },
+    { label: "New release", ink: Zenon.accent, primary: true, visible: !!pg.hub, run: () => pg.create() },
   ]
   function takeFocus() {
     if (pg.edit) { if (!editor.typing) editor.claim(); return; }
@@ -243,7 +243,7 @@ Item {
       else pg.win.card_({ question: args.tag + " is not on " + D.andList(bad.map((b) => b.name)), glyph: "\uF412", ink: Zenon.yellow,
         detail: (done.length > 0 ? "It is on " + D.andList(done) + ". " : "") + "Try those again from their own Releases page, or on the web.",
         items: bad.map((b) => b.name + ": " + D.errorText(b.err).split("\n")[0]),
-        choices: [{ label: "OK", ink: Zenon.cyan }] });
+        choices: [{ label: "OK", ink: Zenon.accent }] });
       after();
     };
     const next = (i) => {
@@ -284,9 +284,9 @@ Item {
     const v = tag.replace(/^[vV](?=\d)/, "");
     pg.win.mgr.call("aurFor", null, { roots: roots, urls: urls }, (ok, found) => {
       if (!pg || !ok || found.length === 0) return;
-      pg.win.card_({ question: "Release " + D.andList(found.map((p) => p.pkg)) + " " + v + " on the AUR too?", glyph: "\uF303", ink: Zenon.cyan,
+      pg.win.card_({ question: "Release " + D.andList(found.map((p) => p.pkg)) + " " + v + " on the AUR too?", glyph: "\uF303", ink: Zenon.accent,
         detail: "Its recipe opens on its AUR page, where the release runs: the tag checked, the version set, checksums, .SRCINFO and a build. Publishing it is a step of its own, after.",
-        choices: found.slice(0, 3).map((p) => ({ label: found.length > 1 ? "Release " + p.pkg : "Release it", ink: Zenon.cyan,
+        choices: found.slice(0, 3).map((p) => ({ label: found.length > 1 ? "Release " + p.pkg : "Release it", ink: Zenon.accent,
                    run: () => { pg.win.mgr.aurWant = { root: p.root, version: v }; pg.win.openRepo(p.root); pg.win.setPage("aur"); } }))
           .concat([{ label: "Not now", ink: Zenon.accentMuted }]) });
     });
@@ -352,7 +352,7 @@ Item {
           x: 22
           anchors.verticalCenter: parent.verticalCenter
           text: ""
-          color: rrow.r.draft ? Zenon.accentMuted : rrow.r.prerelease ? Zenon.yellow : rrow.index === 0 ? Zenon.green : Zenon.cyan
+          color: rrow.r.draft ? Zenon.accentMuted : rrow.r.prerelease ? Zenon.yellow : rrow.index === 0 ? Zenon.green : Zenon.accent
           font.family: Zenon.glyphFace
           font.pixelSize: Zenon.px(17)
         }

@@ -12,7 +12,7 @@
 "use strict";
 
 module.exports = {
-  module: "metis/metis.js",
+  module: "cynosure/metis/metis.js",
   cases: (M, t) => {
     const ex = (q) => M.prepare(q).expr;
 

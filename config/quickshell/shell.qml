@@ -73,6 +73,32 @@ ShellRoot {
   // the suite's windows never open into a shown special workspace — see
   // morpheus/OffSpecial
   Loader { source: "morpheus/OffSpecial.qml" }
+  // somewhere to put a dragged thing down — see morpheus/DropShelf
+  Loader {
+    source: "morpheus/DropShelf.qml"
+    onLoaded: {
+      item.on = Qt.binding(() => Oracle.shelfOn);
+      item.edge = Qt.binding(() => Oracle.shelfEdge);
+    }
+  }
+  // the screen's corners — see morpheus/HotCorners
+  Loader {
+    source: "morpheus/HotCorners.qml"
+    onLoaded: {
+      item.actions = Qt.binding(() => ({ tl: Oracle.hotCornerTL, tr: Oracle.hotCornerTR,
+                                         bl: Oracle.hotCornerBL, br: Oracle.hotCornerBR }));
+      item.apps = Qt.binding(() => ({ tl: Oracle.hotCornerTLApp, tr: Oracle.hotCornerTRApp,
+                                      bl: Oracle.hotCornerBLApp, br: Oracle.hotCornerBRApp }));
+      item.commands = Qt.binding(() => ({ tl: Oracle.hotCornerTLCmd, tr: Oracle.hotCornerTRCmd,
+                                          bl: Oracle.hotCornerBLCmd, br: Oracle.hotCornerBRCmd }));
+      item.delay = Qt.binding(() => Oracle.hotCornerDelay);
+    }
+  }
+  // the apps open at logout, open again at login — see morpheus/AppRestore
+  Loader {
+    source: "morpheus/AppRestore.qml"
+    onLoaded: item.on = Qt.binding(() => Oracle.appRestore)
+  }
   // is the sun up? for Follow Daytime — see chronos/SunClock
   Loader { source: "chronos/SunClock.qml" }
   // chronos' calendar window (ipc Calendar); the window is built on first use
@@ -135,7 +161,7 @@ ShellRoot {
   // than shelling out to `qs ipc` to reach the process it is already inside.
   SocordiaDaemon { id: socordia; lockscreen: cerberus }
   // the quick panels cynosure hands the pill to ("cb invoice" → folio)
-  CynosurePopup { id: cynosure; keepAwake: socordia.forceAwake; statusbar: bar; screen: root.focusedScreen; morphMode: root.morphedFor("cynosure") && root.morphOnPill; morphFade: root.layerFade
+  CynosurePopup { id: cynosure; keepAwake: socordia.forceAwake; statusbar: bar; screen: root.focusedScreen; morphMode: root.morphedFor("cynosure") && root.morphOnPill; place: Oracle.cynosurePlace; morphFade: root.layerFade
                   finder: artemis; passwords: calypsoMgr }
   // `&& !zeus.pinned`: torn off the pill, zeus is a window rather than the
   // pill's current shape, so it must stop drawing itself as one — otherwise it
@@ -152,8 +178,8 @@ ShellRoot {
   CalypsoManager { id: calypsoMgr; fileManager: terminus; quick: cynosure.quickAccess }
   // every shortcut on one sheet, held or tapped on binds.lua's keysSheet
   KeysSheet { screen: root.focusedScreen }
-  // the very first start's Make it yours, after the sheet (ZshSetup)
-  WelcomeLook { screen: root.focusedScreen }
+  // the very first start's setup assistant, ending on the sheet (ZshSetup)
+  SetupAssistant { screen: root.focusedScreen }
   // Super+Tab held: every window, a picture each (binds.lua's cycle)
   WindowSwitcher { screen: root.focusedScreen }
   // a moment of this screen's workspaces on every switch (Oracle › Windows)
@@ -343,7 +369,10 @@ ShellRoot {
     }
     root.morphSource = layer;
     // the disk question is put on the pill's monitor, wherever focus is
-    root.morphOnPill = root.focusOnPillScreen || layer === "disks";
+    // Cynosure put somewhere other than the bar (Oracle's Opens) is never
+    // the pill: it opens on its own, where it was put
+    root.morphOnPill = (root.focusOnPillScreen && !(layer === "cynosure" && Oracle.cynosurePlace !== "bar"))
+      || layer === "disks";
     root.activeLayer = layer;
   }
   function endMorph(layer) {
@@ -1040,7 +1069,7 @@ ShellRoot {
           }
         }
         // A wash the pill takes on, not a block sitting on it — the same
-        // sunrise the tray wears, in the accent (Zenon.cyan, so it follows
+        // sunrise the tray wears, in the accent (Zenon.accent, so it follows
         // the theme, Accent color and Follow Background live): clear down to
         // the middle, then rising into the bottom edge, so the text keeps its own
         // weight against it. The alpha lives in the stops, not in `opacity`,
@@ -1051,7 +1080,7 @@ ShellRoot {
           GradientStop { position: 1.0 - 0.85 * takeover.rise; color: "transparent" }
           GradientStop {
             position: 1.0
-            color: Zenon.alpha(Zenon.cyan, 0.28 * Math.min(1, takeover.rise * 1.6))
+            color: Zenon.alpha(Zenon.accent, 0.28 * Math.min(1, takeover.rise * 1.6))
           }
         }
         // Inset by the pill's own stroke, and rounded to the INNER curve.
@@ -1089,6 +1118,29 @@ ShellRoot {
       readonly property real boxLeftR: Oracle.barBare || !bg.leftHasContent ? bg.boxR : 0
       readonly property real specialX: bg.leftHasContent ? Zenon.padBar + workspacesMod.x - Zenon.gap : bg.border.width
       readonly property real specialW: bg.leftHasContent ? workspacesMod.width + Zenon.gap * 2 : Zenon.padBar + workspacesMod.x + workspacesMod.width + Zenon.gap - bg.border.width
+      // FRAMELESS, A GROUND UNDER THEM: the tray's sunrise and the special's
+      // faint wash lay straight on the desktop and read as a stain (user,
+      // 2026-11-03). Under either, the pill's own ground over the box's
+      // span, which hyprland's layer blur frosts (ignore_alpha keeps the bare
+      // pill clear); gone as the frame returns, where bg is that ground.
+      Rectangle {
+        id: workspaceGround
+        readonly property bool wanted: Oracle.barBare && workspacesMod.visible
+          && (workspacesMod.hasTray || workspacesMod.specialWorkspace !== null)
+        visible: opacity > 0.01
+        opacity: root.pillRowFade * (1 - root.pillFrame) * (workspaceGround.wanted ? 1 : 0)
+        Behavior on opacity { NumberAnimation { duration: Zenon.fast; easing.type: Zenon.ease } }
+        // at the blur's floor, not the bar's Opacity: the pill's 0.9 read
+        // as a solid block here (user, 2026-11-03: "too opaque")
+        color: Zenon.floor(Zenon.glass(Zenon.blurFloor))
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        anchors.topMargin: bg.border.width
+        anchors.bottomMargin: bg.border.width
+        x: workspacesMod.hasTray ? bg.trayGlowX : bg.specialX
+        width: (workspacesMod.hasTray ? bg.trayGlowW : bg.specialW) + 1
+        radius: bg.boxR
+      }
       Rectangle {
         id: specialTakeover
         visible: workspacesMod.visible && workspacesMod.specialWorkspace !== null
@@ -1099,8 +1151,8 @@ ShellRoot {
         // shown: the theme's accent, solid, its numbers in onAccent
         // (Workspaces) — red is the urgent flash's alone (user, 2026-10-26)
         color: workspacesMod.specialFocused
-          ? Zenon.cyan
-          : Qt.rgba(Zenon.cyan.r, Zenon.cyan.g, Zenon.cyan.b, 0.18)
+          ? Zenon.accent
+          : Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.18)
         Behavior on color { ColorAnimation { duration: Zenon.normal; easing.type: Zenon.ease } }
         anchors.top: parent.top
         anchors.bottom: parent.bottom

@@ -585,7 +585,7 @@ FocusScope {
           width: logView.width
           wrapMode: Text.WrapAnywhere
           text: modelData
-          color: modelData.indexOf("$ ") === 0 ? Zenon.cyan : Zenon.accentSoft
+          color: modelData.indexOf("$ ") === 0 ? Zenon.accent : Zenon.accentSoft
           font.family: Zenon.faceMono
           font.weight: Zenon.weight
           font.pixelSize: Zenon.px(12)
@@ -601,7 +601,7 @@ FocusScope {
       Working {
         running: tool.running
         visible: tool.running
-        ink: Zenon.cyan
+        ink: Zenon.accent
         anchors.verticalCenter: parent.verticalCenter
       }
       Text {
@@ -624,7 +624,7 @@ FocusScope {
     anchors.rightMargin: tool.heading !== "" ? tool.pad : 14
     anchors.bottom: parent.bottom
     anchors.bottomMargin: tool.heading !== "" ? tool.pad : 14
-    spacing: 8
+    spacing: Zenon.buttonGap
     DialogButton {
       label: tool.done ? "Close" : "Cancel"
       ink: Zenon.accentMuted
@@ -635,8 +635,8 @@ FocusScope {
       visible: tool.mode === "repair" ? !!tool.can : true
       label: tool.repairNext ? "Repair" : tool.done ? "Again" : (tool.mode === "format" ? "Format…"
              : (tool.action === "repair" ? "Repair" : "Check"))
-      ink: tool.repairNext ? Zenon.yellow : tool.done ? Zenon.cyan
-        : (tool.mode === "format" ? Zenon.red : (tool.action === "repair" ? Zenon.yellow : Zenon.cyan))
+      ink: tool.repairNext ? Zenon.yellow : tool.done ? Zenon.accent
+        : (tool.mode === "format" ? Zenon.red : (tool.action === "repair" ? Zenon.yellow : Zenon.accent))
       primary: true
       ready: !tool.running && (tool.mode !== "format" || tool.passOk)
       onClicked: tool.go()

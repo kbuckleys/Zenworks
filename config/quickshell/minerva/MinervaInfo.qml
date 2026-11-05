@@ -129,7 +129,7 @@ Column {
             width: parent.width
             height: Math.max(3, parent.height * modelData / info.most)
             radius: Zenon.rad(3)
-            color: index === 13 ? Zenon.cyan : modelData >= 60000 ? Zenon.alpha(Zenon.cyan, 0.55) : Zenon.wash(0.12)
+            color: index === 13 ? Zenon.accent : modelData >= 60000 ? Zenon.alpha(Zenon.accent, 0.55) : Zenon.wash(0.12)
           }
         }
       }

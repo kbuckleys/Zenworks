@@ -81,7 +81,7 @@ Column {
           Text {
             anchors.verticalCenter: parent.verticalCenter
             text: N.MONTHS[cal.month]
-            color: headMa.pressed ? Zenon.ink : Zenon.cyan
+            color: headMa.pressed ? Zenon.ink : Zenon.accent
             font.family: Zenon.face
             font.weight: Font.Bold
             font.pixelSize: Zenon.px(17)
@@ -143,8 +143,8 @@ Column {
           anchors.fill: parent
           anchors.margins: 2
           radius: Zenon.radiusCard
-          color: cell.isToday ? Zenon.cyan
-            : cell.count > 0 ? Zenon.alpha(Zenon.cyan, Math.min(0.34, 0.12 + 0.08 * cell.count))
+          color: cell.isToday ? Zenon.accent
+            : cell.count > 0 ? Zenon.alpha(Zenon.accent, Math.min(0.34, 0.12 + 0.08 * cell.count))
             : dayMa.pressed ? Zenon.wash(0.08) : "transparent"
           // the day's picture, darkened under its number
           Image {
@@ -163,13 +163,13 @@ Column {
           radius: face.radius
           color: "transparent"
           border.width: cell.chosen ? 2 : cell.isToday && cell.pic ? 2 : 0
-          border.color: cell.chosen ? Zenon.alpha(Zenon.ink, 0.85) : Zenon.cyan
+          border.color: cell.chosen ? Zenon.alpha(Zenon.ink, 0.85) : Zenon.accent
         }
         Text {
           anchors.centerIn: parent
           anchors.verticalCenterOffset: cell.day && cell.day.mood ? -3 : 0
           text: cell.modelData.day
-          color: cell.isToday && !cell.pic ? Zenon.onAccent : cell.pic ? "#ffffff" : cell.index % 7 >= 5 ? Zenon.accentMuted : Zenon.ink
+          color: cell.isToday && !cell.pic ? Zenon.inkOnAccent : cell.pic ? "#ffffff" : cell.index % 7 >= 5 ? Zenon.accentMuted : Zenon.ink
           style: cell.pic ? Text.Raised : Text.Normal
           styleColor: Zenon.alpha(Zenon.shadowRgb, 0.5)
           font.family: Zenon.face
@@ -230,7 +230,7 @@ Column {
     Text {
       anchors.centerIn: parent
       text: chev.glyph
-      color: chevMa.pressed ? Zenon.cyan : Zenon.accentMuted
+      color: chevMa.pressed ? Zenon.accent : Zenon.accentMuted
       font.family: Zenon.face
       font.weight: Font.Bold
       font.pixelSize: Zenon.px(17)

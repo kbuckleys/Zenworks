@@ -112,7 +112,7 @@ Item {
           anchors.right: parent.right
           anchors.verticalCenter: parent.verticalCenter
           running: visible
-          ink: Zenon.cyan
+          ink: Zenon.accent
           dot: 4
           gap: 3
         }

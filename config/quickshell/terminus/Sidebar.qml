@@ -75,7 +75,7 @@ Rectangle {
     width: 1
     height: parent.height
     color: term.sideGripRef.lit
-      ? Zenon.cyan : Zenon.border
+      ? Zenon.accent : Zenon.border
   }
 
   // ── DROPPED ON THE SIDEBAR, NOT ON A DIRECTORY IN IT ─────────
@@ -97,7 +97,7 @@ Rectangle {
     // stops at the trash foot, which takes its own drops
     anchors.bottomMargin: sideFoot.height
     visible: sideDrop.containsDrag
-    color: Qt.rgba(Zenon.cyan.r, Zenon.cyan.g, Zenon.cyan.b, 0.07)
+    color: Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.07)
     border.width: 1
     border.color: Zenon.border
 
@@ -269,7 +269,7 @@ Rectangle {
           width: sideCol.width
           slot: -1
           label: modelData.label
-          glyph: Icons.glyphFor({ name: modelData.key, isDir: true })
+          glyph: Icons.glyphFor({ name: modelData.key, isDir: true, path: modelData.path })
           active: term.searchMode === "" && modelData.path === term.cwd
             && term.bookmarks.indexOf(modelData.path) < 0
           dropPath: modelData.path
@@ -313,7 +313,7 @@ Rectangle {
           glyph: Icons.glyphFor({
             name: modelData === Paths.home()
               ? "home" : Terminus.basename(modelData),
-            isDir: true })
+            isDir: true, path: modelData })
           // ── ONLY WHEN THE DIRECTORY IS WHAT IS SHOWN ────
           // cwd does not change when a collection or a search is
           // opened — the page is drawn OVER the listing — so this
@@ -407,8 +407,8 @@ Rectangle {
           label: modelData.name
           glyph: "\uEC78"
           // Recents is neutral, as a bookmark is (user, 2026-10-14): no
-          // ink, so the glyph is muted and lights cyan only while open
-          ink: modelData.builtin ? "transparent" : (Zenon[modelData.ink] || Zenon.cyan)
+          // ink, so the glyph is muted and lights accent only while open
+          ink: modelData.builtin ? "transparent" : (Zenon[modelData.ink] || Zenon.accent)
           // ── LIT ONLY WHILE A COLLECTION IS WHAT IS SHOWN ──
           // collOpenId is a stored value: written when a collection
           // opens and cleared only by Escape back to a directory.
@@ -588,7 +588,7 @@ Rectangle {
       slot: -1
       label: "Trash"
       glyph: term.trashCount > 0 ? "\uF1F8" : "\uF014"
-      ink: term.inTrash && term.searchMode === "" ? Zenon.cyan : "transparent"
+      ink: term.inTrash && term.searchMode === "" ? Zenon.accent : "transparent"
       detail: term.trashCount === 0 ? "Empty"
         : term.trashCount + (term.trashSize !== "" ? " · " + term.trashSize : "")
       // orange (Zenon's yellow) while there is something in it

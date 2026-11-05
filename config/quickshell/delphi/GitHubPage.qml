@@ -98,8 +98,8 @@ Item {
   readonly property var buttons: pg.signedIn ? [
     { label: "Upload files", visible: !!pg.repo, run: () => pg.upload(pg.repo) },
     { label: pg.win && pg.win.root !== "" && !pg.win.origin ? "Publish " + pg.win.repoName : "New repository",
-      ink: Zenon.cyan, primary: true, run: () => pg.create() },
-  ] : [{ label: "Add an account", ink: Zenon.cyan, primary: true, ready: !pg.checking, run: () => pg.addAccount() }]
+      ink: Zenon.accent, primary: true, run: () => pg.create() },
+  ] : [{ label: "Add an account", ink: Zenon.accent, primary: true, ready: !pg.checking, run: () => pg.addAccount() }]
   function takeFocus() { if (!filter.focused && pg.win) pg.win.focusKeys(); }
 
   // An answer is for the forge it was asked of, and only while that forge
@@ -174,7 +174,7 @@ Item {
         pg.win.card_({ question: "No key gets you into " + s.name, glyph: "\uF43D", ink: Zenon.yellow,
           detail: (D.SSH_WHY[res.why] || "ssh could not get in.") + " Clones stay on HTTPS until one does.",
           items: res.line ? [res.line] : [],
-          choices: [{ label: "Make a key for it", ink: Zenon.cyan, run: () => pg.win.newKeyFor(s.host.split(":")[0]) },
+          choices: [{ label: "Make a key for it", ink: Zenon.accent, run: () => pg.win.newKeyFor(s.host.split(":")[0]) },
                     { label: "Cancel", ink: Zenon.accentMuted }] });
       } });
   }
@@ -229,8 +229,8 @@ Item {
       } });
     pg.win.card_({ question: "Add a server of your own", glyph: "", ink: Zenon.ink,
       detail: "A GitLab you or your work runs, or a Forgejo or Gitea. Its repositories, pull requests and issues then work as GitHub's do here.",
-      choices: [{ label: "GitLab", ink: Zenon.cyan, run: () => ask("gitlab") },
-                { label: "Forgejo or Gitea", ink: Zenon.cyan, run: () => ask("forgejo") },
+      choices: [{ label: "GitLab", ink: Zenon.accent, run: () => ask("gitlab") },
+                { label: "Forgejo or Gitea", ink: Zenon.accent, run: () => ask("forgejo") },
                 { label: "Cancel", ink: Zenon.accentMuted }] });
   }
   function removeServer(id) {
@@ -256,7 +256,7 @@ Item {
       pg.win.card_({ question: s0.name + " holds one account", glyph: s0.glyph, ink: Zenon.ink,
         detail: "You are signed in as " + a0.login + ". " + (a0.source === s0.cli ? s0.cli + " keeps one account per site, so" : "Here")
           + " another account means signing out of " + a0.login + " first. Your clones stay as they are.",
-        choices: [{ label: "Sign out, then sign in", ink: Zenon.cyan, run: () => {
+        choices: [{ label: "Sign out, then sign in", ink: Zenon.accent, run: () => {
                       const viaCli = !!s0.cli && a0.source === s0.cli;
                       pg.win.act(viaCli ? pg.op(id, "Logout") : pg.op(id, "ForgetToken"), {}, { repo: null, refresh: false,
                         label: "Signing out of " + a0.login,
@@ -273,9 +273,9 @@ Item {
     const cli = has && s.cli !== "";
     const missing = !has && s.cli !== "";
     const choices = [];
-    if (cli) choices.push({ label: "Use the browser", ink: Zenon.cyan, run: () => pg.browser(id) });
-    if (missing) choices.push({ label: "Install " + s.pkg + ", then sign in", ink: Zenon.cyan, run: () => pg.installThenSignIn(id) });
-    choices.push({ label: "Paste a token", ink: cli || missing ? Zenon.accentMuted : Zenon.cyan, run: () => pg.token(id) });
+    if (cli) choices.push({ label: "Use the browser", ink: Zenon.accent, run: () => pg.browser(id) });
+    if (missing) choices.push({ label: "Install " + s.pkg + ", then sign in", ink: Zenon.accent, run: () => pg.installThenSignIn(id) });
+    choices.push({ label: "Paste a token", ink: cli || missing ? Zenon.accentMuted : Zenon.accent, run: () => pg.token(id) });
     choices.push({ label: "Cancel", ink: Zenon.accentMuted });
     pg.win.card_({ question: another ? "Another account on " + s.name : "Sign in to " + s.name, glyph: s.glyph, ink: Zenon.ink,
       detail: cli ? "In your browser, through " + s.cli + " — or with a personal access token you made."
@@ -318,14 +318,14 @@ Item {
         if (!ev.device || codeCard >= 0) return;
         const d = ev.device;
         // gh hands a one-time code to type; glab only a page to open
-        codeCard = pg.win.card_(d.code ? { question: "Your code:  " + d.code, glyph: s.glyph, ink: Zenon.cyan,
+        codeCard = pg.win.card_(d.code ? { question: "Your code:  " + d.code, glyph: s.glyph, ink: Zenon.accent,
             detail: "Enter it at " + d.url.replace(/^https:\/\//, "") + " — this card goes by itself once " + s.name + " says yes.",
-            choices: [{ label: "Open " + s.name, ink: Zenon.cyan, keep: true, run: () => Strings.openLink(d.url) },
+            choices: [{ label: "Open " + s.name, ink: Zenon.accent, keep: true, run: () => Strings.openLink(d.url) },
                       { label: "Copy the code", keep: true, run: () => pg.win.copy(d.code, "the code") },
                       { label: "Cancel", ink: Zenon.accentMuted, run: () => pg.win.stop(job) }] }
-          : { question: "Finish in your browser", glyph: s.glyph, ink: Zenon.cyan,
+          : { question: "Finish in your browser", glyph: s.glyph, ink: Zenon.accent,
             detail: s.name + " asks there whether " + s.cli + " may act for you. This card goes by itself once it says yes.",
-            choices: [{ label: "Open the page again", ink: Zenon.cyan, keep: true, run: () => Strings.openLink(d.url) },
+            choices: [{ label: "Open the page again", ink: Zenon.accent, keep: true, run: () => Strings.openLink(d.url) },
                       { label: "Cancel", ink: Zenon.accentMuted, run: () => pg.win.stop(job) }] });
       },
       done: () => { if (codeCard >= 0) pg.win.dropCard(codeCard); },
@@ -422,7 +422,7 @@ Item {
   function joinTwin(r) {
     const root = pg.twinOf(r);
     if (root === "") return;
-    pg.win.confirm({ question: "Keep " + D.baseName(root) + " in sync with " + r.full + "?", glyph: pg.siteOf(r.forge).glyph, ink: Zenon.cyan,
+    pg.win.confirm({ question: "Keep " + D.baseName(root) + " in sync with " + r.full + "?", glyph: pg.siteOf(r.forge).glyph, ink: Zenon.accent,
       detail: r.full + " on " + pg.siteOf(r.forge).name + " is added to " + D.tilde(root, pg.win.home) + " as a remote. If their histories are one, Push there becomes Sync: "
         + "every forge it is on brought to the same commits, nothing overwritten. If they share nothing, Delphi says so and syncs nothing.",
       verb: "Keep in sync",
@@ -453,9 +453,9 @@ Item {
       if (!pg) return;
       if (ok && res.root) { pg.win.openRepo(res.root); pg.win.setPage("changes"); return; }
       const twin = pg.twinOf(r);
-      const choices = twin !== "" ? [{ label: "Keep in sync", ink: Zenon.cyan, run: () => pg.joinTwin(r) },
+      const choices = twin !== "" ? [{ label: "Keep in sync", ink: Zenon.accent, run: () => pg.joinTwin(r) },
                                      { label: "Clone anyway", run: () => pg.clone(r) }]
-                                  : [{ label: "Clone", ink: Zenon.cyan, run: () => pg.clone(r) },
+                                  : [{ label: "Clone", ink: Zenon.accent, run: () => pg.clone(r) },
                                      { label: "Upload files", run: () => pg.upload(r) },
                                      { label: "Open on the web", run: () => pg.web(r) }];
       pg.win.card_({ question: r.full, glyph: s.glyph, ink: Zenon.ink,
@@ -473,7 +473,7 @@ Item {
     const s = pg.siteOf(r.forge);
     const hub = { forge: r.forge, full: r.full };
     if (r.archived) {
-      pg.win.confirm({ question: "Unarchive " + r.full + "?", glyph: s.glyph, ink: Zenon.cyan,
+      pg.win.confirm({ question: "Unarchive " + r.full + "?", glyph: s.glyph, ink: Zenon.accent,
         detail: "It takes pushes, issues and pull requests again.", verb: "Unarchive",
         then: () => pg.win.act(pg.op(r.forge, "Archive"), { full: r.full, on: false }, { repo: null, network: true, refresh: false,
           label: "Unarchiving " + r.full, said: "Unarchived " + r.full, then: () => pg.markArchived(r, false) }) });
@@ -548,7 +548,7 @@ Item {
       const n = sending.length;
       pg.win.card_({
         question: "Upload " + n + (n === 1 ? " file" : " files") + " to " + r.full + "?",
-        glyph: "", ink: Zenon.cyan,
+        glyph: "", ink: Zenon.accent,
         detail: Terminus.formatSize(total) + "  ·  "
           + (plan.fresh ? "onto a new branch " + plan.branch + ", made from " + plan["from"] : "onto " + plan.branch)
           + (replacing > 0 ? "  ·  replaces " + replacing : "")
@@ -556,7 +556,7 @@ Item {
           + "  ·  “" + D.subjectOf(message) + "”",
         rows: entries,
         treeRoot: r.name,
-        choices: [{ label: "Upload", ink: Zenon.cyan,
+        choices: [{ label: "Upload", ink: Zenon.accent,
                     run: () => pg.win.mgr.startUpload({ full: r.full, branch: plan.branch, fresh: plan.fresh, entries: entries, forge: r.forge }, sending, message) },
                   { label: "Back", run: () => pg.askUpload(r, paths, branches, v) },
                   { label: "Cancel" }] });
@@ -577,14 +577,14 @@ Item {
     if (local) {
       pg.win.card_({ question: "Publish " + pg.win.repoName, glyph: "", ink: Zenon.ink,
         detail: "To a repository you already have — its history is taken in, and only what differs is left to commit — or as a new one.",
-        choices: [{ label: "To an existing one", ink: Zenon.cyan, run: () => pg.connectExisting(null) },
+        choices: [{ label: "To an existing one", ink: Zenon.accent, run: () => pg.connectExisting(null) },
                   { label: "As a new repository", run: () => pg.pickForge("Publish " + pg.win.repoName + " on…", (id) => pg.askCreate(id, { dir: pg.win.root, repo: true, open: true })) },
                   { label: "Cancel" }] });
       return;
     }
     pg.pickForge("A new repository on…", (id) => pg.win.card_({ question: "A new repository on " + pg.siteOf(id).name, glyph: pg.siteOf(id).glyph, ink: Zenon.ink,
       detail: "Empty, or filled from a directory: a git repository's history is pushed; a plain directory's files are uploaded.",
-      choices: [{ label: "From a directory", ink: Zenon.cyan, run: () => pg.createFrom(id) },
+      choices: [{ label: "From a directory", ink: Zenon.accent, run: () => pg.createFrom(id) },
                 { label: "Empty", run: () => pg.askCreate(id, null) },
                 { label: "Cancel" }] }));
   }
@@ -623,7 +623,7 @@ Item {
           const mine = taken ? pg.repos.find((x) => x.forge === id && x.name.toLowerCase() === v.name.trim().toLowerCase()) : null;
           if (mine && from && from.repo) pg.win.card_({ question: "You already have " + mine.full, glyph: s.glyph, ink: Zenon.yellow,
             detail: "Connect " + D.baseName(from.dir) + " to it instead? Its history is taken in and only what differs is left to commit — nothing there is replaced.",
-            choices: [{ label: "Connect to it", ink: Zenon.cyan, run: () => pg.connectExisting(mine, from.dir) },
+            choices: [{ label: "Connect to it", ink: Zenon.accent, run: () => pg.connectExisting(mine, from.dir) },
                       { label: "Cancel" }] });
           else pg.win.fail("Could not create " + v.name.trim(), taken ? "A repository by that name is already on your " + s.name + " account." : null, err);
         },
@@ -678,7 +678,7 @@ Item {
         } });
       return;
     }
-    pg.win.confirm({ question: "Connect " + D.baseName(here) + " to " + r.full + "?", glyph: s.glyph, ink: Zenon.cyan,
+    pg.win.confirm({ question: "Connect " + D.baseName(here) + " to " + r.full + "?", glyph: s.glyph, ink: Zenon.accent,
       detail: "Its history is downloaded and your branch is put on it. Your files stay exactly as they are; Changes then shows only what differs from " + r.full
         + ", to commit and push on top. Nothing on " + s.name + " is replaced.",
       items: [D.tilde(here, pg.win.home) + "  →  " + r.full + " (" + (r.branch || "main") + ")"],
@@ -693,7 +693,7 @@ Item {
             detail: "This repository has commits of its own that share nothing with " + r.full + "'s. Its remote is set; nothing else changed. "
               + "Delphi can put your branch on top of theirs: your commits are kept on a backup branch, your files stay exactly as they are, and Changes shows what differs from "
               + r.full + " — commit that and push. A file " + r.full + " has and this directory does not shows as deleted: leave it unstaged to keep it there.",
-            choices: [{ label: "Put mine on top of theirs", ink: Zenon.cyan, run: () => pg.confirmConnect(r, here, true) },
+            choices: [{ label: "Put mine on top of theirs", ink: Zenon.accent, run: () => pg.confirmConnect(r, here, true) },
                       { label: "Leave it" }] });
           else pg.win.say("Connected — " + (res.tracking ? "tracking " + res.remote + "/" + res.branch : "remote added"));
           pg.win.openRepo(here);
@@ -782,7 +782,7 @@ Item {
       visible: !pg.checking
       anchors.horizontalCenter: parent.horizontalCenter
       label: "Add an account"
-      ink: Zenon.cyan
+      ink: Zenon.accent
       primary: true
       onClicked: pg.addAccount(signInBtn)
     }
@@ -813,7 +813,7 @@ Item {
         radius: Zenon.windowRadius
         color: chipPress.pressed ? Zenon.pressFill : Zenon.wash(0.04)
         border.width: 1
-        border.color: menu.isOpen && menu.held === "chip:" + chip.fid ? Zenon.cyan : chip.bad ? Zenon.yellow : Zenon.border
+        border.color: menu.isOpen && menu.held === "chip:" + chip.fid ? Zenon.accent : chip.bad ? Zenon.yellow : Zenon.border
         Row {
           id: chipRow
           anchors.centerIn: parent
@@ -912,7 +912,7 @@ Item {
         elide: Text.ElideRight
         textFormat: Text.StyledText
         text: "<font color='" + Zenon.hex(Zenon.yellow) + "'>" + D.esc(pg.siteOf(modelData).name) + "</font> could not list its repositories — "
-          + D.esc(String(pg.stOf(modelData).error || "").split("\n")[0]) + "   <font color='" + Zenon.hex(Zenon.cyan) + "'><b>Retry</b></font>"
+          + D.esc(String(pg.stOf(modelData).error || "").split("\n")[0]) + "   <font color='" + Zenon.hex(Zenon.accent) + "'><b>Retry</b></font>"
         color: Zenon.accentMuted
         font.family: Zenon.face
         font.weight: Zenon.weight
@@ -1025,7 +1025,7 @@ Item {
           elide: Text.ElideMiddle
           text: rrow.here !== "" ? "  " + D.tilde(rrow.here, pg.win.home)
             : rrow.twin !== "" ? "  same name as " + D.tilde(rrow.twin, pg.win.home) : ""
-          color: rrow.here !== "" ? Zenon.accentMuted : Zenon.cyan
+          color: rrow.here !== "" ? Zenon.accentMuted : Zenon.accent
           font.family: Zenon.face
           font.weight: Zenon.weight
           font.pixelSize: Zenon.px(12)

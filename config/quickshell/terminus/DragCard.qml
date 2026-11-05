@@ -127,7 +127,7 @@ Item {
     width: countText.implicitWidth + 12
     height: 20
     radius: Zenon.radiusControl
-    color: Zenon.cyan
+    color: Zenon.accent
 
     Text {
       id: countText

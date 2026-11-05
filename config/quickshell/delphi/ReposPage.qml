@@ -56,7 +56,7 @@ Item {
     { label: "Fetch all", visible: pg.fetchTotal === 0 && !!pg.win && pg.win.mgr.recents.length > 0, run: () => pg.fetchAll() },
     { label: "New", run: () => pg.init() },
     { label: "Clone", run: () => pg.clone() },
-    { label: "Open", ink: Zenon.cyan, primary: true, run: () => pg.win.chooseRepo() },
+    { label: "Open", ink: Zenon.accent, primary: true, run: () => pg.win.chooseRepo() },
   ]
   function takeFocus() { if (!filter.focused && pg.win) pg.win.focusKeys(); }
 
@@ -396,7 +396,7 @@ Item {
           x: 24
           anchors.verticalCenter: parent.verticalCenter
           text: ""
-          color: parent.lostAs !== "" ? Zenon.yellow : parent.here ? Zenon.cyan : Zenon.accentMuted
+          color: parent.lostAs !== "" ? Zenon.yellow : parent.here ? Zenon.accent : Zenon.accentMuted
           font.family: Zenon.glyphFace
           font.pixelSize: Zenon.px(17)
         }
@@ -430,7 +430,7 @@ Item {
             width: parent.width
             elide: Text.ElideRight
             text: (rrow.r.name || "") + (parent.parent.here ? "   ·   open" : "")
-            color: parent.parent.here ? Zenon.cyan : Zenon.ink
+            color: parent.parent.here ? Zenon.accent : Zenon.ink
             font.family: Zenon.face
             font.weight: Zenon.weight
             font.pixelSize: Zenon.px(16)

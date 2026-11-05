@@ -157,7 +157,28 @@ Item {
   // a capture that stopped at the view's edge would come out half as bright
   // along the very seam where it must match the rows. The capture runs this
   // far into the view and the excess is clipped off.
-  readonly property int pad: edge.frost ? Math.min(24, edge.blurMax) : 0
+  // ── UNDER A HINT PILL (2026-11-03) ────────────────────────────────────
+  // A floating HintBar has no strip: the rows run on under it sharp and
+  // fading, no frost and no darkening, and the pill frosts only itself —
+  // from this, which it is handed here
+  // `bar` untyped, for what only a HintBar has: any Item may be a bar
+  readonly property var barAny: edge.bar
+  readonly property bool underPill: !!edge.barAny && edge.barAny.floating === true
+  readonly property bool frosted: edge.frost && !edge.underPill
+  // and they fade there whatever `fade` says: a view that frosts its bars
+  // unfaded (ceres, terminus' glass) had neither under a pill, so nothing
+  // was drawn and the rows stopped a strip short (user, 2026-11-04)
+  readonly property bool fades: edge.fade || edge.underPill
+  Binding {
+    target: edge.underPill ? edge.bar : null
+    property: "frostSource"
+    value: edge
+    // the shown one, where two take turns under one strip (folio's panes)
+    when: edge.underPill && edge.visible && edge.opacity > 0.5
+    restoreMode: Binding.RestoreBindingOrValue
+  }
+
+  readonly property int pad: edge.frosted ? Math.min(24, edge.blurMax) : 0
 
   // ── ONLY WHILE THERE IS SOMETHING UP THERE ────────────────────────────
   // At the top (or banded past it) nothing is above the edge, so nothing is
@@ -175,7 +196,7 @@ Item {
   // Zenon.scrollFrost is the shell-wide switch (oracle's Frost under bars):
   // off, nothing is captured, blurred or darkened, and the list just stops.
   readonly property bool on: Zenon.scrollFrost && !!edge.view && edge.visible && edge.view.visible
-    && edge.width > 0 && edge.height > 0 && (edge.frost || edge.fade)
+    && edge.width > 0 && edge.height > 0 && (edge.frosted || edge.fades)
     && (typeof edge.scrolled === "boolean" ? edge.scrolled
         : edge.below ? edge.view.contentY < edge.hi - 0.5
                      : edge.view.contentY > edge.lo + 0.5)
@@ -295,12 +316,12 @@ Item {
       width: cap.width
       height: cap.height
       source: cap
-      blurEnabled: edge.frost
+      blurEnabled: edge.frosted
       blur: 1.0
       blurMax: edge.blurMax
       // the material is a little brighter and less loud than what is under it
-      saturation: edge.frost ? -0.2 : 0
-      maskEnabled: edge.fade
+      saturation: edge.frosted ? -0.2 : 0
+      maskEnabled: edge.fades
       maskSource: rampTex
       maskThresholdMin: 0.5
       maskSpreadAtMin: 1.0
@@ -316,7 +337,7 @@ Item {
     width: parent.width
     height: edge.barH
     color: Zenon.ground
-    opacity: edge.on ? edge.scrim : 0
+    opacity: edge.on && !edge.underPill ? edge.scrim : 0
     visible: opacity > 0.001
     Behavior on opacity { NumberAnimation { duration: Zenon.ms(180); easing.type: Easing.OutCubic } }
   }

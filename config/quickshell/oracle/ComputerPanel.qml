@@ -27,7 +27,7 @@ Item {
   property string face: Zenon.face
   property color fgColor: Zenon.white
   property color dimColor: Zenon.accentMuted
-  property color highlight: Zenon.cyan
+  property color highlight: Zenon.accent
 
   readonly property var c: (Oracle.revision, Oracle.computer)
   readonly property bool reading: (Oracle.revision, Oracle.computerReading)
@@ -163,7 +163,7 @@ Item {
             GradientStop { position: 1 / 7; color: Zenon.sand }
             GradientStop { position: 2 / 7; color: Zenon.yellow }
             GradientStop { position: 3 / 7; color: Zenon.green }
-            GradientStop { position: 4 / 7; color: Zenon.cyan }
+            GradientStop { position: 4 / 7; color: Zenon.accent }
             GradientStop { position: 5 / 7; color: Zenon.blue }
             GradientStop { position: 6 / 7; color: Zenon.magenta }
             GradientStop { position: 7 / 7; color: Zenon.pink }
@@ -172,7 +172,7 @@ Item {
         // centered under the inks (user, 2026-10-27)
         Row {
           anchors.horizontalCenter: parent.horizontalCenter
-          spacing: 8
+          spacing: Zenon.buttonGap
           DialogButton {
             visible: pc.shown
             label: pc.copied ? "Copied" : "Copy"

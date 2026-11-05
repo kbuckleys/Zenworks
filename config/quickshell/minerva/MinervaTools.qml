@@ -35,7 +35,6 @@ Row {
   }
 
   DialogButton {
-    implicitHeight: 30
     glyph: true
     label: "\u{F0141}"
     ready: tools.at > 0
@@ -44,7 +43,8 @@ Row {
   // the place: type a number, return goes there
   Rectangle {
     width: placeRow.implicitWidth + 20
-    height: 30
+    // DialogButton's height, as the buttons either side
+    height: 28
     radius: Zenon.radiusControl
     color: Zenon.wash(0.06)
     border.width: 1
@@ -70,8 +70,8 @@ Row {
         horizontalAlignment: TextInput.AlignRight
         text: String(tools.at + 1)
         color: Zenon.ink
-        selectionColor: Zenon.cyan
-        selectedTextColor: Zenon.onAccent
+        selectionColor: Zenon.accent
+        selectedTextColor: Zenon.inkOnAccent
         font.family: Zenon.face
         font.weight: Font.Bold
         font.pixelSize: Zenon.px(14)
@@ -105,7 +105,6 @@ Row {
     text: String(Math.max(1, tools.count))
   }
   DialogButton {
-    implicitHeight: 30
     glyph: true
     label: "\u{F0142}"
     ready: tools.at < tools.count - 1
@@ -115,7 +114,6 @@ Row {
   // ── the size, for a PDF ──────────────────────────────────────────────
   Item { width: 8; height: 1; visible: tools.pdf }
   DialogButton {
-    implicitHeight: 30
     visible: tools.pdf
     glyph: true
     label: "\u{F06EC}"
@@ -123,13 +121,11 @@ Row {
   }
   // the percentage; a click puts it back to the page's width
   DialogButton {
-    implicitHeight: 30
     visible: tools.pdf
     label: tools.page && tools.pdf ? tools.page.zoomPercent + "%" : ""
     onClicked: if (tools.page) tools.page.fit("width")
   }
   DialogButton {
-    implicitHeight: 30
     visible: tools.pdf
     glyph: true
     label: "\u{F06ED}"
@@ -141,11 +137,10 @@ Row {
   readonly property string fitting: tools.page && tools.page.fitting !== undefined ? tools.page.fitting : ""
   DialogButton {
     id: fitBtn
-    implicitHeight: 30
     visible: tools.pdf
     glyph: true
     label: tools.fitting === "page" ? "\u{F0EF6}" : "\u{F084E}"
-    ink: tools.fitting !== "" ? Zenon.cyan : Zenon.muted
+    ink: tools.fitting !== "" ? Zenon.accent : Zenon.muted
     onClicked: if (tools.page) tools.page.fit(tools.fitting === "width" ? "page" : "width")
     HoverHandler {
       onHoveredChanged: if (tools.win && tools.win.tipRef) {

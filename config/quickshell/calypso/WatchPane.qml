@@ -191,10 +191,10 @@ Item {
             font.pixelSize: Zenon.px(13)
           }
           Row {
-            spacing: 8
+            spacing: Zenon.buttonGap
             BusyButton {
               label: watch.breachChecked ? "Check again" : "Check for breaches"
-              ink: Zenon.cyan
+              ink: Zenon.accent
               primary: true
               busy: !!watch.mgr && watch.mgr.auditing && watch.askedBreach
               busyText: "Asking…"

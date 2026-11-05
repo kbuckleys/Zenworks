@@ -74,13 +74,5 @@ module.exports = {
     t.eq("a directory loses its slash", A.shownPath("/h/u/a/", "/h/u"), "~/a");
     t.eq("a lookalike of home is not home", A.shownPath("/h/uu/a", "/h/u"), "/h/uu/a");
     t.eq("root keeps its slash", A.shownPath("/", "/h/u"), "/");
-    t.eq("name over directory",
-      A.rowLines("/h/u/a/b.qml", "", "/h/u", 99), { name: "b.qml", dir: "~/a" });
-    t.eq("a file at the top of /", A.rowLines("/etc", "", "/h/u", 99), { name: "etc", dir: "/" });
-    t.eq("matched once, across both lines",
-      A.rowLines("/h/u/ab/x", "ax", "/h/u", 99, "#2").name,
-      "<span style=\"color:#2;font-weight:700;\">x</span>");
-    t.eq("a long directory loses its middle",
-      A.rowLines("/h/u/abcdefghij/x", "", "/h/u", 7).dir, "~/…ghij");
   },
 };

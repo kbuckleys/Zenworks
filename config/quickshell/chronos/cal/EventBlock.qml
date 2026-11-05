@@ -41,7 +41,7 @@ Rectangle {
   property int dMins: 0
   function settle() { blk.dragging = false; blk.resizing = false; blk.waiting = false; blk.dDays = 0; blk.dMins = 0; }
 
-  readonly property color ink: blk.win ? blk.win.evInk(blk.ev) : Zenon.cyan
+  readonly property color ink: blk.win ? blk.win.evInk(blk.ev) : Zenon.accent
   readonly property bool chosen: !!blk.win && blk.win.isSelected(blk.ev)
   readonly property int ns: blk.resizing ? blk.s : blk.s + blk.dMins
   readonly property int ne: blk.resizing ? Math.max(blk.s + 15, blk.e + blk.dMins) : blk.e + blk.dMins

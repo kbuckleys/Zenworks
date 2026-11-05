@@ -13,6 +13,8 @@ import "hestia.js" as H
 
 Item {
   id: tp
+  // the list, for the window's ScrollEdge under its foot
+  readonly property alias view: list
 
   property var mgr: null
   property var win: null
@@ -51,7 +53,7 @@ Item {
         x: 24
         anchors.verticalCenter: parent.verticalCenter
         text: "\u{F051B}"
-        color: trow.r && trow.r.next ? Zenon.cyan : Zenon.accentMuted
+        color: trow.r && trow.r.next ? Zenon.accent : Zenon.accentMuted
         font.family: Zenon.glyphFace
         font.pixelSize: Zenon.px(17)
       }

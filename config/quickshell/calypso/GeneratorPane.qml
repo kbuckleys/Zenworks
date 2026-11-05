@@ -98,7 +98,7 @@ Item {
       Text {
         anchors.verticalCenter: parent.verticalCenter
         text: "\u{F076E}"
-        color: Zenon.cyan
+        color: Zenon.accent
         font.family: Zenon.glyphFace
         font.pixelSize: Zenon.px(18)
       }
@@ -159,7 +159,7 @@ Item {
           anchors.horizontalCenter: parent.horizontalCenter
           visible: gen.wordsMissing
           label: "Install words"
-          ink: Zenon.cyan
+          ink: Zenon.accent
           busy: !!Ceres.installing && Ceres.installing.pkg === "words"
           busyText: "Installing…"
           onClicked: Ceres.install("words", "for calypso's passphrases", (ok) => { if (ok) gen.make(); })
@@ -264,11 +264,11 @@ Item {
 
     Row {
       anchors.right: parent.right
-      spacing: 8
+      spacing: Zenon.buttonGap
       DialogButton { label: "Close"; onClicked: gen.closed() }
       DialogButton { label: "New one"; onClicked: gen.make() }
-      DialogButton { label: "Copy"; ink: gen.using ? Zenon.accentMuted : Zenon.cyan; primary: !gen.using; ready: gen.value !== ""; onClicked: gen.copy() }
-      DialogButton { visible: gen.using; label: "Use it"; ink: Zenon.cyan; primary: true; ready: gen.value !== ""; onClicked: gen.used(gen.value) }
+      DialogButton { label: "Copy"; ink: gen.using ? Zenon.accentMuted : Zenon.accent; primary: !gen.using; ready: gen.value !== ""; onClicked: gen.copy() }
+      DialogButton { visible: gen.using; label: "Use it"; ink: Zenon.accent; primary: true; ready: gen.value !== ""; onClicked: gen.used(gen.value) }
     }
   }
 }

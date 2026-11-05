@@ -18,7 +18,7 @@ PlatoSheet {
   id: sheet
   property var client: null
   // what openFor sets it to; the theme's accent until then
-  property string hex: Zenon.hex(Zenon.cyan)
+  property string hex: Zenon.hex(Zenon.accent)
   // where the color came from: { buf, line, s, e, hex, alpha }
   property var at: null
   // a window's own key for the eyedropper's answer
@@ -88,7 +88,7 @@ PlatoSheet {
         DialogButton {
           width: parent.width
           label: "Use it"
-          ink: Zenon.cyan
+          ink: Zenon.accent
           primary: true
           onClicked: sheet.use()
         }

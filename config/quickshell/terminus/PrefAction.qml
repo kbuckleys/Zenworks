@@ -35,7 +35,7 @@ Item {
   opacity: act.enabled ? 1 : Zenon.disabledDim
 
   // NO HOVER TINT in the sheets (user, 2026-10-17): the verb no longer goes
-  // cyan under the pointer. The cursor itself is prefBar; see its note.
+  // accent under the pointer. The cursor itself is prefBar; see its note.
   MouseArea {
     id: actPress
     anchors.fill: parent

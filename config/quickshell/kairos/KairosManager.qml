@@ -22,6 +22,9 @@ Scope {
   property var lockscreen: null
   Binding { target: Kairos; property: "locked"; value: !!mgr.lockscreen && mgr.lockscreen.locked }
 
+  // an app a focus session set aside, covered while it is in front
+  FocusVeil { }
+
   // ── ITS .desktop ENTRY ─────────────────────────────────────────────
   readonly property var launcher: Desktop.launcher("kairos", {
     Type: "Application",

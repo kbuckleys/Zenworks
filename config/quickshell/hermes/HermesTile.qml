@@ -10,7 +10,7 @@
 // ONE ACCENT (user, 2026-10-26: "more zenworks"): a tile that is on is
 // filled with the theme's accent and everything on it is onAccent, as the
 // bar's special workspace and Chronos' today are; off, it is the panel's own
-// faint wash. The four colours it had (cyan, blue, green, yellow) were a
+// faint wash. The four colours it had (accent, blue, green, yellow) were a
 // control centre's, not the suite's.
 //
 //   tile: { id, glyph, title, sub, on, ready, list }
@@ -44,8 +44,8 @@ Item {
   readonly property bool on: !!t.tile && t.tile.on
   readonly property bool ready: !!t.tile && t.tile.ready
   // what is drawn on the tile: onAccent on the fill, the panel's inks off it
-  readonly property color ink: t.on ? Zenon.onAccent : t.ready ? Zenon.ink : Zenon.accentMuted
-  readonly property color subInk: t.on ? Zenon.alpha(Zenon.onAccent, 0.72) : Zenon.accentMuted
+  readonly property color ink: t.on ? Zenon.inkOnAccent : t.ready ? Zenon.ink : Zenon.accentMuted
+  readonly property color subInk: t.on ? Zenon.alpha(Zenon.inkOnAccent, 0.72) : Zenon.accentMuted
 
   Rectangle {
     anchors.fill: parent
@@ -53,8 +53,8 @@ Item {
     topRightRadius: t.rTR
     bottomLeftRadius: t.rBL
     bottomRightRadius: t.rBR
-    color: t.on ? (tilePress.pressed ? Zenon.mix(Zenon.cyan, Zenon.onAccent, 0.18)
-                   : t.picked ? Zenon.mix(Zenon.cyan, Zenon.white, 0.16) : Zenon.cyan)
+    color: t.on ? (tilePress.pressed ? Zenon.mix(Zenon.accent, Zenon.inkOnAccent, 0.18)
+                   : t.picked ? Zenon.mix(Zenon.accent, Zenon.white, 0.16) : Zenon.accent)
       : tilePress.pressed ? Zenon.pressTile(false) : Zenon.wash(0.04)
     border.width: t.on ? 0 : 1
     border.color: Zenon.border
@@ -132,12 +132,12 @@ Item {
       anchors.verticalCenter: parent.verticalCenter
       width: 1
       height: parent.height - 24
-      color: t.on ? Zenon.alpha(Zenon.onAccent, 0.22) : Zenon.border
+      color: t.on ? Zenon.alpha(Zenon.inkOnAccent, 0.22) : Zenon.border
     }
     Text {
       anchors.centerIn: parent
       text: ""
-      color: t.on ? (listPress.pressed ? Zenon.onAccent : t.subInk)
+      color: t.on ? (listPress.pressed ? Zenon.inkOnAccent : t.subInk)
         : listPress.pressed ? Zenon.ink : Zenon.accentMuted
       font.family: Zenon.glyphFace
       font.pixelSize: Zenon.px(12)

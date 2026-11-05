@@ -40,7 +40,7 @@ Item {
   // reporting the batch finished when half of it has not.
   readonly property color tone: jobsToggle.jobs.faults > 0 ? Zenon.red
     : (jobsToggle.jobs.live === 0 && jobsToggle.jobs.done > 0 ? Zenon.green
-                                               : Zenon.cyan)
+                                               : Zenon.accent)
   width: jobsToggle.live ? 32 : 0
   visible: width > 0.5
   height: Math.round(jobsToggle.size * 2.2)

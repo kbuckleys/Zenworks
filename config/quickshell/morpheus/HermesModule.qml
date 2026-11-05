@@ -74,7 +74,7 @@ Collapsible {
             text: modelData.glyph
             // connected in the clock's ink; off quiet; a link that is down
             // in the yellow that says something is wrong
-            color: modelData.role === "ok" ? Zenon.cyan : modelData.role === "down" ? Zenon.yellow : Zenon.muted
+            color: modelData.role === "ok" ? Zenon.accent : modelData.role === "down" ? Zenon.yellow : Zenon.muted
             numeric: true
             font.pixelSize: Zenon.clockSize
           }

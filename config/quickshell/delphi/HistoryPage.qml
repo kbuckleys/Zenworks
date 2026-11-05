@@ -68,7 +68,7 @@ Item {
       visible: pg.removed.length > 0 && pg.scope !== "all", run: () => pg.bringBack(pg.removed) },
     { label: "Save as patches", visible: pg.scope === "compare" && pg.cmpReady && !!pg.cmpCount && pg.cmpCount.right > 0,
       run: () => pg.savePatch(pg.cmpFrom, pg.cmpTo) },
-    { label: "Restore as a branch", ink: Zenon.cyan, primary: true, visible: pg.scope === "lost" && !!pg.commit,
+    { label: "Restore as a branch", ink: Zenon.accent, primary: true, visible: pg.scope === "lost" && !!pg.commit,
       run: () => pg.branchHere(pg.commit) },
   ]
 
@@ -529,7 +529,7 @@ Item {
     const c = pg.commit;
     if (!c || !fs || fs.length === 0) return;
     const names = fs.map((f) => D.baseName(f.path));
-    pg.win.confirm({ question: "Bring back " + (fs.length === 1 ? names[0] : fs.length + " files") + "?", glyph: "", ink: Zenon.cyan,
+    pg.win.confirm({ question: "Bring back " + (fs.length === 1 ? names[0] : fs.length + " files") + "?", glyph: "", ink: Zenon.accent,
       detail: "As " + (fs.length === 1 ? "it was" : "they were") + " just before " + D.short(c.sha) + " “" + D.subjectOf(c.subject) + "”. "
         + (fs.length === 1 ? "It is" : "They are") + " put back and staged: commit and push to have " + (fs.length === 1 ? "it" : "them") + " on the remote again.",
       items: fs.slice(0, 8).map((f) => f.path).concat(fs.length > 8 ? ["… and " + (fs.length - 8) + " more"] : []),
@@ -606,7 +606,7 @@ Item {
       pg.win.say("Commit or stash your changes first: bisect checks out other commits", true);
       return;
     }
-    pg.win.confirm({ question: "Find when a bug came in?", glyph: "\uF188", ink: Zenon.cyan,
+    pg.win.confirm({ question: "Find when a bug came in?", glyph: "\uF188", ink: Zenon.accent,
       detail: D.short(c.sha) + " " + c.subject + " did not have it; " + pg.win.branchName + " does. Commits between are checked out one at a time, halving what is left: try each, and say whether it has the bug.",
       verb: "Start", then: () => { pg.win.bisect("start", { good: c.sha }); pg.win.setPage("changes"); } });
   }
@@ -745,7 +745,7 @@ Item {
       x: 12
       y: scopes.y + scopes.height + 8
       height: scopes.height
-      spacing: 8
+      spacing: Zenon.buttonGap
       DialogButton {
         id: fromBtn
         anchors.verticalCenter: parent.verticalCenter
@@ -763,7 +763,7 @@ Item {
         id: toBtn
         anchors.verticalCenter: parent.verticalCenter
         label: (pg.cmpTo || "Choose") + "  ▾"
-        ink: Zenon.cyan
+        ink: Zenon.accent
         onClicked: pg.pickRef(toBtn, "to")
       }
       DialogButton {

@@ -70,7 +70,7 @@ Item {
           width: parent.width - 2
           height: parent.height - 4
           radius: Zenon.rad(3)
-          color: Zenon.alpha(Zenon.cyan, 0.16)
+          color: Zenon.alpha(Zenon.accent, 0.16)
           opacity: part.lit ? 1 : 0
           visible: opacity > 0.01
           Behavior on opacity { NumberAnimation { duration: Zenon.fast } }
@@ -88,7 +88,7 @@ Item {
         Text {
           anchors.centerIn: parent
           text: part.modelData.glyph || ""
-          color: part.lit ? Zenon.cyan
+          color: part.lit ? Zenon.accent
             : (Zenon.accentMuted)
           opacity: !part.ok ? 0.35 : part.down ? Zenon.pressDim : 1
           Behavior on color { ColorAnimation { duration: Zenon.fast } }

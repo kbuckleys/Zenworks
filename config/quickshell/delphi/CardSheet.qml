@@ -79,9 +79,9 @@ Item {
   }
   function dropCard(id) { deck.sheetQueue = deck.sheetQueue.filter((c) => c.id !== id); }
   function confirm(c) {
-    return deck.card_({ question: c.question, glyph: c.glyph || "", ink: c.ink || Zenon.cyan,
+    return deck.card_({ question: c.question, glyph: c.glyph || "", ink: c.ink || Zenon.accent,
       detail: c.detail || "", items: c.items || [],
-      choices: [{ label: c.verb || "OK", ink: c.ink || Zenon.cyan, run: c.then || null },
+      choices: [{ label: c.verb || "OK", ink: c.ink || Zenon.accent, run: c.then || null },
                 { label: "Cancel", ink: Zenon.accentMuted, run: c.cancel || null }] });
   }
   function ask(form) {

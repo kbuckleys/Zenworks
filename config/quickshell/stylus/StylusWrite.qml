@@ -188,7 +188,7 @@ Item {
 
     Row {
       anchors.right: parent.right
-      spacing: 10
+      spacing: Zenon.buttonGap
       DialogButton {
         visible: body.face !== "done"
         label: body.face === "writing" ? "Hide" : "Cancel"
@@ -213,7 +213,7 @@ Item {
         visible: body.face === "done"
         label: "Done"
         primary: true
-        ink: Zenon.cyan
+        ink: Zenon.accent
         onClicked: body.win.closeSheet()
       }
     }

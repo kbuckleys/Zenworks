@@ -54,6 +54,9 @@ Item {
   property var hints: []
   // no footer at all (the leader menu): no hairline, no chips
   property bool foot: true
+  // the keys' pill in the middle of the foot (the settings and the plugins,
+  // user 2026-11-03)
+  property bool footCentered: false
   readonly property real footH: layer.foot ? Zenon.hintBarH : 0
   // HOW MANY COLUMNS FIT. A sheet of columns (the leader menu, the key
   // hints) asks for `want` of them `colW` wide; a window too narrow for
@@ -85,7 +88,7 @@ Item {
   // name a field; see Sheet.renamable.
   property string title: ""
   property string glyph: ""
-  property color glyphInk: Zenon.cyan
+  property color glyphInk: Zenon.accent
   property bool renamable: false
   signal renamed(string name)
   signal renameDone()
@@ -145,6 +148,7 @@ Item {
       anchors.left: parent.left
       anchors.right: parent.right
       rows: layer.hints
+      centered: layer.footCentered
       leading: Text {
         textFormat: Text.PlainText
         anchors.verticalCenter: parent.verticalCenter

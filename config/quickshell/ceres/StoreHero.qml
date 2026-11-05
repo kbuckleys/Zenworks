@@ -56,7 +56,7 @@ ClippingRectangle {
       required property var modelData
       required property int index
       readonly property string file: hero.shots[slide.modelData.shot] || ""
-      readonly property color brand: slide.modelData.color ? slide.modelData.color : Zenon.cyan
+      readonly property color brand: slide.modelData.color ? slide.modelData.color : Zenon.accent
       anchors.fill: parent
       opacity: slide.index === hero.at ? 1 : 0
       visible: opacity > 0

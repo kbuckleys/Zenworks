@@ -319,6 +319,17 @@ Scope {
     for (let i = 0; i < keys.length - mgr.sizesCap; ++i) delete next[keys[i]];
     mgr.sharedSizes = next;
   }
+  // Totals something has since changed under — see Measure.sizesMoved. A
+  // window opened later must not be seeded with them.
+  function forgetSizes(paths) {
+    let next = null;
+    for (const k of paths || [])
+      if (mgr.sharedSizes[k] !== undefined) {
+        if (!next) next = Object.assign({}, mgr.sharedSizes);
+        delete next[k];
+      }
+    if (next) mgr.sharedSizes = next;
+  }
 
   // ── ONE SPARE, KEPT; THE REST LET GO ───────────────────────────────────
   // Closing a window only hides it, and nothing ever destroyed a spare — so

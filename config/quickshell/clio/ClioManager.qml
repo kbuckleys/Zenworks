@@ -26,7 +26,7 @@ import "../terminus"
 import "../ceres"
 import "../morpheus/lagnotes.js" as LagNotes
 import "notes.js" as N
-import "../metis/metis.js" as Metis
+import "../cynosure/metis/metis.js" as Metis
 
 Scope {
   id: mgr
@@ -455,7 +455,7 @@ Scope {
   // (a change of some of it: what is not named is kept as it was)
   function setMeta(m) { mgr.meta = N.cleanMeta(Object.assign({}, mgr.meta, m)); mgr.writeMeta(); }
   function addFolder(name, parent, query) {
-    const f = { id: N.newId("f"), name: N.freeName(name || "New Container", mgr.folders.map((x) => x.name)), parent: parent || "" };
+    const f = { id: N.newId("f"), name: N.freeName(name || "New container", mgr.folders.map((x) => x.name)), parent: parent || "" };
     if (query) f.query = query;
     mgr.setMeta({ folders: mgr.folders.concat([f]), journals: mgr.journals });
     return f.id;
@@ -484,7 +484,7 @@ Scope {
     mgr.setMeta({ folders: mgr.folders.filter((f) => gone.indexOf(f.id) < 0), journals: mgr.journals });
   }
   function addJournal(name, hue) {
-    const j = { id: N.newId("j"), name: N.freeName(name || "New Journal", mgr.journals.map((x) => x.name)), hue: hue || "cyan", locked: false };
+    const j = { id: N.newId("j"), name: N.freeName(name || "New journal", mgr.journals.map((x) => x.name)), hue: hue || "cyan", locked: false };
     mgr.setMeta({ folders: mgr.folders, journals: mgr.journals.concat([j]) });
     return j.id;
   }

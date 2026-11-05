@@ -40,9 +40,9 @@ Rectangle {
   width: parent ? parent.width : 0
   height: Math.max(76, lines.implicitHeight + 24)
   radius: Zenon.radiusCard
-  color: src.hot ? Zenon.alpha(Zenon.cyan, 0.08) : Zenon.wash(0.04)
+  color: src.hot ? Zenon.alpha(Zenon.accent, 0.08) : Zenon.wash(0.04)
   border.width: 1
-  border.color: src.hot ? Zenon.cyan : Zenon.border
+  border.color: src.hot ? Zenon.accent : Zenon.border
 
   Text {
     id: glyph
@@ -51,7 +51,7 @@ Rectangle {
     horizontalAlignment: Text.AlignHCenter
     anchors.verticalCenter: parent.verticalCenter
     text: src.glyph
-    color: src.path === "" ? Zenon.muted : Zenon.cyan
+    color: src.path === "" ? Zenon.muted : Zenon.accent
     font.family: Zenon.glyphFace
     font.pixelSize: Zenon.px(30)
   }
@@ -140,7 +140,7 @@ Rectangle {
     visible: !src.locked
     label: src.path === "" ? "Open…" : "Change…"
     primary: src.path === ""
-    ink: src.path === "" ? Zenon.cyan : Zenon.accentMuted
+    ink: src.path === "" ? Zenon.accent : Zenon.accentMuted
     onClicked: src.open()
   }
 }

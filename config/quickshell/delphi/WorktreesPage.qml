@@ -29,7 +29,7 @@ Item {
   readonly property var hints: [["n", "new"], ["return", "open"], ["t", "terminus"], ["d", "remove"], ["p", "prune"]]
   readonly property var buttons: [
     { label: "Remove", ink: Zenon.red, visible: !!pg.tree && !pg.tree.main && !pg.tree.current, run: () => pg.remove() },
-    { label: "New worktree", ink: Zenon.cyan, primary: true, run: () => pg.add() },
+    { label: "New worktree", ink: Zenon.accent, primary: true, run: () => pg.add() },
   ]
   function takeFocus() { if (pg.win) pg.win.focusKeys(); }
 
@@ -110,7 +110,7 @@ Item {
         x: 24
         anchors.verticalCenter: parent.verticalCenter
         text: ""
-        color: trow.t.current ? Zenon.cyan : trow.t.prunable ? Zenon.red : Zenon.accentMuted
+        color: trow.t.current ? Zenon.accent : trow.t.prunable ? Zenon.red : Zenon.accentMuted
         font.family: Zenon.glyphFace
         font.pixelSize: Zenon.px(19)
       }
@@ -126,7 +126,7 @@ Item {
           elide: Text.ElideRight
           text: (trow.t.branch || (trow.t.detached ? "Detached at " + D.short(trow.t.sha) : trow.t.bare ? "bare" : ""))
             + (trow.t.main ? "   ·   main checkout" : "") + (trow.t.current ? "   ·   this window" : "")
-          color: trow.t.current ? Zenon.cyan : Zenon.ink
+          color: trow.t.current ? Zenon.accent : Zenon.ink
           font.family: Zenon.face
           font.weight: Zenon.weight
           font.pixelSize: Zenon.px(16)

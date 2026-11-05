@@ -48,7 +48,7 @@ Column {
       horizontalAlignment: ps.centered ? Text.AlignHCenter : Text.AlignLeft
       text: ps.q.state === "done" ? "Done" : !ps.job ? "" : ps.job.progress >= 0
         ? ps.job.phase + "  ·  " + ps.job.progress + "%" : "Connecting…"
-      color: Zenon.cyan
+      color: Zenon.accent
       font.family: Zenon.face
       font.weight: Zenon.weight
       font.features: { "tnum": 1 }
@@ -62,7 +62,7 @@ Column {
       segLength: 6
       segGap: 3
       deadZone: 0
-      accent: ps.q.state === "done" ? Zenon.green : Zenon.cyan
+      accent: ps.q.state === "done" ? Zenon.green : Zenon.accent
       segCount: Math.max(10, Math.floor(ps.lineWidth / 9))
       value: parent.frac
     }

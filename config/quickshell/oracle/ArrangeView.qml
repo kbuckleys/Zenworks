@@ -24,8 +24,8 @@ Item {
   property string face: Zenon.face
   property color fgColor: Zenon.white
   property color dimColor: Zenon.accentMuted
-  property color headColor: Zenon.cyan
-  property color highlight: Zenon.cyan
+  property color headColor: Zenon.accent
+  property color highlight: Zenon.accent
 
   // a click (not a drag) on a monitor: the panel takes you to its rows
   signal picked(string name)

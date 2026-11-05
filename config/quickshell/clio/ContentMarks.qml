@@ -25,7 +25,7 @@ Row {
     if (!d) return [];
     const out = [];
     const pics = (d.images || []).length - marks.shownPics;
-    if (pics > 0) out.push({ g: "\u{F02F9}", t: marks.shownPics > 0 ? "+" + pics : String(pics), ink: Zenon.cyan });
+    if (pics > 0) out.push({ g: "\u{F02F9}", t: marks.shownPics > 0 ? "+" + pics : String(pics), ink: Zenon.accent });
     if (d.files > 0) out.push({ g: "\u{F03E2}", t: String(d.files), ink: Zenon.blue });
     if (d.table) out.push({ g: "\u{F04EB}", t: "Table", ink: Zenon.green });
     if (d.sketch) out.push({ g: "\u{F0F49}", t: "Sketch", ink: Zenon.magenta });

@@ -70,7 +70,7 @@ Item {
     id: ink
     anchors.fill: parent
     visible: flash.painted && flash.chosen > 0
-    color: Qt.rgba(Zenon.cyan.r, Zenon.cyan.g, Zenon.cyan.b,
+    color: Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b,
                    0.55 * flash.chosen)
   }
 }

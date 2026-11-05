@@ -222,7 +222,7 @@ Item {
   }
 
   // ── the tree's switch ──────────────────────────────────────────────
-  // terminus' sidebar switch, the same glyph in the same inks: cyan while the
+  // terminus' sidebar switch, the same glyph in the same inks: accent while the
   // tree is out, white under the pointer, muted otherwise. First on the left,
   // since what it switches is to the left of everything else.
   // IN THE TREE'S OWN BAR WHILE IT IS OUT (user, 2026-10-24, as terminus'):
@@ -245,7 +245,7 @@ Item {
       // shown: cod-layout_sidebar_left_off, hidden: cod-layout_sidebar_left
       // (user, 2026-10-21; minerva's, flipped — the tree is on the left)
       text: bar.treeShown ? "\uEC02" : "\uEBF3"
-      color: bar.treeShown ? Zenon.cyan : (treePress.pressed ? Zenon.white : Zenon.accentMuted)
+      color: bar.treeShown ? Zenon.accent : (treePress.pressed ? Zenon.white : Zenon.accentMuted)
       font.family: Zenon.face
       font.weight: Zenon.weight
       font.pixelSize: bar.glyphSize
@@ -535,7 +535,7 @@ Item {
       DiagCount { font: bar.font; glyphSize: bar.iconSize; n: parent.d.e; glyph: "\u{F0159}"; ink: Zenon.red }
       DiagCount { font: bar.font; glyphSize: bar.iconSize; n: parent.d.w; glyph: "\u{F0026}"; ink: Zenon.yellow }
       DiagCount { font: bar.font; glyphSize: bar.iconSize; n: parent.d.e + parent.d.w > 0 ? 0 : parent.d.i; glyph: "\u{F064E}"; ink: Zenon.blue }
-      DiagCount { font: bar.font; glyphSize: bar.iconSize; n: parent.d.e + parent.d.w > 0 ? 0 : parent.d.h; glyph: "\u{F0335}"; ink: Zenon.cyan }
+      DiagCount { font: bar.font; glyphSize: bar.iconSize; n: parent.d.e + parent.d.w > 0 ? 0 : parent.d.h; glyph: "\u{F0335}"; ink: Zenon.accent }
       HoverHandler { id: diagHover
         onHoveredChanged: bar.tip(parent, hovered, "Diagnostics", "space d d") }
       TapHandler { id: diagPress; onTapped: bar.diagnosticsClicked() }
@@ -573,13 +573,13 @@ Item {
         onHoveredChanged: bar.tip(parent, hovered, "Git status", "space g s") }
       TapHandler { id: gitPress; onTapped: bar.gitClicked() }
     }
-    // several cursors (multicursor.nvim): how many, in the cursor's cyan
+    // several cursors (multicursor.nvim): how many, in the cursor's accent
     Row {
       visible: bar.ed.cursors > 1
       spacing: 6
       anchors.verticalCenter: parent.verticalCenter
-      Text { anchors.verticalCenter: parent.verticalCenter; font.family: Zenon.faceMono; font.pixelSize: bar.iconSize; color: Zenon.cyan; text: "\u{F05E7}" }
-      Text { anchors.verticalCenter: parent.verticalCenter; font: bar.font; color: Zenon.cyan; text: bar.ed.cursors + " cursors" }
+      Text { anchors.verticalCenter: parent.verticalCenter; font.family: Zenon.faceMono; font.pixelSize: bar.iconSize; color: Zenon.accent; text: "\u{F05E7}" }
+      Text { anchors.verticalCenter: parent.verticalCenter; font: bar.font; color: Zenon.accent; text: bar.ed.cursors + " cursors" }
     }
     SearchCount { visible: bar.ed.search !== null }
     // ── how the file is written: its indent, and its line endings ───

@@ -1,3 +1,5 @@
+-- conform.nvim by Steven Arcangeli — https://github.com/stevearc/conform.nvim (MIT)
+--
 -- conform.nvim: formatting with the formatter each language is written with,
 -- not only what a language server offers. Space l f, and every save when the
 -- setting "Format on save" is on (plato/nvim/lua/plato/editing.lua).

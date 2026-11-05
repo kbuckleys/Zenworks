@@ -60,7 +60,7 @@ Item {
   property string title: ""
   property string glyph: ""
   property color titleInk: Zenon.white
-  property color glyphInk: Zenon.cyan
+  property color glyphInk: Zenon.accent
   // A FLOATING TITLE THAT RENAMES (user, 2026-10-15): a click on the
   // header's name makes it a field (morpheus/TitleName); Return hands the
   // new name up as `renamed`, and `renameDone` follows either ending so the

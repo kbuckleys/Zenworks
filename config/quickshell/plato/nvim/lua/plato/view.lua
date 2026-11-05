@@ -365,6 +365,11 @@ end
 -- is how diagnostics arrive, and how any plugin that marks text will.
 local function extmarks(buf, top, bot)
   local deco, signs, virt, conceal, vlines = {}, {}, {}, {}, {}
+  -- what a plugin draws over the row itself (diffbandit's bands and its
+  -- corridor, config/diffbandit.nvim.lua): fills[row] the whole row's or
+  -- past its end, { "line" | "eol", group, priority }; laid[row] virtual
+  -- text laid on the row, { pos, col, win_col, chunks, priority, hl_mode }
+  local fills, laid = {}, {}
   local marks = api.nvim_buf_get_extmarks(buf, -1, { top, 0 }, { bot, -1 },
     { details = true, overlap = true })
   for _, m in ipairs(marks) do
@@ -398,6 +403,23 @@ local function extmarks(buf, top, bot)
       virt[row] = virt[row] or {}
       for _, chunk in ipairs(d.virt_text) do table.insert(virt[row], chunk) end
     end
+    if d.virt_text and (d.virt_text_pos == "overlay" or d.virt_text_pos == "win_col"
+        or d.virt_text_pos == "inline") and row >= top and row <= bot then
+      laid[row] = laid[row] or {}
+      table.insert(laid[row], { d.virt_text_pos, col, d.virt_text_win_col, d.virt_text,
+        d.priority or 4096, d.hl_mode })
+    end
+    if d.line_hl_group and row >= top and row <= bot then
+      fills[row] = fills[row] or {}
+      table.insert(fills[row], { "line", d.line_hl_group, d.priority or 4096 })
+    end
+    -- hl_eol: on every line the range runs on past, the rest of the row too
+    if d.hl_group and d.hl_eol and d.ns_id ~= hlns then
+      for l = math.max(row, top), math.min((d.end_row or row) - 1, bot) do
+        fills[l] = fills[l] or {}
+        table.insert(fills[l], { "eol", d.hl_group, d.priority or 4096 })
+      end
+    end
     -- whole rows of virtual text, above or below the line (git.lua's opened
     -- changes): nvim gives them screen rows, so they are rows here too
     if d.virt_lines and row >= top and row <= bot then
@@ -409,18 +431,26 @@ local function extmarks(buf, top, bot)
   for _, list in pairs(deco) do
     table.sort(list, function(a, b) return a[4] < b[4] end)
   end
-  return deco, signs, virt, conceal, vlines
+  for _, list in pairs(fills) do
+    table.sort(list, function(a, b) return a[3] < b[3] end)
+  end
+  for _, list in pairs(laid) do
+    table.sort(list, function(a, b) return a[5] < b[5] end)
+  end
+  return deco, signs, virt, conceal, vlines, fills, laid
 end
 
 -- ── spans ───────────────────────────────────────────────────────────────
--- cells [c0, c1) of the three layers as { {col, len, style}, ... }, runs of
--- plain Normal left out (the client draws those in Normal's color anyway)
-local function spans(base, deco, over, c0, c1)
+-- cells [c0, c1) of the three layers (and the row's fill under them, when
+-- it has one) as { {col, len, style}, ... }, runs of plain Normal left out
+-- (the client draws those in Normal's color anyway)
+local function spans(base, deco, over, c0, c1, under)
+  under = under or {}
   local out = {}
   local runKey, runStart
-  local rb, rd, ro
+  local rb, rd, ro, ru
   local function close(at)
-    local id = runKey and runKey ~= "\0\0" and hl.style(rb, rd, ro) or 0
+    local id = runKey and runKey ~= "\0\0\0" and hl.style(rb, rd, ro, ru) or 0
     if id ~= 0 then
       -- different groups, same color ("(", "a", ")"): one span, not three
       local prev = out[#out]
@@ -432,11 +462,11 @@ local function spans(base, deco, over, c0, c1)
     end
   end
   for c = c0, c1 - 1 do
-    local b, d, o = base[c], deco[c], over[c]
-    local key = (b or "") .. "\0" .. (d or "") .. "\0" .. (o or "")
+    local b, d, o, u = base[c], deco[c], over[c], under[c]
+    local key = (b or "") .. "\0" .. (d or "") .. "\0" .. (o or "") .. "\0" .. (u or "")
     if key ~= runKey then
       close(c)
-      runKey, runStart, rb, rd, ro = key, c, b, d, o
+      runKey, runStart, rb, rd, ro, ru = key, c, b, d, o, u
     end
   end
   close(c1)
@@ -579,7 +609,20 @@ local function build(win, isCurrent, mode, margin)
   local hlTop = math.max(0, top - margin)
   local hlBot = math.min(last - 1, bot + margin * 2)
   local tsPaints, tsConceal, tsHidden = hl.treesitter(buf, hlTop, hlBot)
-  local deco, signs, virt, xConceal, vlines = extmarks(buf, hlTop, hlBot)
+  local deco, signs, virt, xConceal, vlines, fills, laid = extmarks(buf, hlTop, hlBot)
+  -- A WINDOW'S OWN NORMAL ('winhighlight', Normal:Group — NormalNC away from
+  -- it): a plugin's side window colored as a whole, diffbandit's gutters.
+  -- Only one with a background of its own changes anything plato draws.
+  -- and such a window is drawn in nvim's own square cells: its backgrounds
+  -- meet row to row (a band down several lines), not plato's rounded chips
+  local square = vim.wo[win].winhighlight ~= "" or nil
+  local winNormal = nil
+  if square then
+    local map = {}
+    for a, b in vim.wo[win].winhighlight:gmatch("([%w_.@]+):([%w_.@]+)") do map[a] = b end
+    winNormal = (not isCurrent and map.NormalNC) or map.Normal
+    if winNormal and not (hl.attrs(winNormal) or {}).bg then winNormal = nil end
+  end
   local mdLines = md and mdm.compute(buf, hlTop, hlBot) or {}
   local mdRaw = md and mdm.rawLine()
   local found = searchMatches(buf, top, bot, isCurrent and view.lnum - 1 or -1, view.col)
@@ -869,6 +912,32 @@ local function build(win, isCurrent, mode, margin)
           end
         end
 
+        -- INLINE virtual text past the line's end: right after it, before
+        -- any end-of-line text (diffbandit pads a band to the window's edge
+        -- this way). Inline text inside a line is not drawn: it would move
+        -- every cell after it off the bytes it stands for.
+        local lay = laid[l]
+        if lay then
+          for _, e in ipairs(lay) do
+            if e[1] == "inline" and e[2] >= #line then
+              local at = math.max(ncells, lineCells - from)
+              if at < limit then
+                text = text .. string.rep(" ", at - ncells)
+                ncells = at
+                for _, chunk in ipairs(e[4]) do
+                  local t, g = chunk[1] or "", chunk[2]
+                  if type(g) == "table" then g = g[#g] end
+                  local w = math.min(cellWidth(t), limit - ncells)
+                  if w <= 0 then break end
+                  text = text .. cellSlice(t, 0, w)
+                  for c = ncells, ncells + w - 1 do base[c] = g; dl[c] = nil end
+                  ncells = ncells + w
+                end
+              end
+            end
+          end
+        end
+
         -- End-of-line virtual text: one blank cell after the text, as nvim
         -- places it, on the line's last row — and CUT at the window's edge,
         -- not wrapped onto a row of its own. nvim wraps inline virtual text
@@ -912,6 +981,71 @@ local function build(win, isCurrent, mode, margin)
                 break
               end
             end
+          end
+        end
+
+        -- OVERLAY virtual text, at a byte of the line or a fixed column of
+        -- the window: laid over the cells there, in its own colors. With
+        -- hl_mode "combine" what is under it shows through where its group
+        -- says nothing (diffbandit's underlines over a band); otherwise it
+        -- is all its own. diffbandit's corridor between the two sides is
+        -- this and the fills below.
+        if lay then
+          local rowW = wrap and width * math.max(1, math.ceil(math.max(ncells, 1) / width)) or width
+          for _, e in ipairs(lay) do
+            local at = nil
+            if e[1] == "win_col" and e[3] then
+              at = e[3]
+            elseif e[1] == "overlay" then
+              if e[2] >= #line then
+                at = lineCells - from + (e[2] - #line)
+              else
+                local ch = chars[seek(chars, e[2])]
+                if ch and ch[1] == e[2] then at = ch[3] end
+              end
+            end
+            if at and at >= 0 then
+              for _, chunk in ipairs(e[4]) do
+                local t, g = chunk[1] or "", chunk[2]
+                if type(g) == "table" then g = g[#g] end
+                local w = math.min(cellWidth(t), rowW - at)
+                if w <= 0 then break end
+                if at > ncells then
+                  text = text .. string.rep(" ", at - ncells)
+                  ncells = at
+                end
+                local tail = at + w < ncells and cellSlice(text, at + w, ncells) or ""
+                text = cellSlice(text, 0, at) .. cellSlice(t, 0, w) .. tail
+                ncells = math.max(ncells, at + w)
+                for c = at, at + w - 1 do
+                  if e[6] ~= "combine" then base[c] = nil; dl[c] = nil end
+                  ol[c] = g
+                end
+                at = at + w
+              end
+            end
+          end
+        end
+
+        -- FILLS: a line highlight under the whole row, an end-of-line one from
+        -- the text's end, the window's own Normal under the rest — the row
+        -- drawn out to the window's edge so they reach it (diffbandit's
+        -- bands across both sides and its gutters)
+        local under = nil
+        local fl = fills[l]
+        if fl or winNormal then
+          under = {}
+          local rowW = wrap and width * math.max(1, math.ceil(math.max(ncells, 1) / width)) or width
+          if winNormal then
+            for c = 0, rowW - 1 do under[c] = winNormal end
+          end
+          for _, f in ipairs(fl or {}) do
+            local c0 = f[1] == "line" and 0 or math.max(0, lineCells - from)
+            for c = c0, rowW - 1 do under[c] = f[2] end
+          end
+          if ncells < rowW then
+            text = text .. string.rep(" ", rowW - ncells)
+            ncells = rowW
           end
         end
 
@@ -975,7 +1109,7 @@ local function build(win, isCurrent, mode, margin)
           end
           rows[#rows + 1] = {
             n = l + 1, k = k, t = piece, f = false,
-            s = charSpans(piece, spans((vopen and vopen[l + 1]) and newInk or base, dl, ol, c0, c1)),
+            s = charSpans(piece, spans((vopen and vopen[l + 1]) and newInk or base, dl, ol, c0, c1, under)),
             g = sign and { sign[1], sign[2] and hl.style(sign[2]) or 0 } or nil,
             v = vcs and vcs[l + 1] or nil,
             dx = (vopen and vopen[l + 1]) and 1 or nil,
@@ -983,6 +1117,7 @@ local function build(win, isCurrent, mode, margin)
             m = m, sl = slc, vt = vt,
             fo = (opensFold and k == 0 and not (wrap and from > 0)) and 1 or nil,
             md = mdl and mdRow(mdl, k, pieces, wrap and 0 or from, mdRaw and live and isCurrent and l == view.lnum - 1) or nil,
+            sq = square and 1 or nil,
           }
         end
         if vls and #vls.below > 0 then
@@ -1113,7 +1248,7 @@ local function signature(row)
     .. "\1" .. vim.json.encode(row.s) .. "\1" .. vim.json.encode(row.g or false)
     .. "\1" .. (row.v or "") .. "\1" .. (row.ig and table.concat(row.ig, ",") or "")
     .. "\1" .. vim.json.encode({ row.m or false, row.sl or false, row.vt or false, row.fc or false,
-      row.md or false, row.fo or false, row.dv or false, row.dx or false })
+      row.md or false, row.fo or false, row.dv or false, row.dx or false, row.sq or false })
 end
 
 -- ── the editor window ───────────────────────────────────────────────────
@@ -1302,7 +1437,22 @@ end
 -- window; a window that moved or changed size is sent whole.
 --   wins: [{ id, row, col, width, height, textoff, full, rows, cursor,
 --            current, lines }]
-local sentWins = {}   -- window id → { geo, sigs }
+local sentWins = {}   -- window id → { geo, sigs, extra, buf, held }
+
+-- A ROW THAT ONLY MOVED IS NAMED, NOT SENT. Rows are diffed by screen
+-- position, so after a scroll every row on screen counts as changed, though
+-- all but the few that came into view are lines plato already holds, word
+-- for word: a wheel notch resent the whole window, text and spans, and
+-- plato read every row of it again (2026-11-03: 63 dense rows a notch,
+-- ~14 KB). A row plato holds already, unchanged — on screen or just past an
+-- edge last frame — goes as { i, ref = "n:k" } and plato takes its own copy.
+-- `held` is what plato holds after a frame: key → signature, false for a
+-- key seen twice (never named, as plato could not tell which).
+local function holdRow(held, row, sig)
+  if row.n <= 0 then return end
+  local key = row.n .. ":" .. row.k
+  if held[key] == nil then held[key] = sig else held[key] = false end
+end
 
 function M.frame(full)
   local modeInfo = api.nvim_get_mode()
@@ -1322,21 +1472,57 @@ function M.frame(full)
       local prev = sentWins[w]
       local whole = full or not prev or prev.geo ~= geo
       local sigs = whole and {} or prev.sigs
+      local bufNow = b.buf
+      -- what plato holds that a row may be named by (see holdRow)
+      local had = (not whole and prev.buf == bufNow) and prev.held or {}
+      local held = {}
+      local function named(row, sig)
+        if row.n <= 0 then return nil end
+        local key = row.n .. ":" .. row.k
+        if had[key] == sig then return key end
+      end
       local changed = {}
       for r = 1, b.height do
         local row = b.rows[r]
         local sig = signature(row)
+        holdRow(held, row, sig)
         if whole or sigs[r] ~= sig then
-          row.i = r - 1
-          changed[#changed + 1] = row
+          local ref = named(row, sig)
+          if ref then
+            changed[#changed + 1] = { i = r - 1, ref = ref }
+          else
+            row.i = r - 1
+            changed[#changed + 1] = row
+          end
           sigs[r] = sig
         end
       end
       for r = b.height + 1, #sigs do sigs[r] = nil end
       -- the rows past the edges, sent whole and only when they changed
-      local extraSig = vim.json.encode({ b.above, b.below })
+      -- (named, as the window's own rows are, when plato holds them)
+      local edgeSigs = {}
+      local function edgeSig(list)
+        for _, row in ipairs(list) do
+          local sig = signature(row)
+          edgeSigs[#edgeSigs + 1] = sig
+          holdRow(held, row, sig)
+        end
+      end
+      edgeSig(b.above)
+      edgeSig(b.below)
+      local extraSig = table.concat(edgeSigs, "\2") .. "\2" .. #b.above
       local extraNew = whole or not prev or prev.extra ~= extraSig
-      sentWins[w] = { geo = geo, sigs = sigs, extra = extraSig }
+      local function edgeRows(list, from)
+        local out = {}
+        for j, row in ipairs(list) do
+          local ref = named(row, edgeSigs[from + j])
+          out[j] = ref and { ref = ref } or row
+        end
+        return out
+      end
+      local above = extraNew and edgeRows(b.above, 0) or nil
+      local below = extraNew and edgeRows(b.below, #b.above) or nil
+      sentWins[w] = { geo = geo, sigs = sigs, extra = extraSig, buf = bufNow, held = held }
       seen[w] = true
       wins[#wins + 1] = {
         id = w, row = pos[1], col = pos[2], width = b.width + b.textoff,
@@ -1349,8 +1535,8 @@ function M.frame(full)
         -- switch of file looked like a scroll to the drawing (see WindowView)
         buf = api.nvim_win_get_buf(w),
         -- rows just above and below the window, or nil for unchanged
-        above = extraNew and b.above or nil,
-        below = extraNew and b.below or nil,
+        above = above,
+        below = below,
       }
     end
   end
@@ -1497,15 +1683,47 @@ end
 -- Coalesced: however many things change in one trip round the event loop —
 -- a `dd` fires on_lines, TextChanged, CursorMoved and WinScrolled — the
 -- client gets one frame, built after all of them have landed.
-function M.schedule(full)
+--
+-- AN ECHO IS NOT A FRAME. A wheel notch is `normal! <C-e>` and a redraw
+-- (bridge.scroll): its keys make a frame, and WinScrolled and CursorMoved
+-- come round from nvim's main loop after it, telling of the very scroll
+-- that frame showed — a second frame, every row the same, built (~9 ms on a
+-- dense file) and taken apart by plato for nothing, on every notch
+-- (2026-11-03). So after a wheel's scroll (M.wheeled), when those events
+-- alone ask and nothing they could be about has moved since the last frame
+-- (`shape`), none is sent. Only then: after a command line's <CR> the same
+-- CursorMoved is the frame that shows what the command did.
+local echoes = { WinScrolled = true, CursorMoved = true, CursorMovedI = true }
+local lastShape = nil
+local wheeled = false
+function M.wheeled() wheeled = true end
+local function shape()
+  local parts = { api.nvim_get_mode().mode, api.nvim_get_current_win() }
+  for _, w in ipairs(api.nvim_tabpage_list_wins(0)) do
+    local b = api.nvim_win_get_buf(w)
+    local v = api.nvim_win_call(w, vim.fn.winsaveview)
+    local pos = api.nvim_win_get_position(w)
+    parts[#parts + 1] = table.concat({ w, b, api.nvim_buf_get_changedtick(b), v.topline,
+      v.topfill, v.skipcol or 0, v.lnum, v.col, v.leftcol, pos[1], pos[2],
+      api.nvim_win_get_width(w), api.nvim_win_get_height(w) }, ",")
+  end
+  return table.concat(parts, ";")
+end
+
+function M.schedule(full, echo)
   if full then M._full = true end
+  if not echo then M._real = true; wheeled = false end
   if pending then return end
   pending = true
   vim.schedule(function()
     pending = false
-    local f = M._full
-    M._full = false
-    if emit then emit(M.frame(f)) end
+    local f, real = M._full, M._real
+    M._full, M._real = false, false
+    if not emit then return end
+    local now = shape()
+    if wheeled and not f and not real and now == lastShape then return end
+    lastShape = now
+    emit(M.frame(f))
   end)
 end
 
@@ -1527,13 +1745,19 @@ end
 function M.setup(send)
   emit = send
   local group = api.nvim_create_augroup("plato.view", { clear = true })
-  api.nvim_create_autocmd({
+  local events = {
     "CursorMoved", "CursorMovedI", "ModeChanged", "WinScrolled",
-    "WinResized", "VimResized", "BufWritePost", "BufModifiedSet",
+    "WinResized", "VimResized", "BufWritePost",
     "CmdlineLeave", "CmdlineChanged", "TextChanged", "TextChangedI",
     "DiagnosticChanged", "TextYankPost", "BufAdd", "BufDelete", "BufWipeout",
     "BufFilePost",
-  }, { group = group, callback = function() M.schedule() end })
+  }
+  -- nvim 0.13 removed BufModifiedSet, and an event nvim does not know makes
+  -- this whole call an error, so no autocmd here would be made at all. On
+  -- 0.13 the 'modified' flip comes as OptionSet, which the BufEnter/OptionSet
+  -- autocmd below already answers.
+  if vim.fn.exists("##BufModifiedSet") == 1 then events[#events + 1] = "BufModifiedSet" end
+  api.nvim_create_autocmd(events, { group = group, callback = function(ev) M.schedule(false, echoes[ev.event]) end })
   -- what the scrollbar's marks come from, other than the text and search
   api.nvim_create_autocmd("DiagnosticChanged", {
     group = group, callback = function() M.marksGen = M.marksGen + 1 end })
@@ -1586,6 +1810,8 @@ end
 -- every style and the UI colors before the first frame
 function M.reset()
   sentWins = {}
+  lastShape = nil
+  wheeled = false
   if emit then emit({ event = "theme", ui = hl.ui(), styles = hl.all(), reset = true }) end
 end
 

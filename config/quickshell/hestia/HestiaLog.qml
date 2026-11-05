@@ -76,7 +76,7 @@ Item {
       required property string msg
       readonly property string role: H.prioRole(prio)
       readonly property color ink: line.role === "bad" ? Zenon.red : line.role === "warn" ? Zenon.yellow
-        : line.role === "note" ? Zenon.cyan : Zenon.ink
+        : line.role === "note" ? Zenon.accent : Zenon.ink
       width: list.width
       height: Math.max(28, msgText.contentHeight + 8)
       Text {

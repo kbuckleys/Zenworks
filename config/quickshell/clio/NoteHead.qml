@@ -108,13 +108,13 @@ Column {
       width: 34
       radius: Zenon.windowRadius
       readonly property bool on: nh.entry && !!nh.n.bookmark
-      color: on ? Zenon.alpha(Zenon.cyan, 0.16) : Zenon.wash(0.05)
+      color: on ? Zenon.alpha(Zenon.accent, 0.16) : Zenon.wash(0.05)
       border.width: 1
-      border.color: on ? Zenon.alpha(Zenon.cyan, 0.6) : Zenon.border
+      border.color: on ? Zenon.alpha(Zenon.accent, 0.6) : Zenon.border
       Text {
         anchors.centerIn: parent
         text: parent.on ? "\uF47A" : "\uF461"
-        color: parent.on ? Zenon.cyan : Zenon.accentMuted
+        color: parent.on ? Zenon.accent : Zenon.accentMuted
         font.family: Zenon.glyphFace
         font.pixelSize: Zenon.px(14)
       }

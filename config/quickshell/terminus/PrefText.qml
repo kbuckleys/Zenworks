@@ -42,7 +42,7 @@ Item {
   width: parent ? parent.width : 0
   height: 34
 
-  // No ground: the cursor is prefBar. The field's own border goes cyan when
+  // No ground: the cursor is prefBar. The field's own border goes accent when
   // it has the keyboard, which is already a mark and a better one.
 
   Text {

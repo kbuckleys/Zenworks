@@ -25,7 +25,7 @@ Item {
   property string face: Zenon.face
   property color fgColor: Zenon.white
   property color dimColor: Zenon.accentMuted
-  property color highlight: Zenon.cyan
+  property color highlight: Zenon.accent
 
   // the timers, in seconds (0 is never); a held marker's own reading
   // stands in for its setting until it is let go
@@ -206,7 +206,7 @@ Item {
           width: chipRow.implicitWidth + 16
           height: stage.laneH - 2
           radius: Zenon.radiusControl
-          color: mark.holding || hit.containsMouse ? Zenon.mix(Zenon.surface, mark.ink, 0.25) : Zenon.surface
+          color: mark.holding ? Zenon.mix(Zenon.surface, mark.ink, 0.25) : Zenon.surface
           border.width: 1
           border.color: Zenon.alpha(mark.ink, 0.7)
           Row {

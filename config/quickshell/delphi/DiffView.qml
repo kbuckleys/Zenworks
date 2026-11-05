@@ -172,8 +172,8 @@ Item {
       Rectangle {
         anchors.fill: parent
         visible: row.picked
-        color: Zenon.alpha(Zenon.cyan, 0.14)
-        Rectangle { width: 3; height: parent.height; color: Zenon.cyan }
+        color: Zenon.alpha(Zenon.accent, 0.14)
+        Rectangle { width: 3; height: parent.height; color: Zenon.accent }
       }
 
       Text {

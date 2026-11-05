@@ -1,3 +1,5 @@
+-- lazydev.nvim by Folke Lemaitre — https://github.com/folke/lazydev.nvim (Apache-2.0)
+--
 -- lazydev.nvim: teaches the Lua language server nvim's API — vim.api,
 -- vim.lsp, vim.uv and the rest — in Lua files that are nvim configuration,
 -- plato's own included (plato/nvim/lua). Completion and hover then know

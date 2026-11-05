@@ -133,7 +133,7 @@ QtObject {
                  { value: "red",     label: "Red" },
                  { value: "magenta", label: "Magenta" },
                  { value: "blue",    label: "Blue" },
-                 { value: "cyan",    label: "Cyan" },
+                 { value: "cyan",    label: "Accent" },
                  { value: "green",   label: "Green" } ],
       help: "The color of the number beside the line the cursor is on." },
 

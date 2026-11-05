@@ -260,7 +260,7 @@ Item {
           required property string modelData
           readonly property string ink: ac.modelData === "" ? Zenon.hex(Zenon.themeAccent)
             : ac.modelData === "accent" ? (Picasso.accentFor(ed.path) || "#777777")
-            : (ed.customAccent || Zenon.hex(Zenon.cyan))
+            : (ed.customAccent || Zenon.hex(Zenon.accent))
           readonly property bool on: ed.accentKind === ac.modelData
           width: 30
           height: 30
@@ -309,7 +309,7 @@ Item {
         width: 30
         height: 30
         radius: height / 2
-        color: dropMa.pressed ? Zenon.pressWash(0.14) : dropMa.containsMouse ? Zenon.wash(0.1) : "transparent"
+        color: dropMa.pressed ? Zenon.pressWash(0.14) : "transparent"
         border.width: 1
         border.color: Zenon.wash(0.25)
         Behavior on color { ColorAnimation { duration: Zenon.fast; easing.type: Zenon.ease } }
@@ -334,7 +334,7 @@ Item {
 
     Text {
       text: "Reset look"
-      color: resetMa.pressed || ed.kbRow === "reset" ? Zenon.cyan : Zenon.accentSoft
+      color: resetMa.pressed || ed.kbRow === "reset" ? Zenon.accent : Zenon.accentSoft
       font.family: Zenon.face
       font.weight: 600
       font.pixelSize: Zenon.px(14)

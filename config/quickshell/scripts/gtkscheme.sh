@@ -57,12 +57,21 @@ if [ "$2" = now ]; then
 fi
 
 data="${XDG_DATA_HOME:-$HOME/.local/share}"
-# the cursor in X's own format, when it is installed (xcursor-pro-cursor-
-# theme): the same design Hyprland wears as a hyprcursor, at its size
+# the cursor in X's own format: oracle's Cursor rows, as ThemeSync wrote
+# them to hypr/lua/cursor.lua (`x`, `size`), else XCursor-Pro-Dark at 24 —
+# either only when it is installed (it has a cursors/ directory)
 xsize=24
+xwant=XCursor-Pro-Dark
+cur="$cfg/zenworks/hypr/lua/cursor.lua"
+if [ -f "$cur" ]; then
+	v=$(sed -n 's/^[[:space:]]*x[[:space:]]*=[[:space:]]*"\([^"\\]*\)",*[[:space:]]*$/\1/p' "$cur" | head -n 1)
+	[ -n "$v" ] && xwant="$v"
+	v=$(sed -n 's/^[[:space:]]*size[[:space:]]*=[[:space:]]*\([0-9][0-9]*\),*[[:space:]]*$/\1/p' "$cur" | head -n 1)
+	[ -n "$v" ] && xsize="$v"
+fi
 xcursor=""
-for d in "$data/icons" "$HOME/.icons" /usr/share/icons; do
-	if [ -d "$d/XCursor-Pro-Dark/cursors" ]; then xcursor=XCursor-Pro-Dark; break; fi
+for d in "$data/icons" "$HOME/.icons" /usr/local/share/icons /usr/share/icons; do
+	if [ -d "$d/$xwant/cursors" ]; then xcursor="$xwant"; break; fi
 done
 base=
 for d in "$data/themes" "$HOME/.themes" /usr/share/themes; do
@@ -139,8 +148,9 @@ for f in "$cfg/gtk-3.0/settings.ini" "$cfg/gtk-4.0/settings.ini"; do
 		ini gtk-application-prefer-dark-theme $dark "$f"
 	fi
 	[ -z "$theme" ] || ini gtk-theme-name "$theme" "$f"
-	# THE CURSOR, X's way (2026-10-28): GTK and the apps that ask it
-	# (Spotify, Steam) drew Adwaita at size 6 beside Hyprland's XCursor-Pro.
+	# THE CURSOR, X's way (2026-10-28; oracle's since 2026-11-04): GTK and
+	# the apps that ask it (Spotify, Steam) drew Adwaita at size 6 beside
+	# Hyprland's XCursor-Pro.
 	# Only once the X-format theme is there — naming one that is not makes
 	# matters worse than leaving GTK's own.
 	if [ -n "$xcursor" ]; then

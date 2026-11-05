@@ -31,7 +31,7 @@ module.exports = {
 
     // an orange picture: the shell's accent turns orange
     const orange = W.palette([{ hex: "#1a1a1a", n: 50 }, { hex: "#e07020", n: 40 }], { mode: "dark" });
-    const hc = W.rgbToOklch(W.hexToRgb(orange.colors.cyan)).h;
+    const hc = W.rgbToOklch(W.hexToRgb(orange.colors.accent)).h;
     t.ok("the accent takes the wallpaper's hue", hc > 30 && hc < 80);
     t.eq("asked for dark, dark", orange.mode, "dark");
 
@@ -48,16 +48,16 @@ module.exports = {
     const lchOf = (x) => W.rgbToOklch(W.hexToRgb(x));
     for (const mode of ["dark", "light"]) {
       const bw = W.palette([{ hex: "#000000", n: 50 }, { hex: "#fefefe", n: 30 }, { hex: "#5f5f5f", n: 20 }], { mode: mode });
-      t.ok("black and white gives a gray accent (" + mode + ", " + bw.colors.cyan + ")", lchOf(bw.colors.cyan).C < 0.01);
+      t.ok("black and white gives a gray accent (" + mode + ", " + bw.colors.accent + ")", lchOf(bw.colors.accent).C < 0.01);
     }
 
     // a beige picture: a muted warm accent, not a loud one or a cyan
-    const beige = lchOf(W.palette([{ hex: "#e6ddd5", n: 50 }, { hex: "#d1b8a2", n: 30 }], { mode: "dark" }).colors.cyan);
+    const beige = lchOf(W.palette([{ hex: "#e6ddd5", n: 50 }, { hex: "#d1b8a2", n: 30 }], { mode: "dark" }).colors.accent);
     t.ok("beige gives a warm accent", beige.h > 30 && beige.h < 100);
     t.ok("beige gives a muted accent", beige.C < 0.08);
 
     // a faint slate cast: its hue, not a stock one
-    const slate = lchOf(W.palette([{ hex: "#121720", n: 50 }, { hex: "#2f3748", n: 30 }, { hex: "#525c69", n: 20 }], { mode: "dark" }).colors.cyan);
+    const slate = lchOf(W.palette([{ hex: "#121720", n: 50 }, { hex: "#2f3748", n: 30 }, { hex: "#525c69", n: 20 }], { mode: "dark" }).colors.accent);
     t.ok("a slate picture gives a slate-blue accent", slate.h > 220 && slate.h < 280 && slate.C < 0.06);
 
     // auto: a bright picture is a light theme, a dark one dark
@@ -87,7 +87,7 @@ module.exports = {
     // a rose background: red must not become the accent
     const rose = W.palette([{ hex: "#1c080e", n: 60 }, { hex: "#e0607f", n: 30 }], { mode: "dark" });
     const hue = (x) => W.rgbToOklch(W.hexToRgb(x)).h;
-    const apart = Math.abs(((hue(rose.colors.red) - hue(rose.colors.cyan) + 540) % 360) - 180);
+    const apart = Math.abs(((hue(rose.colors.red) - hue(rose.colors.accent) + 540) % 360) - 180);
     t.ok("red stays clear of a reddish accent (" + apart.toFixed(0) + " degrees)", apart >= 30);
 
   }

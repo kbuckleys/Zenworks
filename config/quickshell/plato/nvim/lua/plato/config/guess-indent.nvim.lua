@@ -1,3 +1,5 @@
+-- guess-indent.nvim by Nicolas Camenisch — https://github.com/NMAC427/guess-indent.nvim (MIT)
+--
 -- guess-indent.nvim: each file's indentation read from the file itself —
 -- tabs or spaces, and how many — so editing someone else's two-space file
 -- does not add four-space lines to it. Plato's settings (tab width, spaces

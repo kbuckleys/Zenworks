@@ -52,14 +52,14 @@ Item {
     : (pg.pulls ? [["c", "check out"], ["v", "review"], ["m", "merge"]] : [])
       .concat([["r", "reply"], ["x", pg.open ? "close" : "reopen"], ["w", "web"], ["n", "new"], ["s", pg.showing === "open" ? "closed" : "open"]])
   readonly property bool open: !!pg.item && pg.item.state === "open"
-  readonly property var buttons: !pg.hub ? [{ label: "Publish it", ink: Zenon.cyan, primary: true, run: () => pg.win.setPage("github") }]
-    : pg.signInNeeded ? [{ label: "Sign in to " + pg.site.name, ink: Zenon.cyan, primary: true, run: () => pg.win.signInTo(pg.site.id) }]
+  readonly property var buttons: !pg.hub ? [{ label: "Publish it", ink: Zenon.accent, primary: true, run: () => pg.win.setPage("github") }]
+    : pg.signInNeeded ? [{ label: "Sign in to " + pg.site.name, ink: Zenon.accent, primary: true, run: () => pg.win.signInTo(pg.site.id) }]
     : [
       { label: pg.open ? "Close" : "Reopen", ink: pg.open ? Zenon.red : Zenon.accentMuted, visible: !!pg.item, run: () => pg.setOpen(!pg.open) },
       { label: "Review…", visible: pg.pulls && pg.open && !!pg.item, run: () => pg.review() },
       { label: "Merge", ink: Zenon.magenta, visible: pg.pulls && pg.open && !!pg.item && !pg.item.draft, run: () => pg.merge() },
       { label: "Check out", visible: pg.pulls && !!pg.item && pg.item.state !== "merged", run: () => pg.checkout() },
-      { label: pg.pulls ? "New " + pg.site.pull : "New issue", ink: Zenon.cyan, primary: true, run: () => pg.pulls ? pg.newPull() : pg.newIssue() },
+      { label: pg.pulls ? "New " + pg.site.pull : "New issue", ink: Zenon.accent, primary: true, run: () => pg.pulls ? pg.newPull() : pg.newIssue() },
     ]
   function takeFocus() {
     if (pg.area === "reply") reply.claim();
@@ -760,7 +760,7 @@ Item {
         anchors.bottom: parent.bottom
         anchors.margins: 8
         label: "Send"
-        ink: Zenon.cyan
+        ink: Zenon.accent
         ready: reply.text.trim() !== ""
         primary: reply.text.trim() !== ""
         onClicked: pg.send()

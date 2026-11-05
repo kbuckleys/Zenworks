@@ -30,9 +30,9 @@ import Quickshell.Io
 import Quickshell.Hyprland
 import Quickshell.Wayland
 import "../morpheus"
-import "../morpheus/icons.js" as Icons
 import "../oracle"
 import "kairos.js" as K
+import "../morpheus/hypr.js" as Hypr
 
 Singleton {
   id: root
@@ -40,7 +40,9 @@ Singleton {
   readonly property bool enabled: Oracle.screenTime
   // the lock, handed in by KairosManager (Cerberus belongs to shell.qml)
   property bool locked: false
-  readonly property bool idle: idler.isIdle
+  // === true: the idle monitor reads undefined while it is built or torn
+  // down on a reload ("Unable to assign [undefined] to bool", 2026-11-05)
+  readonly property bool idle: idler.isIdle === true
   readonly property string dir: Paths.dataDir() + "/kairos"
 
   // { "2026-10": MONTH } — what has been read or counted this session
@@ -143,7 +145,11 @@ Singleton {
   function say(title, body, urgency) {
     Quickshell.execDetached(["notify-send", "-u", urgency, "-a", "Screen Time", "-i", "preferences-system-time", title, body]);
   }
-  onCurrentChanged: root.tick()
+  onCurrentChanged: {
+    root.tick();
+    // auto quit's "last in front" (see quitIdle)
+    if (root.current !== "") { const s = Object.assign({}, root.seen); s[root.current] = Date.now(); root.seen = s; }
+  }
   onCountingChanged: root.tick()
 
   Timer { interval: 5000; repeat: true; running: root.enabled; onTriggered: root.tick() }
@@ -154,6 +160,98 @@ Singleton {
     enabled: root.enabled
     timeout: Math.max(1, Oracle.screenTimeIdleMins) * 60
     respectInhibitors: true
+  }
+
+  // ── FOCUS SESSIONS AND AUTO QUIT (2026-11-03) ──
+  // A focus session: do not disturb on for its length (put back as it was
+  // after), and the apps on its list set aside: while one is in front, the
+  // focus veil (FocusVeil.qml) covers it, with a five-minute pass. Apps can
+  // also be quit after a while unused. Both from Cynosure's words ("focus
+  // 25m", "focus block discord", "auto quit discord after 30m"); kept in
+  // kairos-rules.json (K.parseRules).
+  property var rules: ({ block: [], autoQuit: {}, focus: null })
+  FileView {
+    id: rulesFile
+    path: Quickshell.statePath("kairos-rules.json")
+    blockLoading: true
+    printErrors: false
+    Component.onCompleted: root.rules = K.parseRules(rulesFile.text())
+  }
+  function saveRules(r) {
+    // our own setText never fires loaded: the state is set from what is written
+    root.rules = r;
+    rulesFile.setText(K.serializeRules(r));
+  }
+  readonly property var focus: root.rules.focus
+  property real clock: Date.now()
+  Timer {
+    interval: 1000
+    repeat: true
+    running: !!root.focus
+    triggeredOnStart: true
+    onTriggered: {
+      root.clock = Date.now();
+      if (root.focus && root.clock >= root.focus.until) root.endFocus(true);
+    }
+  }
+  // the app in front, while a session sets it aside and no pass is running
+  property var passes: ({})
+  readonly property bool blocking: !!root.focus && root.current !== ""
+    && root.rules.block.indexOf(root.current) >= 0 && !((root.passes[root.current] || 0) > root.clock)
+  function startFocus(minutes, label) {
+    const m = Math.max(1, Math.round(minutes || 25));
+    const was = root.focus ? root.focus.dndWas : Oracle.notifSilent;
+    Oracle.set("notifSilent", true);
+    root.passes = {};
+    root.saveRules(Object.assign({}, root.rules, { focus: { until: Date.now() + m * 60000, label: label || "Focus",
+      minutes: m, dndWas: was } }));
+    root.clock = Date.now();
+  }
+  function endFocus(done) {
+    const f = root.focus;
+    if (!f) return;
+    Oracle.set("notifSilent", f.dndWas);
+    root.passes = {};
+    root.saveRules(Object.assign({}, root.rules, { focus: null }));
+    if (done) root.say(f.label === "Focus" ? "Focus session done" : f.label + " done",
+      K.limitWords(f.minutes) + " of focus. Time for a break.", "normal");
+  }
+  // five minutes with an app set aside
+  function letIn(key, minutes) {
+    const p = Object.assign({}, root.passes);
+    p[key] = Date.now() + (minutes || 5) * 60000;
+    root.passes = p;
+    root.clock = Date.now();
+  }
+  function setBlocked(key, on) {
+    root.saveRules(Object.assign({}, root.rules, { block: K.withBlocked(root.rules.block, key, on) }));
+  }
+  function setAutoQuit(key, mins) {
+    root.saveRules(Object.assign({}, root.rules, { autoQuit: K.withAutoQuit(root.rules.autoQuit, key, mins) }));
+    if (mins > 0) { const s = Object.assign({}, root.seen); s[key] = Date.now(); root.seen = s; }
+  }
+  // when each app was last in front (or first seen with windows)
+  property var seen: ({})
+  Timer {
+    interval: 60000
+    repeat: true
+    running: Object.keys(root.rules.autoQuit).length > 0
+    onTriggered: root.quitIdle()
+  }
+  function quitIdle() {
+    const now = Date.now();
+    const s = Object.assign({}, root.seen);
+    for (const key in root.rules.autoQuit) {
+      const wins = Hyprland.toplevels.values.filter((t) => t.wayland
+        && K.appKey(t.wayland.appId, t.title) === key);
+      if (wins.length === 0) { delete s[key]; continue; }
+      if (!s[key]) { s[key] = now; continue; }
+      if (!K.quitDue(root.rules.autoQuit[key], s[key], now, key === root.current)) continue;
+      for (const t of wins) Hyprland.dispatch(Hypr.closeWindow(Hypr.byAddress(t.address)));
+      delete s[key];
+      root.say("Quit " + root.nameOf(key), "Unused for " + K.limitWords(root.rules.autoQuit[key]) + ".", "low");
+    }
+    root.seen = s;
   }
 
   // ── THE FILES ──
@@ -227,7 +325,7 @@ Singleton {
     return n;
   }
   function glyphOf(key) {
-    return Icons.appGlyph([key, root.nameOf(key)]) || "󰗄";
+    return Strings.appGlyph([key, root.nameOf(key)]) || "󰗄";
   }
 
   Component.onCompleted: {

@@ -44,7 +44,7 @@ Item {
   // usage mode off, which is a number and not a proportion.
   property bool bars: true
   property string label: ""
-  property color accent: Zenon.cyan
+  property color accent: Zenon.accent
   property color ink: Zenon.white
   // The listing's bar grows leftwards to MEET its number at the right edge.
   // A disk fills from the left, the way every gauge does.

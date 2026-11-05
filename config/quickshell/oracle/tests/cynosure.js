@@ -491,6 +491,19 @@ module.exports = {
       t.eq("a bookmark is not again among the often visited", pl.filter((r) => r.path === "/home/test/Code").length, 1);
       t.has("a place not connected says so", pl[1].sub, "not connected");
       t.eq("found by its name", C.placeRows(["/home/test/Code"], [], [], "cod", "/home/test").length, 1);
+      // a directory wears its glyph from the map (2026-11-05)
+      const dg = (e) => (e.isDir ? "D:" : "F:") + e.name + "@" + e.path;
+      const gpl = C.placeRows(["/home/test/Code"], [{ uri: "sftp://box/", name: "box", path: "" }], [], "", "/home/test", dg);
+      t.eq("places through glyphFor, network kept", gpl.map((r) => r.glyph), ["D:Code@/home/test/Code", "\u{F0870}"]);
+      t.eq("a match wears its file's glyph", C.contentRows("/home/test/a.py:3:x = 1", "/home/test", dg)[0].glyph, "F:a.py@/home/test/a.py");
+      t.eq("no glyphOf, the plain one", C.contentRows("/home/test/a.py:3:x = 1", "/home/test")[0].glyph, "\uF15C");
+      const pents = [{ id: "1", content: "/home/test/Videos/a.mp4", preview: "/home/test/Videos/a.mp4" },
+        { id: "2", content: "~/Code/", preview: "~/Code/" }, { id: "3", content: "two words", preview: "two words" },
+        { id: "4", content: "/x/y.txt", preview: "/x/y.txt" }];
+      const pcl = C.clipRows(pents, [], [], "", true, null, null, 4,
+        { pins: [{ id: "4", text: "/x/y.txt" }], glyphOf: dg, home: "/home/test" });
+      t.eq("a path clip wears its file's glyph, a pin its pin, words the clip",
+        pcl.map((r) => r.id + "=" + r.glyph), ["4=\uF08D", "1=F:a.mp4@/home/test/Videos/a.mp4", "2=D:Code@/home/test/Code", "3=\uF0EA"]);
 
       // ── window places (2026-11-02) ────────────────────────────────────────
       const mon = { x: 1080, y: 396, width: 2560, height: 1440, scale: 1, transform: 0, reserved: [0, 0, 0, 0] };
@@ -500,6 +513,32 @@ module.exports = {
       const turned = { x: 0, y: 0, width: 1920, height: 1080, scale: 1, transform: 3, reserved: [0, 0, 0, 44] };
       t.eq("a turned screen is tall, less its bar", C.snapRect(turned, 0, "max"), { x: 0, y: 0, w: 1080, h: 1876 });
       t.eq("a size, centered", C.snapRect(mon, 0, "size", { w: 800, h: 600 }), { x: 1080 + 880, y: 396 + 420, w: 800, h: 600 });
+      // thirds, quarters, larger (2026-11-03): no gaps, so the sums are plain
+      t.eq("thirds", ["left3", "center3", "right3"].map((w) => C.snapRect(mon, 0, w).x - 1080), [0, 853, 1707]);
+      t.eq("two thirds", C.snapRect(mon, 0, "right23"), { x: 1080 + 853, y: 396, w: 1707, h: 1440 });
+      t.eq("a quarter", C.snapRect(mon, 0, "br"), { x: 1080 + 1280, y: 396 + 720, w: 1280, h: 720 });
+      t.eq("thirds share the gaps", C.snapRect(mon, 10, "center3").x - C.snapRect(mon, 10, "left3").x - C.snapRect(mon, 10, "left3").w, 10);
+      const win = { x: 1080 + 100, y: 396 + 100, w: 1000, h: 500 };
+      t.eq("a tenth larger about its middle", C.snapRect(mon, 0, "grow", win), { x: 1130, y: 471, w: 1100, h: 550 });
+      t.eq("larger stays on the screen", C.snapRect(mon, 0, "grow", { x: 1080, y: 396, w: 2560, h: 1440 }), { x: 1080, y: 396, w: 2560, h: 1440 });
+      t.eq("as wide as there is room", C.snapRect(mon, 0, "maxW", win), { x: 1080, y: 496, w: 2560, h: 500 });
+      t.eq("centered at its size", C.snapRect(mon, 0, "center", { w: 1000, h: 500 }), { x: 1080 + 780, y: 396 + 470, w: 1000, h: 500 });
+      // the clipboard's filters, pins and turn (2026-11-03)
+      const cents = [{ id: "3", content: "https://a.b/c", preview: "https://a.b/c" }, { id: "2", content: "#ff8800", preview: "#ff8800" },
+        { id: "1", content: "plain words", preview: "plain words" }];
+      t.eq("cb links", C.clipRows(cents, [], [], "links", true, null, null, 4, {}).map((r) => r.id), ["3"]);
+      t.eq("cb colors", C.clipRows(cents, [], [], "colors", true, null, null, 4, {}).map((r) => r.id), ["2"]);
+      const pinned = C.clipRows(cents, [], [], "", true, null, null, 4, { pins: [{ id: "1", text: "plain words" }, { id: "9", text: "gone now" }] });
+      t.eq("pins lead, one cliphist let go from its words", pinned.slice(0, 2).map((r) => [r.section, r.label, r.gone]),
+        [["Pinned", "plain words", false], ["Pinned", "gone now", true]]);
+      t.eq("a pin not again below", pinned.filter((r) => r.id === "1").length, 1);
+      t.eq("cb pinned is the pins alone", C.clipRows(cents, [], [], "pinned", true, null, null, 4, { pins: [{ id: "2", text: "#ff8800" }] }).map((r) => r.id), ["2"]);
+      t.has("marked in turn", C.clipRows(cents, [], [], "", true, null, null, 4, { turn: ["2"] }).find((r) => r.id === "2").sub, "In turn 1");
+      // quick links filled from the desk
+      t.eq("{clipboard} filled, escaped", C.fillLinkFrom("https://x.com/?q={clipboard}&s={selection}", "a b", "c&d"), "https://x.com/?q=a%20b&s=c%26d");
+      t.eq("a link of the clipboard alone opens as it is", C.linkUrl({ url: "https://x.com/{clipboard}" }, ""), "https://x.com/{clipboard}");
+      t.eq("every new word is in the help", ["focus", "layout", "bm", "browsed", "github", "music", "menu", "qr", "ocr", "restart", "empty trash"]
+        .filter((w) => !C.helpRows(w, {}).some((r) => r.cap === w || r.cap.indexOf(w) === 0)), []);
       t.eq("gaps as a number", C.gapsOf('{"option":"general:gaps_out","int":20}'), 20);
       t.eq("gaps as css", C.gapsOf('{"option":"general:gaps_out","custom":"12 12 12 12"}'), 12);
 
@@ -577,8 +616,9 @@ module.exports = {
       t.has("the search quotes the words", C.contentCommand("it's", "/h"), "'it'\\''s'");
       const fams = [{ name: "Inter", variants: ["Inter"], styles: [1, 2], files: ["/f"], mono: false, nerd: false, user: true },
         { name: "JetBrains Mono", variants: ["JetBrainsMono NF"], styles: [1], files: ["/g"], mono: true, nerd: true, user: false }];
-      t.eq("found by name", C.fontRows(fams, "jet")[0].face, "JetBrainsMono NF");
-      t.has("says what it is", C.fontRows(fams, "jet")[0].sub, "monospace");
+      t.eq("found by name", C.fontRows(fams, "jet", 4)[0].cells[0].face, "JetBrainsMono NF");
+      t.has("says what it is", C.fontRows(fams, "jet", 4)[0].cells[0].sub, "monospace");
+      t.eq("a grid, so many a row", C.fontRows(fams, "", 1).length, 2);
       const cap = C.captureRows("1762000000\t/p/Screenshots/a.png\n1761000000\t/p/Screenshots/b.png\n",
         "", { "/p/Screenshots/a.png": "/t/a.png", "/p/Screenshots/b.png": "-" }, 4, false);
       t.eq("one row of cells", cap.length, 1);
@@ -609,5 +649,132 @@ module.exports = {
     t.eq("the match is underlined where it matched",
       C.highlight("firefox", "fire"), "<u>fire</u>fox");
     t.eq("no query means no markup", C.highlight("firefox", ""), "firefox");
+    // contacts and light and dark (2026-11-03)
+    const ids = (r) => C.rowActions(r).map((x) => x.id);
+    t.eq("a contact with mail writes", ids({ kind: "contact", label: "Ada", email: "a@b.c", phone: "1", path: "/x.vcf" }),
+      ["go", "copyEmail", "copyPhone", "copyName", "reveal"]);
+    t.eq("a contact with a number only copies it", ids({ kind: "contact", label: "Ada", email: "", phone: "1", path: "" }), ["go", "copyName"]);
+    const opts = [{ value: "zenon" }, { value: "zenon-light", light: true }, { value: "rose-pine" }, { value: "rose-pine-dawn", light: true },
+      { value: "gruvbox-dark" }, { value: "gruvbox-light", light: true },
+      { value: "monochrome-dark" }, { value: "monochrome-light", light: true }];
+    t.eq("light: the pair", C.themeSide("rose-pine", true, opts), "rose-pine-dawn");
+    t.eq("dark: the pair back", C.themeSide("rose-pine-dawn", false, opts), "rose-pine");
+    t.eq("light: a name swap", C.themeSide("gruvbox-dark", true, opts), "gruvbox-light");
+    t.eq("monochrome both ways", [C.themeSide("monochrome-dark", true, opts), C.themeSide("monochrome-light", false, opts)],
+      ["monochrome-light", "monochrome-dark"]);
+    t.eq("already light", C.themeSide("zenon-light", true, opts), null);
+    t.eq("no partner, Zenon's", C.themeSide("mystery", true, opts), "zenon-light");
+    // Oracle's Cynosure › Search (2026-11-03)
+    const web = (e) => C.allLinks([], e).find((l) => l.word === "web").url;
+    t.eq("web search goes where it is set", [web("google"), web("kagi"), web("nope")],
+      ["https://www.google.com/search?q={q}", "https://kagi.com/search?q={q}", "https://duckduckgo.com/?q={q}"]);
+    t.eq("your own web link wins", C.allLinks([{ word: "web", url: "https://x.y/?q={q}" }], "google").filter((l) => l.word === "web").map((l) => l.url),
+      ["https://x.y/?q={q}"]);
+    const few = [{ kind: "app", key: "a", text: "Alpha", label: "Alpha" }, { kind: "app", key: "b", text: "Beta", label: "Beta" },
+      { kind: "hist", key: "h", text: "alpha --x", label: "alpha --x" }];
+    const sections = (rows) => rows.map((r) => r.section);
+    t.eq("no suggestions", sections(C.rootRows(few, "", { a: 3 }, [], { suggested: 0 })).indexOf("Suggestions"), -1);
+    t.eq("no history while not learning", C.rootRows(few, "", {}, [], { history: false }).some((r) => r.kind === "hist"), false);
+    t.eq("no other ways", C.rootRows(few, "alp", {}, [], { fallbacks: false }).some((r) => r.kind === "fallback" || r.kind === "run"), false);
+    t.eq("other ways by default", C.rootRows(few, "alp", {}, [], {}).some((r) => r.kind === "run"), true);
+    // hidden, the fallbacks' order (2026-11-04)
+    const hid = C.withHidden("", "app:b", "Beta", true);
+    t.eq("hidden: kept with its name", C.parseHidden(hid), [{ id: "app:b", name: "Beta" }]);
+    t.eq("hidden: put back", C.withHidden(hid, "app:b", "", false), "");
+    t.eq("a hidden app is gone from the list", C.rootRows(few, "beta", {}, [], { hidden: C.hiddenSet(hid) }).some((r) => r.key === "b"), false);
+    t.ok("a hidden app can be hidden, a clip cannot", C.rowActions({ kind: "app", key: "a", label: "A" }).some((x) => x.id === "hide")
+      && !C.rowActions({ kind: "clip", id: "1", label: "x" }).some((x) => x.id === "hide"));
+    t.eq("fallbacks: the usual order, all on", C.fallbackList("").map((f) => f.word).slice(0, 3), ["web", "f", "cb"]);
+    t.eq("fallbacks: moved up", C.fallbackList(C.fallbackMoved("", "f", -1)).map((f) => f.word).slice(0, 2), ["f", "web"]);
+    t.eq("fallbacks: the first goes no higher", C.fallbackMoved("", "web", -1), C.fallbackText(C.fallbackList("")));
+    t.eq("fallbacks: one off", C.fallbackList(C.fallbackSet("", "pkg", false)).find((f) => f.word === "pkg").on, false);
+    t.eq("fallbacks: an unknown word dropped, a new one on at the end",
+      C.fallbackList("nope,tr").map((f) => f.word).slice(0, 2), ["tr", "web"]);
+    const order = (text) => C.rootRows(few, "zzz", {}, [], { fallbackList: text, links: C.allLinks([], "") }).filter((r) => r.fbWord).map((r) => r.fbWord);
+    t.eq("the list follows your order", order("tr,web").slice(0, 2), ["tr", "web"]);
+    t.eq("one turned off is not offered", order("-web").indexOf("web"), -1);
+    // a quick link in its own browser
+    const ghLink = C.withLinkApp([], "gh", "brave.desktop", "Brave");
+    t.eq("a built-in kept for its app only", ghLink.map((l) => [l.word, l.builtin, l.app]), [["gh", true, "brave.desktop"]]);
+    t.eq("it opens there, the built-in under it", (C.allLinks(ghLink, "duckduckgo").find((l) => l.word === "gh") || {}).app, "brave.desktop");
+    t.eq("back to the default browser drops the stand-in", C.withLinkApp(ghLink, "gh", "", ""), []);
+    t.eq("your own link changed in place", C.withLinkApp([{ word: "x", url: "https://x.y" }], "x", "f.desktop", "F")[0].app, "f.desktop");
+    t.eq("browsers from grep -H", C.parseBrowsers("/usr/share/applications/firefox.desktop:Name=Firefox\n/a/firefox.desktop:Name=Again"),
+      [{ id: "firefox", name: "Firefox" }]);
+    t.ok("a stand-in cannot be removed as a link", !C.rowActions(C.allLinks(ghLink, "")
+      .filter((l) => l.word === "gh").map((l) => ({ kind: "link", own: l.own, builtin: l.builtin, url: l.url }))[0]).some((x) => x.id === "dropLink"));
+    // chips (2026-11-04)
+    t.eq("def is the dictionary's chip", C.chipFor("define", [], []), { word: "def", text: "Dictionary" });
+    t.eq("a quick link is a chip", C.chipFor("gh", [{ word: "gh", name: "GitHub" }], []), { word: "gh", text: "GitHub" });
+    t.eq("a plain word is not", C.chipFor("firefox", [], []), null);
+    t.eq("a begun word, one chip", (C.chipComplete("lay", [], []) || {}).word, "layout");
+    t.eq("a begun word, two chips: none", C.chipComplete("wi", [], []), null);
+    t.eq("one letter: none", C.chipComplete("q", [], []), null);
+    // short sections, related chips, a chip's last searches (2026-11-04)
+    const manyFiles = [1, 2, 3, 4, 5, 6].map((i) => ({ kind: "file", key: "f" + i, path: "/x/a" + i, text: "a" + i, label: "a" + i }));
+    const capped = C.rootRows([], "zz", {}, C.SHELL_ACTIONS, { files: manyFiles, fallbacks: false });
+    t.eq("a long section keeps three and a row for the rest", capped.map((r) => r.kind + ":" + (r.label || "")),
+      ["file:a1", "file:a2", "file:a3", "more:3 more files"]);
+    t.eq("the row opens it as its chip", capped[3].line, "f zz");
+    t.eq("one past the cap is shown whole", C.rootRows([], "zz", {}, C.SHELL_ACTIONS,
+      { files: manyFiles.slice(0, 4), fallbacks: false }).length, 4);
+    t.eq("under a chip, every one", C.rootRows([], "f zz", {}, C.SHELL_ACTIONS,
+      { files: manyFiles, filesOnly: true }).length, 6);
+    t.eq("the cap can be turned off", C.rootRows([], "zz", {}, C.SHELL_ACTIONS,
+      { files: manyFiles, fallbacks: false, sectionCap: false }).length, 6);
+    t.eq("windows, then snap", C.chipNext("win", false), { word: "snap", text: "Snap" });
+    t.eq("layouts round to windows", C.chipNext("layout", false).word, "win");
+    t.eq("shift tab goes back", C.chipNext("win", true).word, "layout");
+    t.eq("a chip in no ring stays", C.chipNext("help", false), null);
+    t.eq("a chip's last searches, its own only, newest first",
+      C.chipRecentRows(["todos milk", "win docs", "tasks bread", "todos milk", "todos ", "todos a", "todos b"], "todos", [], [])
+        .map((r) => r.label + "|" + r.text), ["milk|todos milk", "bread|todos bread", "a|todos a"]);
+    t.eq("a card with its own recents chips has no list of them",
+      ["def", "tr", "calc"].map((w) => C.chipRecentRows([w + " cat", "define dog", "translate hi"], w, [], []).length), [0, 0, 0]);
+    const openWins = [{ address: "0x1", app: "firefox", title: "Docs" }, { address: "0x2", app: "firefox", title: "Mail" },
+      { address: "0x3", app: "kitty", title: "zsh" }, { address: "0x4", app: "org.quickshell", title: "oracle" }];
+    const quits = C.quitRows(openWins, "", null, (id) => id === "firefox" ? "Firefox" : "");
+    t.eq("one row an app, not ours", quits.map((r) => r.label + "|" + r.sub), ["Quit Firefox|2 windows", "Quit kitty|zsh"]);
+    t.eq("filtered by name or title", C.quitRows(openWins, "mail", null, null).map((r) => r.cmd.app), ["firefox"]);
+    const trayed = C.quitRows(openWins, "", null, null, [{ pid: 9, comm: "steam", classes: [] }, { pid: 7, comm: "firefox-bin", classes: ["firefox"] }]);
+    t.eq("a tray app with no window is one too, one open is not twice", trayed.map((r) => r.cmd.kind + ":" + r.text),
+      ["quitApp:firefox", "quitApp:kitty", "quitTray:Steam"]);
+    t.eq("quitting a windowed app ends its tray process too", trayed[0].cmd.pids, [7]);
+    t.eq("never the shell itself", C.quitRows([], "", null, null, [{ pid: 9, comm: "quickshell", classes: [] },
+      { pid: 8, comm: ".quickshell-wra", classes: [] }, { pid: 6, comm: "Hyprland", classes: [] }]), []);
+    t.eq("a whole alias over a pick", C.topRows([{ kind: "app", key: "a", text: "Alpha", alias: "zz" },
+      { kind: "app", key: "b", text: "zzbeta" }], [], "zz", {}, {}, { zz: { b: 5 } })[0].key, "a");
+    t.eq("a process named as an app", C.trayName("claude-desktop"), "Claude");
+    t.eq("snap: every place, filtered by its name or words", C.snapRows("third", "x").map((r) => r.cmd.where),
+      ["left3", "center3", "right3", "left23", "right23"]);
+    t.eq("snap: all of them", C.snapRows("", "").length, 24);
+    // what you pick for what you type; looser matching (2026-11-04)
+    const apps2 = [{ kind: "app", key: "bash", text: "Bash" }, { kind: "app", key: "brave", text: "Brave Origin" },
+      { kind: "app", key: "vsc", text: "Visual Studio Code" }, { kind: "app", key: "ff", text: "Firefox" }];
+    t.eq("unpicked: the plain order", C.rankRows(apps2, "b").map((r) => r.key).slice(0, 2), ["bash", "brave"]);
+    const picked = C.notePick({}, "bra", "brave");
+    t.eq("a pick teaches its starts", Object.keys(picked), ["br", "bra"]);
+    t.eq("picked: first for that line", C.rankRows(apps2, "br", picked)[0].key, "brave");
+    t.eq("and first of the top results", C.topRows(C.rankRows(apps2, "br", picked), [], "br", {}, {}, picked)[0].key, "brave");
+    t.eq("first letters", C.rankRows(apps2, "vsc").map((r) => r.key), ["vsc"]);
+    t.eq("letters in order", C.rankRows(apps2, "frfx").map((r) => r.key), ["ff"]);
+    t.eq("one slip", C.rankRows(apps2, "fierfox").map((r) => r.key), ["ff"]);
+    t.eq("two slips: nothing", C.rankRows(apps2, "fxerfoz").length, 0);
+    t.eq("a plain match outranks a loose one", C.rankRows([{ kind: "app", key: "a", text: "Frfx" }].concat(apps2), "frfx")[0].key, "a");
+    let many = {};
+    for (let i = 0; i < 450; i++) many = C.notePick(many, "q" + i, "k");
+    t.ok("picks are capped", Object.keys(many).length <= 400);
+    t.eq("no layouts: says so", C.layoutRows({}, "").map((r) => r.kind), ["info"]);
+    t.eq("history: your searches, filtered", C.searchRows(["def apple", "win code", "def pear"], "def").map((r) => r.text), ["def apple", "def pear"]);
+    t.eq("layouts listed, the line saved as a new one",
+      C.layoutRows({ coding: [1, 2], games: [1] }, "co").map((r) => r.cmd.kind + ":" + r.cmd.name), ["layoutUse:coding", "layoutSave:co"]);
+    t.eq("an exact name is not saved again", C.layoutRows({ coding: [1] }, "coding").length, 1);
+    // skin tones: folded onto the base, shown in the one chosen
+    const em = C.Ideo.parseEmojiTest("1F44B ; fully-qualified # \u{1F44B} E0.6 waving hand\n"
+      + "1F44B 1F3FB ; fully-qualified # \u{1F44B}\u{1F3FB} E1.0 waving hand: light skin tone\n"
+      + "1F9D1 1F3FB 200D 1F91D 200D 1F9D1 1F3FF ; fully-qualified # x E12.0 people holding hands: light skin tone, dark skin tone\n");
+    t.eq("one entry, its tones on it", em.map((e) => e.name), ["waving hand"]);
+    t.eq("the chosen tone shown", C.glyphRows(em, "wav", false, false, 14, [], "light")[0].cells[0].char, "\u{1F44B}\u{1F3FB}");
+    t.eq("no tone set, its own yellow", C.glyphRows(em, "wav", false, false, 14, [], "none")[0].cells[0].char, "\u{1F44B}");
   }
 };

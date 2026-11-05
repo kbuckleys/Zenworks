@@ -6,7 +6,7 @@
 // THE SCROLLBAR — the one scrollbar in the shell, for any Flickable.
 //
 // There were two designs: this one, for the panels (a track always faintly
-// there, a thumb that went cyan when dragged), and terminus' ScrollRail (a
+// there, a thumb that went accent when dragged), and terminus' ScrollRail (a
 // thin thumb, a track only under the pointer). Two designs are two ways of
 // saying the same thing, and the rail's was the one chosen for ceres. So this
 // is the rail's LOOK with both of their BEHAVIORS, and ScrollRail is now a

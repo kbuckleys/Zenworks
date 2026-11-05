@@ -88,7 +88,7 @@ Item {
 
   // no tags here
   readonly property var tagMarks: ({})
-  function tagInk(name) { return Zenon.cyan; }
+  function tagInk(name) { return Zenon.accent; }
 
   // no thumbnail pool: a picture Qt can open is drawn as itself ("i")
   function thumbKind(r) { return Terminus.isImage(r.name) ? "i" : ""; }
@@ -97,41 +97,15 @@ Item {
   function thumbNow(job) {}
   readonly property var thumbFile: ({})
 
-  // what opens it — terminus' scan (Terminus.appsCommand)
-  property var openWithApps: []
-  property string openWithDefault: ""
-  property string openWithMime: ""
-  property bool appsScanned: false
-  property string appsPath: ""
-  function findApps(path) {
-    host.openWithApps = [];
-    host.openWithDefault = "";
-    host.openWithMime = "";
-    host.appsScanned = !path;
-    if (!path) return;
-    apps.command = ["sh", "-c", Terminus.appsCommand(path)];
-    apps.running = true;
-  }
-  function rescan() { if (host.appsPath !== "") host.findApps(host.appsPath); }
-  function setDefaultApp(id) {
-    if (!id || host.openWithMime === "") return;
-    host.run(Terminus.setDefaultAppCommand(id, host.openWithMime));
-    host.said("Default set");
-  }
-  function removeApp(id) {
-    if (!id || host.openWithMime === "") return;
-    host.run(Terminus.removeAppCommand(id, host.openWithMime));
-  }
-  Process {
-    id: apps
-    stdout: StdioCollector {
-      waitForEnd: true
-      onStreamFinished: {
-        host.openWithApps = Terminus.parseApps(text);
-        host.openWithMime = Terminus.parseAppsMime(text);
-        host.openWithDefault = Terminus.parseAppsDefault(text);
-        host.appsScanned = true;
-      }
-    }
-  }
+  // what opens it — terminus/OpenWithScan, under the names the card reads
+  OpenWithScan { id: openWith; run: host.run; onSaid: (t) => host.said(t) }
+  readonly property alias openWithApps: openWith.apps
+  readonly property alias openWithDefault: openWith.defaultId
+  readonly property alias openWithMime: openWith.mime
+  readonly property alias appsScanned: openWith.scanned
+  property alias appsPath: openWith.path
+  function findApps(path) { openWith.find(path); }
+  function rescan() { openWith.rescan(); }
+  function setDefaultApp(id) { openWith.setDefault(id); }
+  function removeApp(id) { openWith.remove(id); }
 }

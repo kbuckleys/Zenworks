@@ -314,14 +314,14 @@ Rectangle {
             anchors.right: parent.right
             anchors.rightMargin: 16
             anchors.verticalCenter: parent.verticalCenter
-            spacing: 8
+            spacing: Zenon.buttonGap
             DialogButton {
               label: "Cancel"
               onClicked: conn.dismiss()
             }
             BusyButton {
               label: conn.question ? "Connect anyway" : "Connect"
-              ink: conn.question ? Zenon.yellow : Zenon.cyan
+              ink: conn.question ? Zenon.yellow : Zenon.accent
               primary: true
               ready: conn.ready
               busy: conn.working

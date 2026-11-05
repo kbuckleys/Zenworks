@@ -105,7 +105,7 @@ Singleton {
       case "sand":    return Zenon.sand;
       case "yellow":  return Zenon.yellow;
       case "green":   return Zenon.green;
-      case "cyan":    return Zenon.cyan;
+      case "cyan":    return Zenon.accent;
       case "blue":    return Zenon.blue;
       case "magenta": return Zenon.magenta;
       case "pink":    return Zenon.pink;

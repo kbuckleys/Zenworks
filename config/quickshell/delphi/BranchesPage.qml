@@ -30,7 +30,7 @@ Item {
   readonly property var hints: [["return", pg.row && pg.row.kind === "remote" ? "track" : "switch"], ["n", "new"],
     ["m", "merge in"], ["b", "rebase onto"], ["r", "rename"], ["d", "delete"], ["/", "filter"], ["menu", "more"]]
   readonly property var buttons: [
-    { label: "New branch", ink: Zenon.cyan, run: () => pg.create(null) },
+    { label: "New branch", ink: Zenon.accent, run: () => pg.create(null) },
   ]
   function takeFocus() { if (!filter.focused && pg.win) pg.win.focusKeys(); }
 
@@ -266,7 +266,7 @@ Item {
           width: 22
           anchors.verticalCenter: parent.verticalCenter
           text: brow.b.kind === "tag" ? "" : brow.b.kind === "remote" ? "" : ""
-          color: brow.b.current ? Zenon.cyan : brow.b.kind === "tag" ? Zenon.sand : brow.b.kind === "remote" ? Zenon.blue : Zenon.green
+          color: brow.b.current ? Zenon.accent : brow.b.kind === "tag" ? Zenon.sand : brow.b.kind === "remote" ? Zenon.blue : Zenon.green
           font.family: Zenon.glyphFace
           font.pixelSize: Zenon.px(15)
         }
@@ -279,7 +279,7 @@ Item {
           width: Math.min(implicitWidth, parent.width * 0.38)
           elide: Text.ElideMiddle
           text: brow.b.name || ""
-          color: brow.b.current ? Zenon.cyan : Zenon.ink
+          color: brow.b.current ? Zenon.accent : Zenon.ink
           font.family: Zenon.face
           font.weight: brow.b.current ? Font.Bold : Zenon.weight
           font.pixelSize: Zenon.px(15)

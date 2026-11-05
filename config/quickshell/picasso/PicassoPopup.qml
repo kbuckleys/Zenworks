@@ -26,24 +26,24 @@ LayerPopup {
 
   readonly property color bgColor: Zenon.layerBg
   readonly property color fgColor: Zenon.white
-  readonly property color headColor: Zenon.cyan
+  readonly property color headColor: Zenon.accent
   readonly property color dimColor: Zenon.accentMuted
   // WHAT YOU ARE TOUCHING, and what has been CHANGED, are two different
   // facts and now wear two different colors.
   //
   // Everything interactive used to light up in the pink — a focused field, an
   // open dropdown, a pressed button, a grabbed knob — and against the dark
-  // panel that reads as a red alert rather than as "this one is live". Cyan
+  // panel that reads as a red alert rather than as "this one is live". Accent
   // is the accent the rest of the shell already uses for the thing in hand:
   // the section you are standing in, a slider's filled track, the lit cell in
   // the corner picker.
   //
   // The pink is kept for the one job it is good at: marking something that is
   // no longer at its default, or already in use. That is a STATE, it wants to
-  // be told apart from the cyan at a glance, and it appears in very few
+  // be told apart from the accent at a glance, and it appears in very few
   // places — the sidebar's count, the dot on a changed row, and picasso's
   // tick on a background that is currently up.
-  readonly property color highlight: Zenon.cyan
+  readonly property color highlight: Zenon.accent
   readonly property color entryColor: Zenon.pink
 
   property string query: ""
@@ -366,10 +366,11 @@ LayerPopup {
     function toggle() { popup.toggle(); }
     function rescan(): string { Picasso.scan(); return "scanning"; }
     // capture: `shot screen`, `shot window`, `shot window-plain` (no
-    // shadow), `shot region`
+    // shadow), `shot region`; `shot text` / `shot qr` a region read for
+    // its words or its code
     function shot(mode: string): string {
-      if (["screen", "window", "window-plain", "region"].indexOf(mode) < 0)
-        return "shot screen|window|window-plain|region";
+      if (["screen", "window", "window-plain", "region", "text", "qr"].indexOf(mode) < 0)
+        return "shot screen|window|window-plain|region|text|qr";
       Picasso.shoot(mode);
       return mode;
     }
@@ -418,6 +419,7 @@ LayerPopup {
     popup.playClose();
   }
 
+  Binding { target: Picasso; property: "popupShown"; value: popup.shown }
   function toggle() {
     if (popup.shown) popup.closePopup();
     else popup.openPopup();
@@ -714,15 +716,12 @@ LayerPopup {
           width: parent.width
           height: popup.gridHeight()
 
-          Text {
+          EmptyState {
             anchors.centerIn: parent
             visible: popup.view === "backgrounds" && popup.filtered.length === 0 && !Picasso.scanning
+            filtered: Picasso.files.length > 0 && popup.query !== ""
             text: Picasso.files.length === 0
               ? "No backgrounds in " + Picasso.dir : popup.query !== "" ? "Nothing matches \u201C" + popup.query + "\u201D" : "Nothing here"
-            color: popup.dimColor
-            font.family: Zenon.face
-            font.weight: Font.Bold
-            font.pixelSize: Zenon.px(16)
           }
 
           // The grid is empty because the walk is still out, which is a
@@ -887,7 +886,7 @@ LayerPopup {
                 Text {
                   anchors.centerIn: parent
                   text: ""
-                  color: Zenon.onAccent
+                  color: Zenon.inkOnAccent
                   font.family: Zenon.face
                   font.weight: Zenon.weight
                   font.pixelSize: Zenon.px(11)
@@ -1008,7 +1007,7 @@ LayerPopup {
                   Text {
                     anchors.centerIn: parent
                     text: ""
-                    color: Zenon.onAccent
+                    color: Zenon.inkOnAccent
                     font.family: Zenon.face
                     font.weight: Zenon.weight
                     font.pixelSize: Zenon.px(11)
@@ -1028,7 +1027,7 @@ LayerPopup {
                   Text {
                     anchors.centerIn: parent
                     text: ""
-                    color: delMa.pressed ? Zenon.onAccent : Zenon.ink
+                    color: delMa.pressed ? Zenon.inkOnAccent : Zenon.ink
                     font.family: Zenon.face
                     font.weight: Zenon.weight
                     font.pixelSize: Zenon.px(10)
@@ -1085,18 +1084,12 @@ LayerPopup {
                 color: Zenon.border
               }
 
-              Text {
+              SectionLabel {
                 id: makerHead
                 anchors.left: parent.left
                 anchors.top: parent.top
                 anchors.margins: 18
                 text: "Make a color"
-                color: popup.dimColor
-                font.family: Zenon.face
-                font.weight: Zenon.titleWeight
-                font.pixelSize: Zenon.px(12)
-                font.capitalization: Font.AllUppercase
-                font.letterSpacing: Zenon.labelSpacing
               }
 
               ColorPicker {
@@ -1118,7 +1111,7 @@ LayerPopup {
                 anchors.right: parent.right
                 anchors.bottom: parent.bottom
                 anchors.margins: 18
-                spacing: 8
+                spacing: Zenon.buttonGap
 
                 // any color on screen into the maker: the suite's picker,
                 // as oracle's Accent color has it (user, 2026-10-24)

@@ -18,7 +18,7 @@ Rectangle {
   property string glyph: ""
   property string title: ""
   property string note: ""
-  property color glyphInk: Zenon.cyan
+  property color glyphInk: Zenon.accent
   // what stands at the heading's right
   property alias trailing: trail.data
   // the body: whatever is declared inside the card

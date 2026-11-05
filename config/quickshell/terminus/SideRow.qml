@@ -141,13 +141,13 @@ Item {
     radius: Zenon.radiusControl
     color: Qt.rgba(Zenon.layerBg.r, Zenon.layerBg.g, Zenon.layerBg.b, 1)
     border.width: 1
-    border.color: Qt.rgba(Zenon.cyan.r, Zenon.cyan.g, Zenon.cyan.b, 0.55)
+    border.color: Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.55)
   }
 
   // The color a gauge is drawn in. Nearly full is worth saying in color
   // rather than making you read the number and do the arithmetic.
   readonly property color gaugeInk: sideRow.used > 0.95 ? Zenon.red
-    : (sideRow.used > 0.85 ? Zenon.yellow : Zenon.cyan)
+    : (sideRow.used > 0.85 ? Zenon.yellow : Zenon.accent)
 
   // A gauged row is two lines — the name, and the band with the figure in
   // it — so it is taller. A bookmark has one line and keeps the old height:
@@ -202,7 +202,7 @@ Item {
     if (term.sideMenuAt === sideRow) term.sideMenuAt = null;
   }
 
-  // A cyan bar down the left of the active row stood here, mirroring the
+  // An accent bar down the left of the active row stood here, mirroring the
   // mark the listing puts on a selected file. The fill says it already,
   // and now that the fill starts exactly on the heading's rule the bar
   // was a second, shorter, differently-aligned edge inside it.
@@ -220,7 +220,7 @@ Item {
   property bool trashDrop: false
   // The swell's color. A drop on the trash is a trashing, so it wears the
   // yellow of the trash confirmation's button (user, 2026-10-13).
-  readonly property color dropInk: sideRow.trashDrop ? Zenon.yellow : Zenon.cyan
+  readonly property color dropInk: sideRow.trashDrop ? Zenon.yellow : Zenon.accent
 
   DropArea {
     id: rowDrop
@@ -239,7 +239,7 @@ Item {
   // ── A ROW WITH SOMETHING HELD OVER IT SWELLS ────────────────────
   // Lit like a directory in the listing that a drop is about to go into, and
   // more: the whole row grows a little, label and all, and its outline
-  // breathes in cyan for as long as the drop is on offer, so where it will
+  // breathes in accent for as long as the drop is on offer, so where it will
   // land is seen without hunting for a faint tint.
   property real swell: rowDrop.containsDrag ? 1 : 0
   Behavior on swell { NumberAnimation { duration: Zenon.fast; easing.type: Easing.OutCubic } }
@@ -380,12 +380,12 @@ Item {
     width: 20
     horizontalAlignment: Text.AlignHCenter
     text: sideRow.glyph
-    // The row's own color wins even while active: the cyan is there to
+    // The row's own color wins even while active: the accent is there to
     // say "this is where you are", and the label beside it already says
     // that. Taking a tag's color away to repeat it would lose more than
     // it tells.
     color: sideRow.ink.a > 0 ? sideRow.ink
-      : (sideRow.active ? Zenon.cyan : Zenon.accentMuted)
+      : (sideRow.active ? Zenon.accent : Zenon.accentMuted)
     font.family: Zenon.face
     font.weight: Zenon.weight
     // delphi's sidebar type (ShelfRow): 14, the label soft until it is
@@ -508,7 +508,7 @@ Item {
     // The eject wears the crumb bar's "where you are" gray rather than
     // green: it is a verb sitting on every mounted disk at once, and a
     // column of green marks down the sidebar was louder than the disks.
-    color: mountPress.pressed ? Zenon.cyan
+    color: mountPress.pressed ? Zenon.accent
       : (sideRow.mounted ? term.crumbInk : Zenon.accentMuted)
     font.family: Zenon.face
     font.weight: Zenon.weight

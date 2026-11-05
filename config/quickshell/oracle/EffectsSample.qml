@@ -29,7 +29,7 @@ Item {
   property string face: Zenon.face
   property color fgColor: Zenon.white
   property color dimColor: Zenon.accentMuted
-  property color highlight: Zenon.cyan
+  property color highlight: Zenon.accent
 
   // hyprland's own rows, with their defaults while it has not been read
   function hl(key, def) {
@@ -51,7 +51,7 @@ Item {
   readonly property bool glowOn: fx.on("decoration:glow:enabled", false)
   readonly property color glowInk: {
     const c = String(fx.hl("decoration:glow:color", ""));
-    return c === "" ? Zenon.cyan : c;
+    return c === "" ? Zenon.accent : c;
   }
 
   Text {
@@ -89,7 +89,7 @@ Item {
             required property int index
             width: 28
             height: stage.height * 5
-            color: [Zenon.cyan, Zenon.pink, Zenon.sand, Zenon.blue][index % 4]
+            color: [Zenon.accent, Zenon.pink, Zenon.sand, Zenon.blue][index % 4]
             opacity: 0.6
           }
         }

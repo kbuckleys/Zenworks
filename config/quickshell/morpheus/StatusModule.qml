@@ -56,12 +56,15 @@ Collapsible {
     Collapsible {
       id: awakeBox
       active: root.awake
-      openWidth: awakeIcon.implicitWidth + 8
+      openWidth: awakeIcon.implicitWidth + 16
       BarText {
         id: awakeIcon
         anchors.centerIn: parent
         text: "\uEC15"
-        color: Zenon.sand
+        // every status glyph wears the accent (Zenon.accent, which follows
+        // the theme, Accent color and Follow Background), except the
+        // recording light, which stays red
+        color: Zenon.accent
         // the bell's and the update glyph's size, not body text's
         numeric: true
         font.pixelSize: Zenon.clockSize
@@ -71,41 +74,41 @@ Collapsible {
     Collapsible {
       id: micBox
       active: root.micActive || root.micMuted
-      openWidth: micIcon.implicitWidth + 8
+      openWidth: micIcon.implicitWidth + 16
       BarText {
         id: micIcon
         anchors.centerIn: parent
         text: root.micMuted ? "󰍭" : "󰍬"
-        color: root.micMuted ? Zenon.muted : Zenon.yellow
+        color: root.micMuted ? Zenon.muted : Zenon.accent
       }
     }
 
     Collapsible {
       active: root.cameraActive
-      openWidth: camIcon.implicitWidth + 8
+      openWidth: camIcon.implicitWidth + 16
       BarText {
         id: camIcon
         anchors.centerIn: parent
         text: "\uEAD9"
-        color: Zenon.magenta
+        color: Zenon.accent
       }
     }
 
     Collapsible {
       active: root.screenActive
-      openWidth: shareIcon.implicitWidth + 8
+      openWidth: shareIcon.implicitWidth + 16
       BarText {
         id: shareIcon
         anchors.centerIn: parent
         text: "󰹁"
-        color: Zenon.cyan
+        color: Zenon.accent
       }
     }
 
     Collapsible {
       id: recBox
       active: root.recording
-      openWidth: recIcon.implicitWidth + 8
+      openWidth: recIcon.implicitWidth + 16
       BarText {
         id: recIcon
         anchors.centerIn: parent

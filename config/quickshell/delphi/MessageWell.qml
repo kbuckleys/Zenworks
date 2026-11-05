@@ -90,7 +90,7 @@ Rectangle {
       selectByMouse: true
       cursorDelegate: Caret { field: edit }
       color: Zenon.ink
-      selectionColor: Zenon.alpha(Zenon.cyan, 0.4)
+      selectionColor: Zenon.alpha(Zenon.accent, 0.4)
       font.family: Zenon.face
       font.weight: Zenon.weight
       font.pixelSize: mw.textSize

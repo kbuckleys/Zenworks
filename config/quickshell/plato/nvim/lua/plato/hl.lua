@@ -81,17 +81,20 @@ local byLook = {}      -- the merged attributes, serialized → id
 
 -- The id for a cell painted with these three groups (any may be nil), or 0
 -- when they add up to nothing — plain text in Normal's color, which the
--- client needs no span to draw.
+-- client needs no span to draw. `under` is a fourth, beneath them all: what
+-- fills the whole row (a window's own Normal, a line or end-of-line
+-- highlight), whose background shows through text that has none.
 --
 -- NUMBERED BY LOOK, NOT BY NAME. Under a selection, a keyword and a string
 -- can come out the same (two groups linked to one color): two names, one
 -- look. Keyed by name they were two styles, and a line came out as a span
 -- per syntax group instead of one.
-function M.style(base, deco, over)
-  local key = (base or "") .. "\0" .. (deco or "") .. "\0" .. (over or "")
+function M.style(base, deco, over, under)
+  local key = (base or "") .. "\0" .. (deco or "") .. "\0" .. (over or "") .. "\0" .. (under or "")
   local id = ids[key]
   if id then return id end
   local s = {}
+  merge(s, M.attrs(under))
   merge(s, M.attrs(base))
   merge(s, M.attrs(deco))
   merge(s, M.attrs(over))

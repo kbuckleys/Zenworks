@@ -58,7 +58,7 @@ FocusScope {
       Text {
         anchors.verticalCenter: parent.verticalCenter
         text: "\u{F033E}"
-        color: Zenon.cyan
+        color: Zenon.accent
         font.family: Zenon.glyphFace
         font.pixelSize: Zenon.px(18)
       }
@@ -94,12 +94,12 @@ FocusScope {
 
     Row {
       anchors.right: parent.right
-      spacing: 10
+      spacing: Zenon.buttonGap
       DialogButton { label: "Cancel"; ink: Zenon.accentMuted; onClicked: body.win.closeUnlock() }
       BusyButton {
         label: "Unlock"
         primary: true
-        ink: Zenon.cyan
+        ink: Zenon.accent
         ready: pass.text !== ""
         busy: !!body.win && body.win.asking
         busyText: "Unlocking…"

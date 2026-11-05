@@ -89,7 +89,7 @@ def file_title(note):
             return "Entry " + t if t else "Entry"
         # untitled, its time as well: two on one day apart, and in order
         return time.strftime("%Y-%m-%d" if t else "%Y-%m-%d %H.%M", time.localtime(ms / 1000)) + (" " + t if t else "")
-    return t or "New Note"
+    return t or "New note"
 
 
 def _attrs(b, skip):

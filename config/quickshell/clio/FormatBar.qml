@@ -105,7 +105,7 @@ Item {
           onHoveredChanged: fb.hover()
           size: 26
           glyph: N.KINDS[modelData].glyph
-          litInk: Zenon.cyan
+          litInk: Zenon.accent
           lit: !!fb.ed && fb.ed.kindHere === modelData
           tip: N.KINDS[modelData].label
           keys: fb._listKeys[modelData] || ""
@@ -123,7 +123,7 @@ Item {
           onHoveredChanged: fb.hover()
           size: 26
           glyph: modelData[1]
-          litInk: Zenon.cyan
+          litInk: Zenon.accent
           enabled: !fb._mono
           lit: enabled && (fb.ed.kindHere !== "" || fb.ed.mediaSel !== "") && fb.ed.alignNow === modelData[0]
           tip: modelData[2]
@@ -141,7 +141,7 @@ Item {
           onHoveredChanged: fb.hover()
           size: 26
           glyph: fb._markInfo[modelData][0]
-          litInk: Zenon.cyan
+          litInk: Zenon.accent
           enabled: !fb._mono
           lit: enabled && !!fb.ed && !!fb.ed.marksHere[modelData]
           tip: fb._markInfo[modelData][1]
@@ -166,7 +166,7 @@ Item {
         wordPx: Zenon.px(13)
         wordWeight: Font.DemiBold
         lit: here !== ""
-        litInk: Zenon.cyan
+        litInk: Zenon.accent
         tip: here !== "" ? "Font for these words — right click for the note's own" : "Font for these words"
         enabled: !fb._mono
         onPressed: fb.faceAsked()

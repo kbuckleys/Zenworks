@@ -77,7 +77,7 @@ Rectangle {
   width: Math.max(1, caret.thick - 1)
   // rounded (user, 2026-11-02): a bar's ends fully, a block's corners a touch
   radius: Math.min(caret.width, caret.height, 4) / 2
-  color: Zenon.cyan
+  color: Zenon.accent
   // and only while the field is drawn: a hidden key catcher (plato's
   // settings query, opacity 0) has focus all the time, and a caret
   // breathing there redrew the window for nothing
@@ -92,17 +92,17 @@ Rectangle {
   opacity: 1
 
   // ── A LIT FILAMENT (user, 2026-11-02, after a macOS search bar) ───────
-  // The theme's accent (the cyan slot, Oracle's Accent color over it) on
+  // The theme's accent (the accent slot, Oracle's Accent color over it) on
   // every caret in the suite, plato's block and underline too, whatever
   // color its owner gave it, glowing in the same color and breathing with
   // it. The glow is a radial falloff under the caret (z -1), stretched to
   // its height; a field that clips, or a caret that clips (plato's), trims
   // it. All of it rides the caret's own opacity: the breath still costs one
-  // value a step. (Cyan over yellow, two tones, came and went the same day.)
+  // value a step. (Accent over yellow, two tones, came and went the same day.)
   property bool glows: true
   // how far the glow reaches either side, px
   property int spread: Math.max(8, caret.thick * 4)
-  property color tone: Zenon.cyan
+  property color tone: Zenon.accent
   // a bit faded (user, 2026-11-02): the core runs this far toward the
   // window's ground (opaque, so an owner's own color never shows through),
   // the glow at this much of its strength

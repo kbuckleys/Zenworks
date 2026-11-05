@@ -289,7 +289,7 @@ LayerPopup {
             : popup.face === "result" ? (Ceres.txState === "done" ? words[1] : words[2])
             : Ceres.total === 0 ? "Up to date"
             : "Updates  " + Ceres.total
-          color: popup.face === "result" && Ceres.txState === "failed" ? Zenon.red : Zenon.cyan
+          color: popup.face === "result" && Ceres.txState === "failed" ? Zenon.red : Zenon.accent
           font.family: Zenon.face
           font.weight: Font.Bold
           font.pixelSize: Zenon.px(16)
@@ -459,6 +459,7 @@ LayerPopup {
 
         // ── the news, before an upgrade ─────────────────────────────
         NewsView {
+          id: newsView
           visible: popup.face === "news"
           anchors.fill: parent
           anchors.margins: 16
@@ -470,6 +471,11 @@ LayerPopup {
           visible: popup.face === "progress" || popup.face === "result"
           anchors.fill: parent
           anchors.margins: 16
+          // down over the foot: its pill stands inside the log (user,
+          // 2026-11-04), see the foot's margins
+          // (the body ends at foot.top, which the foot's own margin lifts)
+          anchors.bottomMargin: 16 - foot.height - foot.anchors.bottomMargin
+          footRoom: foot.height
         }
       }
 
@@ -478,6 +484,14 @@ LayerPopup {
       // down through the foot, which is declared after and draws over it
       ScrollEdge {
         view: list
+        below: true
+        follow: true
+        bar: foot
+      }
+      // the news before an upgrade, the same way
+      ScrollEdge {
+        view: newsView.list
+        visible: newsView.visible
         below: true
         follow: true
         bar: foot
@@ -491,6 +505,12 @@ LayerPopup {
         anchors.bottom: parent.bottom
         anchors.left: parent.left
         anchors.right: parent.right
+        // over the job, the pill sits in the log's corner: the foot drawn
+        // in by TxView's margin, so its pill stands its inset inside it
+        anchors.bottomMargin: tx.visible ? 16 : 0
+        anchors.rightMargin: tx.visible ? 16 + tx.railRoom : 0
+        // in the log, the pill frosts it (no ScrollEdge feeds it there)
+        frostSource: tx.visible ? tx.log : null
         rows: {
           switch (popup.face) {
           case "list":
@@ -516,21 +536,21 @@ LayerPopup {
         DialogButton {
           visible: popup.face === "news"
           label: "Continue"
-          ink: Zenon.cyan
+          ink: Zenon.accent
           primary: true
           onClicked: Ceres.passNews()
         }
         DialogButton {
           visible: popup.face === "result" && tx.settleable
           label: tx.settling && tx.settleInfo.conflicts.length ? "Replace and install" : "Install"
-          ink: Zenon.cyan
+          ink: Zenon.accent
           primary: true
           onClicked: tx.settle()
         }
         DialogButton {
           visible: popup.face === "result" && Ceres.txUnholdable
           label: "Install anyway"
-          ink: Zenon.cyan
+          ink: Zenon.accent
           primary: true
           onClicked: Ceres.txUnheldRun()
         }
@@ -549,7 +569,7 @@ LayerPopup {
         DialogButton {
           visible: popup.face === "list" && Ceres.total > 0
           label: "Update all"
-          ink: Zenon.cyan
+          ink: Zenon.accent
           primary: true
           onClicked: popup.startAuth()
         }

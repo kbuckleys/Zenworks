@@ -146,7 +146,7 @@ Column {
 
   HermesCard {
     glyph: H.G.filter
-    glyphInk: Hermes.filterWorn !== "" ? Zenon.cyan : Zenon.accentMuted
+    glyphInk: Hermes.filterWorn !== "" ? Zenon.accent : Zenon.accentMuted
     title: "Color filter"
     note: Hermes.filterWorn === "" ? "Off"
       : H.filterLabel(Hermes.filterWorn) + (Hermes.filter === "" ? " while quiet" : "")

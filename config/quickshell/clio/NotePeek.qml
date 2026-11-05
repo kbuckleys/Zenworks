@@ -35,7 +35,7 @@ Bubble {
     Text {
       anchors.verticalCenter: parent.verticalCenter
       text: peek.closed ? "" : peek.note && peek.note.kind === "entry" ? "\u{F0B64}" : "\u{F09ED}"
-      color: peek.closed ? Zenon.yellow : Zenon.cyan
+      color: peek.closed ? Zenon.yellow : Zenon.accent
       font.family: Zenon.glyphFace
       font.pixelSize: Zenon.px(14)
     }

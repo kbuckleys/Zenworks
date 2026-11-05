@@ -271,7 +271,7 @@ Item {
                   height: 20
                   radius: height / 2
                   color: Zenon.magenta
-                  Text { anchors.centerIn: parent; text: ""; color: Zenon.onAccent; font.family: Zenon.glyphFace; font.pixelSize: Zenon.px(11) }
+                  Text { anchors.centerIn: parent; text: ""; color: Zenon.inkOnAccent; font.family: Zenon.glyphFace; font.pixelSize: Zenon.px(11) }
                 }
                 // pressed darkens
                 Rectangle { anchors.fill: parent; color: "black"; opacity: tilePress.pressed ? 0.22 : 0 }

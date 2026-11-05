@@ -86,9 +86,9 @@ Item {
           width: cells.cellW
           height: 124
           radius: Zenon.rad(11)
-          color: press.pressed ? Zenon.pressWash(0.12) : cell.here ? Zenon.alpha(Zenon.cyan, 0.1) : Zenon.wash(0.04)
+          color: press.pressed ? Zenon.pressWash(0.12) : cell.here ? Zenon.alpha(Zenon.accent, 0.1) : Zenon.wash(0.04)
           border.width: 1
-          border.color: cell.here ? Zenon.alpha(Zenon.cyan, 0.5) : Zenon.border
+          border.color: cell.here ? Zenon.alpha(Zenon.accent, 0.5) : Zenon.border
           Behavior on color { ColorAnimation { duration: Zenon.fast } }
           Behavior on border.color { ColorAnimation { duration: Zenon.fast } }
           ItemTile {

@@ -60,7 +60,7 @@ module.exports = {
       .test(A.answerOf({ kind: "uuid" }, d, true).big));
     t.eq("addresses read", A.parseAddrs("2: wlan0    inet 192.168.1.4/24 brd 192.168.1.255 scope global"),
       [{ dev: "wlan0", addr: "192.168.1.4" }]);
-    t.eq("the battery read", A.parseBattery("84 Charging"), { big: "84%", small: "Charging" });
+    t.eq("the battery read", A.parseBattery("84 Charging"), { big: "84%", small: "Charging", level: 0.84 });
     t.eq("uptime in words", A.uptimeText(93784), "1 day, 2 hours");
     t.eq("a place found", A.parseGeocode('{"results":[{"latitude":30,"longitude":31,"name":"Cairo","country":"Egypt"}]}'),
       { lat: 30, lon: 31, name: "Cairo, Egypt" });
@@ -80,11 +80,17 @@ module.exports = {
     t.eq("a timestamp's date", ans("epoch 0000000000".replace("0000000000", "1700000000")).small, "1700000000 seconds since 1970");
     t.eq("the moon, by a known full one", A.moonPhase(new Date(Date.UTC(2026, 9, 26, 4))).name, "Full moon");
     t.eq("a hash is the machine's", A.parseAsk("sha256 hello"), { kind: "hash", algo: "sha256", text: "hello" });
-    t.eq("memory read", A.parseMem("MemTotal: 16777216 kB\nMemAvailable: 8388608 kB\n"),
+    t.eq("memory read", A.memAnswer(16777216, 8388608),
       { big: "8 GB of 16 GB", small: "50% in use · 8 GB free" });
     t.eq("disk read", A.parseDf("Filesystem 1024-blocks Used Available Capacity Mounted\n/dev/x 104857600 52428800 52428800 50% /").big, "50 GB free");
-    t.eq("load read", A.parseLoad("2.00 1.00 0.50 1/2 3\n4").big, "50% busy");
+    t.eq("cpu read", A.cpuAnswer(49.6, 1.234, 16), { big: "50% busy", small: "Load 1.23 · 16 threads" });
+    t.eq("disk level", A.parseDf("Filesystem 1024-blocks Used Available Capacity Mounted\n/dev/x 104857600 52428800 52428800 50% /").level, 0.5);
     t.eq("which network", A.parseAsk("which wifi am i on").kind, "wifi");
+    const forms = A.colorForms("#ff8800");
+    t.eq("a color's forms, hex first", forms[0], ["Hex", "#FF8800"]);
+    t.eq("as rgb()", forms[1][1], "rgb(255, 136, 0)");
+    t.eq("as Hyprland writes it", forms.find((f) => f[0] === "Hyprland")[1], "rgb(ff8800)");
+    t.eq("white in oklch", A.colorForms("#ffffff").find((f) => f[0] === "OKLCH")[1], "oklch(100% 0 0)");
     t.eq("what's playing", A.parseAsk("what's playing").kind, "playing");
 
     // ── commands that take an argument ───────────────────────────────────
@@ -123,6 +129,9 @@ module.exports = {
     t.eq("do not disturb", c("dnd on"), { kind: "dnd", on: true });
     t.eq("next song", c("next"), { kind: "media", act: "next" });
     t.eq("a workspace", c("workspace 3"), { kind: "workspace", n: 3 });
+    t.eq("the window moved", [c("move to workspace 3"), c("send window to 4"), c("move window to ws 2")].map((x) => x && x.kind + x.n),
+      ["moveWs3", "moveWs4", "moveWs2"]);
+    t.eq("the camera", c("camera"), { kind: "camera" });
     t.eq("an app ended", c("kill firefox"), { kind: "kill", name: "firefox", force: false });
     t.eq("or forced", c("force quit steam"), { kind: "kill", name: "steam", force: true });
     t.eq("a timer", c("timer 25m"), { kind: "timer", minutes: 25, label: "Timer" });
@@ -155,5 +164,44 @@ module.exports = {
     t.eq("khal's error, in words", A.calAnswer('{"error":"critical: Cannot find a config file."}', { span: "today" }, wed).small,
       "Set one up in Chronos");
     t.eq("a free day", A.calAnswer('{"events":[]}', { span: "friday" }, wed).big, "Nothing on");
+    // windows, apps, the screen and the rest of Raycast's own (2026-11-03)
+    t.eq("thirds", [c("left third"), c("center third"), c("right two thirds")].map((x) => x.where), ["left3", "center3", "right23"]);
+    t.eq("quarters", [c("top left quarter"), c("bottom right")].map((x) => x.where), ["tl", "br"]);
+    t.eq("center, restore, almost", [c("center"), c("restore"), c("almost maximize")].map((x) => x.where), ["center", "restore", "almost"]);
+    t.eq("larger, smaller, widths", [c("larger"), c("smaller"), c("maximize width"), c("maximize height"), c("previous screen")].map((x) => x.where),
+      ["grow", "shrink", "maxW", "maxH", "prev"]);
+    t.eq("restart an app", c("restart firefox"), { kind: "restart", name: "firefox" });
+    t.eq("quit all is not an app called all", [c("quit all apps").kind, c("close all windows").kind], ["quitAll", "quitAll"]);
+    t.eq("end focus is not an app called focus", c("end focus"), { kind: "focusEnd" });
+    t.eq("a focus session", c("focus 1h writing"), { kind: "focus", minutes: 60, label: "Writing" });
+    t.eq("focus alone is 25 min", c("focus"), { kind: "focus", minutes: 25, label: "Focus" });
+    t.eq("set aside", c("focus block discord"), { kind: "focusBlock", name: "discord", on: true });
+    t.eq("auto quit", [c("auto quit slack after 2h"), c("auto quit slack off")], [{ kind: "autoQuit", name: "slack", minutes: 120 },
+      { kind: "autoQuit", name: "slack", minutes: 0 }]);
+    t.eq("layouts", [c("save layout coding").kind, c("layout coding").kind, c("forget layout coding").kind], ["layoutSave", "layoutUse", "layoutDrop"]);
+    t.eq("the screen's words", [c("ocr").kind, c("copy text from screen").kind, c("scan qr").kind, c("qr scan").kind], ["ocr", "ocr", "scanqr", "scanqr"]);
+    t.eq("the rest", ["empty trash", "eject", "show desktop", "screens off", "clear clipboard", "join meeting", "fullscreen"].map((q) => c(q).kind),
+      ["emptyTrash", "eject", "desktop", "screensOff", "clearClips", "joinMeeting", "fullscreen"]);
+    t.eq("a QR code of the words", k("qr https://example.com/a?b=C"), { kind: "qr", text: "https://example.com/a?b=C" });
+    t.eq("qr scan is not a code of 'scan'", k("qr scan"), null);
+    t.eq("speed test", [k("speed test").kind, k("how fast is my internet").kind], ["speed", "speed"]);
+    t.eq("speed read", A.parseSpeed("12500000 0.050 0.010 2500000"), { big: "100 Mbps down", small: "20 Mbps up \u00B7 40 ms ping" });
+    t.eq("no speed is null", A.parseSpeed("0 0 0 0"), null);
+    const at10 = new Date(2026, 10, 3, 10, 0);
+    const iso = (h, m) => new Date(2026, 10, 3, h, m).toISOString();
+    t.eq("the next call's link, its full stop left off", A.nextMeeting([
+      { title: "Done", start: iso(8, 0), end: iso(9, 0), location: "https://zoom.us/j/1" },
+      { title: "Lunch", start: iso(10, 30), end: iso(11, 0), location: "Cafe" },
+      { title: "Standup", start: iso(11, 0), end: iso(11, 15), description: "Join: https://meet.google.com/abc-defg-hij." }], at10),
+      { title: "Standup", url: "https://meet.google.com/abc-defg-hij" });
+    t.eq("no call, no meeting", A.nextMeeting([{ title: "Lunch", start: iso(12, 0), end: iso(13, 0), location: "Cafe" }], at10), null);
+    // contacts, confetti, the clear words, light and dark (2026-11-03)
+    t.eq("a contact as typed", c("new contact Ada Lovelace ada@Example.org +44 20 7946 0958"),
+      { kind: "newContact", name: "Ada Lovelace", email: "ada@Example.org", phone: "+44 20 7946 0958" });
+    t.eq("a contact by name alone", c("add contact Grace"), { kind: "newContact", name: "Grace", email: "", phone: "" });
+    t.eq("no name, no contact", c("new contact ada@example.org"), null);
+    t.eq("confetti", [c("confetti").kind, c("celebrate").kind, c("tada!").kind], ["confetti", "confetti", "confetti"]);
+    t.eq("the clear words", [c("clear layouts").kind, c("clear window places").kind], ["layoutsClear", "placesClear"]);
+    t.eq("dark and light", [c("dark mode"), c("light mode")].map((x) => x && x.kind), ["appearance", "appearance"]);
   }
 };

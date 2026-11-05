@@ -55,7 +55,7 @@ Rectangle {
     : "Rename " + bulk.names.length + " " + bulk.noun + "s"
   property string glyph: "\uEC61"
   property color titleInk: Zenon.white
-  property color glyphInk: Zenon.cyan
+  property color glyphInk: Zenon.accent
   // HUNG FROM THE HOLDER'S BAR rather than floating with a title of its
   // own — for a holder whose bar carries the sheet's name (terminus). The
   // card's arrival and where it is drawn, so that bar can go dark with it
@@ -665,7 +665,7 @@ Rectangle {
             anchors.verticalCenter: parent.verticalCenter
             label: bulk.mode === "replace" ? "Replace"
               : bulk.mode === "add" ? "Add" : "Format"
-            ink: Zenon.cyan
+            ink: Zenon.accent
             ready: bulk.mode === "replace" ? findField.text !== ""
               : bulk.mode === "add" ? addField.text !== ""
               : (fmtField.text !== "" || bulk.fmtKind === "date")
@@ -868,7 +868,7 @@ Rectangle {
                 verticalAlignment: Text.AlignVCenter
                 text: bulk.edits[bulkRow.index] || ""
                 color: bulkRow.issue !== "" ? Zenon.red
-                  : (bulkRow.moved ? Zenon.cyan : Zenon.white)
+                  : (bulkRow.moved ? Zenon.accent : Zenon.white)
                 selectionColor: Zenon.selBg
                 selectedTextColor: Zenon.white
                 font.family: Zenon.face
@@ -987,7 +987,7 @@ Rectangle {
                 : bulk.changes + (bulk.changes === 1
                     ? " name will change" : " names will change"))
             color: !bulk.sound ? Zenon.red
-              : (bulk.changes === 0 ? Zenon.accentMuted : Zenon.cyan)
+              : (bulk.changes === 0 ? Zenon.accentMuted : Zenon.accent)
             font.family: Zenon.face
             font.weight: Zenon.weight
             font.pixelSize: Zenon.px(14)
@@ -997,7 +997,7 @@ Rectangle {
             anchors.right: parent.right
             anchors.rightMargin: 18
             anchors.verticalCenter: parent.verticalCenter
-            spacing: 10
+            spacing: Zenon.buttonGap
 
             DialogButton {
               label: "Cancel"
@@ -1007,7 +1007,7 @@ Rectangle {
 
             DialogButton {
               label: "Rename"
-              ink: Zenon.cyan
+              ink: Zenon.accent
               primary: true
               ready: bulk.sound && bulk.changes > 0
               onClicked: bulk.commit()

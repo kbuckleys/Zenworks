@@ -72,7 +72,7 @@ Item {
     radius: width / 2
     color: "transparent"
     border.width: 2
-    border.color: Zenon.cyan
+    border.color: Zenon.accent
   }
   Rectangle {
     anchors.horizontalCenter: parent.horizontalCenter

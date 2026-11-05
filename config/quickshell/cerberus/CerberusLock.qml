@@ -28,6 +28,7 @@ import Quickshell.Services.Pam
 import Quickshell.Widgets
 import "../morpheus"
 import "../oracle"
+import "../picasso" as Pic
 
 Scope {
   id: root
@@ -91,7 +92,10 @@ Scope {
   // keep redrawing the whole screen behind the lock for as long as it is
   // locked, at the lock's heavier blur. The lock swaps it for plain kawase
   // (0) and puts it back with the rest; a still style is kept as it is.
+  // Background only (Oracle's Behind the lock) covers the desktop with the
+  // picture, so there is nothing to blur and no raise is owed.
   function frost(on) {
+    if (on && Oracle.lockBackground === "plain") on = false;
     root.frosted = on;
     const f = Strings.shellQuote(root.blurSave);
     const opt = (o) => "$(hyprctl getoption decoration:blur:" + o + " | awk 'NR==1{print $2}')";
@@ -184,7 +188,7 @@ Scope {
   // so there is one answer to "what does a clock look like in this shell".
   // Only the time takes it — DSEG has no month names in it.
   // The unlit segments are the accent's (2026-10-20): the lit ones stay ink.
-  readonly property color ghostFg: Zenon.alpha(Zenon.cyan, 0.13)
+  readonly property color ghostFg: Zenon.alpha(Zenon.accent, 0.13)
   //   ...lifted from hyprlock's 47 to open the gap between the segments and
   //   the date under them, which the larger clock had closed up.
   readonly property int clockBottom: 64
@@ -967,6 +971,32 @@ Scope {
         // user asked, 2026-10-08). The same strength either way. Dark themes
         // wear their own ground too (2026-10-20) — black only in Zenon, whose
         // ground it is; Nord's lock is Nord's night, not a black film over it.
+        // BACKGROUND ONLY (Oracle's Behind the lock, user 2026-11-03): this
+        // output's background as picasso shows it, sharp and opaque, so the
+        // xray desktop under it — windows, bar — is covered, not frosted.
+        // A color assignment is that color. Under the shade, as the frost is.
+        Rectangle {
+          anchors.fill: parent
+          visible: Oracle.lockBackground === "plain"
+          readonly property string want: {
+            const n = surf.screen ? surf.screen.name : "";
+            const P = Pic.Picasso;
+            return String((P.shown && P.shown[n]) || (P.assignment && (P.assignment[n] || P.assignment["*"])) || "");
+          }
+          readonly property bool solid: want.indexOf("color:") === 0
+          color: solid ? want.slice(6) : root.dark
+          Image {
+            anchors.fill: parent
+            visible: !parent.solid && parent.want !== ""
+            asynchronous: true
+            cache: false
+            smooth: true
+            fillMode: Pic.Picasso.fillModeFor(surf.screen ? surf.screen.name : "")
+            // decoded at the output's size, not the file's
+            sourceSize.width: surf.width > 0 ? surf.width : 1920
+            source: visible ? Strings.fileUrl(parent.want) : ""
+          }
+        }
         Rectangle {
           anchors.fill: parent
           color: Zenon.alpha(Zenon.ground, root.shadeAlpha)
@@ -1020,7 +1050,9 @@ Scope {
             scale: (root.phase === "input" || root.phase === "checking") ? 0.7 : 1
 
             Behavior on opacity { NumberAnimation { duration: Zenon.ms(150); easing.type: Easing.OutQuint } }
-            Behavior on scale { NumberAnimation { duration: Zenon.ms(220); easing.type: Easing.OutBack } }
+            // OutBack only arriving (polish rule); leaving, a plain ease
+            Behavior on scale { NumberAnimation { duration: Zenon.ms(220)
+              easing.type: (root.phase === "input" || root.phase === "checking") ? Easing.OutCubic : Easing.OutBack } }
           }
 
           // ── the wait, as THREE DOTS ─────────────────────────────────
@@ -1111,7 +1143,9 @@ Scope {
             Behavior on opacity {
               NumberAnimation { duration: Zenon.ms(180); easing.type: Easing.OutQuint }
             }
-            Behavior on scale { NumberAnimation { duration: Zenon.ms(220); easing.type: Easing.OutBack } }
+            // OutBack only arriving (polish rule); leaving, a plain ease
+            Behavior on scale { NumberAnimation { duration: Zenon.ms(220)
+              easing.type: caps.opacity > 0.5 ? Easing.OutBack : Easing.OutCubic } }
             font.family: root.fontFamily
             font.weight: root.fontWeight
             // Under two thirds of the lock above it: large enough to read at a
@@ -1137,7 +1171,10 @@ Scope {
             visible: opacity > 0.01
             scale: opacity > 0.5 ? 1 : 0.7
             Behavior on opacity { NumberAnimation { duration: Zenon.ms(150); easing.type: Easing.OutQuint } }
-            Behavior on scale { NumberAnimation { duration: Zenon.ms(220); easing.type: Easing.OutBack } }
+            // OutBack only arriving (polish rule); leaving, a plain ease
+            Behavior on scale { NumberAnimation { duration: Zenon.ms(220)
+              easing.type: (root.phase === "input" && root.pw.length === 0
+                && !root.fadeOnEmpty && content.k > 0.6) ? Easing.OutBack : Easing.OutCubic } }
             font.family: root.fontFamily
             font.weight: root.fontWeight
             // the same size the check and fail glyphs use; all three are the

@@ -29,7 +29,7 @@ Item {
       Text {
         anchors.verticalCenter: parent.verticalCenter
         text: "\u{F08BB}"
-        color: Zenon.cyan
+        color: Zenon.accent
         font.family: Zenon.glyphFace
         font.pixelSize: Zenon.px(18)
       }
@@ -96,7 +96,7 @@ Item {
     }
     Row {
       anchors.right: parent.right
-      DialogButton { label: "Done"; ink: Zenon.cyan; primary: true; onClicked: set.closed() }
+      DialogButton { label: "Done"; ink: Zenon.accent; primary: true; onClicked: set.closed() }
     }
   }
 }

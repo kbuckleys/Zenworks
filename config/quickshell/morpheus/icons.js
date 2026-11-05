@@ -49,6 +49,11 @@
 // that imports this file — every row, tile, card and sheet — evaluated all of
 // it again; a profile caught terminus.js and icons.js costing hundreds of ms
 // that way (qmlprofiler, 2026-10-09).
+.import qs.morpheus as Morpheus
+// The glyphs chosen by hand (morpheus/FileGlyphs, terminus' Change glyph…):
+// the same instance the shell's `import "../morpheus"` sees. Node tests have
+// no QML, and no choices.
+var FileGlyphs = typeof Morpheus !== "undefined" ? Morpheus.FileGlyphs : globalThis.FileGlyphs;
 
 const CONDS = {
   "!dir": "", "block": "", "char": "",
@@ -91,7 +96,19 @@ const FILES = {
   "requirements.txt": "󰌠", "rust-toolchain.toml": "󱘗", "setup.cfg": "󰌠",
   "setup.py": "󰌠", "shell.nix": "󱄅", "todo": "",
   "todo.md": "", "tox.ini": "󰌠", "tsconfig.json": "",
-  "unlicense": "󰿃", "vagrantfile": "", "yarn.lock": ""
+  "unlicense": "󰿃", "vagrantfile": "", "yarn.lock": "",
+  // 11-05: more kinds, glyphs checked against the shipped Nerd Font
+  "lock": "\uF023", "log": "\uF4ED", "qmldir": "\uE87D", "zshrc": "\u{F0477}",
+  "bashrc": "\u{F0477}", "version": "\u{F04F9}", "tags": "\u{F04F9}",
+  "url": "\uF0C1", "database": "\u{F01BC}", "database-wal": "\u{F01BC}",
+  "database-shm": "\u{F01BC}", ".zsh_history": "\u{F02DA}",
+  ".python_history": "\u{F02DA}", ".node_repl_history": "\u{F02DA}",
+  ".lesshst": "\u{F02DA}", ".sqlite_history": "\u{F02DA}",
+  ".psql_history": "\u{F02DA}", ".wget-hsts": "\u{F02DA}",
+  ".viminfo": "\uE62B", "init.vim": "\uE62B", "init.lua": "\uE62B",
+  "bookmarks": "\u{F00C0}", "bookmarks.xbel": "\u{F00C0}",
+  "user-dirs.dirs": "\uE615", "user-dirs.locale": "\uE615",
+  "mimeapps.list": "\uE615", ".xresources": "\uE615", ".xdefaults": "\uE615"
 };
 
 // A directory by name. Never consulted for a file, and never crossed with
@@ -159,10 +176,45 @@ const DIRS = {
   "tests": "󰙨", "themes": "󰏘", "third_party": "",
   "tmp": "", "tools": "", "torrents": "",
   "trash": "", "usr": "", "utils": "",
+  "ubisoft": "\u{F0BDA}", "ubisoft connect": "\u{F0BDA}", "ubisoft game launcher": "\u{F0BDA}",
+  // the other game stores' and engines' directories (2026-11-05), by the
+  // names their launchers make; Steam's wear .steam's glyph. Epic, Riot,
+  // Rockstar and Bethesda have no Nerd glyph; a bare "ea" is too common.
+  "steam": "\uF1B7", "steamapps": "\uF1B7", "steamlibrary": "\uF1B7",
+  ".minecraft": "\u{F0373}", "minecraft": "\u{F0373}",
+  "gog": "\u{F0BA1}", "gog games": "\u{F0BA1}", "gog galaxy": "\u{F0BA1}",
+  "battle.net": "\uEF94", "blizzard": "\uEF94",
+  "itch": "\uEF99", "itch.io": "\uEF99",
+  "origin games": "\u{F0B43}", "ea games": "\u{F0B43}",
+  "ea desktop": "\u{F0B43}", "electronic arts": "\u{F0B43}",
+  "humble": "\u{F0744}", "humble bundle": "\u{F0744}", "humble app": "\u{F0744}",
+  "xboxgames": "\u{F05B9}", "xbox games": "\u{F05B9}",
+  "unity hub": "\u{F06AF}", "godot": "\uE7EE",
   "var": "", "vendor": "", "venv": "󰌠",
   "videos": "", "views": "", "vim": "",
   "backgrounds": "", "wallpapers": "", "wine": "", "work": "",
-  "workspace": "", "yay": "󰣇", "zen": "󰺕"
+  "workspace": "", "yay": "󰣇", "zen": "󰺕",
+  // 11-05: more kinds, glyphs checked against the shipped Nerd Font
+  "github": "\u{F02A4}", "glab-cli": "\u{F0BA0}",
+  "gitlab": "\u{F0BA0}", ".gitlab": "\u{F0BA0}", "chromium": "\u{F02AF}",
+  "google-chrome": "\u{F02AF}", "google-chrome-beta": "\u{F02AF}",
+  "inkscape": "\uF33B", "vulkan": "\uE952", "xorg": "\uF369", "kde": "\uF373",
+  "kdeconnect": "\uF373", "kactivitymanagerd": "\uF373", "kwalletd": "\uF373",
+  "kio": "\uF373", "kservices5": "\uF373", "klipper": "\uF373",
+  "gnome": "\u{F02AC}", "gnome-shell": "\u{F02AC}",
+  "gnome-session": "\u{F02AC}", "gnome-control-center": "\u{F02AC}",
+  "qtproject": "\uE87D", "qt5ct": "\uE87D", "qt6ct": "\uE87D",
+  "fcitx": "\u{F030C}", "fcitx5": "\u{F030C}", "ibus": "\u{F030C}",
+  "applications": "\u{F003B}", "qalculate": "\u{F00EC}", "khal": "\u{F00ED}",
+  "vdirsyncer": "\u{F00ED}", "songrec": "\u{F075A}", "nerdfonts": "\uE659",
+  "fontconfig": "\uE659", "shaders": "\uE855", "shader": "\uE855",
+  "glsl": "\uE855", "bookmarks": "\u{F00C0}", "history": "\u{F02DA}",
+  "databases": "\u{F01BC}", "ceres": "\u{F08C7}", "delphi": "\uF419",
+  "kairos": "\u{F0996}", "picasso": "\u{F0F49}", "terminus": "\uF114",
+  "alexandria": "\uF031", "plato": "\u{F06D3}", "oracle": "\uF013",
+  "argus": "\u{F16FF}", "chronos": "\uEAB0", "calypso": "\uEB11",
+  "cynosure": "\uF002",
+  "minerva": "\u{F03D2}", "hestia": "\u{F0E2E}"
 };
 
 // By extension, which is what most files are recognized by.
@@ -323,7 +375,29 @@ const EXTS = {
   "xz": "", "yaml": "", "yml": "", "yuv": "",
   "z": "", "zig": "", "zip": "", "zipx": "",
   "zon": "", "zoo": "", "zsh": "󰑷", "zst": "",
-  "zstd": ""
+  "zstd": "",
+  // 11-05: more kinds, glyphs checked against the shipped Nerd Font
+  "jsonl": "\uE60B", "ndjson": "\uE60B", "geojson": "\uE60B",
+  "webmanifest": "\uE60B", "sqlite3": "\uE7C4", "sqlite-shm": "\uE7C4",
+  "sqlite-wal": "\uE7C4", "sqlite-journal": "\uE7C4",
+  "sqlite3-journal": "\uE7C4", "db3": "\uE7C4", "ldb": "\uE64D",
+  "db-journal": "\uE64D", "db-wal": "\uE64D", "db-shm": "\uE64D",
+  "mdb": "\uE64D", "accdb": "\uE64D", "pak": "\uE6AA", "asar": "\uE6AA",
+  "pk3": "\uE6AA", "vpk": "\uE6AA", "node": "\uEAE8", "zwc": "\u{F0477}",
+  "zsh-theme": "\u{F0477}", "bash-completion": "\u{F0477}", "frag": "\uE855",
+  "vert": "\uE855", "glsl": "\uE855", "hlsl": "\uE855", "comp": "\uE855",
+  "geom": "\uE855", "tesc": "\uE855", "tese": "\uE855", "spv": "\uE855",
+  "wgsl": "\uE855", "qsb": "\uE855", "shader": "\uE855", "fsh": "\uE855",
+  "vsh": "\uE855", "onnx": "\u{F09D1}", "tflite": "\u{F09D1}",
+  "gguf": "\u{F09D1}", "ggml": "\u{F09D1}", "safetensors": "\u{F09D1}",
+  "pt": "\u{F09D1}", "pth": "\u{F09D1}", "ckpt": "\u{F09D1}", "vdf": "\uF1B7",
+  "acf": "\uF1B7", "swm": "\uE62B", "swl": "\uE62B", "swk": "\uE62B",
+  "shada": "\uE62B", "viminfo": "\uE62B", "xbel": "\u{F00C0}",
+  "menu": "\u{F05C0}", "directory": "\uE615", "backup": "\uF1DA",
+  "bk": "\uF1DA", "save": "\uF1DA", "history": "\u{F02DA}",
+  "hist": "\u{F02DA}", "ctags": "\u{F04F9}", "tags": "\u{F04F9}",
+  "bdic": "\u{F061D}", "dic": "\u{F061D}", "dict": "\u{F061D}",
+  "aff": "\u{F061D}", "info": "\u{F02FC}", "cache": "\uF49B"
 };
 
 // Own properties only. An archive holding a file called "constructor" or
@@ -361,6 +435,18 @@ function extensionOf(name) {
 // it wears the directory's glyph, so the same program is not two pictures in
 // two windows. Only where the directory's rule is a generic picture (bash as a
 // script, .ssh as a key) does the program keep its own logo.
+// U+F059F md-web, for a browser the font has no logo for
+const WEB = "\uDB81\uDD9F";
+// ── BY CATEGORY ─────────────────────────────────────────────────────────
+// An app no name claims, by its desktop file's Categories= (user,
+// 2026-11-04): a generic glyph for what it is. First listed wins, so the
+// more particular kind goes first.
+const CATS = {
+  "WebBrowser":   WEB,             // U+F059F md-web
+  "FileTransfer": "\uDB84\uDC65"   // U+F1065, torrent clients and the like
+};
+const CAT_ORDER = ["WebBrowser", "FileTransfer"];
+
 const APPS = {
   // ── browsers ──
   "firefox": "\uF269", "firefox-developer-edition": "\uF269", "firefox-nightly": "\uF269",
@@ -369,6 +455,12 @@ const APPS = {
   "opera": "\uE746",
   "safari": "\uE748",
   "tor-browser": "\uF371", "torbrowser-launcher": "\uF371", "tor": "\uF371",
+  // A BROWSER THE FONT HAS NO LOGO FOR is known by its desktop file
+  // (Categories=WebBrowser — see appGlyph's `categories`) and wears md-web
+  // (user, 2026-11-04). Named here only the ones that slip past that: a
+  // window whose class finds no desktop file, a browser run without one.
+  "brave-origin": WEB, "brave-origin-browser": WEB, "com.brave.origin": WEB,
+  "helium": WEB, "net.imput.helium": WEB,
   // ── chat and social ──
   "discord": "\uF1FF", "discord-canary": "\uF1FF", "discord-ptb": "\uF1FF",
   "vesktop": "\uF1FF", "webcord": "\uF1FF", "equibop": "\uF1FF",
@@ -660,7 +752,11 @@ const APPS = {
   // U+F0D13, md-fountain_pen_tip: the image writer (its desktop id is stylus)
   "stylus": "\uDB83\uDD13",
   // U+EAB0, the calendar window (its desktop id is chronos; the user's pick)
-  "chronos": "\uEAB0"
+  "chronos": "\uEAB0",
+  // U+F013, the gear Cynosure's Settings row wears: the settings window
+  "oracle": "\uF013",
+  // U+F002, the magnifier: the launcher (hot corners' own glyph for it too)
+  "cynosure": "\uF002"
 };
 
 // The glyph for a launcher entry, or "" when nothing claims it. `names` is
@@ -669,7 +765,10 @@ const APPS = {
 // Each is tried whole, then as its last reverse-DNS part, then hyphenated,
 // then by its first word — so "Neovim", "nvim.desktop" and "nvim ~/notes"
 // all land on the same line.
-function appGlyph(names) {
+// `categories`, when the caller has the entry's (Categories= of its desktop
+// file), answers what no name did — see CATS: a web browser is the web
+// glyph. A name in the table still wins, so a browser with a logo keeps it.
+function appGlyph(names, categories) {
   const tries = [];
   for (const raw of names || []) {
     let n = String(raw || "").trim().toLowerCase();
@@ -682,6 +781,9 @@ function appGlyph(names) {
     const g = ruleFor(APPS, k);
     if (g !== undefined) return g;
   }
+  // then what the desktop file says it is, in CATS' order
+  const cats = categories ? Array.from(categories) : [];
+  for (const c of CAT_ORDER) if (cats.indexOf(c) >= 0) return CATS[c];
   return "";
 }
 
@@ -731,31 +833,52 @@ function isPlain(glyph) { return glyph === CONDS["!dir"]; }
 
 // The glyph for one entry, or "" when nothing claims it — which the caller
 // draws as the plain page CONDS["!dir"] carries.
-function glyphFor(entry) {
-  if (!entry) return "";
+function glyphFor(entry) { return glyphSource(entry).glyph; }
+
+// THE SAME LOOKUP, SAYING WHICH RULE ANSWERED — terminus' Info card says
+// where a glyph comes from (user, 2026-11-05). glyphFor is this, so the two
+// cannot disagree. `from`:
+//   "own"     chosen for this path (FileGlyphs)     key: the path
+//   "dirname" a directory rule (DIRS)               key: the name
+//   "dir"     every directory
+//   "orphan"  a broken link
+//   "name"    an exact filename (FILES)             key: the name
+//   "ext"     an extension (EXTS)                   key: the extension
+//   "exec"    something you can run
+//   "link"    a link
+//   "plain"   nothing claimed it (the plain page)
+function glyphSource(entry) {
+  const at = (glyph, from, key) => ({ glyph: glyph || "", from: from, key: key || "" });
+  if (!entry) return at("", "plain");
+  // A glyph chosen for this very entry beats every rule (per path). Read
+  // from FileGlyphs.map, so a binding asking here redraws on a new choice.
+  if (entry.path && FileGlyphs) {
+    const own = FileGlyphs.of(entry.path);
+    if (own !== "") return at(own, "own", String(entry.path));
+  }
   const name = String(entry.name || "").toLowerCase();
 
   if (entry.isDir) {
     const d = ruleFor(DIRS, name);
-    if (d !== undefined) return d;
-    return CONDS["dir"] || "";
+    if (d !== undefined) return at(d, "dirname", name);
+    return at(CONDS["dir"], "dir");
   }
 
   if (entry.isLink && entry.broken && CONDS["orphan"] !== undefined)
-    return CONDS["orphan"];
+    return at(CONDS["orphan"], "orphan");
 
   const f = ruleFor(FILES, name);
-  if (f !== undefined) return f;
+  if (f !== undefined) return at(f, "name", name);
 
   const ext = extensionOf(name);
   if (ext) {
     const e = ruleFor(EXTS, ext);
-    if (e !== undefined) return e;
+    if (e !== undefined) return at(e, "ext", ext);
   }
 
-  if (entry.isExec && CONDS["exec"] !== undefined) return CONDS["exec"];
-  if (entry.isLink && CONDS["link"] !== undefined) return CONDS["link"];
-  return CONDS["!dir"] || "";
+  if (entry.isExec && CONDS["exec"] !== undefined) return at(CONDS["exec"], "exec");
+  if (entry.isLink && CONDS["link"] !== undefined) return at(CONDS["link"], "link");
+  return at(CONDS["!dir"], "plain");
 }
 
 // How many rules there are, which is the one thing about this table worth

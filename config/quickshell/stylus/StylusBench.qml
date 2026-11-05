@@ -89,7 +89,7 @@ FocusScope {
               width: parent.width
               height: Math.max(2, parent.height * modelData.frac)
               radius: Zenon.rad(2)
-              color: Zenon.cyan
+              color: Zenon.accent
               opacity: 0.85
             }
           }
@@ -143,7 +143,7 @@ FocusScope {
 
     Row {
       anchors.right: parent.right
-      spacing: 10
+      spacing: Zenon.buttonGap
       DialogButton { label: "Close"; ink: Zenon.accentMuted; onClicked: body.win.closeBench() }
       DialogButton {
         visible: body.face === "running"
@@ -155,7 +155,7 @@ FocusScope {
         visible: body.face !== "running"
         label: body.face === "done" ? "Again" : "Start"
         primary: true
-        ink: Zenon.cyan
+        ink: Zenon.accent
         ready: !!body.drive
         onClicked: body.go()
       }

@@ -136,7 +136,6 @@ FloatingWindow {
         anchors.right: parent.right
         anchors.rightMargin: 14
         anchors.verticalCenter: parent.verticalCenter
-        implicitHeight: 32
         glyph: true
         label: "\u{F0450}"
         busy: !!tw.mgr && tw.mgr.scanning
@@ -169,7 +168,7 @@ FloatingWindow {
           // ── the package cache ───────────────────────────────────────
           HermesCard {
             glyph: "\u{F03D6}"
-            glyphInk: H.pkgcacheBytes(tw.ov.pkgcache) > 0 ? Zenon.cyan : Zenon.accentMuted
+            glyphInk: H.pkgcacheBytes(tw.ov.pkgcache) > 0 ? Zenon.accent : Zenon.accentMuted
             title: "Package cache"
             note: tw.ov.known ? tw.size(tw.ov.pkgcache.bytes) + " in /var/cache/pacman/pkg" : ""
             Words {
@@ -184,7 +183,7 @@ FloatingWindow {
               DialogButton {
                 visible: !tw.ov.pkgcache.tool && tw.ov.known
                 label: "Install pacman-contrib"
-                ink: Zenon.cyan
+                ink: Zenon.accent
                 primary: true
                 ready: !tw.busy
                 onClicked: tw.mgr.asRoot("pkg", ["pacman-contrib"], "for Tidy's package cache", [])
@@ -192,7 +191,7 @@ FloatingWindow {
               DialogButton {
                 visible: tw.ov.pkgcache.tool && H.pkgcacheOld(tw.ov.pkgcache).count + tw.ov.pkgcache.gone.count > 0
                 label: "Clear " + tw.size(H.pkgcacheBytes(tw.ov.pkgcache))
-                ink: Zenon.cyan
+                ink: Zenon.accent
                 primary: true
                 ready: !tw.busy
                 onClicked: tw.mgr.asRoot("pkg", [], "clear old packages from the cache",
@@ -204,7 +203,7 @@ FloatingWindow {
           // ── unused packages ─────────────────────────────────────────
           HermesCard {
             glyph: "\u{F03D6}"
-            glyphInk: tw.ov.orphans.length ? Zenon.cyan : Zenon.accentMuted
+            glyphInk: tw.ov.orphans.length ? Zenon.accent : Zenon.accentMuted
             title: "Unused packages"
             note: tw.ov.orphans.length ? tw.ov.orphans.length + " · " + tw.size(H.orphanBytes(tw.ov.orphans)) : tw.ov.known ? "none" : ""
             Words {
@@ -224,7 +223,7 @@ FloatingWindow {
               visible: tw.ov.orphans.length > 0
               DialogButton {
                 label: "Remove " + tw.ov.orphans.length + (tw.ov.orphans.length === 1 ? " package" : " packages")
-                ink: Zenon.cyan
+                ink: Zenon.accent
                 primary: true
                 ready: !tw.busy
                 onClicked: tw.mgr.asRoot("orphans", [], "remove packages nothing needs",
@@ -236,7 +235,7 @@ FloatingWindow {
           // ── the journal ────────────────────────────────────────────
           HermesCard {
             glyph: "\u{F09EE}"
-            glyphInk: H.journalSpare(tw.ov.journal.bytes) > 0 ? Zenon.cyan : Zenon.accentMuted
+            glyphInk: H.journalSpare(tw.ov.journal.bytes) > 0 ? Zenon.accent : Zenon.accentMuted
             title: "System journal"
             note: tw.ov.known ? tw.size(tw.ov.journal.bytes) : ""
             Words {
@@ -248,7 +247,7 @@ FloatingWindow {
               visible: H.journalSpare(tw.ov.journal.bytes) > 0
               DialogButton {
                 label: "Shrink to 200 MiB"
-                ink: Zenon.cyan
+                ink: Zenon.accent
                 primary: true
                 ready: !tw.busy
                 onClicked: tw.mgr.asRoot("journal", [], "shrink the system journal", H.journalSteps())
@@ -270,7 +269,7 @@ FloatingWindow {
               bottomPadding: 8
               DialogButton {
                 label: tw.picked("pickCaches").length ? "Move " + tw.size(tw.bytesOf(tw.ov.caches.dirs, tw.pickCaches)) + " to the trash" : "Move to the trash"
-                ink: Zenon.cyan
+                ink: Zenon.accent
                 primary: tw.picked("pickCaches").length > 0
                 ready: !tw.busy && tw.picked("pickCaches").length > 0
                 onClicked: { const p = tw.picked("pickCaches"); tw.mgr.trash(p, p.length === 1 ? "1 cache" : p.length + " caches"); }
@@ -335,7 +334,7 @@ FloatingWindow {
               visible: tw.ov.downloads.files.length > 0
               DialogButton {
                 label: tw.picked("pickDl").length ? "Move " + tw.size(tw.bytesOf(tw.ov.downloads.files, tw.pickDl)) + " to the trash" : "Move to the trash"
-                ink: Zenon.cyan
+                ink: Zenon.accent
                 primary: tw.picked("pickDl").length > 0
                 ready: !tw.busy && tw.picked("pickDl").length > 0
                 onClicked: { const p = tw.picked("pickDl"); tw.mgr.trash(p, p.length === 1 ? "1 file" : p.length + " files"); }
@@ -352,7 +351,7 @@ FloatingWindow {
           // ── duplicates ─────────────────────────────────────────────
           HermesCard {
             glyph: "\u{F0191}"
-            glyphInk: tw.dupeGroups.length ? Zenon.cyan : Zenon.accentMuted
+            glyphInk: tw.dupeGroups.length ? Zenon.accent : Zenon.accentMuted
             title: "Duplicates"
             note: !tw.mgr ? "" : tw.mgr.dupesScanning ? "Comparing…"
               : tw.mgr.dupesAsked ? (tw.dupeGroups.length ? tw.dupeGroups.length + " files copied · " + tw.size(H.dupeWaste(tw.dupeGroups)) + " twice" : "none") : ""
@@ -398,7 +397,7 @@ FloatingWindow {
               DialogButton {
                 visible: tw.picked("pickDupes").length > 0
                 label: "Move " + tw.picked("pickDupes").length + (tw.picked("pickDupes").length === 1 ? " copy" : " copies") + " to the trash"
-                ink: Zenon.cyan
+                ink: Zenon.accent
                 primary: true
                 ready: !tw.busy
                 onClicked: { const p = Object.keys(H.safePicks(tw.dupeGroups, tw.pickDupes)); tw.mgr.trash(p, p.length === 1 ? "1 copy" : p.length + " copies"); }

@@ -53,7 +53,7 @@ Item {
   Rectangle {
     visible: seam.line
     anchors.fill: parent
-    color: seam.lit ? Zenon.cyan : Zenon.border
+    color: seam.lit ? Zenon.accent : Zenon.border
     Behavior on color { ColorAnimation { duration: Zenon.fast } }
   }
   MouseArea {

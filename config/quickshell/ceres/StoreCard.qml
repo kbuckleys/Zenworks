@@ -37,9 +37,9 @@ Item {
     anchors.fill: parent
     anchors.margins: 3
     radius: Zenon.windowRadius
-    color: card.here ? Zenon.alpha(Zenon.cyan, 0.10) : Zenon.wash(0.035)
+    color: card.here ? Zenon.alpha(Zenon.accent, 0.10) : Zenon.wash(0.035)
     border.width: card.here ? 1 : 0
-    border.color: Zenon.alpha(Zenon.cyan, 0.6)
+    border.color: Zenon.alpha(Zenon.accent, 0.6)
     Behavior on color { ColorAnimation { duration: Zenon.ms(120) } }
   }
   // PRESSED, IT DARKENS (user, 2026-10-19: the packages, not their sections)

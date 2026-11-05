@@ -154,11 +154,11 @@ Item {
     // label correct and unfurnished.
     //
     // So the weight moved to the FRONT, where a heading's weight belongs: a
-    // short cyan tick in the glyph column, the same column every row's icon
+    // short accent tick in the glyph column, the same column every row's icon
     // stands in, so the headings and the rows share one left edge and the
     // label starts where a row's label starts. It marks the group in the one
     // place the eye is already traveling down.
-    // The ink the breadcrumb gives the step you are standing on. Cyan
+    // The ink the breadcrumb gives the step you are standing on. Accent
     // is this window's "chosen" color — it marks the active pane, the
     // cursor and the current row — and spending it on four headings
     // that are never chosen and never change made the sidebar compete

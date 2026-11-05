@@ -34,6 +34,7 @@ import Qt.labs.folderlistmodel
 import "../morpheus"
 import "terminus.js" as Terminus
 import "../morpheus/thumbs.js" as Thumbs
+import "../morpheus/icons.js" as Icons
 import "tags.js" as Tags
 import "collections.js" as Coll
 import "network.js" as Net
@@ -132,7 +133,8 @@ FloatingWindow {
   function ground(a) { return Qt.rgba(Zenon.layerBg.r, Zenon.layerBg.g, Zenon.layerBg.b, a); }
   // an inactive tab's glass, against the window's own
   // (0.4 went to a dark slab over a dark background, the label lost in it).
-  // A dark theme tints it navy as well — see Zenon.tabAway/tabAwayInk.
+  // Zenon tints it navy as well, a dark theme in its own hue — see
+  // Zenon.tabAway/tabAwayInk.
   readonly property real tabAwayAlpha: Zenon.tabAway(root.winAlpha)
   // ── HOW MUCH OF A SCROLLED VIEW SHOWS THROUGH THE BARS, BY MODE ──────
   // Rows of names frost to a quiet texture; a grid of pictures frosts to
@@ -1269,6 +1271,9 @@ FloatingWindow {
 
   function measureAll() { return measure.measureAll(); }
 
+  function sizesMoved(paths, under) { return measure.sizesMoved(paths, under); }
+  function sizesAllMoved() { return measure.sizesAllMoved(); }
+
   // ── THE SELECTION'S DIRECTORIES, MEASURED FOR ITS TOTAL ────────────────────
   // Marking a directory asks what it adds up to, so it is measured — quietly, a
   // moment after the marks settle, and only the marked directories du has not
@@ -1864,7 +1869,7 @@ FloatingWindow {
   // opens a directory remembered in another view does exactly that. The
   // bar was then chasing a moving target: measured off Buck's capture it
   // ended up twenty-one pixels below the row it was going to, further
-  // than the two rows are apart, with the active row's own cyan bar
+  // than the two rows are apart, with the active row's own accent bar
   // already in place. Two rows marked, in two different ways.
   //
   // Armed by the row that CLAIMS the cursor, before the assignment, so
@@ -2737,6 +2742,8 @@ FloatingWindow {
       ["Disks",             "M",       () => disks.ask()],
       ["Connect to server", "",        () => connect.ask(null, null)],
       ["Tags",              "c t",     () => tagPick.ask()],
+      ["Change glyph",    "",        () => glyphPick.ask()],
+      ["Default glyph",     "",        () => glyphPick.reset(root.acting())],
       ["New collection",  "c s",     () => collEdit.ask(-1)],
       // Editing one is only offered while you are looking at it, which is
       // also the only time you know which one you mean.
@@ -2992,6 +2999,41 @@ FloatingWindow {
   // request goes out when they stop — which is also the moment the answer
   // could first have been seen.
   property bool previewWanted: false
+
+  // ── A GLYPH CHOSEN BY HAND (morpheus/FileGlyphs) ─────────────────────
+  // Rows carry the glyph enrich gave them, so a new choice is drawn by
+  // giving the rows on screen theirs again — in search results too, which a
+  // relist cannot reach — and the columns, the tree and the other pane are
+  // listed again for the rest.
+  Connections {
+    target: FileGlyphs
+    function onEdited() {
+      const reglyph = (rows) => {
+        if (!rows || rows.length === 0) return rows;
+        for (const r of rows) if (r && r.path) r.glyph = root.glyphOf(r);
+        return rows.slice();
+      };
+      if (root.act) root.act.raw = reglyph(root.act.raw);
+      root.parentRows = reglyph(root.parentRows);
+      // A relist prints the same bytes, and a listing equal to the last one
+      // is skipped as "nothing changed" (Listing's listOut): forgotten first,
+      // so the rows are built again with the new glyph (user, 2026-11-05:
+      // it only showed after leaving the directory and coming back).
+      if (root.act) root.act.lastListing = null;
+      if (root.pas) root.pas.lastListing = null;
+      // and the opened branches of the list's tree, which skip the same way
+      // (kidText) and keep rows of their own
+      for (const p of [root.act, root.pas]) {
+        if (!p || !p.kids) continue;
+        const k = Object.assign({}, p.kids);
+        for (const key in k) k[key] = reglyph(k[key]);
+        p.kidText = ({});
+        p.kids = k;
+      }
+      if (root.searchMode === "") root.refresh(true);
+      root.refreshOther();
+    }
+  }
 
   Connections {
     target: millerAnim
@@ -3779,11 +3821,15 @@ FloatingWindow {
     if (tagPick.open)
       return tagPick.targets.length === 1
         ? "Tag 1 item" : "Tag " + tagPick.targets.length + " items";
+    // the entry, between the bar's "Glyph for" (sheetLead) and nothing
+    if (glyphPick.open)
+      return glyphPick.many ? glyphPick.targets.length + " items"
+        : (glyphPick.first ? glyphPick.first.name : "");
     if (collEdit.open)
       return collEdit.searching
-        ? (collEdit.naming ? (collEdit.hangs ? "Save Search as Collection" : "New Collection")
-           : (collEdit.searchKind === "grep" ? "Search Contents" : "Search"))
-        : (collEdit.making ? "New Collection" : "Collection");
+        ? (collEdit.naming ? (collEdit.hangs ? "Save search as collection" : "New collection")
+           : (collEdit.searchKind === "grep" ? "Search contents" : "Search"))
+        : (collEdit.making ? "New collection" : "Collection");
     return "";
   }
 
@@ -3805,8 +3851,10 @@ FloatingWindow {
     // the case that has no file to show — several of them at once.
     if (appPick.open)
       return appPick.icon !== "" ? appPick.icon : "\uEC65";
+    // asked again rather than read off the row: Default glyph from the
+    // card's bubble changes it while the card is up
     if (props.open && !props.many && props.rows[0])
-      return props.rows[0].glyph !== undefined ? props.rows[0].glyph : "";
+      return root.glyphOf(props.rows[0]);
     // A VERB, not a file. Rename is always about several — one name is the
     // in-place edit — so there is no row's glyph to show and this says what
     // the card does instead.
@@ -3816,6 +3864,8 @@ FloatingWindow {
     if (marks.open) return "\uF47A";
     // nf-fa-tag, the same mark the sidebar will list them under
     if (tagPick.open) return "\uF02B";
+    // the glyph under the sheet's cursor: the entry as it would look
+    if (glyphPick.open) return glyphPick.shown;
     if (collEdit.open)
       return collEdit.searching && !collEdit.naming ? "\uF002" : "\uEC78";
     // the same disk mark the sidebar and the rows use
@@ -3841,7 +3891,7 @@ FloatingWindow {
     confirm.open ? (confirm.choices.length > 0 ? confirm.choices[0].ink : Zenon.sand)
     : bulk.open ? root.crumbInk
     // the bookmark, in the accent as everywhere it is drawn
-    : marks.open ? Zenon.cyan
+    : marks.open ? Zenon.accent
     // A FILE'S GLYPH WEARS THE GLYPH'S INK, its name the name's — as its row
     // does (user, 2026-10-17: the info and open-with headers wore one ink
     // for both, and a repository lost its magenta)
@@ -3849,14 +3899,15 @@ FloatingWindow {
     : (props.open && !props.many && props.rows[0]) ? root.glyphInkFor(props.rows[0])
     // The tag under the cursor, on the mark only — see sheetTitleInk.
     : (tagPick.open && tagPick.chosen() !== "") ? root.tagInk(tagPick.chosen())
+    : (glyphPick.open && !glyphPick.many && glyphPick.first) ? root.glyphInkFor(glyphPick.first)
     : root.sheetTitleInk
 
 
 
   // ── THE HEADER IS INKED LIKE THE ROW IT IS ABOUT ───────────────────────
   // Glyph and name together, the way a row is inked everywhere else in this
-  // window: a directory cyan, an archive yellow, a broken link red. The bar
-  // was titling everything cyan, which made a card about a tarball look like
+  // window: a directory accent, an archive yellow, a broken link red. The bar
+  // was titling everything accent, which made a card about a tarball look like
   // a card about a directory.
   //
   // Only where there IS one row. Several at once have no color of their own
@@ -3869,13 +3920,13 @@ FloatingWindow {
     // The question in white with its mark in the verb's color, as the
     // card wrote it: the mark carries the danger, the words are the words.
     if (confirm.open) return Zenon.white;
-    if (diskTool.open) return diskTool.mode === "format" ? Zenon.red : Zenon.cyan;
+    if (diskTool.open) return diskTool.mode === "format" ? Zenon.red : Zenon.accent;
     if (appPick.open && appPick.icon !== "") return appPick.nameInk;
     if (props.open && !props.many && props.rows[0])
       return root.nameInkFor(props.rows[0]);
     // SAND, which is what a bookmark is inked everywhere else in this window:
     // the ribbon on a listing row, the one in the sidebar, the one in the go
-    // sheet. Cyan is the ink of a place you are going; this card is about the
+    // sheet. Accent is the ink of a place you are going; this card is about the
     // marks themselves, so it wears their color.
     if (marks.open) return Zenon.sand;
     // The color of the tag the cursor is on goes on the MARK, so the bar's
@@ -3883,7 +3934,9 @@ FloatingWindow {
     // confirmation writes its question: "Tag 1 item" is not a tag, and in
     // red it read as a warning.
     if (tagPick.open) return Zenon.white;
-    return Zenon.cyan;
+    if (glyphPick.open)
+      return !glyphPick.many && glyphPick.first ? root.nameInkFor(glyphPick.first) : Zenon.white;
+    return Zenon.accent;
   }
 
   // ── NOTHING HANGS FROM THE BAR ANY MORE ─────────────────────────────────
@@ -3981,13 +4034,13 @@ FloatingWindow {
   // ── A SHEET THAT ASKS A QUESTION SAYS IT AS A SENTENCE (user, 2026-10-17)
   // "Open <glyph> name with…", the way copy and move read "Copy <glyph>
   // name to…": the words either side of the subject, muted, on the bar.
-  readonly property string sheetLead: appPick.open ? "Open" : bgSet.open ? "Set" : ""
+  readonly property string sheetLead: appPick.open ? "Open" : bgSet.open ? "Set" : glyphPick.open ? "Glyph for" : ""
   readonly property string sheetTail: appPick.open ? "with\u2026" : bgSet.open ? "as background" : ""
   property string barLead: ""
   property string barTail: ""
   property string barGlyph: ""
-  property color barTitleInk: Zenon.cyan
-  property color barGlyphInk: Zenon.cyan
+  property color barTitleInk: Zenon.accent
+  property color barGlyphInk: Zenon.accent
   // the send picker's sentence instead of a title
   property bool barSend: false
   function latchBar() { return cards.latchBar(); }
@@ -3997,7 +4050,7 @@ FloatingWindow {
   onSheetTitleInkChanged: if (root.sheetTitle !== "") root.latchBar()
   // ITS OWN HANDLER. Latching only on the title's change read the glyph's
   // ink before that binding had caught up, so the mark kept the color of
-  // the tag the cursor had just LEFT — or cyan, from when the sheet opened.
+  // the tag the cursor had just LEFT — or accent, from when the sheet opened.
   onSheetGlyphInkChanged: if (root.sheetTitle !== "") root.latchBar()
   Connections {
     target: sendTo
@@ -4011,6 +4064,7 @@ FloatingWindow {
 
   readonly property bool modal: root.looking || cmdPalette.open || marks.open
     || disks.open || space.open || plug.open || diskInfo.open || tagPick.open || collEdit.open
+    || glyphPick.open
     || connect.open || props.open || confirm.open || diskTool.open || bgSet.open
     || sendTo.open
     || bulk.open || prefs.open
@@ -4349,6 +4403,31 @@ FloatingWindow {
   readonly property alias prefsRef: prefs
   readonly property alias sendToRef: sendTo
   readonly property alias tagPickRef: tagPick
+  readonly property alias glyphPickRef: glyphPick
+  // the Info card's glyph, clicked (PropsCard asks its host for this)
+  function changeGlyph(rows) { glyphPick.ask(rows); }
+  function resetGlyph(rows) { glyphPick.reset(rows); }
+  // and its bubble: what the glyph is called, its codepoint, and where it
+  // comes from (Terminus.glyphWhy). Read in a binding: the names arrive
+  // (fontBook.nerd) and a choice changes (FileGlyphs) under it.
+  function wantGlyphNames() { if (root.mgr && root.mgr.fontBook) root.mgr.fontBook.needNames(); }
+  // the names are in (or there is no book to bring them): the bubble may open
+  function glyphNamesReady() {
+    const book = root.mgr && root.mgr.fontBook ? root.mgr.fontBook : null;
+    if (!book) return true;
+    for (const k in book.nerd) return true;
+    return false;
+  }
+  function glyphFacts(r) {
+    if (!r) return null;
+    const book = root.mgr && root.mgr.fontBook ? root.mgr.fontBook : null;
+    const g = root.glyphOf(r);
+    const cp = g !== "" ? g.codePointAt(0) : -1;
+    const nn = book && cp >= 0 ? book.nerd[cp] : null;
+    return { glyph: g, name: nn && nn.length > 0 ? nn[0] : "",
+             code: cp >= 0 ? "U+" + cp.toString(16).toUpperCase() : "",
+             why: Terminus.glyphWhy(r, Icons), own: !!r.path && FileGlyphs.of(r.path) !== "" };
+  }
   readonly property alias emptyDelayRef: creating.emptyDelay
   readonly property alias otherRetryRef: otherRetry
   readonly property alias holdPollRef: holdPoll
@@ -5139,7 +5218,7 @@ FloatingWindow {
       // long as one is up — see its own note. Nothing here may act while a
       // question is on screen.
       if (confirm.open || props.open
-          || appPick.open || sendTo.open) return;
+          || appPick.open || sendTo.open || glyphPick.open || collEdit.open) return;
 
       // ── AND WHILE A NAME IS BEING TYPED IN THE LISTING ────────────
       // An inline rename holds the keyboard in a TextInput ON a row, and a
@@ -6170,149 +6249,38 @@ FloatingWindow {
     // which is the difference between a sequence you remember and one you
     // have to look up. Same list, same place. It appears with the prefix and
     // goes the moment the next key lands or the timeout gives up.
-    Rectangle {
+    // morpheus/HintBar like every other strip (user, 2026-11-03), its keys
+    // in the floating pill and WRAPPED rather than behind "?": a hint you
+    // cannot see is not a hint. On the shell's opaque hint ground, so a file
+    // of Lua behind a pressed `g` never reads through the keys.
+    Item {
       id: which
       anchors.left: parent.left
       anchors.right: parent.right
       anchors.bottom: parent.bottom
-      height: content.pending === "" ? 0 : whichFlow.implicitHeight + 20
-      // one line, so the bar is a fixed depth whichever prefix is pending
+      height: content.pending === "" ? 0 : whichBar.height
       visible: height > 0
       clip: true
       z: 7
-      // THE SHELL'S HINT-BAR GROUND, which every popup with a row of keys
-      // along its bottom wears. This strip had its own answer — 86% black with
-      // headBg over it — and 86% is not opaque: at a `g` pressed over a file
-      // of Lua the code behind it read straight through the hints, which is
-      // the exact thing the alpha was there to stop.
-      color: Zenon.hintBg
       Behavior on height { NumberAnimation { duration: Zenon.fast; easing.type: Zenon.ease } }
-
-      Rectangle {
-        anchors.top: parent.top
-        anchors.left: parent.left
-        anchors.right: parent.right
-        height: 1
-        // the divider every other strip in this window is separated by
-        color: Zenon.border
-      }
 
       readonly property var entries:
         content.pending === "" ? [] : (content.sequences[content.pending] || [])
+      // the KEY as something you can read: the entry that opens the path
+      // bar is bound to a space, and the binding stays a space. Some words
+      // are worked out on the spot, for what the cursor is on.
+      readonly property var rows: which.entries.map((e) =>
+        [e[0] === " " ? "space" : e[0], typeof e[1] === "function" ? e[1]() : e[1]])
 
-      // ── laid out by hand, so it can WRAP AND STILL BE CENTERED ────────
-      //
-      // This was a single Row that clipped at both ends when the set was wider
-      // than the window — the reasoning being that a Flow can wrap but cannot
-      // center the lines it wraps, so a narrow window would trade a clipped
-      // strip for a ragged block. Both halves of that are true, and clipping
-      // is still the worse of the two: a hint you cannot see is not a hint.
-      //
-      // So the break points are worked out here rather than left to a Flow,
-      // and each line is its own centered Row. FontMetrics measures the same
-      // two fonts the delegates draw with, so the widths it adds up are the
-      // widths that get drawn — the chip's padding is the one constant that
-      // has to agree with KeyCap (morpheus), and it is written down in both places.
-      readonly property real chipPad: Math.round(13 * 1.15)
-      readonly property real gap: 22
-      readonly property real entryGap: 8
-
-      FontMetrics {
-        id: chipFm
-        font.family: Zenon.face
-        font.weight: Zenon.weight
-        font.pixelSize: Zenon.px(13)
-      }
-      FontMetrics {
-        id: labelFm
-        font.family: Zenon.face
-        font.weight: Zenon.weight
-        font.pixelSize: Zenon.px(15)
-      }
-
-      function entryText(e) {
-        return (typeof e[1] === "function") ? e[1]() : e[1];
-      }
-      function keyText(e) { return e[0] === " " ? "space" : e[0]; }
-
-      function entryWidth(e) {
-        return chipFm.advanceWidth(which.keyText(e)) + which.chipPad
-          + which.entryGap + labelFm.advanceWidth(which.entryText(e));
-      }
-
-      // The entries grouped into the lines they will be drawn on. Greedy, which
-      // is what you want here: the order is the order the keys are listed in,
-      // so a line break must never reorder them to pack better.
-      readonly property var lines: {
-        const avail = which.width - 32;
-        const out = [];
-        let cur = [];
-        let w = 0;
-        for (const e of which.entries) {
-          const ew = which.entryWidth(e);
-          if (cur.length > 0 && w + which.gap + ew > avail) {
-            out.push(cur);
-            cur = [];
-            w = 0;
-          }
-          w += (cur.length > 0 ? which.gap : 0) + ew;
-          cur.push(e);
-        }
-        if (cur.length > 0) out.push(cur);
-        return out;
-      }
-
-      Column {
-        id: whichFlow
-        anchors.horizontalCenter: parent.horizontalCenter
-        anchors.top: parent.top
-        anchors.topMargin: 10
-        spacing: 6
-
-        Repeater {
-          model: which.lines
-
-          delegate: Row {
-            required property var modelData
-            anchors.horizontalCenter: parent.horizontalCenter
-            // wider apart than the two halves of one entry, so a line reads as
-            // separate hints rather than one long sentence
-            spacing: which.gap
-
-            Repeater {
-              model: parent.modelData
-
-              delegate: Row {
-                required property var modelData
-                spacing: which.entryGap
-
-                KeyCap {
-                  anchors.verticalCenter: parent.verticalCenter
-                  fontSize: 13
-                  // The KEY as something you can read, which is not always the
-                  // key itself: the entry that opens the path bar is bound to a
-                  // space, and a space drawn in the key column is a gap with a
-                  // label floating after it. The binding stays a space — this
-                  // is the name of it, not the match.
-                  label: which.keyText(modelData)
-                }
-
-                Text {
-                  anchors.verticalCenter: parent.verticalCenter
-                  // Static for nearly every entry, and worked out on the spot
-                  // for the ones whose meaning depends on what the cursor is on.
-                  text: which.entryText(modelData)
-                  // same ink and the same weight as the path bar's current
-                  // segment, because they are the same kind of statement
-                  color: root.crumbInk
-                  font.family: Zenon.face
-                  font.weight: Font.Medium
-                  font.pixelSize: Zenon.px(15)
-                }
-              }
-            }
-          }
-        }
+      HintBar {
+        id: whichBar
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        rows: which.rows
+        wrap: true
+        centered: true
+        frostBase: Zenon.hintBg
       }
     }
 
@@ -6536,6 +6504,8 @@ FloatingWindow {
       onRenamed: (moves) => {
         if (moves.length === 0) { root.status = "No names changed"; return; }
         root.run(Terminus.bulkRenameApply(moves));
+        // a glyph chosen for one follows it to its new name (FileGlyphs)
+        FileGlyphs.moved(moves);
         root.status = "Renamed " + moves.length;
       }
       onClosed: content.forceActiveFocus()
@@ -7012,6 +6982,9 @@ FloatingWindow {
 
     // marks, in its own file — see terminus/MarksSheet.qml
     MarksSheet { id: marks; term: root }
+
+    // Change glyph…: an entry's own glyph — see terminus/GlyphSheet.qml
+    GlyphSheet { id: glyphPick; term: root }
 
     // ── QUICK LOOK ────────────────────────────────────────────────────────
     // The preview the pane already worked out, at the size of the window. It

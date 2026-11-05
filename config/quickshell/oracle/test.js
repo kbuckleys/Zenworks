@@ -58,7 +58,7 @@ function makeContext() {
     zenonHex: () => ({
       black: "#000000", white: "#dfdfdd", muted: "#6a707f", red: "#e78284",
       green: "#b6e0a4", yellow: "#fab387", blue: "#9fcbfc",
-      magenta: "#c8a4e0", cyan: "#9bbfbf", pink: "#eebebe", sand: "#e0d8a4"
+      magenta: "#c8a4e0", accent: "#9bbfbf", pink: "#eebebe", sand: "#e0d8a4"
     })
   };
 

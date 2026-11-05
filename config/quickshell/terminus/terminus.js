@@ -130,10 +130,15 @@ function mergeRepos(known, dir, found) {
 // inotifywait over every directory given, run with -m so it stays. Terminus'
 // own watches and picasso's viewer arm theirs with this, so the two notice
 // the same things. Tethered, so it dies with the shell (Paths.tether).
-function watchArgv(dirs) {
+// `grow` adds modify: a file being written while it stays open — a download,
+// a log, a big cp halfway through — says close_write only once, at the end,
+// so a listing watching for that kept the size it had when the writing began.
+// Terminus' own watchers ask for it (their settle answers a burst at most
+// once a second, see DirWatch.nudge); the picture viewer has no sizes to keep.
+function watchArgv(dirs, grow) {
   return Paths.tether(["inotifywait", "-m", "-q",
     "-e", "create", "-e", "delete", "-e", "moved_to", "-e", "moved_from",
-    "-e", "close_write", "-e", "attrib", "--"].concat(dirs));
+    "-e", "close_write", "-e", "attrib"].concat(grow ? ["-e", "modify"] : [], ["--"], dirs));
 }
 
 function peekCommand(dir) {
@@ -451,7 +456,7 @@ function sizeOf_(r) {
 // The seven presets in the order tags.js declares them, which is a color
 // wheel. Written out rather than imported: terminus.js is loaded by things
 // that have no reason to pull in the tag store, and this is seven strings.
-var TAG_WHEEL = ["red", "orange", "yellow", "green", "blue", "purple", "grey"];
+var TAG_WHEEL = ["red", "orange", "yellow", "green", "blue", "purple", "gray"];
 
 // Where a path's first tag sits on the wheel. 1e9 for untagged, and
 // TAG_WHEEL.length for a tag of the user's own, which puts every custom tag
@@ -866,12 +871,12 @@ function selectionSize(rows, sizes) {
 //   image/*                       #b6e0a4   Zenon.green
 //   {audio,video}/*               #e0d8a4   Zenon.sand
 //   archives                      #fab387   Zenon.yellow
-//   application/{pdf,doc,rtf}     #9bbfbf   Zenon.cyan
+//   application/{pdf,doc,rtf}     #9bbfbf   Zenon.accent
 //   inode/empty                   #a0a09b   gray
 //   orphan                        #e78284   Zenon.red
 //   link                          #c8a4e0   Zenon.magenta
 //   exec                          #fab387   Zenon.yellow
-//   directory fallback            #9bbfbf   Zenon.cyan
+//   directory fallback            #9bbfbf   Zenon.accent
 //   file fallback                 #dfdfdd   Zenon.white
 //
 // Yazi asks a mime database; this asks the extension. That is a real
@@ -1069,6 +1074,18 @@ var QT_BLIND_EXTS = {
   pfm: 1, phm: 1, iff: 1, ilbm: 1, lbm: 1, rgb: 1, rgba: 1, bw: 1, sgi: 1,
   ani: 1, eps: 1, epsf: 1, epsi: 1
 };
+
+// What Qt itself always decodes (qt6-base's own plugins): a failure there
+// is that one file — half written, cut short, misnamed — never the format,
+// so it must not send every file of its kind the long way round. A JPEG
+// read mid-download made every .jpg a render for the session (2026-11-04).
+var QT_SURE_EXTS = { jpg: 1, jpeg: 1, jpe: 1, jfif: 1, png: 1, gif: 1, bmp: 1, dib: 1,
+  svg: 1, svgz: 1, ico: 1, webp: 1, tif: 1, tiff: 1, tga: 1, wbmp: 1, pbm: 1, pgm: 1, ppm: 1, xbm: 1, xpm: 1 };
+function qtSure(name) {
+  var n = String(name);
+  var cut = n.lastIndexOf(".");
+  return cut > 0 && QT_SURE_EXTS[n.slice(cut + 1).toLowerCase()] === 1;
+}
 
 function qtBlind(name) {
   var n = String(name);
@@ -1825,8 +1842,8 @@ function xterm256(n) {
   // base color, because Zenon does not have a second one for them.
   const Z = Strings.zenonHex();
   const basic = [Z.black, Z.red, Z.green, Z.yellow, Z.blue, Z.magenta,
-                 Z.cyan, Z.white, Z.muted, Z.pink, Z.green, Z.sand,
-                 Z.blue, Z.magenta, Z.cyan, Z.white];
+                 Z.accent, Z.white, Z.muted, Z.pink, Z.green, Z.sand,
+                 Z.blue, Z.magenta, Z.accent, Z.white];
   if (n < 16) return basic[n];
   if (n < 232) {
     const c = n - 16;
@@ -2242,8 +2259,16 @@ function parseFolderFacts(text) {
 // be measured at once and each needs its own answer. The output is
 // "bytes<TAB>path", and paths can contain anything except a tab or a newline,
 // so the first tab is the only split that is safe.
+//
+// ── ONE du PER DIRECTORY ─────────────────────────────────────────────────
+// One du over all of them counts every inode ONCE across its arguments, so
+// a directory and a directory inside it — a tree with a branch open, or a
+// re-measure after a change, which asks about a directory and its parents
+// together — came back wrong: `du -sb a a/b` prints nothing at all for a/b,
+// and `du -sb a/b a` gives a/b everything and a only what is left. Each
+// directory's total is its own walk.
 function dirSizeCommand(paths) {
-  return withArgs("du -sb -- \"$@\" 2>/dev/null", paths);
+  return withArgs("for d do du -sb -- \"$d\" 2>/dev/null; done; true", paths);
 }
 
 function parseDirSizes(text) {
@@ -3304,11 +3329,35 @@ function exportCommand(paths, dest, ext, edge, quality, tag) {
 //          (Oracle's Monospace), each character in its picture's color on
 //          black, or in its grays with GRAY=1
 //   text   the same characters as plain text
+//   grain  Bitgrain (user, 2026-11-03): BLOCKS grains on its longest side,
+//          the tone firmed and sharpened first, each a dot on or off —
+//          dithered by METHOD (diffuse is Floyd–Steinberg, atkinson runs
+//          back and forth a row at a time, bayer 8×8, halftone dots, grain
+//          interleaved gradient noise: even, never clumped like random), the
+//          dark ones in DARK and the light in LIGHT (ImageMagick colors), or
+//          with no DARK three levels in each channel (27 colors) — then
+//          blown up BY times like pixel art. The awk pass prints value by
+//          value: a row built up as one string took minutes on a fine one.
 // Its own names inside (a*): the loops round it own d, n, p, s and b.
 const ART_ONE = "art_one() {\n"
   + "  if [ \"$3\" = pixel ]; then\n"
   + "    magick -- \"$1[0]\" -auto-orient -resize \"$4x$4\" +dither -colors 32 -sample \"$(($5 * 100))%\" \"$2\"\n"
   + "    return\n"
+  + "  fi\n"
+  + "  if [ \"$3\" = grain ]; then\n"
+  + "    at=$(mktemp -d) || return 1\n"
+  + "    ag=sRGB; af=ppm; al=3; [ -z \"$8\" ] || { ag=gray; af=pgm; al=2; }\n"
+  + "    magick -- \"$1[0]\" -auto-orient -background white -alpha remove -alpha off -resize \"$4x$4\" -colorspace \"$ag\" -auto-level -sigmoidal-contrast 3x50% -unsharp 0x1+0.8+0 -depth 8 \"$at/s.png\" && case $7 in\n"
+  + "      bayer) magick \"$at/s.png\" -ordered-dither \"o8x8,$al\" \"$at/d.png\" ;;\n"
+  + "      halftone) magick \"$at/s.png\" -ordered-dither \"h6x6a,$al\" \"$at/d.png\" ;;\n"
+  + "      diffuse) magick \"$at/s.png\" -dither FloydSteinberg -posterize \"$al\" \"$at/d.png\" ;;\n"
+  + "      *) magick \"$at/s.png\" -compress none \"$af:-\" | awk -v m=\"$7\" -v L=\"$al\" 'NR == 1 { t = $1; next } { for (i = 1; i <= NF; i++) v[n++] = $i } END { w = v[0]; h = v[1]; M = v[2]; c = t == \"P3\" ? 3 : 1; r = w * c; s = M / (L - 1); print t; print w, h; print L - 1; for (y = 0; y < h; y++) { d = m == \"atkinson\" && y % 2 ? -1 : 1; x0 = d > 0 ? 0 : w - 1; for (j = 0; j < w; j++) { x = x0 + d * j; for (q = 0; q < c; q++) { i = 3 + y * r + x * c + q; o = v[i]; f = o / s; if (m == \"grain\") { g = 52.9829189 * ((0.06711056 * (x + 5.588 * q) + 0.00583715 * y) % 1); g -= int(g); k = int(f); k += f - k > g } else k = int(f + 0.5); k = k < 0 ? 0 : k > L - 1 ? L - 1 : k; u[x * c + q] = k; if (m == \"atkinson\") { e = (o - k * s) / 8; if (x + d >= 0 && x + d < w) { v[i + d * c] += e; v[i + r + d * c] += e } if (x + 2 * d >= 0 && x + 2 * d < w) v[i + 2 * d * c] += e; if (x - d >= 0 && x - d < w) v[i + r - d * c] += e; v[i + r] += e; v[i + 2 * r] += e } } } for (j = 0; j < r; j++) printf \"%d%s\", u[j], j < r - 1 ? \" \" : \"\\n\" } }' > \"$at/d.pnm\" && magick \"$at/d.pnm\" \"$at/d.png\" ;;\n"
+  + "    esac && if [ -n \"$8\" ]; then\n"
+  + "      magick \"$at/d.png\" -colorspace gray +level-colors \"$8,$9\" -sample \"$(($5 * 100))%\" \"$2\"\n"
+  + "    else magick \"$at/d.png\" -sample \"$(($5 * 100))%\" \"$2\"; fi\n"
+  + "    ar=$?\n"
+  + "    rm -rf -- \"$at\"\n"
+  + "    return $ar\n"
   + "  fi\n"
   + "  at=$(mktemp -d) || return 1\n"
   + "  af=$(fc-match -f '%{file}' monospace 2>/dev/null)\n"
@@ -3334,31 +3383,46 @@ const ART_ONE = "art_one() {\n"
 
 // The kinds' names on a copy: "photo-pixel.png", "photo-ascii.txt"
 function artSuffix(kind) {
-  return kind === "pixel" ? "-pixel.png" : kind === "text" ? "-ascii.txt" : "-ascii.png";
+  return kind === "pixel" ? "-pixel.png" : kind === "text" ? "-ascii.txt"
+    : kind === "grain" ? "-bitgrain.png" : "-ascii.png";
+}
+
+// Bitgrain's settings, only ever these: a method from the list, and two
+// ImageMagick color words ("black", "gray15", "#1e2030") or neither, for
+// eight colors — they are written into the preview's script as they are
+const GRAIN_METHODS = { diffuse: 1, atkinson: 1, bayer: 1, halftone: 1, grain: 1 };
+function grainArgs(opts) {
+  const o = opts || {};
+  const word = (c) => typeof c === "string" && /^(#[0-9a-fA-F]{6}|[a-zA-Z]+[0-9]*)$/.test(c);
+  const two = word(o.dark) && word(o.light);
+  return [Object.prototype.hasOwnProperty.call(GRAIN_METHODS, o.method) ? o.method : "atkinson", two ? o.dark : "", two ? o.light : ""];
 }
 
 // art_one with its settings, for a script given the source as $1 and where
 // it goes as $2 (picasso's viewer makes a preview this way, to compare)
 function artScript(kind, opts) {
   const o = opts || {};
-  const kinds = { pixel: 1, ascii: 1, text: 1 };
+  const kinds = { pixel: 1, ascii: 1, text: 1, grain: 1 };
+  const g = kind === "grain" ? grainArgs(o) : null;
   return ART_ONE + "art_one \"$1\" \"$2\" " + (kind in kinds ? kind : "pixel") + " "
-    + (Math.round(o.blocks) || 96) + " " + (Math.round(o.by) || 16) + " " + (o.gray ? 1 : 0) + "\n";
+    + (Math.round(o.blocks) || (g ? 400 : 96)) + " " + (Math.round(o.by) || (g ? 4 : 16)) + " " + (o.gray ? 1 : 0)
+    + (g ? " " + g[0] + " \"" + g[1] + "\" \"" + g[2] + "\"" : "") + "\n";
 }
 
 // each picture as art, beside it or into `dest`, through terminus_free like
 // the web export
 function artExportCommand(paths, dest, kind, opts) {
   const o = opts || {};
-  return withArgs(FREE_NAME + ART_ONE + "D=$1; k=$2; bk=$3; x=$4; g=$5; sx=$6; shift 6; s=0\n"
+  const gr = kind === "grain";
+  return withArgs(FREE_NAME + ART_ONE + "D=$1; k=$2; bk=$3; x=$4; g=$5; sx=$6; gm=$7; gd=$8; gl=$9; shift 9; s=0\n"
     + "for p; do\n"
     + "  d=${D:-$(dirname -- \"$p\")}\n"
     + STEM_OF
     + "  n=$(terminus_free \"$d\" \"$stem$sx\" \"$p\")\n"
-    + "  art_one \"$p\" \"$d/$n\" \"$k\" \"$bk\" \"$x\" \"$g\" || s=1\n"
+    + "  art_one \"$p\" \"$d/$n\" \"$k\" \"$bk\" \"$x\" \"$g\" \"$gm\" \"$gd\" \"$gl\" || s=1\n"
     + "done\n"
-    + "exit $s\n", [dest || "", kind, String(o.blocks || 96), String(o.by || 16), o.gray ? "1" : "0",
-                   artSuffix(kind)].concat(paths));
+    + "exit $s\n", [dest || "", kind, String(o.blocks || (gr ? 400 : 96)), String(o.by || (gr ? 4 : 16)), o.gray ? "1" : "0",
+                   artSuffix(kind)].concat(gr ? grainArgs(o) : ["", "", ""], paths));
 }
 
 // ONE picture into `dir` as `name`, through terminus_free like the rest —
@@ -4414,7 +4478,7 @@ function inkKeyOf(e) {
 }
 
 // Names are plain text: the kind is the glyph's to show, and a column of
-// cyan directories and yellow scripts read as colored text, not as files.
+// accent directories and yellow scripts read as colored text, not as files.
 function nameKeyOf(e) {
   return "white";
 }
@@ -4435,9 +4499,33 @@ function rowNameInk(e) {
 
 function glyphOf(r, icons) {
   const g = icons.glyphFor(r);
-  if (!icons.isPlain(g)) return g;
+  // a plain page CHOSEN for it stays (audit 11-05): only the rules' plain
+  // page falls back to the kind
+  if (!icons.isPlain(g) || (icons.glyphSource && icons.glyphSource(r).from === "own")) return g;
   const kind = isFont(r.name) ? "font" : kindOf(r.name);
   return icons.kindGlyph(kind) || g;
+}
+
+// Where glyphOf's answer comes from, in words — the Info card's bubble
+// (user, 2026-11-05). The rule's own name for it is the entry's name as
+// written: the tables match case-insensitively.
+function glyphWhy(r, icons) {
+  if (!r) return "";
+  const s = icons.glyphSource(r);
+  const name = String(r.name || s.key);
+  switch (s.from) {
+    case "own": return r.isDir ? "Chosen for this directory" : "Chosen for this file";
+    case "dirname": return "From the rule for “" + name + "” directories";
+    case "dir": return "Every directory’s glyph";
+    case "orphan": return "A broken link’s glyph";
+    case "name": return "From the rule for “" + name + "”";
+    case "ext": return "From the rule for ." + s.key + " files";
+    case "exec": return "Something you can run";
+    case "link": return "A link’s glyph";
+  }
+  // plain: glyphOf's fallback to the kind, when the kind has one
+  const kind = isFont(r.name) ? "font" : kindOf(r.name);
+  return icons.kindGlyph(kind) ? "From its kind: " + kind : "No rule claims it";
 }
 
 // A directory's glyph from its PATH, for everywhere a directory is named
@@ -4449,9 +4537,11 @@ function glyphOf(r, icons) {
 function dirGlyph(path, icons, label) {
   const p = String(path || "").replace(/(.)\/+$/, "$1");
   if (p === "") return "";
-  if (p === "/") return "";
+  // the root wears a glyph chosen for it, else its own (audit 11-05)
+  if (p === "/") return icons.glyphSource && icons.glyphSource({ name: "/", isDir: true, path: "/" }).from === "own"
+    ? icons.glyphFor({ name: "/", isDir: true, path: "/" }) : "";
   return icons.glyphFor({
-    name: p === Paths.home() ? "home" : (label || basename(p)), isDir: true });
+    name: p === Paths.home() ? "home" : (label || basename(p)), isDir: true, path: p });
 }
 
 function enrich(rows, icons) {

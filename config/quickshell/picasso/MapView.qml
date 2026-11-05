@@ -190,11 +190,11 @@ Item {
       Component.onCompleted: if (!(pin.first in map.thumbs)) map.wantThumb(pin.first)
 
       // the point it stands on
-      Rectangle { x: pin.width / 2 - 1; y: 46; width: 2; height: 12; color: Zenon.cyan }
-      Rectangle { x: pin.width / 2 - 3; y: 55; width: 6; height: 6; radius: 3; color: Zenon.cyan }
+      Rectangle { x: pin.width / 2 - 1; y: 46; width: 2; height: 12; color: Zenon.accent }
+      Rectangle { x: pin.width / 2 - 3; y: 55; width: 6; height: 6; radius: 3; color: Zenon.accent }
       Rectangle {
         width: 50; height: 50; radius: 25
-        color: Zenon.cyan
+        color: Zenon.accent
         Thumb {
           anchors.fill: parent
           anchors.margins: 3
@@ -238,7 +238,7 @@ Item {
       id: credit
       anchors.centerIn: parent
       text: "© OpenStreetMap contributors"
-      color: creditMa.containsMouse ? Zenon.cyan : Zenon.accentMuted
+      color: creditMa.containsMouse ? Zenon.accent : Zenon.accentMuted
       font.family: Zenon.face
       font.weight: Zenon.weight
       font.pixelSize: Zenon.px(11)
@@ -268,7 +268,7 @@ Item {
           horizontalAlignment: Text.AlignHCenter
           verticalAlignment: Text.AlignVCenter
           text: modelData.t
-          color: zma.pressed ? Zenon.cyan : Zenon.white
+          color: zma.pressed ? Zenon.accent : Zenon.white
           font.family: Zenon.face
           font.weight: Zenon.weight
           font.pixelSize: Zenon.px(16)

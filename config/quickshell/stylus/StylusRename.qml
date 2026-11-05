@@ -123,9 +123,9 @@ FocusScope {
 
     Row {
       anchors.right: parent.right
-      spacing: 10
+      spacing: Zenon.buttonGap
       DialogButton { label: "Cancel"; ink: Zenon.accentMuted; onClicked: body.win.closeRename() }
-      DialogButton { label: "Rename"; primary: true; ink: Zenon.cyan; ready: body.changed; onClicked: body.go() }
+      DialogButton { label: "Rename"; primary: true; ink: Zenon.accent; ready: body.changed; onClicked: body.go() }
     }
   }
 

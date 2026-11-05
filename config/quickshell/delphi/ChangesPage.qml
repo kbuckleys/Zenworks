@@ -345,7 +345,7 @@ Item {
     const pattern = "/" + (f.isDir ? f.path.replace(/\/+$/, "") + "/" : f.path);
     const ext = !f.isDir && /\.[A-Za-z0-9]+$/.test(f.name) ? "*" + f.name.slice(f.name.lastIndexOf(".")) : "";
     if (!tracked) {
-      const choices = [{ label: "In .gitignore", ink: Zenon.cyan, run: () => pg.win.act("ignore", { patterns: [pattern] }, { said: name + " is ignored — commit .gitignore so it stays so" }) },
+      const choices = [{ label: "In .gitignore", ink: Zenon.accent, run: () => pg.win.act("ignore", { patterns: [pattern] }, { said: name + " is ignored — commit .gitignore so it stays so" }) },
                        { label: "Only on this machine", run: () => pg.win.act("ignore", { patterns: [pattern], where: "exclude" }, { said: name + " is ignored here" }) }];
       if (ext !== "") choices.push({ label: "Every " + ext + " file", run: () => pg.win.act("ignore", { patterns: [ext] }, { said: "Every " + ext + " file is ignored" }) });
       choices.push({ label: "Cancel", ink: Zenon.accentMuted });
@@ -593,7 +593,7 @@ Item {
             anchors.verticalCenterOffset: 4
             text: pg.query !== "" ? (frow.r.id === "staged" ? "Unstage these" : "Stage these")
               : frow.r.id === "staged" ? "Unstage all" : "Stage all"
-            color: headMa.pressed ? Zenon.cyan : Zenon.accentMuted
+            color: headMa.pressed ? Zenon.accent : Zenon.accentMuted
             font.family: Zenon.face
             font.weight: Zenon.weight
             font.pixelSize: Zenon.px(13)
@@ -752,7 +752,7 @@ Item {
           anchors.bottom: parent.bottom
           anchors.margins: 8
           label: pg.amend ? "Amend" : pg.stagedCount > 0 ? "Commit " + pg.stagedCount : "Commit"
-          ink: Zenon.cyan
+          ink: Zenon.accent
           primary: pg.canCommit
           ready: pg.canCommit
           onClicked: pg.commit()
@@ -855,27 +855,27 @@ Item {
            : [b.ahead > 0 ? "↑" + b.ahead + " to push" : "", b.behind > 0 ? "↓" + b.behind + " to pull" : ""].filter((w) => w).join("  ·  ")
              + "  —  " + b.upstream)
           + (parent.fetched ? "  ·  fetched " + D.ago(Math.floor(parent.fetched / 1000), Date.now()) : "")
-      color: !b || !b.upstream ? Zenon.accentMuted : b.ahead > 0 || b.behind > 0 ? Zenon.cyan : Zenon.green
+      color: !b || !b.upstream ? Zenon.accentMuted : b.ahead > 0 || b.behind > 0 ? Zenon.accent : Zenon.green
       font.family: Zenon.face
       font.weight: Zenon.weight
       font.pixelSize: Zenon.px(14)
     }
     Row {
       anchors.horizontalCenter: parent.horizontalCenter
-      spacing: 8
+      spacing: Zenon.buttonGap
       topPadding: 4
       DialogButton { label: "History"; onClicked: pg.win.setPage("history") }
       DialogButton { label: "Apply a patch"; onClicked: pg.win.applyPatch() }
       DialogButton {
         visible: !!parent.parent.b && parent.parent.b.behind > 0
         label: "Pull  ↓" + (parent.parent.b ? parent.parent.b.behind : 0)
-        ink: Zenon.cyan
+        ink: Zenon.accent
         onClicked: pg.win.pull()
       }
       DialogButton {
         visible: !!parent.parent.b && !!parent.parent.b.oid && (parent.parent.b.ahead > 0 || !parent.parent.b.upstream) && pg.win.remotes.length > 0
         label: parent.parent.b && parent.parent.b.upstream ? "Push  ↑" + parent.parent.b.ahead : "Publish"
-        ink: Zenon.cyan
+        ink: Zenon.accent
         primary: true
         onClicked: pg.win.push()
       }
@@ -887,7 +887,7 @@ Item {
     visible: pg.area === "diff" && diff.visible
     color: "transparent"
     border.width: 1
-    border.color: Zenon.alpha(Zenon.cyan, 0.35)
+    border.color: Zenon.alpha(Zenon.accent, 0.35)
   }
 
   // ── a conflict, one at a time (ConflictView) ──────────────────────────
@@ -942,7 +942,7 @@ Item {
       spacing: 8
       DialogButton { label: "Take ours"; onClicked: pg.resolve("ours") }
       DialogButton { label: "Take theirs"; onClicked: pg.resolve("theirs") }
-      DialogButton { label: "Edit in plato"; ink: Zenon.cyan; onClicked: pg.edit() }
+      DialogButton { label: "Edit in plato"; ink: Zenon.accent; onClicked: pg.edit() }
       DialogButton { label: "Mark resolved"; ink: Zenon.green; primary: true; onClicked: pg.resolve("done") }
     }
   }

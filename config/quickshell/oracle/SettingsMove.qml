@@ -34,6 +34,15 @@ Item {
     // a custom theme is the user's (Oracle.themesDir), never the shipped
     // directory: export found none there, and import wrote into it (audit 10-31)
     if (rel.startsWith("themes/")) return Oracle.themesDir + "/" + rel.slice(7);
+    // an app's own (Ora.appFiles): beside oracle.json, in the data
+    // directory, or beside the clipboard's ledger
+    const app = Ora.appFiles()[rel];
+    if (app) {
+      const name = rel.slice(5);
+      return app.at === "data" ? Paths.dataDir() + "/" + name
+        : app.at === "clip" ? Paths.cacheDir() + "/cliphist/" + name
+        : move.stateDir + "/" + name;
+    }
     return "";
   }
   // what was done, said as a toast: the window has no line of its own
@@ -54,6 +63,11 @@ Item {
     for (const rel of rels) {
       const t = move.readText(move.absOf(rel));
       if (t !== null && t !== "") files[rel] = t;
+    }
+    // each app's settings, and only those (Ora.appSettingsOf)
+    for (const rel in Ora.appFiles()) {
+      const t = Ora.appSettingsOf(rel, move.readText(move.absOf(rel)) || "");
+      if (t !== "") files[rel] = t;
     }
     return files;
   }
@@ -93,7 +107,11 @@ Item {
       if (!Object.keys(b.files).length) { move.tell("There are no settings in it to bring here"); return; }
       // the hypr files written fresh from their values: hyprland runs them,
       // and a bundle's own text could hold any Lua (Ora.sanitizeBundleFile)
-      for (const rel of Object.keys(b.files)) b.files[rel] = Ora.sanitizeBundleFile(rel, b.files[rel], Oracle.bindList);
+      for (const rel of Object.keys(b.files)) {
+        b.files[rel] = Ora.sanitizeBundleFile(rel, b.files[rel], Oracle.bindList);
+        // an app's file with no settings in it is nothing to bring
+        if (b.files[rel] === "" && rel.startsWith("apps/")) { delete b.files[rel]; b.skipped++; }
+      }
       // and what it would run, shown on the sheet before it is taken
       b.commands = Ora.bundleCommands(b.files);
       move.withScreens = false;
@@ -109,10 +127,18 @@ Item {
     // what is here now, first
     writer.write(move.stateDir + "/settings-before-import.json", Ora.makeBundle(move.current(), new Date().toISOString()));
     const jobs = [];
+    move.appsCame = false;
     for (const rel in b.files) {
       if (rel === "hypr/monitors.lua" && !move.withScreens) continue;
       const to = move.absOf(rel);
-      if (to !== "") jobs.push([to, b.files[rel]]);
+      if (to === "") continue;
+      // an app's settings laid over its file here, which keeps the rest
+      if (rel.startsWith("apps/")) {
+        const into = Ora.appSettingsInto(rel, b.files[rel], move.readText(to));
+        if (into === "") continue;
+        jobs.push([to, into]);
+        move.appsCame = true;
+      } else jobs.push([to, b.files[rel]]);
     }
     const n = jobs.length;
     // once the LAST write has landed (the writer goes one at a time, so a
@@ -120,8 +146,12 @@ Item {
     let left = n;
     for (const j of jobs) writer.write(j[0], j[1], () => { if (--left === 0) after.restart(); });
     if (n === 0) after.restart();
-    move.tell(n + (n === 1 ? " file imported" : " files imported") + " · the old ones kept in settings-before-import.json");
+    move.tell(n + (n === 1 ? " file imported" : " files imported") + " · the old ones kept in settings-before-import.json"
+      + (move.appsCame ? " · the shell restarts to read the apps' own" : ""));
   }
+  // the apps read their files once, at start: an import with theirs in it
+  // ends with a restart (Oracle's own, scripts/restart.sh)
+  property bool appsCame: false
   Timer {
     id: after
     interval: 50
@@ -129,8 +159,12 @@ Item {
       Oracle.reloadFromDisk();
       Oracle.scanThemes();
       Quickshell.execDetached(["hyprctl", "reload"]);
+      if (move.appsCame) restartLater.restart();
     }
   }
+
+  // a beat for oracle.json to be read back and hyprland told first
+  Timer { id: restartLater; interval: 1500; onTriggered: Oracle.run("actionRestart") }
 
   Connections {
     target: Oracle
@@ -161,11 +195,11 @@ Item {
       width: parent.width
       question: "Import these settings?"
       glyph: "󰋺"
-      glyphInk: Zenon.cyan
+      glyphInk: Zenon.accent
       detail: move.pending ? (move.pending.made !== "" ? "Exported " + Qt.formatDateTime(new Date(move.pending.made), "d MMM yyyy, hh:mm") + ". " : "")
         + "What is here now is kept first." : ""
       items: move.pending ? Ora.bundleWords(move.pending.files).filter((w) => w !== "Screen arrangement") : []
-      choices: [{ label: "Import", ink: Zenon.cyan }, { label: "Cancel", ink: Zenon.accentMuted }]
+      choices: [{ label: "Import", ink: Zenon.accent }, { label: "Cancel", ink: Zenon.accentMuted }]
       pick: move.pick
       onPicked: (i) => move.pick = i
       onChose: (i) => { if (i === 0) move.importNow(); else move.pending = null; }

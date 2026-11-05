@@ -76,7 +76,7 @@ Collapsible {
         // (user, 2026-10-23): something unread is said by the badge
         // (U+F0D59), not a second colour; silenced, it greys like a switch off
         text: root.silent ? "󰂛" : root.unread > 0 ? "\u{F0D59}" : "󰂜"
-        color: root.silent ? Zenon.muted : Zenon.cyan
+        color: root.silent ? Zenon.muted : Zenon.accent
         numeric: true
         font.pixelSize: Zenon.clockSize
       }

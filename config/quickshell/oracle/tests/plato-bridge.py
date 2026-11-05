@@ -50,6 +50,7 @@ class Bridge:
         self.rows, self.last = [], None
         self.events = []
         self.frames = []
+        self.held = {}
         self.styles = {}
 
     def send(self, method, **params):
@@ -65,6 +66,7 @@ class Bridge:
             if ev.get("event") in ("view", "theme"):
                 for st in ev.get("styles") or []: self.styles[st["id"]] = st
             if ev.get("event") == "view":
+                for x in ev["wins"]: self.unref(x)
                 # the current window's rows and cursor; splits are tested by
                 # looking at ev["wins"] directly
                 w = next(x for x in ev["wins"] if x["current"])
@@ -78,6 +80,29 @@ class Bridge:
                 self.frames.append(ev)
             elif "event" in ev:
                 self.events.append(ev)
+
+    # A row that only moved comes as {i, ref: "n:k"} (view.lua's holdRow):
+    # put back the row held for that line, as EditorState does, so every
+    # check below reads whole rows. A ref to a row not held is a failure.
+    def unref(self, w):
+        held = self.held.setdefault(w["id"], {"rows": {}, "a": [], "b": []})
+        by = {}
+        for r in list(held["rows"].values()) + held["a"] + held["b"]:
+            if r and r["n"] > 0: by["%d:%d" % (r["n"], r["k"])] = r
+        w["named"] = sum(1 for r in w["rows"] if "ref" in r)
+        def get(r):
+            if "ref" not in r: return r
+            check("a named row is one plato holds", r["ref"] in by, r["ref"])
+            return dict(by.get(r["ref"], {"n": 0, "k": 0, "t": "", "s": [], "f": False}), i=r.get("i"))
+        w["rows"] = [get(r) for r in w["rows"]]
+        if w.get("above") is not None: w["above"] = [get(r) for r in w["above"]]
+        if w.get("below") is not None: w["below"] = [get(r) for r in w["below"]]
+        if w["full"]: held["rows"] = {}
+        for i in list(held["rows"]):
+            if i >= w["height"]: del held["rows"][i]
+        for r in w["rows"]: held["rows"][r["i"]] = r
+        if w.get("above") is not None: held["a"] = w["above"]
+        if w.get("below") is not None: held["b"] = w["below"]
 
     def keys(self, k):
         self.send("input", keys=k); self.settle()
@@ -182,6 +207,35 @@ try:
     b.keys("gg")
     b.send("scroll", lines=5); b.settle()
     check("scroll moves the top line", b.rows[0]["n"] == 6, b.rows[0])
+    # 2026-11-03: a wheel notch is ONE frame (its WinScrolled and CursorMoved
+    # only echo it), and the rows that merely moved are named, not resent —
+    # yet the screen reads exactly as a whole frame says it does
+    n0 = len(b.frames)
+    b.send("scroll", lines=2); b.settle()
+    fs = b.frames[n0:]
+    check("a scroll is one frame, not two", len(fs) == 1, len(fs))
+    sw = next(x for x in fs[-1]["wins"] if x["current"]) if fs else {"rows": [], "named": 0}
+    check("a scroll names the rows that only moved", sw["named"] > 0 and len(sw["rows"]) - sw["named"] <= 2,
+          (len(sw["rows"]), sw["named"]))
+    named = [dict(r) for r in b.rows]
+    b.send("redraw"); b.settle()
+    check("named rows are the rows a whole frame sends",
+          [(r["n"], r["k"], r["t"], r["s"]) for r in named] == [(r["n"], r["k"], r["t"], r["s"]) for r in b.rows])
+    b.keys("j")
+    check("a key after a scroll still makes its frame", b.cursor()[0] >= 0 and len(b.frames) > n0 + 2)
+    # what a decoration provider lays on lines only as nvim draws them (LSP's
+    # semantic tokens do): in the scroll's one frame, not left for a later one
+    b.send("cmd", cmd="lua local ns = vim.api.nvim_create_namespace('lazy') "
+           "vim.api.nvim_set_decoration_provider(ns, { on_win = function(_, w, buf, top, bot) "
+           "for l = top, bot do pcall(vim.api.nvim_buf_set_extmark, buf, ns, l, 0, "
+           "{ id = l + 1, end_col = 1, hl_group = 'ErrorMsg', strict = false }) end end })")
+    b.settle()
+    b.send("scroll", lines=-3); b.settle()
+    lit = [r["n"] for r in b.rows if r and r["n"] > 0 and r["t"] and not r["s"]]
+    check("lines drawn by the scroll carry what nvim's redraw laid on them", lit == [], lit)
+    b.send("cmd", cmd="lua vim.api.nvim_set_decoration_provider(vim.api.nvim_create_namespace('lazy'), {}) "
+           "vim.api.nvim_buf_clear_namespace(0, vim.api.nvim_create_namespace('lazy'), 0, -1)")
+    b.settle()
 
     # a closed fold is one row
     b.keys("ggzfjj")

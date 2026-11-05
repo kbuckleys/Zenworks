@@ -58,10 +58,13 @@ Item {
           + Strings.shellQuote(to) + "\n";
       }
       term.run(cmd);
+      // a glyph chosen for one goes back with it (morpheus/FileGlyphs)
+      FileGlyphs.moved(e.pairs.map((q) => [q[1], q[0]]));
       term.status = "Moved back " + e.pairs.length;
       return;
     }
     term.run(Terminus.renameCommand(e.to, Terminus.basename(e.from)));
+    FileGlyphs.moved([[e.to, e.from]]);
     term.status = "Rename undone";
   }
   Process {
@@ -271,25 +274,23 @@ Item {
       id: appsOut
       waitForEnd: true
       onStreamFinished: {
-        if (appsProc.drop) {
-          appsProc.drop = false;
-          if (term.appsAgain === "") return;
-          const q = term.appsAgain;
-          term.appsAgain = "";
-          term.findApps(q);
-          return;
-        }
+        if (appsProc.drop) return;
         term.openWithApps = Terminus.parseApps(appsOut.text);
         term.openWithMime = Terminus.parseAppsMime(appsOut.text);
         term.openWithDefault = Terminus.parseAppsDefault(appsOut.text);
         term.appsScanned = true;
-        // a scan asked for while this one was out — see findApps
-        if (term.appsAgain !== "") {
-          const p = term.appsAgain;
-          term.appsAgain = "";
-          term.findApps(p);
-        }
       }
+    }
+    // a scan asked for while this one was out — see findApps. Here, not in
+    // streamFinished: that comes BEFORE the exit, and a findApps from there
+    // still saw the process running and only queued itself again, so the
+    // rescan after a default set or a handler struck never ran (2026-11-04)
+    onExited: {
+      appsProc.drop = false;
+      if (term.appsAgain === "") return;
+      const q = term.appsAgain;
+      term.appsAgain = "";
+      term.findApps(q);
     }
   }
   function findApps(path) {

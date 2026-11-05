@@ -26,7 +26,7 @@ Rectangle {
   // hollow: only the ring (user, 2026-10-09 — no tint inside it)
   color: "transparent"
   border.width: 2   // user, 2026-10-09
-  border.color: Zenon.alpha(Zenon.cyan, 0.6)
+  border.color: Zenon.alpha(Zenon.accent, 0.6)
 
   opacity: held.on ? 1 : 0
   visible: opacity > 0.01

@@ -93,7 +93,7 @@ Item {
     // `field: field` bound it to itself (a binding loop, 2026-10-15)
     cursorDelegate: Caret { field: tn.input }
     color: Zenon.white
-    selectionColor: Zenon.alpha(Zenon.cyan, 0.22)
+    selectionColor: Zenon.alpha(Zenon.accent, 0.22)
     selectedTextColor: Zenon.white
     selectByMouse: true
     clip: true
@@ -142,7 +142,7 @@ Item {
     radius: Zenon.radiusControl
     color: "transparent"
     border.width: 2
-    border.color: Zenon.alpha(Zenon.cyan, 0.6)
+    border.color: Zenon.alpha(Zenon.accent, 0.6)
     opacity: tn.editing ? 1 : 0
     visible: opacity > 0.01
     Behavior on opacity { NumberAnimation { duration: Zenon.fast; easing.type: Zenon.ease } }

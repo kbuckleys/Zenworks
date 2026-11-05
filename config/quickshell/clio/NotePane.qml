@@ -150,7 +150,7 @@ Item {
         word: "Aa"
         tip: pane.formatPinned ? "Formats — click to put away" : "Formats — click to keep them up"
         lit: pane.formatPinned
-        litInk: Zenon.cyan
+        litInk: Zenon.accent
         enabled: tools.writable
         onHoveredChanged: pane.formatHover()
         onPressed: {
@@ -180,7 +180,7 @@ Item {
         glyph: "\u{F04C6}"
         tip: pane.mgr && pane.mgr.spellOn ? "Spelling is checked — click to stop" : "Check spelling"
         lit: !!pane.mgr && pane.mgr.spellOn
-        litInk: Zenon.cyan
+        litInk: Zenon.accent
         onPressed: pane.mgr.setSpellOn(!pane.mgr.spellOn)
       }
       ClioTool { pane: pane; glyph: "\u{F03D8}"; tip: "Color and highlight"; menu: true; enabled: tools.writable; onPressed: (x, y) => pane.inkMenu(x, y) }
@@ -309,7 +309,7 @@ Item {
       scale: fit
       x: Math.round((findBar.width - width) / 2)
       anchors.verticalCenter: parent.verticalCenter
-      spacing: 8
+      spacing: Zenon.buttonGap
       Rectangle {
         width: 260
         height: 30
@@ -326,7 +326,7 @@ Item {
           clip: true
           cursorDelegate: Caret { field: findField }
           color: Zenon.ink
-          selectionColor: Zenon.alpha(Zenon.cyan, 0.4)
+          selectionColor: Zenon.alpha(Zenon.accent, 0.4)
           font.family: Zenon.face
           font.weight: Zenon.weight
           font.pixelSize: Zenon.px(14)
@@ -574,7 +574,7 @@ Item {
     pane.win.menuRef.open(x, y, items);
   }
   function inkMenu(x, y) {
-    const names = { magenta: "Purple", pink: "Pink", yellow: "Orange", green: "Mint", blue: "Blue", cyan: "Cyan", red: "Red" };
+    const names = { magenta: "Purple", pink: "Pink", yellow: "Orange", green: "Mint", blue: "Blue", cyan: "Accent", red: "Red" };
     const marks = { sand: "Yellow", pink: "Pink", green: "Green", blue: "Blue", magenta: "Purple" };
     const items = N.INKS.map((n) => ({ text: names[n] + " text", icon: "", iconInk: Zenon[n], run: () => ed.ink(n) }));
     items.push({ text: "Plain text color", icon: "", run: () => ed.ink("") }, { isSeparator: true });
@@ -661,7 +661,7 @@ Item {
   function askLink() {
     const href = ed.linkHere();
     const sel = ed.selectedText();
-    pane.win.cardsRef.ask({ title: href ? "Edit link" : "Add a link", glyph: "", ink: Zenon.cyan,
+    pane.win.cardsRef.ask({ title: href ? "Edit link" : "Add a link", glyph: "", ink: Zenon.accent,
       fields: [{ key: "url", label: "Address", value: href || (/^\S+\.\S+$/.test(sel) ? sel : ""), hint: "https://…" }]
         .concat(sel === "" ? [{ key: "label", label: "Words", value: "", optional: true }] : []),
       verb: href ? "Save" : "Add", then: (v) => { if (v.url.trim()) Qt.callLater(() => ed.link(v.url.trim(), v.label || "")); } });

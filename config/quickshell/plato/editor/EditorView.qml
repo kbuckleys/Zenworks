@@ -166,7 +166,7 @@ Item {
   // ── between the windows ────────────────────────────────────────────
   // TERMINUS' DIVIDER, without its shadows (user, 2026-10-09: the hairline
   // that was here was barely visible). A 1px line in the neutral border
-  // color that turns cyan under the pointer; a 9px grip straddling it, so
+  // color that turns accent under the pointer; a 9px grip straddling it, so
   // the cursor changes over the seam and a drag resizes the window — a
   // double click evens them (wincmd =); and two short bars either side of
   // its middle, the one on the side of the current window lit. nvim leaves
@@ -213,7 +213,7 @@ Item {
         y: seams.g.y
         width: 1
         height: seams.g.h
-        color: view.seamHot === "v:" + seams.w.id ? Zenon.cyan : Zenon.border
+        color: view.seamHot === "v:" + seams.w.id ? Zenon.accent : Zenon.border
       }
       Repeater {
         model: seams.g.right ? [0, 1] : []
@@ -225,7 +225,7 @@ Item {
           radius: 1
           x: modelData === 0 ? seams.g.vx - 4 : seams.g.vx + 3
           y: seams.g.y + (seams.g.h - height) / 2
-          color: lit ? Zenon.cyan : Zenon.accentMuted
+          color: lit ? Zenon.accent : Zenon.accentMuted
           Behavior on color { ColorAnimation { duration: Zenon.fast } }
         }
       }
@@ -235,7 +235,7 @@ Item {
         y: seams.g.hy
         width: seams.g.w
         height: 1
-        color: view.seamHot === "h:" + seams.w.id ? Zenon.cyan : Zenon.border
+        color: view.seamHot === "h:" + seams.w.id ? Zenon.accent : Zenon.border
       }
       Repeater {
         model: seams.g.top ? [0, 1] : []
@@ -248,7 +248,7 @@ Item {
           radius: height / 2
           x: seams.g.x + (seams.g.w - width) / 2
           y: modelData === 0 ? seams.g.hy - 4 : seams.g.hy + 3
-          color: lit ? Zenon.cyan : Zenon.accentMuted
+          color: lit ? Zenon.accent : Zenon.accentMuted
           Behavior on color { ColorAnimation { duration: Zenon.fast } }
         }
       }
@@ -257,7 +257,7 @@ Item {
 
   // ── the cursor ─────────────────────────────────────────────────────
   // THE SHELL'S CARET, AT EDITOR SIZE. morpheus' Caret breathes rather than
-  // blinks — 1 to 0.2 and back, 620ms each way — in cyan, and so does this:
+  // blinks — 1 to 0.2 and back, 620ms each way — in accent, and so does this:
   // solid while anything is happening, breathing once it has sat still. It
   // glides from cell to cell on Zenon.travelEase, briskly, so the eye can
   // follow a jump without a keystroke ever waiting on it. (Both can be
@@ -289,7 +289,7 @@ Item {
        + view.curItem.stretched(view.ed.cursorRow * view.cellH + view.curItem.gapAt(view.ed.cursorRow))
        - view.ed.cursorRow * view.cellH : 0)
 
-  readonly property color caretInk: Zenon.light ? Qt.darker(Zenon.cyan, 1.35) : Qt.lighter(Zenon.cyan, 1.3)
+  readonly property color caretInk: Zenon.light ? Qt.darker(Zenon.accent, 1.35) : Qt.lighter(Zenon.accent, 1.3)
 
   // solid the moment it moves, breathing once it has sat still: the
   // shared Caret's `steady`

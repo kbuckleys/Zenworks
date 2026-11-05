@@ -193,6 +193,11 @@ function parseAsk(q) {
   if ((m = /^url ?encode (.+)$/i.exec(raw))) return { kind: "urlenc", text: m[1] };
   if ((m = /^(md5|sha1|sha256|sha512) (.+)$/i.exec(raw))) return { kind: "hash", algo: m[1].toLowerCase(), text: m[2] };
   if ((m = /^count (.+)$/i.exec(raw))) return { kind: "count", text: m[1] };
+  // a QR code of the rest (2026-11-03; "qr scan" reads one: parseCommand)
+  if ((m = /^qr(?: ?code)? (.+)$/i.exec(raw)) && !/^(scan|read)$/i.test(m[1].trim())) return { kind: "qr", text: m[1] };
+  // how fast the connection is: Cloudflare's speed endpoints through curl
+  if (/^(?:run (?:a )?)?(?:internet |network |connection )?speed ?test$|^how fast is (?:my|the) (?:internet|connection)$/.test(s))
+    return { kind: "speed" };
   if (/^lorem( ipsum)?$/.test(s)) return { kind: "lorem" };
   if (/^(unix|epoch)( time| timestamp)?( now)?$|^(current )?timestamp$/.test(s)) return { kind: "unix" };
   if ((m = /^(?:epoch|unix|timestamp) (\d{9,13})$/.exec(s)) || (m = /^(\d{10}|\d{13})$/.exec(s)))
@@ -332,6 +337,47 @@ function hslToRgb(hsl) {
   const f = (t) => { t = (t + 1) % 1; return t < 1 / 6 ? p + (q - p) * 6 * t : t < 1 / 2 ? q : t < 2 / 3 ? p + (q - p) * (2 / 3 - t) * 6 : p; };
   return [f(h + 1 / 3), f(h), f(h - 1 / 3)].map((v) => Math.round(v * 255));
 }
+// ── A COLOR IN EVERY FORM (2026-11-03) ──────────────────────────────────
+// "colors": what a picked color is in each form you might paste it as —
+// [name, text]; the first is the hex. Hyprland's and Qt's are the suite's
+// own config forms.
+function colorForms(hex) {
+  const h = String(hex || "").replace(/^#/, "");
+  const rgb = hexToRgb(h);
+  const [r, g, b] = rgb;
+  const hsl = rgbToHsl(rgb);
+  const mx = Math.max(r, g, b) / 255, mn = Math.min(r, g, b) / 255;
+  const hsv = [hsl[0], Math.round(mx === 0 ? 0 : (mx - mn) / mx * 100), Math.round(mx * 100)];
+  const k = 1 - mx;
+  const cmyk = k >= 1 ? [0, 0, 0, 100] : [r, g, b].map((v) => Math.round((1 - v / 255 - k) / (1 - k) * 100)).concat([Math.round(k * 100)]);
+  const ok = oklch(rgb);
+  const f3 = (v) => Math.round(v / 255 * 1000) / 1000;
+  return [
+    ["Hex", "#" + h.toUpperCase()],
+    ["RGB", "rgb(" + rgb.join(", ") + ")"],
+    ["HSL", "hsl(" + hsl[0] + ", " + hsl[1] + "%, " + hsl[2] + "%)"],
+    ["HSB", "hsb(" + hsv[0] + ", " + hsv[1] + "%, " + hsv[2] + "%)"],
+    ["OKLCH", "oklch(" + ok[0] + "% " + ok[1] + " " + ok[2] + ")"],
+    ["CMYK", "cmyk(" + cmyk.map((v) => v + "%").join(", ") + ")"],
+    ["Hyprland", "rgb(" + h.toLowerCase() + ")"],
+    ["Qt", "Qt.rgba(" + f3(r) + ", " + f3(g) + ", " + f3(b) + ", 1)"]
+  ];
+}
+// sRGB → OKLab → LCh: lightness in %, chroma to three places, hue in degrees
+function oklch(rgb) {
+  const lin = rgb.map((v) => { const c = v / 255; return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); });
+  const l = Math.cbrt(0.4122214708 * lin[0] + 0.5363325363 * lin[1] + 0.0514459929 * lin[2]);
+  const m = Math.cbrt(0.2119034982 * lin[0] + 0.6806995451 * lin[1] + 0.1073969566 * lin[2]);
+  const s = Math.cbrt(0.0883024619 * lin[0] + 0.2817188376 * lin[1] + 0.6299787005 * lin[2]);
+  const L = 0.2104542553 * l + 0.7936177850 * m - 0.0040720468 * s;
+  const A = 1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s;
+  const B = 0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s;
+  const C = Math.sqrt(A * A + B * B);
+  let H = Math.atan2(B, A) * 180 / Math.PI;
+  if (H < 0) H += 360;
+  return [Math.round(L * 1000) / 10, Math.round(C * 1000) / 1000, C < 0.0005 ? 0 : Math.round(H * 10) / 10];
+}
+
 // base64 of the text's UTF-8, and back (no Qt.btoa: the tests run in node)
 const B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 function utf8(t) { return unescape(encodeURIComponent(t)); }
@@ -375,14 +421,12 @@ function titleOf(kind) {
     b64enc: "Base64", b64dec: "Base64", urlenc: "URL", urldec: "URL", hash: "Hash", count: "Count",
     lorem: "Lorem ipsum", unix: "Unix time", fromunix: "Unix time", moon: "Moon", memory: "Memory",
     disk: "Disk", cpu: "CPU", kernel: "Kernel", hostname: "Hostname", wifi: "Wi-Fi", playing: "Now playing",
-    cal: "Calendar" }[kind] || "Answer";
+    cal: "Calendar", qr: "QR code", speed: "Speed test" }[kind] || "Answer";
 }
 
 // ── more of the machine's answers ───────────────────────────────────────────
-// /proc/meminfo
-function parseMem(text) {
-  const kb = (k) => { const m = new RegExp("^" + k + ":\\s+(\\d+)", "m").exec(String(text || "")); return m ? +m[1] : 0; };
-  const total = kb("MemTotal"), avail = kb("MemAvailable");
+// KiB, as /proc/meminfo has them — Sysmon's, live while the card is up
+function memAnswer(total, avail) {
   if (!total) return null;
   const used = total - avail;
   return { big: gib(used) + " of " + gib(total), small: Math.round(used / total * 100) + "% in use · " + gib(avail) + " free" };
@@ -394,15 +438,15 @@ function parseDf(text) {
   const f = line.split(/\s+/);
   if (f.length < 6) return null;
   const size = +f[1], used = +f[2], avail = +f[3];
-  return { big: gib(avail) + " free", small: gib(used) + " of " + gib(size) + " used · " + f[4] + " full" };
+  return { big: gib(avail) + " free", small: gib(used) + " of " + gib(size) + " used · " + f[4] + " full",
+    level: size > 0 ? used / size : 0 };
 }
-// "0.52 0.61 0.70 2/1234 5678" then the number of cores
-function parseLoad(text) {
-  const p = String(text || "").trim().split(/\s+/);
-  const cores = +p[p.length - 1] || 1;
-  const one = +p[0];
-  if (isNaN(one)) return null;
-  return { big: Math.round(one / cores * 100) + "% busy", small: "Load " + p.slice(0, 3).join(" · ") + " on " + cores + " cores" };
+// Sysmon's: how busy (0..100), the one-minute load, and the threads
+function cpuAnswer(pct, load, threads) {
+  const n = threads || 1;
+  return { big: Math.round(pct) + "% busy",
+    small: (load === null || load === undefined ? "" : "Load " + (Math.round(load * 100) / 100) + " · ")
+      + n + (n === 1 ? " thread" : " threads") };
 }
 
 // ── the machine's answers, read off what it printed ────────────────────────
@@ -422,7 +466,7 @@ function parseBattery(text) {
   if (!m) return null;
   const st = m[2].toLowerCase();
   return { big: m[1] + "%", small: st === "charging" ? "Charging" : st === "full" ? "Full"
-    : st === "discharging" ? "On battery" : cap(st) };
+    : st === "discharging" ? "On battery" : cap(st), level: Math.min(100, +m[1]) / 100 };
 }
 
 // /proc/uptime's first number, in seconds
@@ -434,6 +478,31 @@ function uptimeText(secs) {
   if (h) parts.push(h + (h === 1 ? " hour" : " hours"));
   if (!d && m) parts.push(m + (m === 1 ? " minute" : " minutes"));
   return parts.length ? parts.join(", ") : "Less than a minute";
+}
+
+// the next meeting worth joining (2026-11-03): from cal.py's events (start
+// and end as ISO strings), the first not yet over, all-day ones aside, with
+// a call's link in its url, location or description. → { title, url } or null
+const CALL_LINK = /https:\/\/(?:[\w-]+\.)*(?:zoom\.us|meet\.google\.com|teams\.microsoft\.com|teams\.live\.com|whereby\.com|meet\.jit\.si|webex\.com|discord\.gg|gather\.town|around\.co)\/[^\s<>"')]*/i;
+function nextMeeting(events, now) {
+  const t = now.getTime();
+  const list = (events || []).filter((e) => !e.allDay && Date.parse(e.end || e.start) > t)
+    .sort((a, b) => Date.parse(a.start) - Date.parse(b.start));
+  for (const e of list) {
+    const m = CALL_LINK.exec([e.url, e.location, e.description].filter((x) => x).join(" "));
+    // a sentence's own full stop is not the link's
+    if (m) return { title: e.title || "", url: m[0].replace(/[.,;:!?]+$/, "") };
+  }
+  return null;
+}
+
+// curl's own measures: "<down B/s> <connect s> <lookup s> <up B/s>"
+function parseSpeed(text) {
+  const f = String(text || "").trim().split(/\s+/).map(Number);
+  if (f.length < 4 || !(f[0] > 0)) return null;
+  const mbps = (b) => { const v = b * 8 / 1e6; return (v >= 100 ? Math.round(v) : Math.round(v * 10) / 10) + " Mbps"; };
+  const ping = Math.max(0, Math.round((f[1] - f[2]) * 1000));
+  return { big: mbps(f[0]) + " down", small: (f[3] > 0 ? mbps(f[3]) + " up \u00B7 " : "") + ping + " ms ping" };
 }
 
 // ── open-meteo's place search ──────────────────────────────────────────────
@@ -482,12 +551,85 @@ function parseCommand(q) {
   if (/^(next|skip)( song| track)?$/.test(s)) return { kind: "media", act: "next" };
   if (/^(previous|prev|back)( song| track)$|^previous$/.test(s)) return { kind: "media", act: "previous" };
   if ((m = /^(?:go to |switch to )?(?:workspace|ws|desktop) (\d{1,2})$/.exec(s))) return { kind: "workspace", n: +m[1] };
+  // the window you were in, taken there (2026-11-04): "move to workspace 3",
+  // "send window to 3", "move window to ws 3"
+  if ((m = /^(?:move|send|put)(?: (?:this |the )?window)? to (?:workspace |ws |desktop )?(\d{1,2})$/.exec(s))) return { kind: "moveWs", n: +m[1] };
+  // the rest of Raycast's own (2026-11-03): before "quit <app>", which would
+  // read "quit all apps" as an app called apps
+  if (/^(?:quit|close) (?:all|every|everything)(?: (?:the )?(?:apps|applications|windows))?$/.test(s)) return { kind: "quitAll" };
+  if (/^empty (?:the )?(?:trash|bin|wastebasket)$/.test(s)) return { kind: "emptyTrash" };
+  if (/^(?:confetti|celebrate|hooray|ta-?da)!*$/.test(s)) return { kind: "confetti" };
+  if (/^(?:camera|mirror|webcam|selfie)$/.test(s)) return { kind: "camera" };
+  // a contact: its name, and any email and phone number among the words (as typed, not lowered)
+  if ((m = /^(?:new|add|make)(?: a)? contact (.+)$/i.exec(String(q || "").trim()))) {
+    const words = m[1].split(/\s+/);
+    const email = words.find((w) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(w)) || "";
+    const rest = words.filter((w) => w !== email);
+    const at = rest.findIndex((w) => /^\+?[\d(][\d().-]*$/.test(w) && w.replace(/\D/g, "").length >= 2);
+    const phone = at >= 0 ? rest.slice(at).join(" ") : "";
+    const name = (at >= 0 ? rest.slice(0, at) : rest).join(" ");
+    if (name !== "") return { kind: "newContact", name, email, phone };
+  }
+  if ((m = /^(?:turn on |switch to |use )?(dark|light)(?: mode| theme| appearance)$|^(?:turn on |switch to |use )?(dark|light) mode$/.exec(s)))
+    return { kind: "appearance", light: (m[1] || m[2]) === "light" };
+  if (/^(?:toggle|switch|flip) (?:the )?(?:appearance|dark mode|light mode|theme mode)$/.test(s)) return { kind: "appearance", toggle: true };
+  if (/^eject(?: all| every)?(?: (?:the )?(?:drives?|disks?|usbs?|volumes?))?$/.test(s)) return { kind: "eject" };
+  if (/^show (?:the )?desktop$|^(?:go to )?(?:an )?empty workspace$/.test(s)) return { kind: "desktop" };
+  if (/^(?:turn )?(?:the )?(?:screens?|displays?|monitors?) off$|^(?:sleep|blank) (?:the )?(?:screens?|displays?|monitors?)$/.test(s))
+    return { kind: "screensOff" };
+  if (/^(?:clear|wipe|forget|empty) (?:the )?clipboard(?: history)?$/.test(s)) return { kind: "clearClips" };
+  if (/^join (?:the |my )?(?:next )?(?:meeting|call|video call)$/.test(s)) return { kind: "joinMeeting" };
+  if (/^(?:make (?:the )?(?:window )?)?(?:larger|bigger)$|^(?:grow|enlarge) (?:the )?window$/.test(s)) return { kind: "snap", where: "grow" };
+  if (/^(?:make (?:the )?(?:window )?)?smaller$|^shrink (?:the )?window$/.test(s)) return { kind: "snap", where: "shrink" };
+  if (/^maximi[sz]e (?:the )?(?:window(?:'s)? )?width$/.test(s)) return { kind: "snap", where: "maxW" };
+  if (/^maximi[sz]e (?:the )?(?:window(?:'s)? )?height$/.test(s)) return { kind: "snap", where: "maxH" };
+  if (/^(?:toggle )?full ?screen(?: (?:the )?window)?$/.test(s)) return { kind: "fullscreen" };
+  if (/^(?:move (?:the )?(?:window )?)?(?:to )?(?:the )?previous (?:screen|monitor|display)$/.test(s)) return { kind: "snap", where: "prev" };
+  // a focus session ended, not an app called focus quit
+  if (/^(?:end|stop|quit|cancel) (?:the |my )?focus(?: session)?$|^focus (?:off|end|stop)$/.test(s)) return { kind: "focusEnd" };
   if ((m = /^(force )?(?:kill|quit|close|end) (?:all )?([\w.+-]{2,})$/.exec(s))) return { kind: "kill", name: m[2], force: !!m[1] };
+  if ((m = /^(?:restart|relaunch|reopen) ([\w.+-]{2,})$/.exec(s))) return { kind: "restart", name: m[1] };
+  // focus sessions and apps quit unused (Kairos, 2026-11-03)
+  const SPAN = "(\\d+) ?(m|min|mins|minutes?|h|hr|hrs|hours?)";
+  const spanMin = (n, u) => +n * (/^h/.test(u) ? 60 : 1);
+  if ((m = /^focus (block|allow|unblock|set aside) ([\w.+-]{2,})$/.exec(s)))
+    return { kind: "focusBlock", name: m[2], on: m[1] === "block" || m[1] === "set aside" };
+  if ((m = new RegExp("^(?:start (?:a )?)?focus(?: session)?(?: for)?(?: " + SPAN + ")?(?: (?:on )?(.+))?$").exec(s)))
+    return { kind: "focus", minutes: m[1] ? spanMin(m[1], m[2]) : 25,
+      label: m[3] ? m[3].charAt(0).toUpperCase() + m[3].slice(1) : "Focus" };
+  if ((m = /^auto ?quit ([\w.+-]{2,}) off$|^(?:never|don'?t) auto ?quit ([\w.+-]{2,})$/.exec(s)))
+    return { kind: "autoQuit", name: m[1] || m[2], minutes: 0 };
+  if ((m = new RegExp("^auto ?quit ([\\w.+-]{2,})(?: (?:after|when unused for|unused for) " + SPAN + ")?$").exec(s)))
+    return { kind: "autoQuit", name: m[1], minutes: m[2] ? spanMin(m[2], m[3]) : 30 };
+  // window layouts (2026-11-03): saved, put back, forgotten
+  // forgetting them: every layout, and where windows were before they were
+  // put somewhere ("restore"'s memory)
+  if (/^(?:clear|forget|delete|remove) (?:all )?(?:the |my )?(?:window )?layouts$/.test(s)) return { kind: "layoutsClear" };
+  if (/^(?:clear|forget|reset) (?:all )?(?:the )?window (?:places|placements|positions|restores?)$|^(?:clear|forget) (?:all )?(?:window )?restores?$/.test(s))
+    return { kind: "placesClear" };
+  if ((m = /^save (?:the |this )?(?:window )?layout(?: as)? (.+)$/.exec(s))) return { kind: "layoutSave", name: m[1] };
+  if ((m = /^(?:forget|delete|remove) (?:the )?(?:window )?layout (.+)$/.exec(s))) return { kind: "layoutDrop", name: m[1] };
+  if ((m = /^(?:use |restore |apply )?(?:the )?(?:window )?layout (.+)$/.exec(s))) return { kind: "layoutUse", name: m[1] };
+  // the words, or the QR code, in a region of the screen (Picasso's overlay)
+  if (/^(?:ocr|(?:copy|grab|read) (?:the )?text(?: from| on| off)?(?: (?:the )?screen)?)$/.test(s)) return { kind: "ocr" };
+  if (/^(?:scan|read) (?:a |the )?(?:qr|bar ?code)(?: code)?$|^qr (?:scan|read)$/.test(s)) return { kind: "scanqr" };
   // the window you were in, put somewhere (2026-11-02): "left half",
   // "maximize", "next screen", "size 1280x720"
   if ((m = /^(?:(?:move|put|snap) )?(?:the )?(?:window )?(?:to )?(?:the )?(left|right|top|bottom) half$/.exec(s)))
     return { kind: "snap", where: m[1] };
   if (/^(?:maximi[sz]e|fill the screen)(?: (?:the )?window)?$/.test(s)) return { kind: "snap", where: "max" };
+  // thirds, quarters, the middle, back as it was (2026-11-03)
+  const SNAP_PRE = "^(?:(?:move|put|snap) )?(?:the )?(?:window )?(?:to )?(?:the )?";
+  if ((m = new RegExp(SNAP_PRE + "(left|first|center|centre|middle|right|last) third$").exec(s)))
+    return { kind: "snap", where: { left: "left3", first: "left3", right: "right3", last: "right3" }[m[1]] || "center3" };
+  if ((m = new RegExp(SNAP_PRE + "(left|first|right|last) two thirds$").exec(s)))
+    return { kind: "snap", where: /left|first/.test(m[1]) ? "left23" : "right23" };
+  if ((m = new RegExp(SNAP_PRE + "(top|upper|bottom|lower) (left|right)(?: quarter)?$").exec(s)))
+    return { kind: "snap", where: (/top|upper/.test(m[1]) ? "t" : "b") + (m[2] === "left" ? "l" : "r") };
+  if (new RegExp(SNAP_PRE + "(?:center|centre|middle) half$").test(s)) return { kind: "snap", where: "centerHalf" };
+  if (/^almost maximi[sz]e(?: (?:the )?window)?$/.test(s)) return { kind: "snap", where: "almost" };
+  if (/^(?:center|centre)(?: (?:the )?window)?$/.test(s)) return { kind: "snap", where: "center" };
+  if (/^(?:restore|unsnap|put back)(?: (?:the )?window)?$/.test(s)) return { kind: "snap", where: "restore" };
   if (/^(?:move (?:the )?(?:window )?)?(?:to )?(?:the )?(?:next|other) (?:screen|monitor|display)$/.test(s))
     return { kind: "snap", where: "next" };
   if ((m = /^(?:resize|size)(?: (?:the )?window)?(?: to)? (\d{2,5}) ?[x×* ] ?(\d{2,5})$/.exec(s)))

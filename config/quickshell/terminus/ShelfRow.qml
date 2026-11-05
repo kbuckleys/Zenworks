@@ -40,7 +40,7 @@ Rectangle {
 
   height: 30
   radius: Zenon.windowRadius
-  color: shelf.here ? shelf.fill : Zenon.alpha(Zenon.cyan, 0)
+  color: shelf.here ? shelf.fill : Zenon.alpha(Zenon.accent, 0)
   Behavior on color { ColorAnimation { duration: Zenon.fast } }
   Text {
     id: shelfGlyph

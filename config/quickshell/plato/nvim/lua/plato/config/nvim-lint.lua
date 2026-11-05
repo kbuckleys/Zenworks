@@ -1,3 +1,5 @@
+-- nvim-lint by Mathias Fußenegger — https://github.com/mfussenegger/nvim-lint (GPL-3.0)
+--
 -- nvim-lint: linters a language server does not cover, their findings shown
 -- as diagnostics (the gutter, the scrollbar's marks, the status line's count).
 -- Run by plato after the plugin loads; edit freely (plato's plugin panel,

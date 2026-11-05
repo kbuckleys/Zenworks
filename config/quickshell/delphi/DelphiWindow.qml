@@ -141,7 +141,7 @@ FloatingWindow {
           win.card_({ question: D.baseName(path) + " is not here any more", glyph: "\uF071", ink: Zenon.yellow,
             detail: "Its directory is gone, or no longer a repository. Removing it takes it off Delphi's lists; its forge is not touched.",
             items: [D.tilde(path, win.home)],
-            choices: [{ label: "Remove from Delphi", ink: Zenon.cyan, run: () => { win.mgr.drop(path); win.say("Removed " + D.baseName(path)); } },
+            choices: [{ label: "Remove from Delphi", ink: Zenon.accent, run: () => { win.mgr.drop(path); win.say("Removed " + D.baseName(path)); } },
                       { label: "Keep it listed", ink: Zenon.accentMuted }] });
           if (win.root === "") win.setPage("repos");
           return;
@@ -421,7 +421,7 @@ FloatingWindow {
           win.card_({ question: "The remote has commits you do not", glyph: "", ink: Zenon.yellow,
             detail: "Pull them in first, or overwrite them — only if no one else's work is there.",
             items: D.errorText(t).split("\n"),
-            choices: [{ label: "Pull first", ink: Zenon.cyan, run: () => win.pull() },
+            choices: [{ label: "Pull first", ink: Zenon.accent, run: () => win.pull() },
                       { label: "Overwrite…", ink: Zenon.red, run: () => win.forcePush() },
                       { label: "Cancel", ink: Zenon.accentMuted }] });
         } else win.fail("Push did not work", null, err);
@@ -591,7 +591,7 @@ FloatingWindow {
           detail: (parts.length > 0 ? "Delphi " + parts.join("; ") + ". " : "")
             + (split.length > 0 ? "Where a branch went two ways, nothing was overwritten: merge or rebase it from Branches (its copy on each remote is there), then Sync again." : ""),
           items: items,
-          choices: split.length > 0 ? [{ label: "Open branches", ink: Zenon.cyan, run: () => win.setPage("branches") }, { label: "Close" }] : [{ label: "Close" }] });
+          choices: split.length > 0 ? [{ label: "Open branches", ink: Zenon.accent, run: () => win.setPage("branches") }, { label: "Close" }] : [{ label: "Close" }] });
       } });
   }
   // the address a forge's repository is cloned or added by: ssh where its
@@ -713,7 +713,7 @@ FloatingWindow {
           win.card_({ question: r.full + " is another repository", glyph: f.glyph, ink: Zenon.yellow,
             detail: res.unborn ? D.baseName(root) + " has no commits yet. Connect it from the Accounts page instead: it takes " + r.full + "'s history in."
               : "Its history and " + D.baseName(root) + "'s share no commit, so syncing would only make a mess. The remote " + remote + " was added; take it back out?",
-            choices: [{ label: "Take it out", ink: Zenon.cyan, run: () => win.act("remoteRemove", { name: remote }, { repo: root, said: "Took " + remote + " back out" }) },
+            choices: [{ label: "Take it out", ink: Zenon.accent, run: () => win.act("remoteRemove", { name: remote }, { repo: root, said: "Took " + remote + " back out" }) },
                       { label: "Keep the remote" }] });
         } });
     };
@@ -725,7 +725,7 @@ FloatingWindow {
   function pickForge(question, ids, then, detail) {
     if (ids.length <= 2) {
       win.card_({ question: question, glyph: "\uF0C2", ink: Zenon.ink, detail: detail || "",
-        choices: ids.map((id) => ({ label: D.FORGES[id].name, ink: Zenon.cyan, run: () => then(id) }))
+        choices: ids.map((id) => ({ label: D.FORGES[id].name, ink: Zenon.accent, run: () => then(id) }))
           .concat([{ label: "Cancel", ink: Zenon.accentMuted }]) });
       return;
     }
@@ -800,7 +800,7 @@ FloatingWindow {
       win.card_({ question: "ssh is not installed", glyph: "", ink: Zenon.yellow,
         detail: "This remote is reached over ssh, and ssh is not here. Ceres can install it (openssh) — it asks for your password — then try again.",
         items: text.split("\n"),
-        choices: [{ label: "Install openssh", ink: Zenon.cyan, run: () => win.installNeed("openssh", "to reach ssh remotes") },
+        choices: [{ label: "Install openssh", ink: Zenon.accent, run: () => win.installNeed("openssh", "to reach ssh remotes") },
                   { label: "OK", ink: Zenon.accentMuted }] });
       return;
     }
@@ -1074,7 +1074,7 @@ FloatingWindow {
           x: 14
           anchors.verticalCenter: parent.verticalCenter
           text: ""
-          color: Zenon.cyan
+          color: Zenon.accent
           font.family: Zenon.glyphFace
           font.pixelSize: Zenon.px(20)
         }
@@ -1111,7 +1111,7 @@ FloatingWindow {
           anchors.rightMargin: 12
           anchors.verticalCenter: parent.verticalCenter
           text: "\uF078"
-          color: repoPop.isOpen ? Zenon.cyan : Zenon.accentMuted
+          color: repoPop.isOpen ? Zenon.accent : Zenon.accentMuted
           rotation: repoPop.isOpen ? 180 : 0
           Behavior on rotation { NumberAnimation { duration: Zenon.normal; easing.type: Zenon.travelEase } }
           font.family: Zenon.glyphFace
@@ -1259,7 +1259,7 @@ FloatingWindow {
             }
             DialogButton {
               label: win.bisectNow && win.bisectNow.culprit ? "Finish" : "Stop"
-              ink: win.bisectNow && win.bisectNow.culprit ? Zenon.cyan : Zenon.accentMuted
+              ink: win.bisectNow && win.bisectNow.culprit ? Zenon.accent : Zenon.accentMuted
               onClicked: win.bisect("reset")
             }
           }
@@ -1269,7 +1269,7 @@ FloatingWindow {
             visible: !!win.state && win.state.op !== "bisect"
             DialogButton {
               label: "Continue"
-              ink: Zenon.cyan
+              ink: Zenon.accent
               ready: !!win.st && win.st.conflicts.length === 0
               onClicked: win.sequence("continue")
             }
@@ -1335,7 +1335,7 @@ FloatingWindow {
               }
               DialogButton {
                 label: win.mgr.installing && win.mgr.installing.pkg === modelData.pkg ? "Installing…" : "Install " + modelData.pkg
-                ink: Zenon.cyan
+                ink: Zenon.accent
                 ready: !win.mgr.installing
                 onClicked: win.installNeed(modelData.pkg, modelData.why.replace(/, which is not installed$/, ""))
               }
@@ -1503,7 +1503,7 @@ FloatingWindow {
                   visible: !!parent.w
                   anchors.verticalCenter: parent.verticalCenter
                   text: parent.w ? parent.w.glyph : ""
-                  color: Zenon.cyan
+                  color: Zenon.accent
                   font.family: Zenon.glyphFace
                   font.pixelSize: Zenon.px(13)
                 }
@@ -1529,7 +1529,7 @@ FloatingWindow {
               visible: pushChip.choice
               anchors.verticalCenter: parent.verticalCenter
               text: "\uF078"
-              color: pushPop.isOpen ? Zenon.cyan : Zenon.accentMuted
+              color: pushPop.isOpen ? Zenon.accent : Zenon.accentMuted
               rotation: pushPop.isOpen ? 180 : 0
               Behavior on rotation { NumberAnimation { duration: Zenon.normal; easing.type: Zenon.travelEase } }
               font.family: Zenon.glyphFace
@@ -1607,7 +1607,7 @@ FloatingWindow {
           readonly property string phase: win.mgr.upload ? win.mgr.upload.phase : ""
           readonly property int waiting: win.mgr.upload ? win.mgr.upload.waiting || 0 : 0
           readonly property var site: D.FORGES[win.mgr.upload && win.mgr.upload.forge || "github"]
-          readonly property color ink: upPill.phase === "failed" ? Zenon.red : upPill.phase === "done" ? Zenon.green : Zenon.cyan
+          readonly property color ink: upPill.phase === "failed" ? Zenon.red : upPill.phase === "done" ? Zenon.green : Zenon.accent
           Rectangle {
             anchors.fill: parent
             radius: Zenon.radiusControl
@@ -1729,20 +1729,20 @@ FloatingWindow {
           width: netRow.implicitWidth + 30
           height: 28
           radius: Zenon.radiusControl
-          color: Zenon.alpha(Zenon.cyan, 0.08)
+          color: Zenon.alpha(Zenon.accent, 0.08)
           border.width: 1
-          border.color: Zenon.alpha(Zenon.cyan, 0.4)
+          border.color: Zenon.alpha(Zenon.accent, 0.4)
           Row {
             id: netRow
             anchors.centerIn: parent
             spacing: 10
-            Working { anchors.verticalCenter: parent.verticalCenter; running: !!win.netJob; ink: Zenon.cyan; dot: 5; gap: 4 }
+            Working { anchors.verticalCenter: parent.verticalCenter; running: !!win.netJob; ink: Zenon.accent; dot: 5; gap: 4 }
             Text {
               textFormat: Text.PlainText
               anchors.verticalCenter: parent.verticalCenter
               text: !win.netJob ? "" : win.netJob.label
                 + (win.netJob.progress >= 0 ? "  ·  " + win.netJob.phase.toLowerCase() + " " + win.netJob.progress + "%" : "…")
-              color: Zenon.cyan
+              color: Zenon.accent
               font.family: Zenon.face
               font.weight: Font.Bold
               font.features: { "tnum": 1 }
@@ -1788,7 +1788,7 @@ FloatingWindow {
           id: pullBtn
           visible: !win.netBusy && win.syncPage
           label: win.branch && win.branch.behind > 0 ? "Pull  ↓" + win.branch.behind : "Pull"
-          ink: win.branch && win.branch.behind > 0 ? Zenon.cyan : Zenon.accentMuted
+          ink: win.branch && win.branch.behind > 0 ? Zenon.accent : Zenon.accentMuted
           ready: !!win.branch && !!win.branch.upstream
           onClicked: win.pull()
           MouseArea { anchors.fill: parent; acceptedButtons: Qt.RightButton; onClicked: win.pullMenu(pullBtn) }
@@ -1807,7 +1807,7 @@ FloatingWindow {
               : pushBtn.n === 1 ? "Push to " + win.pushTargets[0]
               : !win.branch.upstream && win.branch.head ? "Publish"
               : win.branch.ahead > 0 ? "Push  ↑" + win.branch.ahead : "Push"
-            ink: win.syncing ? Zenon.cyan : !win.pushNothing && win.branch && (win.branch.ahead > 0 || pushBtn.n > 0 || (!win.branch.upstream && win.branch.head)) ? Zenon.cyan : Zenon.accentMuted
+            ink: win.syncing ? Zenon.accent : !win.pushNothing && win.branch && (win.branch.ahead > 0 || pushBtn.n > 0 || (!win.branch.upstream && win.branch.head)) ? Zenon.accent : Zenon.accentMuted
             ready: win.syncing || !win.pushNothing
             primary: !win.syncing && !win.pushNothing && !!win.branch && (win.branch.ahead > 0 || pushBtn.n > 0) && win.branch.behind === 0
             onClicked: win.push()
@@ -1903,7 +1903,7 @@ FloatingWindow {
         win.card_({ question: run.name, glyph: "", ink: failed ? Zenon.red : Zenon.ink,
           detail: (failed ? "Failed" : run.state === "pending" ? "Running" : "Done") + "  ·  its last " + res.lines.length + " lines",
           log: res.lines,
-          choices: (failed ? [{ label: "Re-run", ink: Zenon.cyan, run: () => win.act(op + "Rerun", { full: h.full, job: run.job },
+          choices: (failed ? [{ label: "Re-run", ink: Zenon.accent, run: () => win.act(op + "Rerun", { full: h.full, job: run.job },
                                   { repo: null, label: "Asking for a re-run", network: true, refresh: false,
                                     said: "Re-running " + run.name, then: () => win.watchCi() }) }] : [])
             .concat(run.url ? [{ label: "On the web", keep: true, run: () => Strings.openLink(run.url) }] : [])
@@ -2032,7 +2032,7 @@ FloatingWindow {
       if (!st.keygen) {
         win.card_({ question: "Signing needs openssh", glyph: "\uF084", ink: Zenon.ink,
           detail: "Git signs with ssh-keygen, which comes with openssh — not installed. Ceres can install it (it asks for your password).",
-          choices: [{ label: "Install openssh", ink: Zenon.cyan, run: () => win.mgr.installTool("openssh", "for signing your commits", (done) => { if (done && win) win.askSigning(email); }) },
+          choices: [{ label: "Install openssh", ink: Zenon.accent, run: () => win.mgr.installTool("openssh", "for signing your commits", (done) => { if (done && win) win.askSigning(email); }) },
                     { label: "Cancel", ink: Zenon.accentMuted }] });
         return;
       }
@@ -2040,7 +2040,7 @@ FloatingWindow {
         repo: null, label: create ? "Making a signing key" : "Setting up signing",
         then: (r) => { if (win) win.offerSigningKey(r); } });
       const choices = st.keys.map((k) => ({ label: "Use " + D.baseName(k.path).replace(/\.pub$/, ""), run: () => use(k.path, false) }));
-      choices.push({ label: "Make a new key for signing", ink: Zenon.cyan, run: () => use("", true) }, { label: "Cancel", ink: Zenon.accentMuted });
+      choices.push({ label: "Make a new key for signing", ink: Zenon.accent, run: () => use("", true) }, { label: "Cancel", ink: Zenon.accentMuted });
       win.card_({ question: "Sign with which key?", glyph: "\uF084", ink: Zenon.ink,
         detail: (st.keys.length > 0 ? "Your SSH keys are below, or make one only for signing. " : "There is no SSH key here yet. ")
           + "A new one is made without a passphrase, so git signs without asking — kept in ~/.ssh, readable by you alone.",
@@ -2060,7 +2060,7 @@ FloatingWindow {
         detail: "For them to show as Verified, the forge needs the key — as a signing key. Add it to "
           + found.map((f) => f.name).join(" and ") + "?",
         items: [r.public.slice(0, 60) + "…"],
-        choices: [{ label: "Add it", ink: Zenon.cyan, run: () => found.forEach((f) =>
+        choices: [{ label: "Add it", ink: Zenon.accent, run: () => found.forEach((f) =>
                       win.act(f.id + "AddSigningKey", { key: r.public, title: "delphi signing (" + win.home.split("/").pop() + ")" }, {
                         repo: null, network: true, label: "Adding the key to " + f.name, refresh: false,
                         then: (res) => win.say(res.already ? f.name + " already has it" : "Added to " + f.name

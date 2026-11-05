@@ -2170,13 +2170,13 @@ FloatingWindow {
   }
   function verbInk(v) {
     return ({ upgraded: Zenon.blue, installed: Zenon.green, removed: Zenon.red,
-              downgraded: Zenon.yellow, reinstalled: Zenon.cyan })[v] || Zenon.accentKey;
+              downgraded: Zenon.yellow, reinstalled: Zenon.accent })[v] || Zenon.accentKey;
   }
 
   // ── pieces ──────────────────────────────────────────────────────────────
   function repoInk(repo) {
     if (/-testing$/.test(repo)) return Zenon.red;
-    return ({ core: Zenon.cyan, extra: Zenon.green, multilib: Zenon.yellow,
+    return ({ core: Zenon.accent, extra: Zenon.green, multilib: Zenon.yellow,
               aur: Zenon.magenta, local: Zenon.white })[repo] || Zenon.accentKey;
   }
 
@@ -2217,7 +2217,8 @@ FloatingWindow {
     // carry on through, it is that summary — and the rows were painted
     // over it, scrolling up across the description to the tabs.
     Repeater {
-      model: [histList, hdetail, maintSide, pkgList, updList, infoPane].concat(storeView.edgeViews)
+      // (the News tab's list too, but not under its offline line)
+      model: [histList, hdetail, maintSide, pkgList, updList, infoPane, newsTab.list].concat(storeView.edgeViews)
       delegate: ScrollEdge {
         required property var modelData
         view: modelData
@@ -2234,14 +2235,15 @@ FloatingWindow {
         // headings' hairline all the way up through the head, one material,
         // rather than stopping at the headings (a bar's gap is drawn sharp)
         bar: modelData === pkgList ? null : notes.visible ? notes : head
-        visible: modelData.visible
+        visible: modelData.visible && !(modelData === newsTab.list && newsTab.leadShown)
       }
     }
     // and up out of the foot: the same views, turned over, from each one's
     // bottom edge down through the foot (declared after the stage, so it
     // draws over them)
     Repeater {
-      model: [histList, hdetail, maintSide, mdList, pnView, pkgList, updList, infoPane, configView.pageFlick]
+      model: [histList, hdetail, maintSide, mdList, pnView, pkgList, updList, infoPane, configView.pageFlick,
+              newsTab.list, newsFace.list]
         .concat(storeView.edgeViews)
       delegate: ScrollEdge {
         required property var modelData
@@ -2380,7 +2382,7 @@ FloatingWindow {
               anchors.leftMargin: 10
               anchors.verticalCenter: parent.verticalCenter
               text: "\uF002"
-              color: win.typing || win.filterText !== "" ? Zenon.cyan : Zenon.accentMuted
+              color: win.typing || win.filterText !== "" ? Zenon.accent : Zenon.accentMuted
               font.family: Zenon.face
               font.weight: Zenon.weight
               font.pixelSize: Zenon.px(13)
@@ -2414,8 +2416,8 @@ FloatingWindow {
                   low: 0.3
                 }
                 color: win.typing ? Zenon.white : Zenon.accentKey
-                selectionColor: Zenon.cyan
-                selectedTextColor: Zenon.onAccent
+                selectionColor: Zenon.accent
+                selectedTextColor: Zenon.inkOnAccent
                 font.family: Zenon.face
                 font.weight: Zenon.weight
                 font.pixelSize: Zenon.px(15)
@@ -2506,7 +2508,7 @@ FloatingWindow {
           }
 
           // A TOGGLE CHIP (user, 2026-10-15; the glyph U+F0C7 theirs): a condition on the search, on or
-          // off — lit cyan like the lit tab while it holds. The glyph alone; the
+          // off — lit accent like the lit tab while it holds. The glyph alone; the
           // tip names it.
           Rectangle {
             id: onlyInstalled
@@ -2517,14 +2519,14 @@ FloatingWindow {
             radius: Zenon.windowRadius
             // PRESSED, DARKENED as terminus' ClearChip is (user, 2026-10-15)
             color: onlyTap.pressed ? Zenon.pressFill
-                 : win.installedOnly ? Zenon.alpha(Zenon.cyan, 0.2)
+                 : win.installedOnly ? Zenon.alpha(Zenon.accent, 0.2)
                  : Zenon.wash(0.05)
             border.width: 1
-            border.color: win.installedOnly ? Zenon.alpha(Zenon.cyan, 0.7) : Zenon.border
+            border.color: win.installedOnly ? Zenon.alpha(Zenon.accent, 0.7) : Zenon.border
             Text {
               anchors.centerIn: parent
               text: "\uF0C7"
-              color: win.installedOnly ? Zenon.cyan : Zenon.accentKey
+              color: win.installedOnly ? Zenon.accent : Zenon.accentKey
               opacity: onlyTap.pressed ? Zenon.pressDim : 1
               font.family: Zenon.face
               font.weight: Zenon.weight
@@ -2548,15 +2550,15 @@ FloatingWindow {
             height: 32
             radius: Zenon.windowRadius
             color: refreshTap.pressed ? Zenon.pressFill
-                 : Ceres.checking ? Zenon.alpha(Zenon.cyan, 0.2)
+                 : Ceres.checking ? Zenon.alpha(Zenon.accent, 0.2)
                  : Zenon.wash(0.05)
             border.width: 1
-            border.color: Ceres.checking ? Zenon.alpha(Zenon.cyan, 0.7) : Zenon.border
+            border.color: Ceres.checking ? Zenon.alpha(Zenon.accent, 0.7) : Zenon.border
             Text {
               id: refresh
               anchors.centerIn: parent
               text: "\uF021"
-              color: Ceres.checking ? Zenon.cyan : Zenon.accentKey
+              color: Ceres.checking ? Zenon.accent : Zenon.accentKey
               opacity: refreshTap.pressed ? Zenon.pressDim : 1
               font.family: Zenon.face
               font.weight: Zenon.weight
@@ -2762,14 +2764,11 @@ FloatingWindow {
             }
           }
 
-          Text {
+          EmptyState {
             anchors.centerIn: parent
             visible: win.historyRows.length === 0 && !historyProc.running
-            text: win.hquery !== "" ? "Nothing matches \u201C" + win.hquery + "\u201D" : "no history"
-            color: Zenon.accentMuted
-            font.family: Zenon.face
-            font.weight: Font.Bold
-            font.pixelSize: Zenon.px(17)
+            filtered: win.hquery !== ""
+            text: win.hquery !== "" ? "Nothing matches \u201C" + win.hquery + "\u201D" : "No history"
           }
         }
 
@@ -3096,7 +3095,7 @@ FloatingWindow {
             id: mdBtns
             anchors.top: mdWhat.bottom
             anchors.topMargin: 14
-            spacing: 8
+            spacing: Zenon.buttonGap
             DialogButton {
               visible: mdetail.key === "orphans" && !!mdetail.m && mdetail.m.orphans.length > 0
               label: "Remove orphans"
@@ -3107,7 +3106,7 @@ FloatingWindow {
             DialogButton {
               visible: mdetail.key === "pacnew" && !!mdetail.m && mdetail.m.pacnew.length > 0
               label: "Merge in terminal"
-              ink: Zenon.cyan
+              ink: Zenon.accent
               primary: true
               onClicked: win.maintGo("")
             }
@@ -3115,7 +3114,7 @@ FloatingWindow {
               visible: mdetail.key === "cache"
               ready: !!mdetail.m && !!mdetail.m.keep && mdetail.m.keep.n > 0
               label: "Keep " + win.keepVersions + " versions"
-              ink: Zenon.cyan
+              ink: Zenon.accent
               primary: true
               onClicked: win.maintGo("")
             }
@@ -3135,14 +3134,14 @@ FloatingWindow {
             DialogButton {
               visible: mdetail.key === "clones" && !!mdetail.m && mdetail.m.clones.some(c => !c.installed)
               label: "Delete uninstalled"
-              ink: Zenon.cyan
+              ink: Zenon.accent
               primary: true
               onClicked: win.maintGo("")
             }
             DialogButton {
               visible: mdetail.key === "mirrors" && !!win.ranked && win.ranked.ranked.length > 0
               label: "Use these " + (win.ranked ? win.ranked.ranked.length : 0)
-              ink: Zenon.cyan
+              ink: Zenon.accent
               primary: true
               onClicked: win.maintGo("")
             }
@@ -3150,14 +3149,14 @@ FloatingWindow {
               visible: mdetail.key === "mirrors"
               ready: !win.ranking && !!win.mirrors && win.mirrors.statusOk
               label: win.ranking ? "Ranking\u2026" : win.ranked ? "Rank again" : "Rank from here"
-              ink: win.ranked ? Zenon.accentMuted : Zenon.cyan
+              ink: win.ranked ? Zenon.accentMuted : Zenon.accent
               primary: !win.ranked
               onClicked: win.maintGo("rank")
             }
             DialogButton {
               visible: mdetail.key === "oldcode" && Ceres.staleServices.length > 0
               label: Ceres.staleServices.length === 1 ? "Restart the service" : "Restart " + Ceres.staleServices.length + " services"
-              ink: Zenon.cyan
+              ink: Zenon.accent
               primary: true
               ready: !Ceres.txBusy
               onClicked: Ceres.restartStaleServices()
@@ -3165,7 +3164,7 @@ FloatingWindow {
             DialogButton {
               visible: mdetail.key === "flatpak"
               label: "Remove unused"
-              ink: Zenon.cyan
+              ink: Zenon.accent
               primary: true
               // only when there is something to remove (user, 2026-10-15)
               ready: !!mdetail.m && mdetail.m.fpUnused.length > 0 && !Ceres.txBusy
@@ -3182,7 +3181,7 @@ FloatingWindow {
             DialogButton {
               visible: mdetail.key === "sync"
               label: "Sync now"
-              ink: Zenon.cyan
+              ink: Zenon.accent
               primary: true
               onClicked: win.maintGo("")
             }
@@ -3451,7 +3450,7 @@ FloatingWindow {
               wrapMode: Text.WrapAnywhere
               text: modelData.text
               color: modelData.ink === "add" ? Zenon.green : modelData.ink === "del" ? Zenon.red
-                : modelData.ink === "hunk" ? Zenon.cyan : Zenon.accentKey
+                : modelData.ink === "hunk" ? Zenon.accent : Zenon.accentKey
               font.family: Zenon.faceCode
               font.weight: Zenon.codeWeight
               font.pixelSize: Zenon.px(15)
@@ -3482,7 +3481,7 @@ FloatingWindow {
           // it, and the rows starting at that line and going on under it
           // frosted, as they do under the head — chrome, not a pill floating
           // over the rows with them showing through it sharp. Small fixed-
-          // width capitals, the one the list is sorted by in cyan with its
+          // width capitals, the one the list is sorted by in accent with its
           // direction. Click a heading to sort by it, again to turn it round.
           // With none chosen the search's own order stands — best match first.
           Item {
@@ -3513,7 +3512,7 @@ FloatingWindow {
                 verticalAlignment: Text.AlignVCenter
                 horizontalAlignment: ch.rightAlign ? Text.AlignRight : Text.AlignLeft
                 text: ch.on ? ch.label + (win.sortDesc ? " \u25BE" : " \u25B4") : ch.label
-                color: ch.on ? Zenon.cyan : (chPress.pressed ? Zenon.accentKey : Zenon.accentMuted)
+                color: ch.on ? Zenon.accent : (chPress.pressed ? Zenon.accentKey : Zenon.accentMuted)
                 font.family: Zenon.faceFixed
                 font.weight: Zenon.weight
                 font.pixelSize: Zenon.px(12)
@@ -3568,14 +3567,14 @@ FloatingWindow {
                 // the tint says what the mark will DO — green in, red out — the
                 // same inks as the + and − and the count in the head
                 // THE CURSOR ON A MARKED ROW (user, 2026-10-17: hard to see):
-                // terminus' rule — the fill deepens and a cyan outline says
+                // terminus' rule — the fill deepens and an accent outline says
                 // "you are here", whatever the mark (EntryRow.cursorOnly)
                 color: prow.mark ? (prow.modelData.installed
                     ? Qt.rgba(Zenon.red.r, Zenon.red.g, Zenon.red.b, 0.12)
                     : Qt.rgba(Zenon.green.r, Zenon.green.g, Zenon.green.b, 0.10))
                   : "transparent"
                 border.width: prow.here && prow.mark ? 1 : 0
-                border.color: prow.mark ? Zenon.cyan : Zenon.border
+                border.color: prow.mark ? Zenon.accent : Zenon.border
               }
 
               // state, or what the mark will do to it
@@ -3677,14 +3676,11 @@ FloatingWindow {
               }
             }
 
-            Text {
+            EmptyState {
               anchors.centerIn: parent
               visible: pkgList.count === 0 && !searchProc.running
-              text: win.query !== "" ? "Nothing matches \u201C" + win.query + "\u201D" : "nothing here"
-              color: Zenon.accentMuted
-              font.family: Zenon.face
-              font.weight: Font.Bold
-              font.pixelSize: Zenon.px(17)
+              filtered: win.query !== ""
+              text: win.query !== "" ? "Nothing matches \u201C" + win.query + "\u201D" : "Nothing here"
             }
           }
 
@@ -3719,11 +3715,11 @@ FloatingWindow {
                 radius: Zenon.windowRadius
                 visible: !urow.modelData.head
                 // see the packages' rows: a cursor on a marked row deepens
-                // it and rings it in cyan
+                // it and rings it in accent
                 color: urow.marked ? Qt.rgba(Zenon.yellow.r, Zenon.yellow.g, Zenon.yellow.b, 0.10)
                   : "transparent"
                 border.width: urow.index === win.usel && urow.marked ? 1 : 0
-                border.color: urow.marked ? Zenon.cyan : Zenon.border
+                border.color: urow.marked ? Zenon.accent : Zenon.border
               }
               Text {
                 textFormat: Text.PlainText
@@ -4090,7 +4086,7 @@ FloatingWindow {
                 wrapMode: Text.WrapAnywhere
                 text: modelData.text
                 color: modelData.ink === "add" ? Zenon.green : modelData.ink === "del" ? Zenon.red
-                  : modelData.ink === "hunk" ? Zenon.cyan : Zenon.accentKey
+                  : modelData.ink === "hunk" ? Zenon.accent : Zenon.accentKey
                 font.family: Zenon.faceCode
                 font.weight: Zenon.codeWeight
                 font.pixelSize: Zenon.px(15)
@@ -4110,6 +4106,7 @@ FloatingWindow {
       }
 
       NewsView {
+        id: newsFace
         grow: 2
         visible: win.face === "news"
         anchors.fill: parent
@@ -4124,6 +4121,11 @@ FloatingWindow {
         visible: win.face === "tx"
         anchors.fill: parent
         anchors.margins: 20
+        // down over the foot: its pill stands inside the log (user,
+        // 2026-11-04), see win.footInLog
+        // (the stage ends at foot.top, which the foot's own margin lifts)
+        anchors.bottomMargin: win.footInLog ? 20 - foot.height - foot.anchors.bottomMargin : 20
+        footRoom: win.footInLog ? foot.height : 0
       }
     }
   }
@@ -4206,18 +4208,25 @@ FloatingWindow {
   // On the hint strip's ground, with its hairline — the same strip lexi,
   // ideo, zeus and folio stand their keys on.
   // morpheus/HintBar: this strip was ceres' and is every window's now
+  // over the job and no sheet, the pill sits in the log's corner: the foot
+  // drawn in by TxView's margin, so its pill stands its inset inside it
+  readonly property bool footInLog: win.face === "tx" && !win.authUp && !win.settleUp && !win.msgUp
   HintBar {
     id: foot
     anchors.bottom: parent.bottom
     anchors.left: parent.left
     anchors.right: parent.right
+    anchors.bottomMargin: win.footInLog ? 20 : 0
+    anchors.rightMargin: win.footInLog ? 20 + txView.railRoom : 0
+    // in the log, the pill frosts it (no ScrollEdge feeds it there)
+    frostSource: win.footInLog ? txView.log : null
     rows: win.hintRows
 
     DialogButton {
       visible: win.face === "setup"
       // only the Flatpak question left, answered no: nothing to install
       label: Ceres.otherHelpers.length ? "Replace with paru" : Ceres.setupMissing.length || setupView.flatpak ? "Install" : "Done"
-      ink: Zenon.cyan
+      ink: Zenon.accent
       primary: true
       onClicked: Ceres.setup(setupView.choice, setupView.flatpak)
     }
@@ -4230,21 +4239,21 @@ FloatingWindow {
     DialogButton {
       visible: win.face === "news"
       label: "Continue"
-      ink: Zenon.cyan
+      ink: Zenon.accent
       primary: true
       onClicked: Ceres.passNews()
     }
     DialogButton {
       visible: win.face === "tx" && txView.settleable && !win.settleUp
       label: txView.settling && txView.settleInfo.conflicts.length ? "Replace and install" : "Install"
-      ink: Zenon.cyan
+      ink: Zenon.accent
       primary: true
       onClicked: txView.settle()
     }
     DialogButton {
       visible: win.face === "tx" && Ceres.txUnholdable
       label: "Install anyway"
-      ink: Zenon.cyan
+      ink: Zenon.accent
       primary: true
       onClicked: Ceres.txUnheldRun()
     }
@@ -4263,14 +4272,14 @@ FloatingWindow {
     DialogButton {
       visible: win.face === "browse" && win.tab === "packages" && win.markCount > 0
       label: "Review " + win.markCount
-      ink: Zenon.cyan
+      ink: Zenon.accent
       primary: true
       onClicked: win.confirm()
     }
     DialogButton {
       visible: win.face === "browse" && win.tab === "updates" && Ceres.total > 0
       label: "Update all"
-      ink: Zenon.cyan
+      ink: Zenon.accent
       primary: true
       onClicked: Ceres.updateAll()
     }
@@ -4314,7 +4323,7 @@ FloatingWindow {
         id: passBtns
         anchors.top: field.bottom
         anchors.horizontalCenter: parent.horizontalCenter
-        spacing: 8
+        spacing: Zenon.buttonGap
         DialogButton {
           label: "Cancel"
           ink: Zenon.accentMuted
@@ -4322,7 +4331,7 @@ FloatingWindow {
         }
         DialogButton {
           label: "Unlock"
-          ink: Zenon.cyan
+          ink: Zenon.accent
           primary: field.pw !== ""
           ready: field.pw !== ""
           onClicked: { const p = field.pw; field.pw = ""; Ceres.upgradeAll(p); }
@@ -4392,7 +4401,7 @@ FloatingWindow {
             anchors.margins: 1
             radius: Zenon.rad(4)
             frac: Ceres.txTotal ? Ceres.txTotal.frac : 0
-            ink: Zenon.cyan
+            ink: Zenon.accent
           }
           Text {
             anchors.left: parent.left
@@ -4443,7 +4452,7 @@ FloatingWindow {
         Row {
           visible: !Ceres.txBusy
           anchors.horizontalCenter: parent.horizontalCenter
-          spacing: 8
+          spacing: Zenon.buttonGap
           topPadding: 6
           DialogButton {
             visible: Ceres.txState === "failed"
@@ -4453,7 +4462,7 @@ FloatingWindow {
           }
           DialogButton {
             label: "OK"
-            ink: Zenon.cyan
+            ink: Zenon.accent
             primary: true
             onClicked: Ceres.txClear()
           }
@@ -4589,7 +4598,7 @@ FloatingWindow {
 
         Row {
           anchors.right: parent.right
-          spacing: 8
+          spacing: Zenon.buttonGap
           topPadding: 8
           DialogButton {
             label: "Open in terminal"
@@ -4603,7 +4612,7 @@ FloatingWindow {
           DialogButton {
             visible: txView.settleable
             label: settleCol.conflicts.length ? "Replace and install" : "Install"
-            ink: Zenon.cyan
+            ink: Zenon.accent
             primary: true
             onClicked: txView.settle()
           }
@@ -4711,7 +4720,7 @@ FloatingWindow {
             elide: Text.ElideRight
             text: modelData.text
             color: modelData.ink === "add" ? Zenon.green : modelData.ink === "del" ? Zenon.red
-              : modelData.ink === "hunk" ? Zenon.cyan : Zenon.accentKey
+              : modelData.ink === "hunk" ? Zenon.accent : Zenon.accentKey
             font.family: Zenon.faceCode
             font.weight: Zenon.codeWeight
             font.pixelSize: Zenon.px(15)
@@ -4725,7 +4734,7 @@ FloatingWindow {
         anchors.bottomMargin: 14
         anchors.right: parent.right
         anchors.rightMargin: 16
-        spacing: 8
+        spacing: Zenon.buttonGap
         DialogButton {
           label: "Back"
           ink: Zenon.accentMuted
@@ -4733,7 +4742,7 @@ FloatingWindow {
         }
         DialogButton {
           label: "Save"
-          ink: Zenon.cyan
+          ink: Zenon.accent
           primary: !!confSheet.rv && confSheet.rv.ok
           ready: !!confSheet.rv && confSheet.rv.ok
           onClicked: win.saveConf()
@@ -4867,7 +4876,7 @@ FloatingWindow {
         anchors.bottomMargin: 14
         anchors.right: parent.right
         anchors.rightMargin: 16
-        spacing: 8
+        spacing: Zenon.buttonGap
         DialogButton {
           label: "Back"
           ink: Zenon.accentMuted
@@ -4875,7 +4884,7 @@ FloatingWindow {
         }
         DialogButton {
           label: win.fpRemove ? "Remove" : "Install"
-          ink: win.fpRemove ? Zenon.red : Zenon.cyan
+          ink: win.fpRemove ? Zenon.red : Zenon.accent
           primary: true
           ready: !Ceres.txBusy
           onClicked: win.goFlatpak()
@@ -4995,7 +5004,7 @@ FloatingWindow {
         anchors.bottomMargin: 14
         anchors.right: parent.right
         anchors.rightMargin: 16
-        spacing: 8
+        spacing: Zenon.buttonGap
         DialogButton {
           label: "Back"
           ink: Zenon.accentMuted
@@ -5531,7 +5540,7 @@ FloatingWindow {
         anchors.bottomMargin: 14
         anchors.right: parent.right
         anchors.rightMargin: 16
-        spacing: 8
+        spacing: Zenon.buttonGap
         DialogButton {
           visible: win.aurTargets.length > 0
           label: "Review PKGBUILD"
@@ -5545,7 +5554,7 @@ FloatingWindow {
         }
         DialogButton {
           label: "Go ahead"
-          ink: Zenon.cyan
+          ink: Zenon.accent
           // an undo with nothing left to take back has nothing to go ahead with
           readonly property bool empty: win.confirmKind === "undo" && !win.planning
             && win.installNames.length + win.removeNames.length === 0

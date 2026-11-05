@@ -44,6 +44,9 @@ module.exports = {
     // the star's old British name reads as the new one, and is written so
     t.eq("an old favourite reads as favorite", T.splitTags("favourite,red"), ["favorite", "red"]);
     t.eq("and both spellings are one tag", T.normalise(["favourite", "favorite"]), ["favorite"]);
+    t.eq("an old grey reads as gray", T.splitTags("grey,red"), ["gray", "red"]);
+    t.eq("grey and gray are one tag", T.normalise(["grey", "gray"]), ["gray"]);
+    t.eq("the preset is gray", T.presetInk("gray"), "muted");
 
     // normalize is what makes two files carrying the same set carry the same
     // STRING, which is what lets a plain comparison answer "are these alike".

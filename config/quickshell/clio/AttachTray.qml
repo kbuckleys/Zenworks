@@ -52,7 +52,7 @@ Bubble {
       id: head
       anchors.verticalCenter: parent.verticalCenter
       spacing: 10
-      Text { anchors.verticalCenter: parent.verticalCenter; text: "\u{F03E2}"; color: Zenon.cyan; font.family: Zenon.glyphFace; font.pixelSize: Zenon.px(15) }
+      Text { anchors.verticalCenter: parent.verticalCenter; text: "\u{F03E2}"; color: Zenon.accent; font.family: Zenon.glyphFace; font.pixelSize: Zenon.px(15) }
       Text { anchors.verticalCenter: parent.verticalCenter; text: "Pictures and files"; color: Zenon.ink; font.family: Zenon.face; font.weight: Font.Bold; font.pixelSize: Zenon.px(15) }
     }
     // from anywhere, without a drag: terminus' picker, several at once
@@ -106,7 +106,7 @@ Bubble {
             radius: Zenon.radiusCard
             color: Zenon.wash(0.06)
             border.width: 1
-            border.color: tileMa.pressed ? Zenon.alpha(Zenon.cyan, 0.7) : Zenon.border
+            border.color: tileMa.pressed ? Zenon.alpha(Zenon.accent, 0.7) : Zenon.border
             Image {
               anchors.fill: parent
               visible: tile.modelData.pic
@@ -127,7 +127,7 @@ Bubble {
                 textFormat: Text.PlainText
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: Icons.glyphFor({ name: tile.modelData.name }) || "\u{F0214}"
-                color: Zenon.cyan
+                color: Zenon.accent
                 font.family: Zenon.glyphFace
                 font.pixelSize: Zenon.px(26)
               }
@@ -212,6 +212,6 @@ Bubble {
       Drag.dragType: Drag.Automatic
       Drag.onDragFinished: proxy.Drag.active = false
     }
-    DragCard { id: card; x: -4000; ink: Zenon.cyan }
+    DragCard { id: card; x: -4000; ink: Zenon.accent }
   }
 }

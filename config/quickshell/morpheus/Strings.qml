@@ -29,6 +29,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import "."
+import "icons.js" as Icons
 
 QtObject {
   id: root
@@ -58,7 +59,7 @@ QtObject {
       muted: Zenon.hex(Zenon.muted), red: Zenon.hex(Zenon.red),
       green: Zenon.hex(Zenon.green), yellow: Zenon.hex(Zenon.yellow),
       blue: Zenon.hex(Zenon.blue), magenta: Zenon.hex(Zenon.magenta),
-      cyan: Zenon.hex(Zenon.cyan), pink: Zenon.hex(Zenon.pink),
+      accent: Zenon.hex(Zenon.accent), pink: Zenon.hex(Zenon.pink),
       sand: Zenon.hex(Zenon.sand)
     };
   }
@@ -80,6 +81,20 @@ QtObject {
     const m = t.match(/^([^A-Za-z]*)([a-z])/);
     return m ? m[1] + m[2].toUpperCase() + t.slice(m[0].length) : t;
   }
+  // ── AN APP'S GLYPH, ITS DESKTOP FILE ASKED TOO ───────────────────────
+  // morpheus/icons.js' appGlyph by name first; nothing there, the first
+  // name's desktop entry is looked up and its categories asked (a web
+  // browser is md-web, user 2026-11-04). The one call every app row uses.
+  function appGlyph(names, categories) {
+    const g = Icons.appGlyph(names, categories);
+    if (g !== "" || categories) return g;
+    const id = names && names.length > 0 ? String(names[0] || "") : "";
+    if (id === "") return "";
+    const e = typeof DesktopEntries.heuristicLookup === "function"
+      ? DesktopEntries.heuristicLookup(id) : DesktopEntries.byId(id);
+    return e ? Icons.appGlyph(names, Array.from(e.categories || [])) : "";
+  }
+
   function fileUrl(p) {
     return "file://" + String(p ?? "").split("/").map(encodeURIComponent).join("/");
   }

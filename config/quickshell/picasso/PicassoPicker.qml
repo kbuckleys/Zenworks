@@ -421,7 +421,7 @@ Scope {
         z: 0.5
         anchors.fill: parent
         visible: picker.ruler && pane.mx >= 0 && reader.ready
-        readonly property color ink: Zenon.cyan
+        readonly property color ink: Zenon.accent
         readonly property color under: Zenon.shade(0.6)
         readonly property real cy: Math.floor(pane.my) + 0.5
         readonly property real cx: Math.floor(pane.mx) + 0.5

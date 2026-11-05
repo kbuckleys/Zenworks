@@ -62,7 +62,23 @@ def has(path):
         return False
 
 
+# WHO ASKED. The shell runs this under a tethered sh (Picasso.scanArgv), and
+# when the shell goes — a restart, a crash, a test harness quitting — that sh
+# dies with it and this process is handed to init. A make of a whole
+# directory then went on without anyone to read it, one magick per core
+# (2026-11-05: a harness' two scans ran on for minutes). So each picture
+# asks first: once the parent has changed, the rest are skipped and only
+# the pictures already in hand finish.
+PARENT = os.getppid()
+
+
+def orphaned():
+    return os.getppid() != PARENT
+
+
 def make(src, out, px):
+    if orphaned():
+        return
     subprocess.run(["magick", "-define", "jpeg:size=%dx%d" % (2 * px, 2 * px),
                     src + "[0]", "-auto-orient", "-thumbnail", "%dx%d" % (px, px),
                     "-strip", "-quality", "85", out],

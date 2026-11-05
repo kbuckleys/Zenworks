@@ -229,7 +229,7 @@ Item {
         Text {
           leftPadding: 4
           text: "  Add a website"
-          color: Zenon.cyan
+          color: Zenon.accent
           font.family: Zenon.face
           font.weight: Zenon.weight
           font.pixelSize: Zenon.px(13)
@@ -286,7 +286,7 @@ Item {
           Text {
             leftPadding: 4
             text: "  Add a field"
-            color: Zenon.cyan
+            color: Zenon.accent
             font.family: Zenon.face
             font.weight: Zenon.weight
             font.pixelSize: Zenon.px(13)
@@ -295,7 +295,7 @@ Item {
           }
           Text {
             text: "  Add a hidden field"
-            color: Zenon.cyan
+            color: Zenon.accent
             font.family: Zenon.face
             font.weight: Zenon.weight
             font.pixelSize: Zenon.px(13)

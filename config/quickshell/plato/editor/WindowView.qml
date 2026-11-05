@@ -825,8 +825,8 @@ Item {
         radius: 1
         opacity: 0.7 * (1 - trail.t)
         gradient: Gradient {
-          GradientStop { position: 0; color: parent.down ? "transparent" : Zenon.cyan }
-          GradientStop { position: 1; color: parent.down ? Zenon.cyan : "transparent" }
+          GradientStop { position: 0; color: parent.down ? "transparent" : Zenon.accent }
+          GradientStop { position: 1; color: parent.down ? Zenon.accent : "transparent" }
         }
       }
       // where it was: the cursor's ghost
@@ -839,7 +839,7 @@ Item {
         radius: Zenon.rad(2)
         color: "transparent"
         border.width: 1
-        border.color: Zenon.cyan
+        border.color: Zenon.accent
         opacity: 0.8 * (1 - trail.t)
       }
     }

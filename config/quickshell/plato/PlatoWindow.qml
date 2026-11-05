@@ -114,6 +114,8 @@ FloatingWindow {
 
   EditorState {
     id: st
+    // a row named that it does not hold: everything again (see _unref)
+    onRedrawWanted: nvim.request("redraw", {})
     // until nvim's own highlight groups arrive, the theme's — core keeps
     // dark-theme literals (it imports nothing), which flashed a pale
     // text on a light theme's first frame (2026-10-20). nvim's first
@@ -273,7 +275,7 @@ FloatingWindow {
       win.openLine = 0;
       win._later = [];
     }
-    onView: (ev) => st.applyView(ev)
+    viewSink: st
     onKeysSent: (keys) => st.keysSent(keys)
     onTheme: (ev) => st.applyTheme(ev)
     onPum: (ev) => st.applyPum(ev)
@@ -446,7 +448,7 @@ FloatingWindow {
     minW: 480
   }
 
-  // the tree's edge: terminus/SeamGrip — a hairline, cyan under the pointer,
+  // the tree's edge: terminus/SeamGrip — a hairline, accent under the pointer,
   // a handle to drag it wider or narrower, measured in the window's content.
   // A DRAG INTO THE TREE MUST STAY A DRAG (its rows carry DragHandlers and
   // its list is a Flickable): the grip does not let them take the pointer.
@@ -944,8 +946,8 @@ FloatingWindow {
                   font.pixelSize: Zenon.px(17)
                   // a directory in the theme's accent (user, 2026-10-28), as
                   // directories are everywhere else in the suite
-                  color: entry.project ? Zenon.cyan : Zenon.white
-                  text: entry.project ? "\u{F024B}" : Icons.glyphFor({ name: entry.name, isDir: false })
+                  color: entry.project ? Zenon.accent : Zenon.white
+                  text: entry.project ? "\u{F024B}" : Icons.glyphFor({ name: entry.name, isDir: false, path: entry.path })
                 }
                 Text {
                   textFormat: Text.PlainText
@@ -1067,9 +1069,9 @@ FloatingWindow {
       y: tabs.height
       width: parent.width
       height: parent.height - tabs.height
-      color: Qt.rgba(Zenon.cyan.r, Zenon.cyan.g, Zenon.cyan.b, 0.05)
+      color: Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.05)
       border.width: 1
-      border.color: Zenon.cyan
+      border.color: Zenon.accent
       radius: Zenon.radiusControl
     }
     // held over the strip: where the tabs will go
@@ -1080,7 +1082,7 @@ FloatingWindow {
       width: 2
       height: tabs.height - 6
       radius: 1
-      color: Zenon.cyan
+      color: Zenon.accent
     }
   }
 

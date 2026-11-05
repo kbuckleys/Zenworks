@@ -296,7 +296,7 @@ FocusScope {
 
     Row {
       anchors.right: parent.right
-      spacing: 10
+      spacing: Zenon.buttonGap
       DialogButton { label: "Done"; ink: Zenon.accentMuted; ready: !body.working; onClicked: body.win.closePartition() }
       DialogButton {
         visible: !!body.part
@@ -309,7 +309,7 @@ FocusScope {
         visible: !!body.part
         label: "Resize"
         primary: true
-        ink: Zenon.cyan
+        ink: Zenon.accent
         ready: body.sized && !!body.part && S.mibDown(body.size) !== body.part.size
         busy: body.working
         busyText: "Working…"
@@ -319,7 +319,7 @@ FocusScope {
         visible: !!body.free
         label: "Add partition"
         primary: true
-        ink: Zenon.cyan
+        ink: Zenon.accent
         ready: body.sized && body.passOk && body.blocked === ""
         busy: body.working
         busyText: "Making it…"

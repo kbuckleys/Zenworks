@@ -98,3 +98,7 @@ singleton Net 1.0 Net.qml
 SecretDots 1.0 SecretDots.qml
 Shake 1.0 Shake.qml
 singleton Attention 1.0 Attention.qml
+DropFace 1.0 DropFace.qml
+MenuFit 1.0 MenuFit.qml
+singleton FileGlyphs 1.0 FileGlyphs.qml
+GlyphGrid 1.0 GlyphGrid.qml

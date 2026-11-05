@@ -34,7 +34,7 @@ Item {
     { label: pg.row && D.protocolOf(pg.row.fetch) === "SSH" ? "Use HTTPS" : "Use SSH",
       visible: !!pg.row && D.otherUrl(pg.row.fetch) !== "", run: () => pg.switchWay(pg.row) },
     { label: "On the forge…", visible: !!pg.forgeRow, run: () => pg.settings(pg.row) },
-    { label: "Add remote", ink: Zenon.cyan, primary: true, run: () => pg.add() },
+    { label: "Add remote", ink: Zenon.accent, primary: true, run: () => pg.add() },
   ]
   function takeFocus() { if (pg.win) pg.win.focusKeys(); }
   function reload() { if (pg.win) pg.win.refreshRefs(); }
@@ -152,7 +152,7 @@ Item {
   function fork(r) {
     const f = pg.forgeRow;
     if (!r || !f) return;
-    pg.win.confirm({ question: "Fork " + f.full + "?", glyph: "", ink: Zenon.cyan,
+    pg.win.confirm({ question: "Fork " + f.full + "?", glyph: "", ink: Zenon.accent,
       detail: "A copy on your " + f.name + " account. Then " + (r.name === "origin" ? "origin is your fork, and this one is upstream" : "your fork is added as origin")
         + ": you push to yours, and open pull requests to theirs.",
       verb: "Fork",
@@ -241,7 +241,7 @@ Item {
         pg.win.card_({ question: "No key gets you into " + t.host, glyph: "", ink: Zenon.yellow,
           detail: (D.SSH_WHY[res.why] || "ssh could not get in.") + " Switch once a key works, or make one now.",
           items: res.line ? [res.line] : [],
-          choices: [{ label: "Make a key for it", ink: Zenon.cyan, run: () => pg.win.newKeyFor(t.host) },
+          choices: [{ label: "Make a key for it", ink: Zenon.accent, run: () => pg.win.newKeyFor(t.host) },
                     { label: "Switch anyway", run: apply },
                     { label: "Cancel", ink: Zenon.accentMuted }] });
       } });
@@ -357,7 +357,7 @@ Item {
             visible: text !== ""
             text: (rrow.r.name === pg.upstream ? "followed by " + (pg.win.branch ? pg.win.branch.head : "this branch") : "")
               + (rrow.ownPush ? (rrow.r.name === pg.upstream ? "  ·  " : "") + "pushes elsewhere" : "")
-            color: rrow.ownPush ? Zenon.yellow : Zenon.cyan
+            color: rrow.ownPush ? Zenon.yellow : Zenon.accent
             font.family: Zenon.face
             font.weight: Zenon.weight
             font.pixelSize: Zenon.px(13)

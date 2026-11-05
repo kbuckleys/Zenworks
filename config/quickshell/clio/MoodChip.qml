@@ -12,7 +12,7 @@ Rectangle {
   id: chip
   property string word: ""
   property bool on: false
-  property color ink: Zenon.cyan
+  property color ink: Zenon.accent
   signal clicked()
   width: label.implicitWidth + 22
   height: 28

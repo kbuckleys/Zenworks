@@ -16,6 +16,8 @@ import "hestia.js" as H
 
 Item {
   id: jp
+  // the journal, for the window's ScrollEdge under its foot
+  readonly property var view: log.view
 
   property var mgr: null
   property var win: null
@@ -105,7 +107,7 @@ Item {
       BulkField {
         id: unitField
         width: 260
-        height: 32
+        height: 28
         ghost: "Any service"
         clearable: true
         // the name settles before it is asked for: a service half typed is none
@@ -115,7 +117,7 @@ Item {
       BulkField {
         id: wordsField
         width: Math.max(200, bar.width - 260 - 10 - followBtn.width - 20)
-        height: 32
+        height: 28
         ghost: "Words in the message"
         clearable: true
         onTextChanged: wordsSettle.restart()
@@ -123,9 +125,8 @@ Item {
       }
       DialogButton {
         id: followBtn
-        implicitHeight: 32
         label: jp.following ? "Following" : "Follow"
-        ink: jp.following ? Zenon.cyan : Zenon.muted
+        ink: jp.following ? Zenon.accent : Zenon.muted
         ready: jp.boot === "0" || jp.boot === ""
         onClicked: jp.follow(!jp.following)
       }

@@ -119,7 +119,7 @@ FocusScope {
         anchors.verticalCenter: parent.verticalCenter
         label: body.out !== "" ? "Change…" : "Choose…"
         primary: body.out === ""
-        ink: body.out === "" ? Zenon.cyan : Zenon.accentMuted
+        ink: body.out === "" ? Zenon.accent : Zenon.accentMuted
         onClicked: body.choose()
       }
     }
@@ -175,12 +175,12 @@ FocusScope {
 
     Row {
       anchors.right: parent.right
-      spacing: 10
+      spacing: Zenon.buttonGap
       DialogButton { label: "Cancel"; ink: Zenon.accentMuted; onClicked: body.win.closeImage() }
       BusyButton {
         label: "Make it"
         primary: true
-        ink: Zenon.cyan
+        ink: Zenon.accent
         ready: body.out !== ""
         busy: body.working
         busyText: "Making it…"

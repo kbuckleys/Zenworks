@@ -21,20 +21,20 @@ Rectangle {
   property bool live: true
   default property alias inner: segInner.data
   signal hit()
-  readonly property bool lit: seg.chosen || segMa.containsMouse || seg.current
-  readonly property color ink: seg.chosen ? Zenon.cyan
-    : (segMa.containsMouse || seg.current ? Zenon.white : Zenon.accentSoft)
+  readonly property bool lit: seg.chosen || seg.current
+  readonly property color ink: seg.chosen ? Zenon.accent
+    : (seg.current ? Zenon.white : Zenon.accentSoft)
   height: 34
   radius: Zenon.windowRadius
   opacity: seg.live ? 1 : Zenon.disabledDim
   // PRESSED, DARKENED as terminus' ClearChip and Segments are (user, 2026-10-15)
   color: segMa.pressed ? Zenon.pressFill
     : seg.chosen
-    ? Qt.rgba(Zenon.cyan.r, Zenon.cyan.g, Zenon.cyan.b, 0.16)
+    ? Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.16)
     : (Zenon.wash(0.03))
   border.width: 1
-  border.color: seg.chosen ? Zenon.cyan
-    : (seg.current ? Qt.rgba(Zenon.cyan.r, Zenon.cyan.g, Zenon.cyan.b, 0.4)
+  border.color: seg.chosen ? Zenon.accent
+    : (seg.current ? Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.4)
                    : Zenon.border)
   Behavior on color { ColorAnimation { duration: Zenon.fast; easing.type: Zenon.ease } }
 

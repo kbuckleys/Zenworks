@@ -10,7 +10,7 @@
 // Alexandria's install button first (2026-10-08); picasso's Apply and Save
 // wear it since 2026-10-11 (user: "the same progress indicator").
 //
-//     BusyButton { label: "Save"; ink: Zenon.cyan; primary: true
+//     BusyButton { label: "Save"; ink: Zenon.accent; primary: true
 //                  busy: win.working; busyText: "Saving…"
 //                  onClicked: win.save() }
 
@@ -26,7 +26,7 @@ Item {
   property bool busy: false
   property string busyText: ""
   // the pill's color; the button's own ink unless said
-  property color busyInk: Zenon.cyan
+  property color busyInk: Zenon.accent
   // the label is a glyph (DialogButton's glyph), e.g. a refresh mark
   property bool glyph: false
   signal clicked()

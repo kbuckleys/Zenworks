@@ -21,6 +21,11 @@
 --                 the leader's git verbs: close that kind of side window
 --                 when one is up, open it (from the file's window) when not
 --
+-- A TAB PAGE OF ITS OWN is not plato's: plato itself never opens one, so
+-- a second nvim tab page is a plugin's whole layout (diffbandit's diff, its
+-- gutters beside the file it swaps from one to the next), and nothing here
+-- closes or reopens windows in it.
+--
 -- LEAVING A TAB puts its side windows away: what each one was is kept
 -- (the command that makes it again, or the buffer, while it lives), they
 -- close, and coming back to the tab brings them back.
@@ -172,6 +177,7 @@ function M.setup()
     callback = function(ev)
       local w = api.nvim_get_current_win()
       if isFloat(w) or not M.isTab(ev.buf) then return end
+      if api.nvim_get_current_tabpage() ~= api.nvim_list_tabpages()[1] then return end
       local was = shown[w]
       shown[w] = ev.buf
       if not was or was == ev.buf then return end
@@ -183,6 +189,21 @@ function M.setup()
         bringBack(ev.buf)
         require("plato.view").schedule(true)
       end)
+    end,
+  })
+  -- A NEW TAB PAGE'S BLANK BUFFER is only room for the plugin that opened
+  -- it (diffbandit's :tabnew): no tab of plato's, and gone once the plugin
+  -- shows its own buffers in its place. Listed, it came up as a nameless
+  -- tab beside the files (user, 2026-11-03).
+  api.nvim_create_autocmd("TabNewEntered", {
+    group = g,
+    callback = function(ev)
+      local b = ev.buf
+      if api.nvim_buf_get_name(b) == "" and not vim.bo[b].modified
+          and api.nvim_buf_line_count(b) == 1 and api.nvim_buf_get_lines(b, 0, 1, false)[1] == "" then
+        vim.bo[b].buflisted = false
+        vim.bo[b].bufhidden = "wipe"
+      end
     end,
   })
   api.nvim_create_autocmd("WinClosed", {

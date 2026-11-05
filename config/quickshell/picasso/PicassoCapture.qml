@@ -72,6 +72,9 @@ Scope {
   property string purpose: "shot"
   property string reply: ""
   readonly property bool recording: cap.purpose !== "shot"
+  // a region session asked for to be read rather than kept (2026-11-03,
+  // Cynosure's "ocr" / "scan qr"): "text" or "qr", what Return does
+  property string then: ""
 
 
   Connections {
@@ -81,7 +84,8 @@ Scope {
       if (region.active) { region.finish(false); return; }
       if (cap.busy) return;
       cap.purpose = "shot";
-      cap.shoot(mode);
+      cap.then = mode === "text" || mode === "qr" ? mode : "";
+      cap.shoot(cap.then !== "" ? "region" : mode);
     }
     // and a recording's pick: asked again while the overlay is up is the
     // same "never mind" (the second Super+Ctrl+R puts it away), and asked
@@ -223,6 +227,29 @@ Scope {
       "sleep 0.15; timeout 10 grim -g \"$2\" \"$1\" || exit 4\n" + V.ocrCommand(tmp), "sh", tmp, geo];
     textProc.running = true;
   }
+  // a QR code (or any bar code zbarimg knows) the same way: what it says to
+  // the clipboard, and said in the toast
+  function readCode(geo) {
+    const tmp = Paths.runtimeDir() + "/picasso-qr-" + Date.now() + ".png";
+    codeProc.command = ["sh", "-c",
+      "command -v zbarimg >/dev/null || exit 127\nsleep 0.15; timeout 10 grim -g \"$2\" \"$1\" || exit 4\n"
+      + "out=$(zbarimg -q --raw \"$1\" 2>/dev/null); rm -f \"$1\"\n[ -n \"$out\" ] || exit 3\n"
+      + "printf '%s' \"$out\" | wl-copy; printf '%s' \"$out\"", "sh", tmp, geo];
+    codeProc.running = true;
+  }
+  Process {
+    id: codeProc
+    stdout: StdioCollector { id: codeOut }
+    onExited: (code) => {
+      cap.busy = false;
+      const said = String(codeOut.text || "");
+      const say = code === 0 ? ["Code copied", said.length > 200 ? said.slice(0, 200) + "\u2026" : said]
+        : code === 127 ? ["Reading codes needs zbar", "pacman -S zbar"]
+        : code === 3 ? ["No code found", "nothing in that region reads as a QR or bar code"]
+        : ["Could not read the region", "the capture failed"];
+      Quickshell.execDetached(["notify-send", "-a", "picasso", "--", say[0], say[1]]);
+    }
+  }
   Process {
     id: textProc
     onExited: (code) => {
@@ -327,6 +354,8 @@ Scope {
       const s = !region.has && h
         ? Cap.rectOf(h.x, h.y, h.x + h.w, h.y + h.h, region.width, region.height) : region.sel;
       const ok = save && s.w > 2 && s.h > 2;
+      const via = how || cap.then;
+      cap.then = "";
       region.active = false;
       if (cap.recording) {
         if (ok && cap.purpose === "region") { cap.lastSel = s; cap.lastScreen = cap.monitor ? cap.monitor.name : ""; }
@@ -341,8 +370,9 @@ Scope {
       // monitor's own origin plus the box.
       const m = cap.monitor;
       cap.pendingGeo = (m.x + s.x) + "," + (m.y + s.y) + " " + s.w + "x" + s.h;
-      if (how === "text") { cap.readText(cap.pendingGeo); return; }
-      if (how === "snap") { cap.snap(cap.pendingGeo); return; }
+      if (via === "text") { cap.readText(cap.pendingGeo); return; }
+      if (via === "qr") { cap.readCode(cap.pendingGeo); return; }
+      if (via === "snap") { cap.snap(cap.pendingGeo); return; }
       // after the overlay has left the screen (run() waits a beat for the
       // pointer anyway, which is also long enough for that)
       cap.run("mkdir -p " + cap.sh(Picasso.shotDir) + " && grim -g "
@@ -425,7 +455,7 @@ Scope {
         height: region.lh + 2
         color: "transparent"
         border.width: region.has ? 2 : 1
-        border.color: region.has ? Zenon.cyan : Qt.rgba(Zenon.cyan.r, Zenon.cyan.g, Zenon.cyan.b, 0.6)
+        border.color: region.has ? Zenon.accent : Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.6)
       }
     }
 
@@ -445,7 +475,7 @@ Scope {
         radius: Zenon.rad(2)
         color: Zenon.white
         border.width: 1
-        border.color: Zenon.cyan
+        border.color: Zenon.accent
       }
     }
 
@@ -573,7 +603,7 @@ Scope {
         Row {
           id: actRow
           anchors.centerIn: parent
-          spacing: 8
+          spacing: Zenon.buttonGap
           // what else the box answers to, beside the two buttons
           Column {
             anchors.verticalCenter: parent.verticalCenter
@@ -587,7 +617,8 @@ Scope {
             }
             Text {
               text: cap.recording ? "Arrows move  ·  ctrl+arrows size  ·  ↵ record  ·  esc abort"
-                : "Arrows move  ·  ctrl+arrows size  ·  t copy text  ·  s snap  ·  ↵ save  ·  esc abort"
+                : "Arrows move  ·  ctrl+arrows size  ·  t copy text  ·  q read code  ·  s snap  ·  ↵ "
+          + (cap.then === "text" ? "copy text" : cap.then === "qr" ? "read code" : "save") + "  ·  esc abort"
               color: Zenon.accentMuted
               font.family: Zenon.face
               font.weight: Zenon.weight
@@ -596,8 +627,10 @@ Scope {
           }
           DialogButton { label: "Abort"; ink: Zenon.accentMuted; onClicked: region.finish(false) }
           DialogButton { visible: !cap.recording; label: "Copy text"; onClicked: region.finish(true, "text") }
+          DialogButton { visible: !cap.recording; label: "Read code"; onClicked: region.finish(true, "qr") }
           DialogButton { visible: !cap.recording; label: "Snap"; onClicked: region.finish(true, "snap") }
-          DialogButton { label: cap.recording ? "Record" : "Save"; ink: Zenon.cyan; primary: true; onClicked: region.finish(true) }
+          DialogButton { label: cap.recording ? "Record" : cap.then === "text" ? "Copy text" : cap.then === "qr" ? "Read code" : "Save"
+            ink: Zenon.accent; primary: true; onClicked: region.finish(true) }
         }
       }
     }
@@ -720,6 +753,7 @@ Scope {
         if (!region.has) return;
         if (e.key === Qt.Key_T) { if (!cap.recording) region.finish(true, "text"); return; }
         if (e.key === Qt.Key_S) { if (!cap.recording) region.finish(true, "snap"); return; }
+        if (e.key === Qt.Key_Q) { if (!cap.recording) region.finish(true, "qr"); return; }
         const n = (e.modifiers & Qt.ShiftModifier) ? 10 : 1;
         let dx = 0, dy = 0;
         if (e.key === Qt.Key_Left) dx = -n;

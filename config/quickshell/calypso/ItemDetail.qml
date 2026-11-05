@@ -236,9 +236,9 @@ Item {
           }
           Row {
             anchors.horizontalCenter: parent.horizontalCenter
-            spacing: 8
+            spacing: Zenon.buttonGap
             DialogButton { label: "Delete forever"; ink: Zenon.red; onClicked: pane.win.deleteItem(pane.it, true) }
-            DialogButton { label: "Restore"; ink: Zenon.cyan; primary: true; onClicked: pane.win.restoreItem(pane.it) }
+            DialogButton { label: "Restore"; ink: Zenon.accent; primary: true; onClicked: pane.win.restoreItem(pane.it) }
           }
         }
       }
@@ -387,7 +387,7 @@ Item {
           visible: !!pane.win && pane.win.canAttach(pane.it)
           leftPadding: 4
           text: "\u{F03E2}  Attach a file"
-          color: Zenon.cyan
+          color: Zenon.accent
           font.family: Zenon.face
           font.weight: Zenon.weight
           font.pixelSize: Zenon.px(13)
@@ -421,7 +421,7 @@ Item {
             wrapMode: TextEdit.Wrap
             text: pane.d ? pane.d.notes : ""
             color: Zenon.accentSoft
-            selectionColor: Zenon.alpha(Zenon.cyan, 0.4)
+            selectionColor: Zenon.alpha(Zenon.accent, 0.4)
             font.family: Zenon.face
             font.weight: Zenon.weight
             font.pixelSize: Zenon.px(14)

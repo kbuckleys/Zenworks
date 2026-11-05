@@ -13,6 +13,12 @@
 // colors by the board — the same split oracle and howler use, and for the
 // same reason: a file full of hex is a palette said twice.
 var HUES = ["sand", "yellow", "green", "cyan", "blue", "magenta", "pink"];
+// a hue's name as a menu says it: "cyan" is the theme's accent (Zenon.cyan
+// is its saved-name alias), which under Follow Background is seldom cyan
+function hueName(h) {
+  h = String(h || "");
+  return h === "cyan" ? "Accent" : h.charAt(0).toUpperCase() + h.slice(1);
+}
 
 // The sizes a note's text can be, smallest first. A stepper rather than a
 // number: there is no note that wants 15px in particular.

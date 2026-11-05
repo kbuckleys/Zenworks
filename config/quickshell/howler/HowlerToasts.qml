@@ -628,7 +628,7 @@ PanelWindow {
 
         // ── A LEFT CLICK OPENS, AND LOOKS IT ─────────────────────────
         // Left and right both made the toast go, and nothing else told them
-        // apart. So the one that OPENS flares first — the same cyan flare an
+        // apart. So the one that OPENS flares first — the same accent flare an
         // opened file gives in terminus' grid (OpenFlare) — and goes out on
         // its tail; the one that dismisses simply goes. What it opens runs at
         // the END of the leave, not at the click: invoking an action has the

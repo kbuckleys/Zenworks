@@ -60,9 +60,89 @@ LayerPopup {
 
   HyprlandFocusGrab {
     id: grab
-    windows: [ popup ]
+    // the row menu is a layer surface of its own: in the grab, or opening
+    // it would read as a click away (as Zeus' profile menu)
+    windows: rowMenu.visible ? [ popup, rowMenu ] : [ popup ]
     active: popup.shown
     onCleared: popup.closePopup()
+  }
+
+  // ── A ROW'S MENU (2026-11-03) ─────────────────────────────────────────
+  // Right click on a row: open it, copy it, dismiss it or all from its app,
+  // and mute or block the app (Howler.setSource — Oracle's Muted apps).
+  // Built when it opens, not bound: the row it was opened on is what it acts on.
+  property bool rowMenuOpen: false
+  property point rowMenuAt: Qt.point(0, 0)
+  property var rowMenuRow: null
+  property var rowMenuRows: []
+
+  function rowMenuFor(r) {
+    const src = Howler.sourceOf(r);
+    const name = String(r.appName || "") || src;
+    const st = Howler.sourceState(src);
+    const words = String(r.summary || "") + (r.body ? "\n" + r.body : "");
+    const out = [
+      { text: "Open", icon: "\u{F03CC}", act: "open" },
+      { text: "Copy text", icon: "\u{F018F}", act: "copy", enabled: words.trim() !== "" },
+      { isSeparator: true },
+      { text: "Dismiss", icon: "\u{F0156}", act: "forget" }
+    ];
+    if (src === "") return out;
+    out.push({ text: "Dismiss all from " + name, icon: "\u{F039A}", act: "forgetAll" });
+    out.push({ isSeparator: true });
+    out.push(st === "mute"
+      ? { text: "Unmute " + name, icon: "\u{F009C}", act: "unmute" }
+      : { text: "Mute " + name, icon: "\u{F0A92}", act: "mute" });
+    out.push(st === "block"
+      ? { text: "Unblock " + name, icon: "\u{F009C}", act: "unblock" }
+      : { text: "Block " + name, icon: "\u{F073A}", act: "block" });
+    return out;
+  }
+
+  // `item` and `pos` (in item's coordinates) are where the click landed
+  function openRowMenu(r, item, pos) {
+    if (!r || !item) return;
+    const o = Zenon.winOrigin(popup, popup.screen);
+    const p = item.mapToItem(null, pos.x, pos.y);
+    popup.rowMenuRow = r;
+    popup.rowMenuRows = popup.rowMenuFor(r);
+    popup.rowMenuAt = Qt.point(o.x + p.x, o.y + p.y);
+    popup.rowMenuOpen = true;
+  }
+  function closeRowMenu() { popup.rowMenuOpen = false; }
+
+  function rowMenuChose(i) {
+    const m = popup.rowMenuRows[i];
+    const r = popup.rowMenuRow;
+    popup.closeRowMenu();
+    if (!m || !r) return;
+    const src = Howler.sourceOf(r);
+    switch (m.act) {
+      case "open": popup.closePopup(); Howler.openRow(r); break;
+      case "copy":
+        Strings.copy((String(r.summary || "") + (r.body ? "\n" + r.body : ""))
+          .replace(/<[^>]*>/g, "").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+          .replace(/&quot;/g, "\"").replace(/&#39;|&apos;/g, "'").replace(/&amp;/g, "&").trim());
+        break;
+      case "forget": Howler.forget(r); break;
+      case "forgetAll":
+        if (popup.appFilter === String(r.appName || "")) popup.appFilter = "";
+        Howler.forgetSource(src);
+        break;
+      case "mute": Howler.setSource(src, "mute"); break;
+      case "block": Howler.setSource(src, "block"); break;
+      case "unmute": case "unblock": Howler.setSource(src, ""); break;
+    }
+  }
+
+  CardMenu {
+    id: rowMenu
+    screen: popup.screen
+    open: popup.rowMenuOpen && popup.shown
+    at: popup.rowMenuAt
+    model: popup.rowMenuRows
+    fit: true
+    onChosen: (i) => popup.rowMenuChose(i)
   }
 
   // The four the bar, the keybind and the terminal all reach for. Each answers
@@ -114,6 +194,7 @@ LayerPopup {
   }
 
   function closePopup() {
+    popup.closeRowMenu();
     popup.collapsing = true;
     popup.playClose();
   }
@@ -152,7 +233,8 @@ LayerPopup {
       // it has to give the keys back somehow (user, 2026-10-19)
       Keys.onEscapePressed: (event) => {
         event.accepted = true;
-        popup.closePopup();
+        if (popup.rowMenuOpen) popup.closeRowMenu();
+        else popup.closePopup();
       }
 
       // Rows scrolled up past the list's top carry on under the head and the
@@ -179,7 +261,7 @@ LayerPopup {
           anchors.verticalCenter: parent.verticalCenter
           text: popup.rows.length === 0 ? "Notifications"
               : "Notifications  " + popup.rows.length
-          color: Zenon.cyan
+          color: Zenon.accent
           font.family: Zenon.face
           font.weight: Font.Bold
           font.pixelSize: Zenon.px(16)
@@ -214,17 +296,17 @@ LayerPopup {
             height: 22
             radius: Zenon.radiusControl
             color: Howler.trackMusic
-              ? Qt.rgba(Zenon.cyan.r, Zenon.cyan.g, Zenon.cyan.b, 0.18)
+              ? Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.18)
               : (musicPress.pressed ? Zenon.wash(0.08) : "transparent")
             border.width: 1
-            border.color: Howler.trackMusic ? Zenon.cyan : Zenon.border
+            border.color: Howler.trackMusic ? Zenon.accent : Zenon.border
             Behavior on color { ColorAnimation { duration: Zenon.fast } }
             Behavior on border.color { ColorAnimation { duration: Zenon.fast } }
 
             Text {
               anchors.centerIn: parent
               text: "\uF001"
-              color: Howler.trackMusic ? Zenon.cyan
+              color: Howler.trackMusic ? Zenon.accent
                 : (musicPress.pressed ? Zenon.white : Zenon.keyInk)
               font.family: Zenon.face
               font.weight: Zenon.weight
@@ -246,17 +328,17 @@ LayerPopup {
             height: 22
             radius: Zenon.radiusControl
             color: Howler.silent
-              ? Qt.rgba(Zenon.cyan.r, Zenon.cyan.g, Zenon.cyan.b, 0.18)
+              ? Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.18)
               : (silentPress.pressed ? Zenon.wash(0.08) : "transparent")
             border.width: 1
-            border.color: Howler.silent ? Zenon.cyan : Zenon.border
+            border.color: Howler.silent ? Zenon.accent : Zenon.border
             Behavior on color { ColorAnimation { duration: Zenon.fast } }
             Behavior on border.color { ColorAnimation { duration: Zenon.fast } }
 
             Text {
               anchors.centerIn: parent
               text: "󰂛"
-              color: Howler.silent ? Zenon.cyan
+              color: Howler.silent ? Zenon.accent
                 : (silentPress.pressed ? Zenon.white : Zenon.keyInk)
               font.family: Zenon.face
               font.weight: Zenon.weight
@@ -310,12 +392,12 @@ LayerPopup {
 
       // ── THE CHIP ──────────────────────────────────────────────────
       // One shape for both jobs: a switch that is on or off, and a filter
-      // that is chosen or not. `on` is the state, `lit` is the pointer.
+      // that is chosen or not. `on` is the state, `lit` is the press (no hover tints).
       component Chip: Rectangle {
         id: chip
         property string label: ""
         property bool on: false
-        readonly property bool lit: chipHov.hovered
+        readonly property bool lit: chipTap.pressed
         signal picked()
 
         width: chipText.implicitWidth + 20
@@ -337,8 +419,7 @@ LayerPopup {
           font.pixelSize: Zenon.px(12)
         }
 
-        HoverHandler { id: chipHov }
-        TapHandler { onTapped: chip.picked() }
+        TapHandler { id: chipTap; onTapped: chip.picked() }
       }
 
       Flickable {
@@ -376,7 +457,10 @@ LayerPopup {
             model: popup.apps
             delegate: Chip {
               required property var modelData
-              label: modelData
+              // a muted app's chip wears the bell-off mark its rows do
+              // (asked by Howler.sourceOf, the key the door and the rows use)
+              label: modelData + (Howler.sourceState(Howler.sourceOf({ appName: modelData })) === "mute"
+                ? "  \u{F0A92}" : "")
               on: popup.appFilter === modelData
               onPicked: popup.appFilter =
                 (popup.appFilter === modelData ? "" : modelData)
@@ -423,6 +507,10 @@ LayerPopup {
           // A CALENDAR REMINDER KEEPS ITS TOAST'S LOOK (user, 2026-10-28):
           // washed in the event's hue, a band of it down the edge, and its
           // date tile where the icon would be
+          // A MUTED APP'S ROW (2026-11-03): faded, and the bell-off mark
+          // before its app name — it came in quietly, and still would
+          readonly property bool muted: Howler.sourceState(Howler.sourceOf(row.modelData)) === "mute"
+          readonly property real mutedFade: row.muted ? 0.5 : 1
           readonly property bool event: !!row.modelData.eventHue
           readonly property color eventInk: Howler.eventInk(row.modelData.eventHue)
           readonly property var eventDay: Howler.eventDayOf(row.modelData.eventDay)
@@ -449,6 +537,7 @@ LayerPopup {
           Rectangle {
             id: rowTile
             visible: row.event
+            opacity: row.mutedFade
             anchors.left: parent.left
             anchors.leftMargin: 20
             anchors.verticalCenter: parent.verticalCenter
@@ -501,6 +590,7 @@ LayerPopup {
             width: shot.hasPicture ? 40 : 0
             height: 40
             visible: shot.hasPicture
+            opacity: row.mutedFade
             radius: Howler.iconRadius
             color: "transparent"
 
@@ -553,6 +643,7 @@ LayerPopup {
           Text {
             textFormat: Text.PlainText
             id: appLine
+            opacity: row.mutedFade
             anchors.left: row.event ? rowTile.right : shot.right
             anchors.leftMargin: row.event ? 16 : shot.hasPicture ? 14 : 0
             anchors.right: stamp.left
@@ -575,6 +666,7 @@ LayerPopup {
             anchors.topMargin: 2
             elide: Text.ElideRight
             visible: text !== ""
+            opacity: row.mutedFade
             text: Wolf.safeMarkup(row.modelData.body)
             textFormat: Howler.markup ? Text.StyledText : Text.PlainText
             color: row.event ? row.eventInk : Zenon.muted
@@ -600,6 +692,7 @@ LayerPopup {
 
           Text {
             textFormat: Text.PlainText
+            id: appTag
             anchors.right: stamp.right
             anchors.top: stamp.bottom
             anchors.topMargin: 2
@@ -610,9 +703,21 @@ LayerPopup {
             font.pixelSize: Zenon.px(11)
           }
 
+          Text {
+            anchors.right: appTag.left
+            anchors.rightMargin: appTag.text !== "" ? 6 : 0
+            anchors.verticalCenter: appTag.verticalCenter
+            visible: row.muted
+            text: "\u{F0A92}"
+            color: Zenon.accentMuted
+            font.family: Zenon.glyphFace
+            font.pixelSize: Zenon.px(13)
+          }
+
           // As a toast answers (user, 2026-10-18): left opens where it came
           // from — Howler.openRow — and closes the panel on the flare's
-          // tail; right is "I have seen it", and forgets the row.
+          // tail. Right opens the row's menu (2026-11-03), where Dismiss
+          // is the "I have seen it" a right click used to be.
           TapHandler {
             acceptedButtons: Qt.LeftButton
             onTapped: {
@@ -623,7 +728,7 @@ LayerPopup {
           }
           TapHandler {
             acceptedButtons: Qt.RightButton
-            onTapped: Howler.forget(row.modelData)
+            onTapped: (point) => popup.openRowMenu(row.modelData, row, point.position)
           }
           Timer {
             id: rowOpen
@@ -646,5 +751,16 @@ LayerPopup {
         }
       }
     }
+  }
+
+  // a click anywhere on the panel that is not the menu puts the menu away
+  // without reaching what was under it (as Zeus')
+  MouseArea {
+    anchors.fill: parent
+    z: 10
+    visible: popup.rowMenuOpen
+    acceptedButtons: Qt.AllButtons
+    onPressed: popup.closeRowMenu()
+    onWheel: (wheel) => popup.closeRowMenu()
   }
 }

@@ -44,6 +44,10 @@ local function palette()
   return p
 end
 
+-- the colors being worn now, the shell's theme laid over Zenon (a plugin's
+-- config file colors itself from these: config/diffbandit.nvim.lua)
+function M.colors() return palette() end
+
 -- the shell's theme, or nil for Zenon; repaints only when it changed
 function M.use(t)
   local want = t and t.colors and mapped(t.colors) or nil

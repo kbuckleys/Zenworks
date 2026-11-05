@@ -567,7 +567,10 @@ Item {
             text: {
               const r = props.rows[0];
               if (!r) return "";
-              return specimen ? "Ag" : r.glyph;
+              // asked live where the host can (terminus): a glyph chosen or
+              // put back from the bubble below changes it with the card up
+              return specimen ? "Ag"
+                : (typeof props.host.glyphFacts === "function" ? props.host.glyphOf(r) : r.glyph);
             }
             color: {
               const r = props.rows[0];
@@ -581,6 +584,139 @@ Item {
             font.family: specimen ? propFace.font.family
               : Zenon.face
             font.pixelSize: Zenon.px(56)
+          }
+          // THE GLYPH IS WHERE IT IS CHANGED: a click on it is Change
+          // glyph… (terminus' GlyphSheet), where the host has one — the Info
+          // card steps aside for the sheet. Not over a picture or a specimen,
+          // which are not the glyph.
+          Rectangle {
+            id: glyphHit
+            readonly property bool can: typeof props.host.changeGlyph === "function"
+              && !propShotClip.visible && propFace.status !== FontLoader.Ready
+            anchors.fill: parent
+            radius: Zenon.windowRadius
+            color: glyphMa.pressed ? Zenon.wash(0.08) : glyphMa.containsMouse ? Zenon.wash(0.04) : "transparent"
+            visible: glyphHit.can
+            // set by a click: the card is going, and the bubble with it
+            property bool leaving: false
+            Connections { target: props; function onRowsChanged() { glyphHit.leaving = false; } }
+            function change() {
+              const rows = props.rows.slice();
+              glyphHit.leaving = true;
+              props.closed();
+              props.host.changeGlyph(rows);
+            }
+            MouseArea {
+              id: glyphMa
+              anchors.fill: parent
+              hoverEnabled: true
+              onClicked: glyphHit.change()
+            }
+            HoverHandler {
+              id: glyphHover
+              onHoveredChanged: if (hovered && typeof props.host.wantGlyphNames === "function") props.host.wantGlyphNames()
+            }
+          }
+          // ── WHERE THE GLYPH COMES FROM (user, 2026-11-05) ───────────
+          // The suite's speech bubble (terminus/Bubble) under the glyph: its
+          // name and codepoint, the rule it comes from or that it was chosen
+          // for this entry, and the two verbs — sticky, so the pointer can
+          // go down onto them. The click on the glyph stays the quick way.
+          Bubble {
+            id: glyphBubble
+            readonly property var facts: glyphHit.can && !props.many && props.rows[0]
+              ? props.host.glyphFacts(props.rows[0]) : null
+            window: glyphHit.can ? props.host : null
+            target: glyphHit
+            sticky: true
+            // NOT DRAWN UNTIL IT IS ALL IN (user, 2026-11-05): the glyph's
+            // name comes with glyphnames.json, and a card that opened before
+            // it grew under the pointer — Bubble waits for `ready` (up to its
+            // readyWait, then opens with what it has) and fits before the
+            // first frame
+            ready: glyphHit.can && props.host.glyphNamesReady()
+            shown: glyphHit.can && !glyphHit.leaving && !!glyphBubble.facts
+              && (glyphHover.hovered || glyphBubble.over)
+            cardWidth: 320
+            Row {
+              spacing: 10
+              Text {
+                textFormat: Text.PlainText
+                anchors.verticalCenter: parent.verticalCenter
+                text: glyphBubble.facts ? glyphBubble.facts.glyph : ""
+                color: Zenon.accent
+                font.family: Zenon.glyphFace
+                font.pixelSize: Zenon.px(22)
+              }
+              Column {
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: 2
+                Text {
+                  textFormat: Text.PlainText
+                  text: !glyphBubble.facts ? ""
+                    : (glyphBubble.facts.name !== "" ? glyphBubble.facts.name + "  \u00b7  " : "") + glyphBubble.facts.code
+                  color: Zenon.ink
+                  font.family: Zenon.face
+                  font.weight: Zenon.weight
+                  font.pixelSize: Zenon.px(15)
+                }
+                Text {
+                  textFormat: Text.PlainText
+                  text: glyphBubble.facts ? glyphBubble.facts.why : ""
+                  color: Zenon.accentMuted
+                  font.family: Zenon.face
+                  font.weight: Zenon.weight
+                  font.pixelSize: Zenon.px(13)
+                }
+              }
+            }
+            Column {
+              width: 292
+              Repeater {
+                model: !glyphBubble.facts ? []
+                  : [{ label: "Change glyph", glyph: "\u{F0832}", act: () => glyphHit.change() }]
+                    .concat(glyphBubble.facts.own
+                      ? [{ label: "Default glyph", glyph: "\u{F099B}",
+                           act: () => props.host.resetGlyph(props.rows.slice()) }] : [])
+                delegate: Rectangle {
+                  id: verb
+                  required property var modelData
+                  width: 292
+                  height: 30
+                  radius: Zenon.windowRadius
+                  color: verbMa.pressed ? Zenon.pressFill : verbMa.containsMouse ? Zenon.menuHi : "transparent"
+                  Text {
+                    id: verbGlyph
+                    textFormat: Text.PlainText
+                    x: 8
+                    width: 20
+                    horizontalAlignment: Text.AlignHCenter
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: verb.modelData.glyph
+                    color: Zenon.ink
+                    font.family: Zenon.glyphFace
+                    font.pixelSize: Zenon.px(15)
+                  }
+                  Text {
+                    textFormat: Text.PlainText
+                    anchors.left: verbGlyph.right
+                    anchors.leftMargin: 10
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: verb.modelData.label
+                    color: Zenon.ink
+                    font.family: Zenon.face
+                    font.weight: Zenon.weight
+                    font.pixelSize: Zenon.px(15)
+                  }
+                  MouseArea {
+                    id: verbMa
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    onClicked: verb.modelData.act()
+                  }
+                }
+              }
+            }
           }
       }
 
@@ -814,7 +950,7 @@ Item {
             width: Math.max(contentWidth, 10)
             text: parent.shown
             maximumLength: 9
-            color: Zenon.cyan
+            color: Zenon.accent
             selectionColor: Zenon.selBg
             selectedTextColor: Zenon.white
             font.family: Zenon.faceMono
@@ -843,7 +979,7 @@ Item {
             width: permOctal.width + 6
             height: 1
             color: permOctal.activeFocus
-              ? (permOctal.parsed >= 0 ? Zenon.cyan : Zenon.red)
+              ? (permOctal.parsed >= 0 ? Zenon.accent : Zenon.red)
               : "transparent"
           }
           MouseArea {
@@ -892,7 +1028,7 @@ Item {
             radius: Zenon.radiusControl
             // PRESSED, DARKENED as every button in the suite (user, 2026-10-17)
             color: presetPress.pressed ? Zenon.pressFill
-              : on ? Qt.rgba(Zenon.cyan.r, Zenon.cyan.g, Zenon.cyan.b, 0.20)
+              : on ? Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.20)
               : "transparent"
             border.width: 1
             border.color: Zenon.border
@@ -904,7 +1040,7 @@ Item {
               textFormat: Text.PlainText
               anchors.centerIn: parent
               text: modelData[0]
-              color: parent.on ? Zenon.cyan : Zenon.accentMuted
+              color: parent.on ? Zenon.accent : Zenon.accentMuted
               opacity: presetPress.pressed ? Zenon.pressDim : 1
               font.family: Zenon.faceMono
               font.weight: Zenon.weight
@@ -1004,7 +1140,7 @@ Item {
                 radius: Zenon.radiusControl
                 color: bitPress.pressed ? Zenon.pressFill
                   : parent.on
-                  ? Qt.rgba(Zenon.cyan.r, Zenon.cyan.g, Zenon.cyan.b, 0.20)
+                  ? Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.20)
                   : "transparent"
                 border.width: 1
                 border.color: Zenon.border
@@ -1017,7 +1153,7 @@ Item {
                   anchors.centerIn: parent
                   // a box the selection disagrees on: neither, until clicked
                   text: bitCell.mixed ? "?" : modelData[0]
-                  color: bitCell.on ? Zenon.cyan : Zenon.accentMuted
+                  color: bitCell.on ? Zenon.accent : Zenon.accentMuted
                   opacity: bitPress.pressed ? Zenon.pressDim : 1
                   font.family: Zenon.faceMono
                   font.weight: Font.Bold
@@ -1073,7 +1209,7 @@ Item {
 
         Row {
           anchors.centerIn: parent
-          spacing: 12
+          spacing: Zenon.buttonGap
           visible: props.permDirty
 
           DialogButton {
@@ -1084,7 +1220,7 @@ Item {
 
           DialogButton {
             label: "Apply"
-            ink: Zenon.cyan
+            ink: Zenon.accent
             primary: true
             onClicked: props.applyPerms()
           }
@@ -1118,7 +1254,7 @@ Item {
 
       Row {
         anchors.centerIn: parent
-        spacing: 8
+        spacing: Zenon.buttonGap
 
         // ── OUT OF THE PAGE, NOT OUT OF THE CARD ─────────────
         // The permissions page is reached by clicking a row in
@@ -1139,7 +1275,7 @@ Item {
 
         DialogButton {
           label: "Close"
-          ink: Zenon.cyan
+          ink: Zenon.accent
           primary: true
           onClicked: props.closed()
         }

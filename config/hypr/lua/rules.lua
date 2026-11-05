@@ -26,6 +26,9 @@ hl.layer_rule({ match = { namespace = "cerberus-veil" }, animation = "none", blu
 -- (morpheus/WindowSwitcher); and the workspace strip, whose OSD pop is its
 -- whole motion, with no layer fade laid over it
 hl.layer_rule({ match = { namespace = "zenworks-(switcher|workspaces)" }, animation = "none" })
+-- the drop shelf pops itself (morpheus/DropShelf); hyprland's layer animation
+-- on top played every open and close twice (user, 2026-11-04)
+hl.layer_rule({ match = { namespace = "zenworks-shelf(-edge)?" }, animation = "none" })
 
 -- SPECIAL WORKSPACE: its windows stand this far in from the screen's
 -- edges — oracle's Windows › Special workspace gaps, kept in effects.lua

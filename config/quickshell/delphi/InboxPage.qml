@@ -32,7 +32,7 @@ Item {
   readonly property var hints: [["return", "open"], ["w", "web"], ["d", "done"], ["r", "ask again"]]
   readonly property var buttons: [
     { label: "Done", visible: !!pg.row, run: () => pg.done(pg.row) },
-    { label: "Ask again", ink: Zenon.cyan, primary: true, run: () => pg.reload() },
+    { label: "Ask again", ink: Zenon.accent, primary: true, run: () => pg.reload() },
   ]
   function takeFocus() { if (pg.win) pg.win.focusKeys(); }
 
@@ -142,7 +142,7 @@ Item {
         width: Zenon.px(22)
         anchors.verticalCenter: parent.verticalCenter
         text: pg.kindGlyph[irow.modelData.kind] || pg.kindGlyph.other
-        color: irow.modelData.kind === "pull" ? Zenon.magenta : irow.modelData.kind === "issue" ? Zenon.green : Zenon.cyan
+        color: irow.modelData.kind === "pull" ? Zenon.magenta : irow.modelData.kind === "issue" ? Zenon.green : Zenon.accent
         font.family: Zenon.glyphFace
         font.pixelSize: Zenon.px(16)
       }

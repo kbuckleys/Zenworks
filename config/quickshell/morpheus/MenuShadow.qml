@@ -41,6 +41,10 @@ Item {
   // is cut to this, so a radius smaller than the card's leaves four dark
   // slivers inside its corners.
   property real cornerRadius: Zenon.menuRadius
+  // A second footprint punched out, in this item's coordinates: what the
+  // card is joined to and must not darken — a dropdown's face (CardBody's
+  // joinEdge). Empty for none.
+  property rect alsoHole: Qt.rect(0, 0, 0, 0)
 
   // EXACTLY the card's box, and that is load-bearing: every caller drives
   // this with `transformOrigin: Item.TopLeft` and `scale: card.scale` so the
@@ -116,6 +120,14 @@ Item {
       width: root.width
       height: root.height
       radius: root.cornerRadius
+      color: "white"
+    }
+    Rectangle {
+      visible: root.alsoHole.width > 0
+      x: root.reach + root.alsoHole.x
+      y: root.reach + root.alsoHole.y
+      width: root.alsoHole.width
+      height: root.alsoHole.height
       color: "white"
     }
   }

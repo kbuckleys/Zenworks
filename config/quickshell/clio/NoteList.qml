@@ -354,4 +354,5 @@ Item {
     }
   }
   ElasticScroll { anchors.fill: grid; view: grid; visible: grid.visible }
+  Scrollbar { flick: grid; anchors.right: grid.right; anchors.top: grid.top; anchors.bottom: grid.bottom; visible: grid.visible }
 }

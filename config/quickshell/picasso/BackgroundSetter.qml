@@ -55,7 +55,7 @@ Item {
   signal done()
   signal stepped(int delta)
 
-  readonly property color highlight: Zenon.cyan
+  readonly property color highlight: Zenon.accent
   readonly property color dimColor: Zenon.accentMuted
   readonly property color fgColor: Zenon.white
   readonly property color entryColor: Zenon.pink
@@ -502,7 +502,7 @@ Item {
   function chooseAccentKind(k) {
     if (k === "") card.setAccent("");
     else if (k === "accent") card.setAccent((Picasso.accentFor(card.path) || "").toLowerCase());
-    else card.setAccent(card.customAccent || Zenon.hex(Zenon.cyan));
+    else card.setAccent(card.customAccent || Zenon.hex(Zenon.accent));
   }
 
   function rows() {
@@ -925,7 +925,7 @@ Item {
         text: "  " + (!card.multi ? "current"
           : card.shownOn.length === card.screenNames.length
             ? "On every display" : "On " + card.shownOn.join(", "))
-        color: Zenon.onAccent
+        color: Zenon.inkOnAccent
         font.family: Zenon.face
         font.weight: 600
         font.pixelSize: card.tsSmall
@@ -1205,7 +1205,7 @@ Item {
                 anchors.centerIn: parent
                 visible: mon.staged
                 text: ""
-                color: Zenon.onAccent
+                color: Zenon.inkOnAccent
                 font.family: Zenon.face
                 font.weight: Zenon.weight
                 font.pixelSize: Zenon.px(9)
@@ -1464,21 +1464,11 @@ Item {
         text: card.editing === "tint" ? "Tint color"
           : card.editing === "accent" ? "Accent color" : "Color around it"
       }
-      Text {
+      DialogButton {
         anchors.right: parent.right
         anchors.verticalCenter: edHead.verticalCenter
-        text: "Done"
-        color: doneMa.pressed ? card.highlight : card.fgColor
-        font.family: Zenon.face
-        font.weight: 600
-        font.pixelSize: card.ts
-        MouseArea {
-          id: doneMa
-          anchors.fill: parent
-          anchors.margins: -6
-          hoverEnabled: true
-          onClicked: card.editing = ""
-        }
+        label: "Done"
+        onClicked: card.editing = ""
       }
       ColorPicker {
         anchors.top: edHead.bottom
@@ -1488,7 +1478,7 @@ Item {
         textSize: card.ts
         hex: card.editing === "tint"
           ? (card.tintIsCustom ? card.look.tint : card.customTint)
-          : card.editing === "accent" ? (card.accentPending || card.accentNow || Zenon.hex(Zenon.cyan))
+          : card.editing === "accent" ? (card.accentPending || card.accentNow || Zenon.hex(Zenon.accent))
           : card.look.backdropColor
         onEdited: (h) => {
           if (card.editing === "tint") { card.customTint = h; card.setLook("tint", h); }
@@ -1539,23 +1529,13 @@ Item {
             font.pixelSize: card.ts
             elide: Text.ElideRight
           }
-          Text {
+          DialogButton {
             id: stopBtn
             anchors.right: parent.right
             anchors.rightMargin: 12
             anchors.verticalCenter: parent.verticalCenter
-            text: "Stop"
-            color: stopMa.pressed ? card.highlight : card.fgColor
-            font.family: Zenon.face
-            font.weight: 600
-            font.pixelSize: card.ts
-            MouseArea {
-              id: stopMa
-              anchors.fill: parent
-              anchors.margins: -6
-              hoverEnabled: true
-              onClicked: Picasso.stopSlideshow()
-            }
+            label: "Stop"
+            onClicked: Picasso.stopSlideshow()
           }
         }
 
@@ -1637,7 +1617,7 @@ Item {
       anchors.right: parent.right
       anchors.bottom: parent.bottom
       anchors.bottomMargin: 4
-      spacing: 8
+      spacing: Zenon.buttonGap
 
       DialogButton {
         label: "Cancel"

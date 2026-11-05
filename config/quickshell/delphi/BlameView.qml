@@ -123,7 +123,7 @@ Item {
         x: 0
         width: 3
         height: parent.height
-        color: ln.mine ? Zenon.yellow : Zenon.alpha(Zenon.cyan, 0.15 + 0.75 * ln.age)
+        color: ln.mine ? Zenon.yellow : Zenon.alpha(Zenon.accent, 0.15 + 0.75 * ln.age)
       }
       Text {
         id: who

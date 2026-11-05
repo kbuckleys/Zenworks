@@ -103,6 +103,22 @@ Zenworks stands on [Quickshell](https://quickshell.org) and
 [Hyprland](https://hyprland.org), and on Qt, PipeWire and the many tools it
 brings along.
 
+Plato, the editor, runs on [Neovim](https://neovim.io) and these plugins,
+fetched from their authors' own repositories on first start, each under its
+own license:
+
+- [vim-fugitive](https://github.com/tpope/vim-fugitive) by Tim Pope (Vim license)
+- [multicursor.nvim](https://github.com/jake-stewart/multicursor.nvim) by jake-stewart (MIT)
+- [conform.nvim](https://github.com/stevearc/conform.nvim) by Steven Arcangeli (MIT)
+- [nvim-lint](https://github.com/mfussenegger/nvim-lint) by Mathias Fußenegger (GPL-3.0)
+- [guess-indent.nvim](https://github.com/NMAC427/guess-indent.nvim) by Nicolas Camenisch (MIT)
+- [SchemaStore.nvim](https://github.com/b0o/SchemaStore.nvim) by Maddison Cohodas (Apache-2.0)
+- [lazydev.nvim](https://github.com/folke/lazydev.nvim) by Folke Lemaitre (Apache-2.0)
+- [diffbandit.nvim](https://github.com/CoreyKaylor/diffbandit.nvim) by Corey Kaylor (Apache-2.0)
+- [mini.nvim](https://github.com/nvim-mini/mini.nvim) by Evgeni Chasnovski (MIT)
+- [nvim-lspconfig](https://github.com/neovim/nvim-lspconfig) by the Neovim team (Apache-2.0)
+- [nvim-treesitter](https://github.com/nvim-treesitter/nvim-treesitter) by its contributors (Apache-2.0)
+
 ## License
 
 GPL-3.0-or-later. See [LICENSE](LICENSE).

@@ -66,6 +66,8 @@ function center() { return "hl.dsp.window.center()"; }
 function moveToWorkspace(name) { return "hl.dsp.window.move({ workspace = " + lua(name) + " })"; }
 // floating, whatever it was (toggle would tile one already floating)
 function floatOn() { return "hl.dsp.window.float({ action = \"enable\" })"; }
+// and tiled again (a restored window that was tiled before it was put somewhere)
+function floatOff() { return "hl.dsp.window.float({ action = \"disable\" })"; }
 // "+1" is the next monitor, "-1" the one before
 function moveToMonitor(sel) { return "hl.dsp.window.move({ monitor = " + lua(sel) + " })"; }
 // closed as its own close button would (not killed): the app may ask first
@@ -85,6 +87,40 @@ function resizeTo(w, h, selector) {
 function moveTo(x, y, selector) {
   return "hl.dsp.window.move({ x = " + Number(x || 0) + ", y = " + Number(y || 0)
     + ", relative = false" + (selector ? ", window = " + lua(selector) : "") + " })";
+}
+
+// ── launching, placed ─────────────────────────────────────────────────────
+// A command run with window rules for what it opens (app restore,
+// morpheus/AppRestore): { workspace = "3 silent", float = true,
+// size = "800 600", move = "40 60", monitor = "DP-1" }. Strings and numbers
+// as Lua literals, booleans as they are; a key that is not a plain name is
+// left out rather than written into the call.
+function execWith(cmd, rules) {
+  const parts = [];
+  for (const k in (rules || {})) {
+    if (!/^[a-z_]+$/.test(k)) continue;
+    const v = rules[k];
+    parts.push(k + " = " + (typeof v === "boolean" ? String(v) : typeof v === "number" ? String(v) : lua(v)));
+  }
+  return "hl.dsp.exec_cmd(" + lua(cmd) + (parts.length ? ", { " + parts.join(", ") + " }" : "") + ")";
+}
+
+// A Zenworks window put back where it was (app restore): the shell owns
+// these windows, so a launch's rules never reach them and they are placed
+// once they map. Lua lines for ONE `hyprctl eval`, run in order: two
+// dispatches are not (see the resize note above), and an absolute move
+// must come after the resize that grows about the centre.
+function placeWindow(address, p) {
+  const w = lua(byAddress(address));
+  const out = [];
+  if (p.workspace) out.push("hl.dispatch(hl.dsp.window.move({ workspace = " + lua(p.workspace) + ", follow = false, window = " + w + " }))");
+  out.push("hl.dispatch(hl.dsp.window.float({ action = " + lua(p.floating ? "enable" : "disable") + ", window = " + w + " }))");
+  const sz = p.size || [0, 0], at = p.at || [0, 0];
+  if (p.floating && sz[0] > 0 && sz[1] > 0) {
+    out.push("hl.dispatch(" + resizeTo(sz[0], sz[1], byAddress(address)) + ")");
+    out.push("hl.dispatch(" + moveTo(at[0], at[1], byAddress(address)) + ")");
+  }
+  return out.join("\n");
 }
 
 // ── submaps ───────────────────────────────────────────────────────────────

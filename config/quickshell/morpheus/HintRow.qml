@@ -32,13 +32,17 @@ Row {
   // how many of `rows` are showing
   property int shown: 0
 
+  // each pair's own width, spacing apart (HintBar's wrap breaks lines on it)
+  property var widths: []
   function refit() {
-    const ws = [];
+    const ws = [], raw = [];
     for (let i = 0; i < pairs.count; i++) {
       const it = pairs.itemAt(i);
       if (!it) break;
+      raw.push(it.implicitWidth);
       ws.push(it.implicitWidth + (i > 0 ? hints.spacing : 0));
     }
+    hints.widths = raw;
     const all = ws.reduce((t, w) => t + w, 0);
     if (hints.maxWidth < 0 || all <= hints.maxWidth) { hints.shown = ws.length; return; }
     // short: room is kept for the `?` that stands in for the rest

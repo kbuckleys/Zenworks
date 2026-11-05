@@ -125,7 +125,7 @@ Item {
     height: box.r.h * box.k
     color: "transparent"
     border.width: 1
-    border.color: Zenon.cyan
+    border.color: Zenon.accent
 
     // thirds, for placing things
     Repeater {
@@ -192,7 +192,7 @@ Item {
           visible: !grip.body
           anchors.centerIn: parent
           width: 10; height: 10; radius: Zenon.rad(2)
-          color: Zenon.cyan
+          color: Zenon.accent
           border.width: 1
           border.color: "#000000"
         }

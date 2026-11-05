@@ -166,7 +166,7 @@ Item {
   readonly property var mdQ: row.md && row.md.q ? row.md.q : null
   readonly property var mdT: row.md && row.md.tb ? row.md.tb : null
   function headInk(n) {
-    return [Zenon.magenta, Zenon.blue, Zenon.cyan, Zenon.green, Zenon.yellow, Zenon.pink][Math.max(0, Math.min(5, n - 1))];
+    return [Zenon.magenta, Zenon.blue, Zenon.accent, Zenon.green, Zenon.yellow, Zenon.pink][Math.max(0, Math.min(5, n - 1))];
   }
   function calloutInk(k) {
     return k === "note" ? Zenon.blue : k === "tip" ? Zenon.green : k === "important" ? Zenon.magenta
@@ -362,7 +362,12 @@ Item {
       // a selection or a match is a wash over the text (hl.lua's `wash`)
       if (st && st.bg && !(st.v && !row.ownSelection)) {
         const c = Qt.color(st.bg);
-        out.push({ x: sp[k][0], w: sp[k][1], c: st.a ? Qt.rgba(c.r, c.g, c.b, st.a) : c });
+        const col = st.a ? Qt.rgba(c.r, c.g, c.b, st.a) : c;
+        // one fill under spans that differ only in their ink (a band
+        // under a line's syntax colors), not a chip per word
+        const prev = out[out.length - 1];
+        if (prev && prev.x + prev.w === sp[k][0] && Qt.colorEqual(prev.c, col)) prev.w += sp[k][1];
+        else out.push({ x: sp[k][0], w: sp[k][1], c: col });
       }
     }
     return out;
@@ -374,7 +379,9 @@ Item {
       x: row.textX + modelData.x * row.cellW
       width: modelData.w * row.cellW
       height: row.cellH
-      radius: Zenon.rad(3)
+      // a window a plugin colored itself (view.lua's `sq`: diffbandit's
+      // sides and corridor) has nvim's square cells, so bands meet row to row
+      radius: row.info.sq ? 0 : Zenon.rad(3)
       color: modelData.c
     }
   }
@@ -408,7 +415,7 @@ Item {
   readonly property var vt: row.info.vt ? Array.from(row.info.vt) : null
   function sevInk(k) {
     return k === "e" ? Zenon.red : k === "w" ? Zenon.yellow : k === "i" ? Zenon.blue
-      : k === "g" ? Zenon.green : Zenon.cyan;
+      : k === "g" ? Zenon.green : Zenon.accent;
   }
   // A line's last commit (git.lua's blame, kind "g") is no diagnostic: it
   // wears the path chip's shape instead, filled green (user, 2026-10-11).
@@ -633,7 +640,7 @@ Item {
   }
 
   // ── the bracket at the cursor, and its partner ─────────────────────
-  // outlined in the cursor's cyan, as the jump trail's ghost is
+  // outlined in the cursor's accent, as the jump trail's ghost is
   readonly property var pairCells: row.info.m ? Array.from(row.info.m) : []
   Repeater {
     model: row.pairCells
@@ -643,9 +650,9 @@ Item {
       width: row.cellW
       height: row.cellH
       radius: Zenon.rad(2)
-      color: Qt.rgba(Zenon.cyan.r, Zenon.cyan.g, Zenon.cyan.b, 0.12)
+      color: Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.12)
       border.width: 1
-      border.color: Qt.rgba(Zenon.cyan.r, Zenon.cyan.g, Zenon.cyan.b, 0.8)
+      border.color: Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.8)
     }
   }
 

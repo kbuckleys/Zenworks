@@ -170,7 +170,7 @@ Column {
   HermesCard {
     visible: Hermes.btReady && Hermes.btOn && (page.nearby.length > 0 || Hermes.btScanning)
     glyph: H.G.scan
-    glyphInk: Hermes.btScanning ? Zenon.cyan : Zenon.accentMuted
+    glyphInk: Hermes.btScanning ? Zenon.accent : Zenon.accentMuted
     title: "Nearby"
     note: Hermes.btScanning ? "Searching…" : ""
     EmptyState {

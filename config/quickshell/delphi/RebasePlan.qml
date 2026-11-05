@@ -56,7 +56,7 @@ Item {
                                 ["ctrl return", "run"], ["esc", "cancel"]]
   readonly property var buttons: [
     { label: "Cancel", run: () => plan.cancel() },
-    { label: "Run", ink: Zenon.cyan, primary: true, ready: plan.problem === "" && plan.changed, run: () => plan.run() },
+    { label: "Run", ink: Zenon.accent, primary: true, ready: plan.problem === "" && plan.changed, run: () => plan.run() },
   ]
 
   function begin(base, steps) {

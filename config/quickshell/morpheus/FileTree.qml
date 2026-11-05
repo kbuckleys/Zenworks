@@ -637,7 +637,7 @@ FocusScope {
       font.weight: Zenon.weight
       font.pixelSize: tree.toolbarGlyphSize
       // pressed before lit, so a lit glyph still answers the press
-      color: tgPress.pressed ? Zenon.white : tg.on ? Zenon.cyan : Zenon.muted
+      color: tgPress.pressed ? Zenon.white : tg.on ? Zenon.accent : Zenon.muted
       text: tg.glyph
     }
     HoverHandler {

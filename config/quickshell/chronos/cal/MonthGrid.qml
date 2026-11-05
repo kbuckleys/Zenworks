@@ -43,16 +43,8 @@ Column {
   readonly property string todayIso: mg.win ? mg.win.todayIso : Chr.isoOf(new Date())
   spacing: 4
 
-  function roleColor(code) {
-    const r = Wx.role(code);
-    if (r === "sun") return Zenon.sand;
-    if (r === "cloud") return Zenon.cyan;
-    if (r === "rain") return Zenon.blue;
-    if (r === "snow") return Zenon.white;
-    if (r === "sleet") return Zenon.pink;
-    if (r === "storm") return Zenon.magenta;
-    return Zenon.muted;
-  }
+  // the condition's Zenon color (Wx.tone, shared with Cynosure's card)
+  function roleColor(code) { return Zenon[Wx.tone(code)]; }
 
   WheelHandler {
     acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
@@ -71,7 +63,7 @@ Column {
     Text {
       anchors.centerIn: parent
       text: chev.glyph
-      color: chevMa.pressed ? Zenon.cyan : Zenon.muted
+      color: chevMa.pressed ? Zenon.accent : Zenon.muted
       Behavior on color { ColorAnimation { duration: Zenon.fast } }
       font.family: Zenon.face
       font.weight: Font.Bold
@@ -97,7 +89,7 @@ Column {
       Text {
         anchors.baseline: yearText.baseline
         text: Chr.monthName(mg.month.getMonth())
-        color: headMa.pressed ? Zenon.white : Zenon.cyan
+        color: headMa.pressed ? Zenon.white : Zenon.accent
         Behavior on color { ColorAnimation { duration: Zenon.fast } }
         font.family: Zenon.face
         font.weight: Font.Bold
@@ -170,10 +162,10 @@ Column {
           width: mg.cellW - 4
           height: mg.cellH - 3
           radius: Zenon.windowRadius
-          color: dayCell.isToday ? Zenon.cyan
+          color: dayCell.isToday ? Zenon.accent
             : dayCell.isSel ? Zenon.menuHi
             : dayMa.pressed ? Zenon.pressTile(false) : Zenon.alpha(Zenon.border, 0)
-          border.color: dayCell.isSel && !dayCell.isToday ? Zenon.cyan : "transparent"
+          border.color: dayCell.isSel && !dayCell.isToday ? Zenon.accent : "transparent"
           border.width: 1
           Behavior on color { ColorAnimation { duration: Zenon.fast } }
         }

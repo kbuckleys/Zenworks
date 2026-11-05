@@ -34,7 +34,7 @@ Item {
   property bool live: true
   // The badge: the glyph and ink the directory would have been drawn with.
   property string glyph: ""
-  property color ink: Zenon.cyan
+  property color ink: Zenon.accent
   property real dim: 1
 
   property var pics: []
@@ -200,7 +200,7 @@ Item {
     radius: frame.radius
     color: "transparent"
     border.width: 2
-    border.color: Zenon.cyan
+    border.color: Zenon.accent
   }
 
   // The badge: the directory's glyph on a dark disc in the corner, so a cover

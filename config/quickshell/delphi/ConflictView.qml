@@ -215,7 +215,7 @@ Item {
                 textFormat: Text.StyledText
                 text: "<b>" + side.modelData[1] + "</b>" + (side.modelData[2] ? "  <font color='" + Zenon.hex(Zenon.accentMuted) + "'>" + D.esc(side.modelData[2]) + "</font>" : "")
                   + (side.modelData[3].length === 0 ? "  <font color='" + Zenon.hex(Zenon.accentMuted) + "'>— nothing here</font>" : "")
-                color: side.modelData[0] === "ours" ? Zenon.cyan : Zenon.magenta
+                color: side.modelData[0] === "ours" ? Zenon.accent : Zenon.magenta
                 font.family: Zenon.face
                 font.weight: Zenon.weight
                 font.pixelSize: Zenon.px(13)
@@ -225,7 +225,7 @@ Item {
                 height: sideText.implicitHeight + 10
                 visible: side.modelData[3].length > 0
                 radius: Zenon.radiusControl
-                color: Zenon.alpha(side.modelData[0] === "ours" ? Zenon.cyan : Zenon.magenta, 0.08)
+                color: Zenon.alpha(side.modelData[0] === "ours" ? Zenon.accent : Zenon.magenta, 0.08)
                 Text {
                   textFormat: Text.PlainText
                   id: sideText
@@ -273,7 +273,7 @@ Item {
       anchors.right: parent.right
       anchors.rightMargin: 12
       anchors.verticalCenter: parent.verticalCenter
-      spacing: 8
+      spacing: Zenon.buttonGap
       DialogButton { label: "All " + cv.names.ours.toLowerCase(); onClicked: cv.wholeFile("ours") }
       DialogButton { label: "All " + cv.names.theirs.toLowerCase(); onClicked: cv.wholeFile("theirs") }
       DialogButton { label: "Edit in plato"; onClicked: cv.editIt() }

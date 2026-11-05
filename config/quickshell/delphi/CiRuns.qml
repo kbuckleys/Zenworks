@@ -45,7 +45,8 @@ Column {
         MouseArea {
           anchors.fill: parent
           enabled: !!one.modelData.url || (!!one.modelData.job && !!cr.win)
-          cursorShape: Qt.PointingHandCursor
+          // the hand only when it opens a web page, not the in-app job log
+          cursorShape: one.modelData.job && cr.win ? Qt.ArrowCursor : Qt.PointingHandCursor
           onClicked: if (one.modelData.job && cr.win) cr.win.jobLog(one.modelData);
                      else Strings.openLink(one.modelData.url)
         }

@@ -39,10 +39,10 @@ Rectangle {
   color: !get.ready ? Qt.tint(Zenon.ground, Zenon.wash(0.05))
     : getMa.pressed ? Qt.tint(Zenon.ground, Zenon.pressFill)
     // OPAQUE (user, 2026-10-17: the banner showed through it): the
-    // window's ground with the cyan mixed in, not a wash of it
-    : Zenon.mix(Zenon.ground, Zenon.cyan, get.big ? 0.22 : 0.16)
+    // window's ground with the accent mixed in, not a wash of it
+    : Zenon.mix(Zenon.ground, Zenon.accent, get.big ? 0.22 : 0.16)
   border.width: 1
-  border.color: get.ready ? Zenon.alpha(Zenon.cyan, 0.5) : Zenon.border
+  border.color: get.ready ? Zenon.alpha(Zenon.accent, 0.5) : Zenon.border
   Behavior on color { ColorAnimation { duration: Zenon.ms(110) } }
 
   Text {
@@ -50,7 +50,7 @@ Rectangle {
     id: getText
     anchors.centerIn: parent
     text: get.word
-    color: get.ready ? Zenon.cyan : Zenon.accentMuted
+    color: get.ready ? Zenon.accent : Zenon.accentMuted
     font.family: Zenon.face
     font.weight: Font.Bold
     font.pixelSize: Zenon.px(get.big ? 16 : 14)

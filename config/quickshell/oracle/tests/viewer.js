@@ -129,6 +129,10 @@ module.exports = {
     const gs = V.alikeGroups([{ path: "a", hash: "0000000000000000" }, { path: "b", hash: "ffffffffffffffff" },
       { path: "c", hash: "0000000000000007" }, { path: "d", hash: "000000000000003f" }, { path: "e", hash: "" }]);
     t.eq("alike in a chain", gs.map((g) => g.map((x) => x.path)), [["a", "c", "d"]]);
+    const go = V.grainOpts(2, 3, 2, "#000011", "#00ccff");
+    t.eq("bitgrain: the three rows make one setting", [go.blocks, go.by, go.method, go.dark, go.light], [200, 8, "halftone", "#000011", "#00ccff"]);
+    t.eq("bitgrain: color has no two colors", [V.grainOpts(1, 1, 3).dark, V.grainOpts(1, 1, 3).light], ["", ""]);
+    t.eq("bitgrain: the key names size, method and colors", V.artKey("grain", V.grainOpts(0, 0, 1)), "grain:800:diffuse:paper");
     t.eq("keeper: most pixels", V.keeperOf([{ path: "a", w: 10, h: 10 }, { path: "b", w: 20, h: 10 }]).path, "b");
     t.eq("keeper: then the bigger file", V.keeperOf([{ path: "a", w: 1, h: 1, size: 5 }, { path: "b", w: 1, h: 1, size: 9 }]).path, "b");
     t.eq("keeper: then the oldest", V.keeperOf([{ path: "a", w: 1, h: 1, size: 5, mtime: 9 }, { path: "b", w: 1, h: 1, size: 5, mtime: 2 }]).path, "b");

@@ -18,7 +18,8 @@
 //
 // And once, whether the Store should carry Flathub's apps too (user,
 // 2026-10-14): asked here so Ceres fetches Flatpak with everything else, as
-// it fetches paru — see Ceres.flatpakAsk. Opt-in: unticked until ticked.
+// it fetches paru — see Ceres.flatpakAsk. Opt-in: unticked until ticked,
+// or until the setup assistant's yes ("want").
 
 import QtQuick
 import "../morpheus"
@@ -31,8 +32,9 @@ Item {
 
   // "paru" or "paru-git"; the holder reads it when Install is pressed
   property string choice: "paru"
-  // Flatpak too? — read with `choice` when Install is pressed
-  property bool flatpak: false
+  // Flatpak too? — read with `choice` when Install is pressed; ticked
+  // already when the setup assistant was told yes
+  property bool flatpak: Ceres.flatpakPref === "want"
   // what the content needs, for a window sizing itself to it
   readonly property real needH: setupCol.implicitHeight
   // the names' column, as wide as the longest (archlinux-appstream-data ran
@@ -180,9 +182,9 @@ Item {
         width: parent.width
         height: fpCol.implicitHeight + 24
         radius: Zenon.windowRadius
-        color: view.flatpak ? Qt.rgba(Zenon.cyan.r, Zenon.cyan.g, Zenon.cyan.b, 0.2) : "transparent"
+        color: view.flatpak ? Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.2) : "transparent"
         border.width: 1
-        border.color: view.flatpak ? Zenon.cyan : Zenon.border
+        border.color: view.flatpak ? Zenon.accent : Zenon.border
         Controls.Check {
           id: fpBox
           anchors.left: parent.left
@@ -202,7 +204,7 @@ Item {
           spacing: 4
           Text {
             text: "Also add Flatpak apps"
-            color: view.flatpak ? Zenon.cyan : Zenon.white
+            color: view.flatpak ? Zenon.accent : Zenon.white
             font.family: Zenon.face
             font.weight: Font.Bold
             font.pixelSize: Zenon.px(18)

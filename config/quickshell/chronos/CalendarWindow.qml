@@ -124,7 +124,7 @@ FloatingWindow {
   function inkOf(name) { return cw.colorOf(cw.hueOf(name)); }
   // an event's own color, else its calendar's
   function evInk(ev) {
-    if (!ev) return Zenon.cyan;
+    if (!ev) return Zenon.accent;
     return ev.color && Chr.isColor(ev.color) ? cw.colorOf(ev.color) : cw.inkOf(ev.calendar);
   }
   function titleOf(name) {
@@ -222,9 +222,9 @@ FloatingWindow {
       if (done) done(true);
     });
     if (!ev.repeats) { go(); return; }
-    cw.ask_({ question: "Move every time it repeats?", glyph: "\u{F0456}", ink: Zenon.cyan,
+    cw.ask_({ question: "Move every time it repeats?", glyph: "\u{F0456}", ink: Zenon.accent,
       detail: "“" + ev.title + "” repeats: moving it moves the whole series by the same amount.",
-      choices: [{ label: "Move them all", ink: Zenon.cyan, run: go }, { label: "Cancel", run: () => { if (done) done(false); } }] });
+      choices: [{ label: "Move them all", ink: Zenon.accent, run: go }, { label: "Cancel", run: () => { if (done) done(false); } }] });
   }
   // what changes a whole event (its color, its calendar): read, changed, saved
   function change(ev, fields, words) {
@@ -348,7 +348,7 @@ FloatingWindow {
       x: 15
       anchors.verticalCenter: parent.verticalCenter
       lit: !!crow.win && crow.win.settings.hidden.indexOf(crow.modelData.name) < 0
-      ink: crow.win ? crow.win.inkOf(crow.modelData.name) : Zenon.cyan
+      ink: crow.win ? crow.win.inkOf(crow.modelData.name) : Zenon.accent
       label: crow.modelData.title
       textSize: Zenon.px(14)
       onToggled: crow.win.toggleCal(crow.modelData.name)
@@ -657,17 +657,15 @@ FloatingWindow {
       Row {
         x: 14
         anchors.verticalCenter: parent.verticalCenter
-        spacing: 6
+        spacing: Zenon.buttonGap
         DialogButton {
-          implicitHeight: 30
           glyph: true
           // the sidebar shown or not, minerva's glyphs for the left side
           label: cw.sideOpen ? "\u{EC02}" : "\u{EBF3}"
-          ink: cw.sideOpen ? Zenon.cyan : Zenon.muted
+          ink: cw.sideOpen ? Zenon.accent : Zenon.muted
           onClicked: cw.setSidebar(!cw.sideOpen)
         }
         DialogButton {
-          implicitHeight: 30
           glyph: true
           label: "\u{F0415}"
           ready: Chronos.calReady
@@ -693,7 +691,7 @@ FloatingWindow {
           font.weight: Zenon.weight
           font.pixelSize: Zenon.px(12)
         }
-        DialogButton { glyph: true; label: "\u{F0E8E}"; implicitHeight: 30; visible: Chronos.accounts.length > 0; ready: !Chronos.calBusy; onClicked: cw.sync() }
+        DialogButton { glyph: true; label: "\u{F0E8E}"; visible: Chronos.accounts.length > 0; ready: !Chronos.calBusy; onClicked: cw.sync() }
         BulkField {
           id: searchField
           anchors.verticalCenter: parent.verticalCenter
@@ -759,7 +757,7 @@ FloatingWindow {
           anchors.right: parent.right
           anchors.rightMargin: 16
           anchors.verticalCenter: parent.verticalCenter
-          spacing: 4
+          spacing: Zenon.stepGap
           DialogButton { glyph: true; label: "\u{F0141}"; implicitHeight: 28; onClicked: cw.step(-1) }
           // already there: nothing to go back to
           DialogButton { label: "Today"; implicitHeight: 28; ready: !cw.showsToday; onClicked: cw.today() }
@@ -793,16 +791,16 @@ FloatingWindow {
         }
         Row {
           anchors.horizontalCenter: parent.horizontalCenter
-          spacing: 10
+          spacing: Zenon.buttonGap
           DialogButton {
             label: "On this computer"
-            ink: Zenon.cyan
+            ink: Zenon.accent
             ready: !Chronos.calBusy
             onClicked: if (!Chronos.setupCalendar((ok) => cw.say(ok ? "Ready" : "Not set up", !ok))) cw.say("Ceres is busy — try again in a moment", true)
           }
           DialogButton {
             label: "Online account…"
-            ink: Zenon.cyan
+            ink: Zenon.accent
             ready: !Chronos.calBusy
             onClicked: accSheet.open()
           }
@@ -853,7 +851,7 @@ FloatingWindow {
             width: monthView.cellW
             height: monthView.cellH
             readonly property bool weekend: cell.index % 7 >= 5
-            Rectangle { anchors.fill: parent; color: cw.dropIso === cell.iso ? Zenon.alpha(Zenon.cyan, 0.14)
+            Rectangle { anchors.fill: parent; color: cw.dropIso === cell.iso ? Zenon.alpha(Zenon.accent, 0.14)
               : !cell.modelData.cur ? Zenon.wash(0.03) : cell.weekend ? Zenon.wash(0.015) : "transparent" }
             Rectangle { width: parent.width; height: 1; color: Zenon.border; opacity: 0.6 }
             Rectangle { width: 1; height: parent.height; color: Zenon.border; opacity: 0.6; visible: cell.index % 7 !== 0 }
@@ -878,12 +876,12 @@ FloatingWindow {
               width: disc ? height : dayNum.implicitWidth + 10
               height: Zenon.px(13) + 10
               radius: disc ? width / 2 : Zenon.radiusControl
-              color: cell.iso === cw.todayIso ? Zenon.cyan : "transparent"
+              color: cell.iso === cw.todayIso ? Zenon.accent : "transparent"
               Text {
                 id: dayNum
                 anchors.centerIn: parent
                 text: cell.modelData.d === 1 ? Chr.monthName(cell.modelData.m).slice(0, 3) + " 1" : cell.modelData.d
-                color: cell.iso === cw.todayIso ? Zenon.onAccent : cell.modelData.cur ? Zenon.ink : Zenon.accentMuted
+                color: cell.iso === cw.todayIso ? Zenon.inkOnAccent : cell.modelData.cur ? Zenon.ink : Zenon.accentMuted
                 font.family: Zenon.face
                 font.weight: cell.iso === cw.todayIso ? Font.Bold : Zenon.weight
                 font.pixelSize: Zenon.px(13)
@@ -941,7 +939,7 @@ FloatingWindow {
               spacing: 4
               Text {
                 text: Chr.monthName(ym.index)
-                color: cw.at.getFullYear() === new Date().getFullYear() && ym.index === new Date().getMonth() ? Zenon.cyan : Zenon.ink
+                color: cw.at.getFullYear() === new Date().getFullYear() && ym.index === new Date().getMonth() ? Zenon.accent : Zenon.ink
                 font.family: Zenon.face
                 font.weight: Font.Bold
                 font.pixelSize: Zenon.px(15)
@@ -1013,12 +1011,12 @@ FloatingWindow {
                 width: height
                 height: Zenon.px(15) + 12
                 radius: width / 2
-                color: dh.iso === cw.todayIso ? Zenon.cyan : "transparent"
+                color: dh.iso === cw.todayIso ? Zenon.accent : "transparent"
                 Text {
                   id: dnum
                   anchors.centerIn: parent
                   text: dh.modelData.getDate()
-                  color: dh.iso === cw.todayIso ? Zenon.onAccent : Zenon.ink
+                  color: dh.iso === cw.todayIso ? Zenon.inkOnAccent : Zenon.ink
                   font.family: Zenon.face
                   font.weight: Font.Bold
                   font.pixelSize: Zenon.px(15)
@@ -1121,7 +1119,7 @@ FloatingWindow {
                 id: nowText
                 anchors.centerIn: parent
                 text: { cw.tick; return Chr.hhmm(new Date().getHours() * 60 + new Date().getMinutes()); }
-                color: Zenon.onAccent
+                color: Zenon.inkOnAccent
                 font.family: Zenon.face
                 font.weight: Font.Bold
                 font.pixelSize: Zenon.px(11)
@@ -1141,7 +1139,7 @@ FloatingWindow {
                 Rectangle { width: 1; height: parent.height; color: Zenon.border; opacity: 0.6 }
                 Rectangle { anchors.fill: parent; z: -1; visible: Chr.weekIndex(col.modelData) >= 5 && col.iso !== cw.todayIso; color: Zenon.wash(0.015) }
                 // today's column, faintly in the accent (Apple's)
-                Rectangle { anchors.fill: parent; z: -1; visible: col.iso === cw.todayIso && cw.view === "week"; color: Zenon.alpha(Zenon.cyan, 0.05) }
+                Rectangle { anchors.fill: parent; z: -1; visible: col.iso === cw.todayIso && cw.view === "week"; color: Zenon.alpha(Zenon.accent, 0.05) }
                 // empty hours: a drag makes an event that long, a double
                 // click an hour's at the half hour, a right click the menu
                 MouseArea {
@@ -1267,7 +1265,7 @@ FloatingWindow {
           topPadding: 12
           bottomPadding: 4
           text: { const d = Chr.dateOf(section); return d ? Chr.longDay(d) + " " + d.getFullYear() : section; }
-          color: section === cw.todayIso ? Zenon.cyan : Zenon.accentMuted
+          color: section === cw.todayIso ? Zenon.accent : Zenon.accentMuted
           font.family: Zenon.face
           font.weight: Font.Bold
           font.pixelSize: Zenon.px(12)
@@ -1278,7 +1276,7 @@ FloatingWindow {
           width: foundList.width
           height: Zenon.px(14) + 20
           Rectangle { anchors.fill: parent; anchors.leftMargin: 12; anchors.rightMargin: 12; radius: Zenon.windowRadius
-                      color: fma.containsMouse ? Zenon.wash(0.04) : "transparent" }
+                      color: fma.pressed ? Zenon.pressWash(0.12) : "transparent" }
           Rectangle { x: 22; anchors.verticalCenter: parent.verticalCenter; width: 8; height: 8; radius: 4; color: cw.evInk(frow.modelData) }
           Text {
             x: 40
@@ -1309,6 +1307,10 @@ FloatingWindow {
       Scrollbar { flick: foundList; anchors.right: foundList.right; anchors.top: foundList.top; anchors.bottom: foundList.bottom }
     }
 
+    // the rows still to come run on under the keys' pill, which frosts them
+    ScrollEdge { view: hours; below: true; follow: true; bar: foot; visible: timeView.visible }
+    ScrollEdge { view: yearView; below: true; follow: true; bar: foot; visible: yearView.visible }
+    ScrollEdge { view: foundList; below: true; follow: true; bar: foot; visible: foundList.visible }
     HintBar {
       id: foot
       z: 3
@@ -1546,7 +1548,7 @@ FloatingWindow {
           width: parent.width
           height: 32
           Row {
-            spacing: 8
+            spacing: Zenon.buttonGap
             DialogButton {
               visible: !sheet.isNew
               label: "Delete"
@@ -1581,9 +1583,9 @@ FloatingWindow {
           }
           Row {
             anchors.right: parent.right
-            spacing: 10
+            spacing: Zenon.buttonGap
             DialogButton { label: "Cancel"; ink: Zenon.accentMuted; onClicked: sheet.close() }
-            BusyButton { label: sheet.isNew ? "Add" : "Save"; primary: true; ink: Zenon.cyan; busy: sheet.busy; busyText: "Saving…"; onClicked: sheet.save() }
+            BusyButton { label: sheet.isNew ? "Add" : "Save"; primary: true; ink: Zenon.accent; busy: sheet.busy; busyText: "Saving…"; onClicked: sheet.save() }
           }
         }
       }
@@ -1609,7 +1611,7 @@ FloatingWindow {
         width: parent.width
         question: menuCard.c.question || ""
         glyph: menuCard.c.glyph || ""
-        glyphInk: menuCard.c.ink || Zenon.cyan
+        glyphInk: menuCard.c.ink || Zenon.accent
         detail: menuCard.c.detail || ""
         choices: (menuCard.c.choices || []).map((x) => ({ label: x.label, ink: x.ink || Zenon.accentMuted }))
         pick: menuCard.pick
@@ -1680,9 +1682,9 @@ FloatingWindow {
         Rectangle { width: parent.width; height: 1; color: Zenon.border }
         Row {
           anchors.right: parent.right
-          spacing: 10
+          spacing: Zenon.buttonGap
           DialogButton { label: "Cancel"; ink: Zenon.accentMuted; onClicked: { calSheet.shown = false; cw.refocus(); } }
-          DialogButton { label: calSheet.cal ? "Save" : "Make it"; primary: true; ink: Zenon.cyan; onClicked: calSheet.done() }
+          DialogButton { label: calSheet.cal ? "Save" : "Make it"; primary: true; ink: Zenon.accent; onClicked: calSheet.done() }
         }
       }
     }
@@ -1838,9 +1840,9 @@ FloatingWindow {
         Rectangle { width: parent.width; height: 1; color: Zenon.border }
         Row {
           anchors.right: parent.right
-          spacing: 10
+          spacing: Zenon.buttonGap
           DialogButton { label: "Close"; ink: Zenon.accentMuted; onClicked: { accSheet.shown = false; cw.refocus(); } }
-          BusyButton { label: "Add"; primary: true; ink: Zenon.cyan; busy: accSheet.busy; busyText: "Finding its calendars…"; onClicked: accSheet.add() }
+          BusyButton { label: "Add"; primary: true; ink: Zenon.accent; busy: accSheet.busy; busyText: "Finding its calendars…"; onClicked: accSheet.add() }
         }
       }
     }

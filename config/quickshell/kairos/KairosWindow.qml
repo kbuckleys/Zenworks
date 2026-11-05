@@ -145,10 +145,11 @@ FloatingWindow {
         anchors.right: parent.right
         anchors.rightMargin: 14
         anchors.verticalCenter: parent.verticalCenter
-        spacing: 6
-        DialogButton { label: "‹"; implicitHeight: 32; onClicked: kw.step(-1) }
-        DialogButton { label: "Today"; implicitHeight: 32; ready: !kw.atToday; onClicked: kw.today() }
-        DialogButton { label: "›"; implicitHeight: 32; ready: !kw.atToday; onClicked: kw.step(1) }
+        // chronos' calendar stepper: glyph chevrons round Today
+        spacing: Zenon.stepGap
+        DialogButton { glyph: true; label: "\u{F0141}"; implicitHeight: 28; onClicked: kw.step(-1) }
+        DialogButton { label: "Today"; implicitHeight: 28; ready: !kw.atToday; onClicked: kw.today() }
+        DialogButton { glyph: true; label: "\u{F0142}"; implicitHeight: 28; ready: !kw.atToday; onClicked: kw.step(1) }
       }
     }
 
@@ -236,7 +237,7 @@ FloatingWindow {
                 anchors.bottom: parent.bottom
                 anchors.bottomMargin: chart.labelH
                 radius: Math.min(Zenon.rad(1), width / 2)
-                color: Zenon.alpha(Zenon.cyan, bar.chosen || kw.view === "day" ? 0.85 : 0.45)
+                color: Zenon.alpha(Zenon.accent, bar.chosen || kw.view === "day" ? 0.85 : 0.45)
                 Behavior on height { NumberAnimation { duration: Zenon.slow; easing.type: Zenon.ease } }
               }
               Text {
@@ -296,7 +297,7 @@ FloatingWindow {
                   anchors.leftMargin: -10
                   anchors.rightMargin: -10
                   radius: Zenon.windowRadius
-                  color: Zenon.wash(parent.containsMouse ? 0.04 : 0)
+                  color: parent.pressed ? Zenon.pressWash(0.12) : "transparent"
                 }
               }
               Text {
@@ -304,7 +305,7 @@ FloatingWindow {
                 anchors.verticalCenter: parent.verticalCenter
                 width: Zenon.px(22)
                 text: Kairos.glyphOf(row.modelData.key)
-                color: Zenon.cyan
+                color: Zenon.accent
                 font.family: Zenon.face
                 font.pixelSize: Zenon.px(18)
               }
@@ -335,7 +336,7 @@ FloatingWindow {
                   width: Math.max(6, track.width * row.modelData.share)
                   height: parent.height
                   radius: 3
-                  color: Zenon.alpha(row.over ? Zenon.yellow : Zenon.cyan, 0.7)
+                  color: Zenon.alpha(row.over ? Zenon.yellow : Zenon.accent, 0.7)
                 }
               }
               Text {
@@ -416,7 +417,7 @@ FloatingWindow {
             width: Zenon.px(40)
             horizontalAlignment: Text.AlignHCenter
             text: limitSheet.key !== "" ? Kairos.glyphOf(limitSheet.key) : ""
-            color: Zenon.cyan
+            color: Zenon.accent
             font.family: Zenon.face
             font.pixelSize: Zenon.px(36)
           }

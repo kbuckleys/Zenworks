@@ -3,7 +3,7 @@
 // └─┘└─┘┘└┘└┴┘└─┘┴└─┴ ┴└─┘
 // https://github.com/kbuckleys/
 //
-// OPENFLARE — a cyan flare on the thing that was just opened: a wash and a
+// OPENFLARE — an accent flare on the thing that was just opened: a wash and a
 // 3px ring, up fast and fading slowly.
 //
 //     OpenFlare { id: flare; anchors.fill: parent; radius: parent.radius }
@@ -35,9 +35,9 @@ Rectangle {
 
   visible: flare.glow > 0.003
   opacity: flare.glow
-  color: flare.wash ? Qt.rgba(Zenon.cyan.r, Zenon.cyan.g, Zenon.cyan.b, 0.18) : "transparent"
+  color: flare.wash ? Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.18) : "transparent"
   border.width: 3
-  border.color: Zenon.cyan
+  border.color: Zenon.accent
 
   // The flare in and out on smooth curves. It used to drive the border's
   // WIDTH (1 → 3 → 1), which can only move in whole pixels, so it went

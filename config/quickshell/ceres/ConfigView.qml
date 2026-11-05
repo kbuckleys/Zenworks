@@ -215,7 +215,7 @@ Item {
   }
   readonly property var hints: [["j k", "choose"]]
     .concat(view.group.id === "paru" ? [["\u2190 \u2192", "paru or paru-git"]]
-      .concat(view.paruCanBuild ? [["enter", "build " + view.paruPick]] : []) : [])
+      .concat(view.paruCanBuild ? [["return", "build " + view.paruPick]] : []) : [])
     .concat(view.changes > 0 ? [["ctrl s", "review & save"]] : [["r", "reload"]])
 
   // ── the left: groups ────────────────────────────────────────────────────
@@ -343,7 +343,7 @@ Item {
       visible: view.changes > 0
       anchors.right: parent.right
       anchors.verticalCenter: gTitle.verticalCenter
-      spacing: 8
+      spacing: Zenon.buttonGap
       Text {
         textFormat: Text.PlainText
         anchors.verticalCenter: parent.verticalCenter
@@ -360,7 +360,7 @@ Item {
       }
       DialogButton {
         label: "Review & save"
-        ink: Zenon.cyan
+        ink: Zenon.accent
         primary: true
         onClicked: view.askReview()
       }
@@ -476,7 +476,7 @@ Item {
           DialogButton {
             label: view.paruPick === view.paruHere ? view.paruPick + " is installed"
               : "Build " + view.paruPick
-            ink: Zenon.cyan
+            ink: Zenon.accent
             primary: view.paruCanBuild
             ready: view.paruCanBuild
             onClicked: view.buildParu()
@@ -560,7 +560,7 @@ Item {
           }
           DialogButton {
             label: Ceres.deps.flatpak ? "Remove Flatpak\u2026" : "Add Flatpak"
-            ink: Ceres.deps.flatpak ? Zenon.red : Zenon.cyan
+            ink: Ceres.deps.flatpak ? Zenon.red : Zenon.accent
             primary: !Ceres.deps.flatpak
             ready: !Ceres.txBusy
             onClicked: {
@@ -610,36 +610,8 @@ Item {
     }
   }
 
-  // ── controls ────────────────────────────────────────────────────────────
-  // One of a few, the tab pill's lit look for the chosen one.
-  component Chip: Rectangle {
-    id: chip
-    property string label: ""
-    property bool lit: false
-    property bool dim: false
-    signal picked()
-    width: chipText.implicitWidth + 20
-    height: 28
-    radius: Zenon.windowRadius
-    // pressed, darkened — the suite's press (user, 2026-10-17)
-    color: chipTap.pressed ? Zenon.pressFill
-      : chip.lit ? Qt.rgba(Zenon.cyan.r, Zenon.cyan.g, Zenon.cyan.b, 0.2) : "transparent"
-    Behavior on color { ColorAnimation { duration: Zenon.fast } }
-    border.width: 1
-    border.color: chip.lit ? (chip.dim ? Zenon.border : Zenon.cyan) : Zenon.border
-    Text {
-      textFormat: Text.PlainText
-      id: chipText
-      anchors.centerIn: parent
-      text: chip.label
-      color: chip.lit ? (chip.dim ? Zenon.accentKey : Zenon.cyan) : Zenon.accentMuted
-      font.family: Zenon.face
-      font.weight: Zenon.weight
-      font.pixelSize: Zenon.px(15)
-    }
-    TapHandler { id: chipTap; onTapped: chip.picked() }
-  }
 
+  // ── controls ────────────────────────────────────────────────────────────
   // ONE CHOICE, drawn as one bar: the options joined, the chosen one filled.
   // Separate chips for two different choices read as one list of five, and
   // wrapping could split a choice across two lines; a bar wraps whole.
@@ -682,7 +654,7 @@ Item {
       clip: true
       text: fld.value
       color: Zenon.white
-      selectionColor: Qt.rgba(Zenon.cyan.r, Zenon.cyan.g, Zenon.cyan.b, 0.35)
+      selectionColor: Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.35)
       font.family: Zenon.face
       font.weight: Zenon.weight
       font.pixelSize: Zenon.px(15)
@@ -938,16 +910,11 @@ Item {
             font.weight: Zenon.weight
             font.pixelSize: Zenon.px(13)
           }
-          Text {
+          // an in-app action, so a button, not a link's accent underline
+          DialogButton {
             visible: orow.now.set
-            text: "Reset"
-            color: wideResetPress.pressed ? Zenon.white : Zenon.cyan
-            font.family: Zenon.face
-            font.weight: Zenon.weight
-            font.pixelSize: Zenon.px(13)
-            font.underline: true
-            HoverHandler { id: wideResetHov }
-            TapHandler { id: wideResetPress; onTapped: view.setOpt(orow.spec.key, "") }
+            label: "Reset"
+            onClicked: view.setOpt(orow.spec.key, "")
           }
         }
       }
@@ -1016,17 +983,12 @@ Item {
               font.weight: Zenon.weight
               font.pixelSize: Zenon.px(14)
             }
-            Text {
+            // an in-app action, so a button, not a link's accent underline
+            DialogButton {
               anchors.verticalCenter: parent.verticalCenter
               visible: orow.now.set
-              text: "Reset"
-              color: resetPress.pressed ? Zenon.white : Zenon.cyan
-              font.family: Zenon.face
-              font.weight: Zenon.weight
-              font.pixelSize: Zenon.px(14)
-              font.underline: true
-              HoverHandler { id: resetHov }
-              TapHandler { id: resetPress; onTapped: view.setOpt(orow.spec.key, "") }
+              label: "Reset"
+              onClicked: view.setOpt(orow.spec.key, "")
             }
           }
           Controls.Check {
@@ -1037,12 +999,13 @@ Item {
           // − n +; below the minimum is unset
           Row {
             visible: orow.spec.type === "int"
-            spacing: 6
+            spacing: Zenon.stepGap
             readonly property int n: orow.now.set ? parseInt(orow.now.value, 10) || 0 : 0
-            Chip {
+            DialogButton {
+              glyph: true
               label: "−"
               // 1 is pacman's own default, so below 2 is unset
-              onPicked: view.setOpt(orow.spec.key, parent.n - 1 < 2 ? "" : String(parent.n - 1))
+              onClicked: view.setOpt(orow.spec.key, parent.n - 1 < 2 ? "" : String(parent.n - 1))
             }
             Text {
               width: 44
@@ -1054,9 +1017,10 @@ Item {
               font.weight: Font.Bold
               font.pixelSize: Zenon.px(17)
             }
-            Chip {
+            DialogButton {
+              glyph: true
               label: "+"
-              onPicked: view.setOpt(orow.spec.key, String(Math.min(orow.spec.max || 99, Math.max(parent.n + 1, 2))))
+              onClicked: view.setOpt(orow.spec.key, String(Math.min(orow.spec.max || 99, Math.max(parent.n + 1, 2))))
             }
           }
           Row {
@@ -1136,7 +1100,7 @@ Item {
         Text {
           visible: orow.now.set && orow.spec.type !== "flag"
           text: "Unset"
-          color: Zenon.cyan
+          color: Zenon.accent
           font.family: Zenon.face
           font.weight: Zenon.weight
           font.pixelSize: Zenon.px(14)
@@ -1275,21 +1239,23 @@ Item {
           id: moves
           anchors.right: parent.right
           anchors.verticalCenter: parent.verticalCenter
-          spacing: 6
-          Chip {
+          spacing: Zenon.buttonGap
+          DialogButton {
+            glyph: true
             label: ""
-            opacity: card.at > 0 ? 1 : Zenon.disabledDim
-            onPicked: if (card.at > 0) view.cur = Pac.moveRepo(view.cur, card.repo.name, -1)
+            ready: card.at > 0
+            onClicked: if (card.at > 0) view.cur = Pac.moveRepo(view.cur, card.repo.name, -1)
           }
-          Chip {
+          DialogButton {
+            glyph: true
             label: ""
-            opacity: card.at < view.reposNow.length - 1 ? 1 : Zenon.disabledDim
-            onPicked: if (card.at < view.reposNow.length - 1) view.cur = Pac.moveRepo(view.cur, card.repo.name, 1)
+            ready: card.at < view.reposNow.length - 1
+            onClicked: if (card.at < view.reposNow.length - 1) view.cur = Pac.moveRepo(view.cur, card.repo.name, 1)
           }
-          Chip {
+          DialogButton {
             visible: !card.repo.official
             label: "Remove"
-            onPicked: view.cur = Pac.removeRepo(view.cur, card.repo.name)
+            onClicked: view.cur = Pac.removeRepo(view.cur, card.repo.name)
           }
         }
       }
@@ -1357,7 +1323,7 @@ Item {
               Text {
                 visible: card.repo.SigLevel !== ""
                 text: "Use [options]"
-                color: Zenon.cyan
+                color: Zenon.accent
                 font.family: Zenon.face
                 font.weight: Zenon.weight
                 font.pixelSize: Zenon.px(14)
@@ -1419,7 +1385,7 @@ Item {
       DialogButton {
         visible: !add.open
         label: "Add a repository"
-        ink: Zenon.cyan
+        ink: Zenon.accent
         onClicked: add.open = true
       }
       Text {
@@ -1463,7 +1429,7 @@ Item {
       }
       Row {
         visible: add.open
-        spacing: 8
+        spacing: Zenon.buttonGap
         DialogButton {
           label: "Cancel"
           ink: Zenon.accentMuted
@@ -1471,7 +1437,7 @@ Item {
         }
         DialogButton {
           label: "Add"
-          ink: Zenon.cyan
+          ink: Zenon.accent
           primary: true
           ready: add.name !== "" && add.problem === "" && add.servers.trim() !== ""
           onClicked: {

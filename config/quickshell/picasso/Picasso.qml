@@ -120,6 +120,9 @@ Singleton {
   function pickGeometry(kind, reply) { if (reply && reply !== "") root.geometryRequested(kind || "region", reply); }
   // `ruler` opens it measuring (the picker's m) — see PicassoPicker's RULER
   property bool pickRuler: false
+  // the popup up (PicassoPopup says): the setup assistant's Look step
+  // steps aside for it and comes back when it closes
+  property bool popupShown: false
   function pick() { root.pickInto = ""; root.pickRuler = false; root.pickRequested(); }
   function measure() { root.pickInto = ""; root.pickRuler = true; root.pickRequested(); }
   function pickFor(into) { root.pickInto = into || ""; root.pickRuler = false; root.pickRequested(); }
@@ -554,9 +557,11 @@ Singleton {
     scanProc.running = true;
   }
   function scanArgv(mode) {
-    return ["sh", "-c", 'python3 "$0" "$@"; ' + Thumbs.sweep(30),
+    // tethered: the sh dies with the shell, and scan.py, seeing its parent
+    // gone, makes no more (scan.py PARENT)
+    return Paths.tether(["sh", "-c", 'python3 "$0" "$@"; ' + Thumbs.sweep(30),
       Quickshell.shellDir + "/picasso/bin/scan.py", mode, root.dir, Thumbs.dir(),
-      String(Thumbs.size()), root.extensions.join(",")];
+      String(Thumbs.size()), root.extensions.join(",")]);
   }
 
   Process {

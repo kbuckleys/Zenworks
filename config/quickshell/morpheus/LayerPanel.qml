@@ -16,6 +16,7 @@
 
 import QtQuick
 import "."
+import "place.js" as Place
 
 Item {
   id: root
@@ -38,15 +39,21 @@ Item {
   // before the other, for that instant both apply and stretch the panel to
   // the screen, and that stretch overwrites — and so unbinds — `height`.
   // The panel then stayed screen-tall until the shell was restarted.
+  // Put elsewhere (the host's `place`, Cynosure's Opens): its spot on the
+  // screen, clear of the pill on the bar's edge (morpheus/place.js).
+  readonly property bool placed: root.host.place !== "" && root.host.place !== "bar"
   anchors.horizontalCenter: parent.horizontalCenter
-  y: Zenon.barTop ? Zenon.edgeLift(root.host.morphMode, root.host.screen, root.host.statusbar)
+  y: root.placed
+    ? Place.placeTop(root.host.place, Zenon.barTop, parent.height, height, root.host.steadyH || height, Zenon.padScreen,
+        Zenon.edgeLift(false, root.host.screen, root.host.statusbar) - Zenon.padScreen)
+    : Zenon.barTop ? Zenon.edgeLift(root.host.morphMode, root.host.screen, root.host.statusbar)
     : parent.height - height - Zenon.edgeLift(root.host.morphMode, root.host.screen, root.host.statusbar)
   z: 1
   opacity: root.host.contentFade
   transform: Scale {
     origin.x: root.width / 2
     // grows out of the edge the bar is on, which is the edge it came from
-    origin.y: Zenon.barTop ? 0 : root.height
+    origin.y: Place.growsUp(root.placed ? root.host.place : "bar", Zenon.barTop) ? root.height : 0
     xScale: root.host.panelX
     yScale: root.host.panelY
   }

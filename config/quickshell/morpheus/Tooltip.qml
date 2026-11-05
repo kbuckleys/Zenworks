@@ -120,9 +120,9 @@ CursorAnchor {
             values: cfg ? cfg.values : []
             peakValues: cfg ? (cfg.peak ?? cfg.values) : []
             peakFormat: cfg && cfg.format ? cfg.format : (v) => Math.round(v) + "%"
-            lineColor: cfg ? cfg.line : Zenon.cyan
+            lineColor: cfg ? cfg.line : Zenon.accent
             // most callers want the fill to be the line's own color
-            fillColor: cfg ? (cfg.fill ?? cfg.line) : Zenon.cyan
+            fillColor: cfg ? (cfg.fill ?? cfg.line) : Zenon.accent
             fillOpacity: 0.18
           }
         }

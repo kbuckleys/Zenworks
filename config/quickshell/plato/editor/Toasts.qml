@@ -10,7 +10,7 @@
 //
 // A card per message, newest at the bottom, sliding in from the right and
 // out again. Its ink says how loud it is: red for an error, yellow for a
-// warning, cyan for progress (a write), muted for anything else. The pointer
+// warning, accent for progress (a write), muted for anything else. The pointer
 // over a card holds it; a click puts it away.
 //
 // HOW LONG: the settings sheet's timeout for an ordinary one, half as long
@@ -143,7 +143,7 @@ Item {
 
   function ink(tone) {
     return tone === "error" ? Zenon.red : tone === "warn" ? Zenon.yellow
-      : tone === "progress" ? Zenon.cyan : Zenon.accentMuted;
+      : tone === "progress" ? Zenon.accent : Zenon.accentMuted;
   }
   function glyph(tone) {
     return tone === "error" ? "\u{F0159}" : tone === "warn" ? "\u{F0026}"

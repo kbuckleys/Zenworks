@@ -55,7 +55,7 @@ Item {
       anchors.verticalCenter: parent.verticalCenter
       clip: true
       color: Zenon.ink
-      selectionColor: Zenon.alpha(Zenon.cyan, 0.4)
+      selectionColor: Zenon.alpha(Zenon.accent, 0.4)
       font.family: Zenon.face
       font.weight: Zenon.weight
       font.pixelSize: Zenon.px(15)
@@ -102,7 +102,7 @@ Item {
     glyph: true
     label: ""
     // the theme's accent, as the other windows' primary actions (user, 10-21)
-    ink: Zenon.cyan
+    ink: Zenon.accent
     onClicked: bar.win.inJournal ? bar.win.newEntry() : bar.win.newNote()
     // a right click: from a template
     MouseArea {

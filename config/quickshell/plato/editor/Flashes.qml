@@ -20,7 +20,7 @@
 //   arrive   what a paste or a format brought in: a green wash, as a
 //            yank's yellow, ebbing away
 //
-//   undo     A REWIND: a cyan wash sweeps back across what the undo changed,
+//   undo     A REWIND: an accent wash sweeps back across what the undo changed,
 //   redo     right to left, with a bright edge leading it, and fades; a redo
 //            sweeps the other way. Each covers the line's text, not the
 //            empty width past it (editing.lua's undos()).
@@ -208,7 +208,7 @@ Item {
         height: parent.height
         x: sw.back ? parent.width - width : 0
         radius: Zenon.rad(2)
-        color: Qt.rgba(Zenon.cyan.r, Zenon.cyan.g, Zenon.cyan.b, 0.28)
+        color: Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.28)
       }
       // its leading edge
       Rectangle {
@@ -216,7 +216,7 @@ Item {
         width: 2
         height: parent.height
         x: sw.back ? parent.width - wash.width : wash.width - width
-        color: Zenon.cyan
+        color: Zenon.accent
       }
 
       SequentialAnimation {

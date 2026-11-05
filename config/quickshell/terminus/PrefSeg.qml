@@ -121,10 +121,10 @@ Item {
         // PRESSED, DARKENED as ClearChip and Segments are (user, 2026-10-15)
         color: segPress.pressed && segBtn.ok ? Zenon.pressFill
           : segBtn.on
-          ? Qt.rgba(Zenon.cyan.r, Zenon.cyan.g, Zenon.cyan.b, 0.18)
+          ? Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.18)
           : "transparent"
         border.width: 1
-        border.color: segBtn.on ? Zenon.cyan : Zenon.border
+        border.color: segBtn.on ? Zenon.accent : Zenon.border
         opacity: segBtn.ok ? 1 : Zenon.disabledDim
         Behavior on color { ColorAnimation { duration: Zenon.fast } }
 
@@ -134,7 +134,7 @@ Item {
           verticalAlignment: Text.AlignVCenter
           text: segBtn.modelData
           elide: Text.ElideRight
-          color: segBtn.on ? Zenon.cyan : Zenon.accentKey
+          color: segBtn.on ? Zenon.accent : Zenon.accentKey
           opacity: segPress.pressed ? Zenon.pressDim : 1
           font.family: Zenon.face
           font.weight: Zenon.weight

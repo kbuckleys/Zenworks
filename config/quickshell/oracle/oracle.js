@@ -114,7 +114,68 @@ function coerce(spec, v) {
     }
     return out.join("\n");
   }
+  // muted and blocked notification sources, one string the same way
+  if (spec.type === "sources") return sourcesText(parseSources(v));
   return v;
+}
+
+// ── NOTIFICATION SOURCES (2026-11-03) ─────────────────────────────────────
+// The apps Howler holds back: "mute" (no toast, still kept in the bell) or
+// "block" (dropped, never kept). One line each, "state<TAB>name", in the
+// order they were added — kept as one string for devices' reason above. A
+// name is the app name the notification gave (Howler.sourceOf). A line with
+// no known state is dropped; a name twice keeps its last line.
+const SOURCE_STATES = ["mute", "block"];
+function parseSources(v) {
+  const s = String(v === null || v === undefined ? "" : v);
+  // no prototype: an app named "constructor" or "toString" is a name like
+  // any other, not Object's own member (audit 2026-11-04)
+  const at = Object.create(null);
+  const out = [];
+  for (const line of s.split("\n")) {
+    const tab = line.indexOf("\t");
+    if (tab < 0) continue;
+    const state = line.slice(0, tab).trim();
+    const name = line.slice(tab + 1).trim();
+    if (name === "" || SOURCE_STATES.indexOf(state) < 0) continue;
+    if (at[name] !== undefined) { out[at[name]].state = state; continue; }
+    at[name] = out.length;
+    out.push({ name: name, state: state });
+  }
+  return out;
+}
+function sourcesText(list) {
+  return (list || []).filter((r) => r && String(r.name || "").trim() !== ""
+      && SOURCE_STATES.indexOf(r.state) >= 0)
+    .map((r) => r.state + "\t" + String(r.name).replace(/[\t\n]/g, " ").trim())
+    .join("\n");
+}
+// name → state, for the door Howler checks every notification at
+function sourceMap(v) {
+  const m = Object.create(null);
+  for (const r of parseSources(v)) m[r.name] = r.state;
+  return m;
+}
+// the list with `name` at `state` ("" takes it off), as text
+function withSource(v, name, state) {
+  const n = String(name || "").replace(/[\t\n]/g, " ").trim();
+  const list = parseSources(v).filter((r) => r.name !== n);
+  if (n !== "" && SOURCE_STATES.indexOf(state) >= 0) {
+    const old = parseSources(v).findIndex((r) => r.name === n);
+    if (old >= 0) list.splice(Math.min(old, list.length), 0, { name: n, state: state });
+    else list.push({ name: n, state: state });
+  }
+  return sourcesText(list);
+}
+function sourcesSummary(v) {
+  const list = parseSources(v);
+  const m = list.filter((r) => r.state === "mute").length;
+  const b = list.length - m;
+  if (list.length === 0) return "none";
+  const parts = [];
+  if (m) parts.push(m + " muted");
+  if (b) parts.push(b + " blocked");
+  return parts.join(", ");
 }
 
 // ── themes ────────────────────────────────────────────────────────────────
@@ -136,7 +197,7 @@ const SUN = { value: "sun", label: "Follow Daytime  \u{F522}" };
 function themeSwatch(colors) {
   const ok = (v) => typeof v === "string" && /^#([0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(v) ? v : "";
   if (!colors || typeof colors !== "object") return null;
-  const sw = [ok(colors.ground), ok(colors.ink), ok(colors.cyan)];
+  const sw = [ok(colors.ground), ok(colors.ink), ok(colors.accent || colors.cyan)];
   return sw.some((v) => v !== "") ? sw : null;
 }
 
@@ -171,6 +232,8 @@ function themeOptions(text) {
     // Delete may remove from the list — never a shipped theme
     const o = custom ? { value: stem, label: label, custom: true } : { value: stem, label: label };
     if (swatch) o.swatch = swatch;
+    // which side it is, for Cynosure's "dark mode" / "light mode" (Cynosure.themeSide)
+    if (label.indexOf("\u{F19E2}") >= 0) o.light = true;
     out.push(o);
   }
   // Zenon's light side straight under Zenon, ahead of the two Follows
@@ -378,6 +441,84 @@ function familyOf(text) {
 // Font's without its Propo/Mono cut (familyOf), once, in order. Any face
 // will do: the icons are JetBrainsMono Nerd Font's whatever the text is set
 // in (morpheus/GlyphFallback writes the fontconfig rule that does it).
+// ── cursor themes (2026-11-04) ─────────────────────────────────────────
+// Oracle's Cursor rows. The scan (Oracle.qml's cursorProc) prints one line
+// per theme directory and format: "h<TAB>name" for a hyprcursor theme
+// (manifest.hl or manifest.toml), "x<TAB>name" for an XCursor one (cursors/).
+// cursorScan: the two lists, each name once ("default", ~/.icons/default's
+// Inherits= pointer, is never a theme).
+// A third field is the directory (the X theme's, for Make); "m<TAB>name" is
+// a theme oracle made (hyprcursor.sh's .zenworks-made), which Make may
+// make again.
+function cursorScan(text) {
+  const h = [], x = [], m = [], dir = {};
+  for (const line of String(text || "").split("\n")) {
+    const f = line.split("\t");
+    if (f.length < 2) continue;
+    const kind = f[0], name = f[1].trim();
+    if (name === "" || name.toLowerCase() === "default") continue;
+    const into = kind === "h" ? h : kind === "x" ? x : kind === "m" ? m : null;
+    if (!into || into.indexOf(name) >= 0) continue;
+    into.push(name);
+    if (kind === "x" && f.length > 2 && f[2] !== "") dir[name] = f[2];
+  }
+  return { h: h, x: x, m: m, dir: dir };
+}
+// the Hyprland mark (nf-linux-hyprland) after a theme Hyprland draws as
+// Hyprcursor, sharp at any size (user, 2026-11-04: the glyph, not the word)
+const HYPR_GLYPH = "\uF359";
+const byLabel = (a, b) => a.label.toLowerCase() < b.label.toLowerCase() ? -1
+  : a.label.toLowerCase() > b.label.toLowerCase() ? 1 : 0;
+// Each Theme row is one cursor as the desktop wears it, named by its X
+// theme: a hyprcursor theme whose name is an X theme's with "hyprcursor" in
+// it (XCursor-Pro-Hyprcursor-Dark beside XCursor-Pro-Dark, or one oracle
+// made: <name>-Hyprcursor) is that theme's twin, and Hyprland wears it while
+// X apps wear the X one. The label marks which Hyprland draws as Hyprcursor
+// (sharp at any size) with HYPR_GLYPH. An X theme with no twin is worn by
+// Hyprland too (it reads XCursor), unmarked; a hyprcursor theme with no X
+// twin is marked too, and X apps get Adwaita.
+function cursorThemes(text) {
+  const sc = typeof text === "object" && text !== null ? text : cursorScan(text);
+  const twin = {}, used = {};
+  for (const n of sc.h) {
+    const base = n.replace(/[-_ ]?hyprcursors?/ig, "");
+    if (base !== n && sc.x.indexOf(base) >= 0 && !twin[base]) { twin[base] = n; used[n] = true; }
+  }
+  const out = [];
+  for (const n of sc.x) {
+    const hy = twin[n] || (sc.h.indexOf(n) >= 0 ? n : "");
+    out.push({ value: n, label: hy ? n + "  " + HYPR_GLYPH : n, hypr: hy || n, x: n, sharp: !!hy });
+  }
+  for (const n of sc.h)
+    if (!used[n] && sc.x.indexOf(n) < 0)
+      out.push({ value: n, label: n + "  " + HYPR_GLYPH, hypr: n, x: "", sharp: true });
+  return out.sort(byLabel);
+}
+// what to wear: { hypr, x } (x "" is Adwaita's). Not scanned (gone, or the
+// scan not back yet): the name for both, which Hyprland and libXcursor each
+// fall back from on their own. `hypr`/`x` given: picked by hand (the
+// Hyprland wears / X apps wear rows), over the pairing.
+function cursorPair(list, theme, hypr, x) {
+  const name = String(theme || "");
+  let out = { hypr: name, x: name };
+  for (const o of list || []) if (o.value === name) { out = { hypr: o.hypr, x: o.x || "Adwaita" }; break; }
+  if (hypr) out.hypr = String(hypr);
+  if (x) out.x = String(x);
+  return out;
+}
+// the hand-picked rows' lists: Automatic, then every theme Hyprland can
+// wear (both formats, each marked) or every X one
+function cursorHyprOptions(sc) {
+  const out = (sc.h || []).map((n) => ({ value: n, label: n + "  " + HYPR_GLYPH }))
+    .concat((sc.x || []).map((n) => ({ value: n, label: n })));
+  return [{ value: "", label: "Automatic" }].concat(out.sort(byLabel));
+}
+function cursorXOptions(sc) {
+  return [{ value: "", label: "Automatic" }].concat((sc.x || []).map((n) => ({ value: n, label: n })).sort(byLabel));
+}
+// oracle/hyprcursor.sh's name for the Hyprcursor version it makes of `x`
+function cursorMadeName(x) { return String(x || "").replace(/[^A-Za-z0-9_.-]/g, "-") + "-Hyprcursor"; }
+
 function fontFamilies(text) {
   const seen = {};
   const out = [];
@@ -454,18 +595,20 @@ const PAGES = {
   // the theme rows, then the background's (user, 2026-10-31: Background
   // was a page of its own)
   look: [
-    ["", ["theme", "themeDay", "themeNight", "accentColor", "actionSaveFollow",
+    ["", ["lookSample", "theme", "themeDay", "themeNight", "accentColor", "actionSaveFollow",
           "followVivid", "followMonitor", "followSlideshow"]],
     ["Background", ["backgroundDir", "backgroundFit", "backgroundZoom", "wallpaperTint"]]
   ],
+  // the screen first, under no heading (NotifySample.qml)
   notify: [
+    ["", ["notifySample"]],
     ["Timing", ["notifTimeout", "notifTimeoutLow", "notifCriticalSticky"]],
     ["Place and size", ["notifPosition", "notifMaxVisible", "notifWidth", "notifMaxWidth", "notifMinHeight",
                         "notifMaxHeight", "notifCaptureWidth", "notifLift", "notifSpacing", "notifPadding"]],
     ["Look", ["notifIcons", "notifIconSize", "notifFontSize", "notifTextAlign", "notifMarkup", "notifBgOpacity",
               "notifTitleInk", "notifBodyInk", "notifAccent", "notifGlow", "notifGlowReach"]],
     ["Arrival", ["notifAnimStyle", "notifSlide", "notifAnimSpeed"]],
-    ["Quiet", ["notifSilent", "notifFocusTimers", "notifQuietFullscreen", "notifQuietHours", "notifQuietFrom", "notifQuietTo"]],
+    ["Quiet", ["notifSilent", "notifFocusTimers", "notifQuietFullscreen", "notifQuietHours", "notifQuietFrom", "notifQuietTo", "infoNotifSources"]],
     ["History", ["notifHistoryCap", "notifTrackMusic", "notifBellAlways"]]
   ],
   // the pill first, under no heading (BarSample.qml)
@@ -477,8 +620,17 @@ const PAGES = {
     ["Modules", ["showWorkspaces", "showClock", "showNotifications", "showUpdates", "showNetwork", "showCpu",
                  "showGpu", "showMemory", "showVolume", "showNowPlaying", "showStatus", "showHermes", "showTray"]]
   ],
+  // the screen first, a dropdown in each corner (CornersSample.qml): the
+  // four corners are drawn there, not as rows (`within`)
+  corners: [
+    ["", ["cornersSample"]],
+    ["Commands", ["hotCornerTLCmd", "hotCornerTRCmd", "hotCornerBLCmd", "hotCornerBRCmd"]],
+    ["Timing", ["hotCornerDelay"]]
+  ],
+  // the menu first, under no heading (MenuSample.qml)
   menu: [
-    ["Size", ["menuWidth", "menuRowHeight"]],
+    ["", ["menuSample"]],
+    ["Size", ["menuRowHeight"]],
     ["Entries", ["menuShowFiles", "menuShowPackages", "menuShowApps", "menuShowTrash", "menuShowBackground",
                  "menuShowDisplay", "menuShowNote"]],
     ["Home", ["menuShowHome", "menuShowHidden", "menuHomePlaces", "menuHomeRemember"]],
@@ -488,7 +640,8 @@ const PAGES = {
   idle: [
     ["", ["idleTimeline"]],
     ["Away", ["idleEnabled", "idleLockSecs", "idleKeyboardSecs", "idleLightDevices", "idleInhibitPlayback"]],
-    ["Lock screen", ["lockHideCursor", "lockShade", "lockFrost", "lockFailLimit", "lockWidgetMonitor",
+    // the lock close up first (LockSample.qml): not pinned, the timeline is
+    ["Lock screen", ["lockSample", "lockHideCursor", "lockShade", "lockBackground", "lockFrost", "lockFailLimit", "lockWidgetMonitor",
                      "lockClockSize", "lockDateSize", "lockFieldWidth"]]
   ],
   // hyprland's own rows (HYPR_FIELDS, "hl:<name>") are added to their
@@ -504,10 +657,13 @@ const PAGES = {
     ["Focus", ["input:follow_mouse", "hyprDimInactive", "hyprInactiveOpacity"]],
     ["Terminal swallowing", []],
     ["Apps not responding", []],
-    ["Rules and startup", ["infoWindowRules", "infoStartup"]]
+    ["Rules and startup", ["infoWindowRules", "infoStartup", "appRestore"]],
+    ["Drop shelf", ["shelfOn", "shelfEdge"]]
   ],
   // the Windows page's tiling, and every layout's own (2026-10-29)
+  // the screen first, under no heading (TilingSample.qml)
   tiling: [
+    ["", ["tilingSample"]],
     ["Layout", ["hyprLayout"]],
     ["Dwindle", []],
     ["Master", []],
@@ -515,7 +671,9 @@ const PAGES = {
     ["Window groups", []],
     ["Tabs", []]
   ],
+  // the screens first, under no heading (WorkspacesSample.qml)
   workspaces: [
+    ["", ["workspacesSample"]],
     ["Switching", ["workspaceStrip"]],
     ["Screens", []],
     ["Layouts", []]
@@ -542,6 +700,37 @@ const PAGES = {
     ["Color", []],
     ["Older apps", []]
   ],
+  // the hyper key first, drawn, then every bind (keysHead / bind rows,
+  // made from binds.lua, keep their own order after these)
+  keys: [
+    ["", ["hyperSample"]],
+    ["Hyper key", ["hyperKey", "hyperCapsShift"]],
+    ["Every shortcut", ["infoKeysPath"]]
+  ],
+  // CYNOSURE'S OWN PAGES (2026-11-03)
+  cynosure: [
+    ["", ["cynosureSample"]],
+    ["Place", ["cynosurePlace"]],
+    ["Size", ["cynosureWidth", "cynosureRows"]],
+    ["Behind it", ["cynosureDim", "cynosureDimStrength"]],
+    ["Opening", ["cynosureCompact"]]
+  ],
+  cynosureSearch: [
+    ["Mixed in as you type", ["cynosureRootFiles", "cynosureRootWindows", "cynosureRootSettings", "cynosureRootNotes",
+                              "cynosureRootClips", "cynosureRootEmoji", "infoCynosureHidden"]],
+    ["Suggestions", ["cynosureSuggested", "cynosureRemember", "actionCynosureForget"]],
+    ["When nothing fits", ["cynosureFallbacks", "infoCynosureFallbacks", "cynosureWebEngine"]],
+    ["Emoji and pictures", ["cynosureSkinTone"]]
+  ],
+  cynosureKeys: [
+    ["Keys", ["cynosureEsc", "cynosureKeepLine"]],
+    ["Answers", ["cynosureAnswers"]],
+    ["Snippets", ["cynosureExpand"]]
+  ],
+  cynosureWindows: [
+    ["Window places", ["cynosureRememberPlaces", "actionCynosureForgetPlaces"]],
+    ["Layouts", ["cynosureLayoutWait", "actionCynosureForgetLayouts"]]
+  ],
   // the map first, under no heading (WorldMap.qml)
   datetime: [
     ["", ["timeMap"]],
@@ -552,6 +741,15 @@ const PAGES = {
   time: [
     ["Weather", ["weatherEnabled", "weatherFahrenheit", "weatherRefreshMins", "weatherStaleMins"]],
     ["Calendar", ["calRemindLead", "calSyncMins"]]
+  ],
+  // the theme first, under no heading; then Hyprcursor and hyprland's own
+  // cursor:* rows (HYPR_FIELDS, placed by hyprPlace)
+  cursor: [
+    ["", ["cursorTheme", "cursorSize", "cursorHypr", "cursorX"]],
+    ["Hyprcursor", ["infoHyprcursor", "actionCursorMake"]],
+    ["Hiding", []],
+    ["Moving the pointer", []],
+    ["Drawing", []]
   ],
   motion: [
     ["Animations", ["motionScale", "hyprAnimations", "hyprWobble", "cursorSlide"]],
@@ -2920,30 +3118,53 @@ const HYPR_FIELDS = [
     help: "A window dragged with the mouse trails a little behind the pointer." },
 
   // ── Keyboard & mouse: the pointer and gestures ──
-  { key: "cursor:inactive_timeout", section: "input", part: "Pointer", def: 0, type: "int", min: 0, max: 20, step: 1, unit: "s",
+  { key: "cursor:inactive_timeout", section: "cursor", part: "Hiding", def: 0, type: "int", min: 0, max: 20, step: 1, unit: "s",
     label: "Hide when still", alias: "cursor hide inactive timeout idle pointer",
     help: "The pointer hides after this long without moving. 0 never hides it." },
-  { key: "cursor:hide_on_key_press", section: "input", part: "Pointer", def: false, type: "bool",
+  { key: "cursor:hide_on_key_press", section: "cursor", part: "Hiding", def: false, type: "bool",
     label: "Hide while typing", alias: "cursor hide key press typing",
     help: "The pointer hides on a key press and comes back when the mouse moves." },
-  { key: "cursor:hide_on_touch", section: "input", part: "Pointer", def: true, type: "bool",
+  { key: "cursor:hide_on_touch", section: "cursor", part: "Hiding", def: true, type: "bool",
     label: "Hide on touch", alias: "cursor hide touch screen",
     help: "The pointer hides while you use a touch screen." },
-  { key: "cursor:hide_on_tablet", section: "input", part: "Pointer", def: false, type: "bool",
+  { key: "cursor:hide_on_tablet", section: "cursor", part: "Hiding", def: false, type: "bool",
     label: "Hide on the pen", alias: "cursor hide tablet pen",
     help: "The pointer hides while you use a drawing tablet." },
-  { key: "cursor:no_warps", section: "input", part: "Pointer", def: false, type: "bool",
+  { key: "cursor:no_warps", section: "cursor", part: "Moving the pointer", def: false, type: "bool",
     label: "Never move the pointer", alias: "cursor no warps jump move",
     help: "Hyprland never moves the pointer for you, whatever the settings below say." },
-  { key: "cursor:warp_on_change_workspace", section: "input", part: "Pointer", def: 0, type: "enum", segments: true, options: OPEN_FS,
+  { key: "cursor:warp_on_change_workspace", section: "cursor", part: "Moving the pointer", def: 0, type: "enum", segments: true, options: OPEN_FS,
     label: "Jump on workspace switch", alias: "cursor warp workspace change",
     help: "The pointer jumps to the focused window when the workspace changes. Forced does it even over a window that does not move." },
-  { key: "cursor:warp_on_toggle_special", section: "input", part: "Pointer", def: 0, type: "enum", segments: true, options: OPEN_FS,
+  { key: "cursor:warp_on_toggle_special", section: "cursor", part: "Moving the pointer", def: 0, type: "enum", segments: true, options: OPEN_FS,
     label: "Jump on special workspace", alias: "cursor warp special toggle",
     help: "The pointer jumps to the focused window when the special workspace is shown or put away." },
-  { key: "cursor:persistent_warps", section: "input", part: "Pointer", def: false, type: "bool",
+  { key: "cursor:persistent_warps", section: "cursor", part: "Moving the pointer", def: false, type: "bool",
     label: "Back where it was", alias: "cursor persistent warps",
     help: "A jump to a window puts the pointer back where it last was in it, not in its middle." },
+  // the cursor's own (2026-11-04): oracle's Cursor page, beside the theme
+  { key: "cursor:enable_hyprcursor", section: "cursor", part: "Hyprcursor", def: true, type: "bool",
+    label: "Use Hyprcursor", alias: "hyprcursor enable sharp svg cursor theme format",
+    help: "Hyprland draws a theme's Hyprcursor form, sharp at any size, where it has one. Off, it draws the XCursor form everywhere, as X apps do." },
+  { key: "cursor:warp_on_monitor_change", section: "cursor", part: "Moving the pointer", def: -1, type: "enum", segments: true,
+    options: [{ value: -1, label: "Same" }, { value: 0, label: "Off" }, { value: 1, label: "On" }, { value: 2, label: "Forced" }],
+    label: "Jump on screen change", alias: "cursor warp monitor screen focus change",
+    help: "The pointer jumps to the focused window when another screen is focused. Same does what Jump on workspace switch does." },
+  { key: "cursor:warp_back_after_non_mouse_input", section: "cursor", part: "Moving the pointer", def: false, type: "bool",
+    label: "Back after a key moved it", alias: "cursor warp back keyboard non mouse input",
+    help: "When a key or a gesture moved the pointer, it goes back to where it was as soon as the mouse is used again." },
+  { key: "cursor:hotspot_padding", section: "cursor", part: "Drawing", def: 0, type: "int", min: 0, max: 20, step: 1, unit: "px",
+    label: "Edge padding", alias: "cursor hotspot padding edge screen",
+    help: "How close to a screen's edge the pointer's tip may go. 0 reaches the very edge." },
+  { key: "cursor:use_cpu_buffer", section: "cursor", part: "Drawing", def: 2, type: "enum", segments: true, options: AUTO3,
+    label: "Draw in memory", alias: "cursor cpu buffer hardware nvidia",
+    help: "The pointer is drawn into an ordinary memory buffer before the graphics card shows it. A fix for a pointer that flickers or vanishes on some cards (NVIDIA); Automatic decides per card." },
+  { key: "cursor:no_break_fs_vrr", section: "cursor", part: "Drawing", def: 2, type: "enum", segments: true, options: AUTO3,
+    label: "Keep VRR in fullscreen", alias: "cursor vrr variable refresh fullscreen game",
+    help: "Moving the pointer over a fullscreen app with variable refresh does not make the screen draw new frames, so its refresh rate is left to the app. Automatic does it for games." },
+  { key: "cursor:min_refresh_rate", section: "cursor", part: "Drawing", def: 24, type: "int", min: 10, max: 500, step: 1, unit: "Hz",
+    label: "Pointer refresh floor", alias: "cursor min refresh rate vrr",
+    help: "With Keep VRR in fullscreen, the pointer still moves at no fewer than this many frames a second." },
   { key: "misc:mouse_move_focuses_monitor", section: "input", part: "Pointer", def: true, type: "bool",
     label: "Pointer picks the screen", alias: "mouse move focus monitor screen",
     help: "Moving the pointer onto another screen makes it the focused one." },
@@ -3485,6 +3706,37 @@ function renderKeysLua(values, binds) {
   return lines.join("\n") + "\n";
 }
 
+// ── THE HYPER KEY (2026-11-03) ──
+// hypr/lua/hyper.lua: the keymap Hyprland reads (base.lua's kb_file), the
+// key, and what it was made from (`sig`: layout|variant|options|model|rules),
+// so the same choice twice is the same file and nothing is written again.
+function renderHyperLua(file, key, sig) {
+  const lines = [
+    "-- ┌─┐┌─┐┌┐┌┬ ┬┌─┐┬─┐┬┌─┌─┐",
+    "-- ┌─┘├┤ │││││││ │├┬┘├┴┐└─┐",
+    "-- └─┘└─┘┘└┘└┴┘└─┘┴└─┴ ┴└─┘",
+    "-- https://github.com/kbuckleys/",
+    "",
+    "-- HYPER KEY",
+    "-- Written by oracle's Shortcuts: one key held as Ctrl+Alt+Shift+Super.",
+    "-- `file` is your layout with that key changed (oracle/hyper.py), which",
+    "-- base.lua hands hyprland as input kb_file. \"\" is no hyper key.",
+    "",
+    "return {",
+    "\tfile = " + luaString(file || "") + ",",
+    "\tkey  = " + luaString(file ? key : "off") + ",",
+    "\tsig  = " + luaString(file ? sig : "") + ",",
+    "}"
+  ];
+  return lines.join("\n") + "\n";
+}
+// a chord with all four held is a hyper chord
+const HYPER_MODS = ["SUPER", "SHIFT", "CONTROL", "ALT"];
+function isHyper(c) {
+  const n = normChord(c).split(" + ");
+  return HYPER_MODS.every((m) => n.indexOf(m) >= 0);
+}
+
 const CHORD_MODS = ["SUPER", "SHIFT", "CONTROL", "ALT"];
 const MOD_ALIAS = { CTRL: "CONTROL", WIN: "SUPER", LOGO: "SUPER", META: "SUPER", MOD4: "SUPER", MOD1: "ALT" };
 const MOD_MASK = { SHIFT: 1, CONTROL: 4, ALT: 8, SUPER: 64 };
@@ -3498,7 +3750,11 @@ function normChord(c) {
   if (!parts.length) return "";
   let key = parts.pop();
   const mods = ({});
-  for (const p of parts) mods[MOD_ALIAS[p.toUpperCase()] || p.toUpperCase()] = true;
+  for (const p of parts) {
+    // Hyper is the four at once
+    if (p.toUpperCase() === "HYPER") { for (const m of CHORD_MODS) mods[m] = true; continue; }
+    mods[MOD_ALIAS[p.toUpperCase()] || p.toUpperCase()] = true;
+  }
   // a bare modifier names itself as the key
   if (MOD_ALIAS[key.toUpperCase()] || CHORD_MODS.indexOf(key.toUpperCase()) >= 0) {
     mods[MOD_ALIAS[key.toUpperCase()] || key.toUpperCase()] = true;
@@ -3537,6 +3793,11 @@ function chordCaps(c) {
   const n = normChord(c);
   if (n === "") return [];
   const mods = { SUPER: "Super", SHIFT: "Shift", CONTROL: "Ctrl", ALT: "Alt" };
+  // all four held: one cap, Hyper
+  if (isHyper(n)) {
+    const key = n.split(" + ").filter((p) => !mods[p]);
+    return ["Hyper"].concat(key.map((p) => KEY_LABELS[p] || (p.length === 1 ? p : p.charAt(0) + p.slice(1).toLowerCase())));
+  }
   return n.split(" + ").map((p) => mods[p] || KEY_LABELS[p]
     || (p.length === 1 ? p : p.charAt(0) + p.slice(1).toLowerCase()));
 }
@@ -3625,8 +3886,8 @@ function chordTaken(chord, id, binds, values, live) {
 
 // ── SETTINGS, CARRIED ELSEWHERE ───────────────────────────────────────────
 // Export / Import in About (2026-10-21): one JSON file holding oracle.json,
-// the hypr files Oracle writes (keys, wake, effects, default apps, input, screens)
-// and the themes you saved — for a reinstall or another machine. Settings
+// the hypr files Oracle writes (keys, wake, effects, default apps, input, screens),
+// every app's own choices (APP_FILES, 2026-11-03) and the themes you saved — for a reinstall or another machine. Settings
 // only: no notes, no screen time, no passwords. A bundle names its files
 // by these relative paths, and nothing outside them is ever written back.
 const BUNDLE_FIXED = ["oracle.json", "hypr/keys.lua", "hypr/wake.lua", "hypr/effects.lua", "hypr/defaults.lua",
@@ -3639,9 +3900,86 @@ const BUNDLE_WORDS = { "oracle.json": "Settings", "hypr/keys.lua": "Shortcuts", 
                        "hypr/windows.lua": "Window rules", "hypr/startup.lua": "Startup apps",
                        "hypr/monitors.lua": "Screen arrangement",
                        "hypr/hyprland.lua": "Hyprland settings" };
+// EVERY APP'S OWN CHOICES (audit, 2026-11-03: "make sure everything the
+// user changes can be exported/imported"). Each app keeps its choices in a
+// file of its own beside oracle.json (`state`), in ~/.local/share (`data`)
+// or beside the clipboard's (`clip`). `keys`: only those of the file are
+// settings — the rest is where you were, a cache, a count or an account,
+// and stays put; an import lays them over the file here. No `keys`: the
+// whole file is yours (`kind` "json" or "lines"), and an import replaces it.
+// Left out on purpose: notes, books, snippets and passwords (your things,
+// not settings), screen time, history and caches, window sizes, Calypso's
+// and Delphi's accounts.
+const APP_FILES = {
+  "apps/cynosure-aliases.json":   { at: "data", word: "Cynosure aliases", kind: "json" },
+  "apps/cynosure-favorites.json": { at: "data", word: "Cynosure favorites", kind: "json" },
+  "apps/cynosure-hotkeys.json":   { at: "data", word: "Cynosure hotkeys", kind: "json" },
+  "apps/cynosure-links.json":     { at: "data", word: "Cynosure quick links", kind: "json" },
+  "apps/cynosure-layouts.json":   { at: "data", word: "Cynosure window layouts", kind: "json" },
+  "apps/folio-keywords.json":     { at: "clip", word: "Snippet keywords", kind: "json" },
+  "apps/kairos-rules.json":       { at: "state", word: "Focus: apps set aside, apps quit when idle", kind: "json" },
+  "apps/kairos.json":             { at: "state", word: "Screen time limits", keys: ["limits"] },
+  "apps/alexandria.json":         { at: "state", word: "Alexandria", keys: ["favs", "sample", "lang", "sampleSize", "glyphSize", "shelf"] },
+  "apps/argus.json":              { at: "state", word: "Argus", keys: ["format", "exact", "audio", "gifWidth", "gifFps", "loop", "frameFormat",
+                                     "framesMode", "framesSecs", "framesNth", "framesCount"] },
+  "apps/calypso.json":            { at: "state", word: "Calypso (not its accounts)", keys: ["scope", "sort", "lockAfter", "clearAfter"] },
+  "apps/ceres-store.json":        { at: "state", word: "Ceres' Store", keys: ["flatpak", "scope", "prefer"] },
+  "apps/chronos-calendar.json":   { at: "state", word: "Calendar", keys: ["view", "hidden", "side"] },
+  "apps/clio-app.json":           { at: "state", word: "Clio", keys: ["sort", "view", "groupByDate", "scope", "journalFilter", "textScale",
+                                     "remind", "remindAt", "remindDays", "startWith"] },
+  "apps/delphi.json":             { at: "state", word: "Delphi (not its accounts)", keys: ["pullMode", "autoFetch", "scanRoots", "hidden"] },
+  "apps/hermes.json":             { at: "state", word: "Control Hub", keys: ["nightOn", "nightSun", "kelvin", "filter", "filterFocus"] },
+  "apps/minerva.json":            { at: "state", word: "Minerva", keys: ["settings"] },
+  "apps/picasso.json":            { at: "state", word: "Picasso's backgrounds", keys: ["assignment", "fits", "looks", "span", "colors", "slideshow", "place"] },
+  "apps/picasso-view.json":       { at: "state", word: "Picasso", keys: ["sort", "slideSecs", "shuffle", "strip", "bursts", "xmp", "galleryZoom",
+                                     "dirSorts", "dirSortOrder"] },
+  "apps/picker-palette.json":     { at: "state", word: "Color picker palette", kind: "json" },
+  "apps/plato.json":              { at: "state", word: "Plato", keys: ["minimap", "treeShown"] },
+  "apps/stylus.json":             { at: "state", word: "Stylus", keys: ["sidebar"] },
+  "apps/terminus-view.json":      { at: "state", word: "Terminus", keys: ["view", "pickerView", "zoom", "sidebar", "sidebarWidth", "thumbsOn",
+                                     "dirsFirst", "naturalSort", "alwaysTabs", "colHeadsOn", "barNav", "barSideToggle", "barSort", "barViews",
+                                     "barSplit", "barZoom", "placesOff", "defaultView", "confirmTrash", "termCmd", "previewOn", "dirViewCap",
+                                     "thumbZoom", "sortKey", "sortDesc", "usage", "git", "showHidden", "pickerSidebar", "pickerSidebarWidth",
+                                     "recentsView", "recentsZoom", "grouped", "perDirView", "sessionReplay", "dual", "paneSide",
+                                     "dirViews", "dirViewsV"] },
+  "apps/terminus-bookmarks":      { at: "state", word: "Terminus' places", kind: "lines" },
+  "apps/terminus-network.json":   { at: "state", word: "Terminus' network places", kind: "json" },
+  "apps/terminus-collections.json": { at: "state", word: "Terminus' saved searches", kind: "json" },
+  "apps/terminus-glyphs.json":    { at: "state", word: "Terminus' chosen glyphs", kind: "json" },
+  "apps/weather-place.json":      { at: "state", word: "Weather place", kind: "json" }
+};
+function appFiles() { return APP_FILES; }
+// the part of an app's file that is its settings, as text to bundle; ""
+// when there is none (or the file is not what it should be)
+function appSettingsOf(rel, text) {
+  const f = APP_FILES[rel];
+  if (!f) return "";
+  const t = String(text || "");
+  if (f.kind === "lines") return t.split("\n").filter((l) => l.trim() !== "" && !/[\u0000-\u001f]/.test(l)).join("\n") + (t.trim() ? "\n" : "");
+  let j;
+  try { j = JSON.parse(t); } catch (e) { return ""; }
+  if (j === null || typeof j !== "object") return "";
+  if (!f.keys) return JSON.stringify(j);
+  if (Array.isArray(j)) return "";
+  const out = {};
+  for (const k of f.keys) if (k in j) out[k] = j[k];
+  return Object.keys(out).length ? JSON.stringify(out) : "";
+}
+// what an import writes for an app's file: its settings laid over what is
+// here (`existing`, the file's text now, or null), or "" to leave it be
+function appSettingsInto(rel, imported, existing) {
+  const f = APP_FILES[rel];
+  const mine = appSettingsOf(rel, imported);
+  if (!f || mine === "") return "";
+  if (!f.keys) return f.kind === "lines" ? mine : JSON.stringify(JSON.parse(mine), null, 1) + "\n";
+  let here = {};
+  try { here = JSON.parse(existing || "{}"); } catch (e) { here = {}; }
+  if (here === null || typeof here !== "object" || Array.isArray(here)) here = {};
+  return JSON.stringify(Object.assign(here, JSON.parse(mine)), null, 1) + "\n";
+}
 function bundlePathOk(rel) {
   const r = String(rel || "");
-  return BUNDLE_FIXED.indexOf(r) >= 0 || /^themes\/[A-Za-z0-9][A-Za-z0-9_-]*\.json$/.test(r);
+  return BUNDLE_FIXED.indexOf(r) >= 0 || r in APP_FILES || /^themes\/[A-Za-z0-9][A-Za-z0-9_-]*\.json$/.test(r);
 }
 function makeBundle(files, made) {
   const keep = {};
@@ -3674,6 +4012,7 @@ function bundleThemeWritable(existing) {
 function bundleWords(files) {
   const out = [];
   for (const rel of BUNDLE_FIXED) if (rel in files) out.push(BUNDLE_WORDS[rel]);
+  for (const rel in APP_FILES) if (rel in files) out.push(APP_FILES[rel].word);
   const themes = Object.keys(files).filter((r) => r.startsWith("themes/")).sort();
   for (const r of themes) out.push("Theme " + r.slice(7, -5));
   return out;
@@ -3689,6 +4028,8 @@ function bundleWords(files) {
 // shortcut the bundle names is kept.
 function sanitizeBundleFile(rel, text, binds) {
   const t = String(text || "");
+  // an app's: only its settings, as data (appSettingsOf)
+  if (rel in APP_FILES) return appSettingsOf(rel, t);
   switch (rel) {
     case "hypr/keys.lua": {
       const v = parseDefaultsLua(t);

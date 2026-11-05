@@ -50,7 +50,7 @@ Flow {
         textFormat: Text.PlainText
         visible: key.compact
         text: modelData.name + "  " + modelData.line
-        color: modelData.hot ? Zenon.cyan : Zenon.accentMuted
+        color: modelData.hot ? Zenon.accent : Zenon.accentMuted
         font.family: Zenon.face
         font.weight: Zenon.weight
         font.pixelSize: Zenon.px(12)
@@ -61,7 +61,7 @@ Flow {
         Text {
           textFormat: Text.PlainText
           text: modelData.name
-          color: modelData.hot ? Zenon.cyan : Zenon.ink
+          color: modelData.hot ? Zenon.accent : Zenon.ink
           font.family: Zenon.face
           font.weight: Zenon.titleWeight
           font.pixelSize: Zenon.px(13)

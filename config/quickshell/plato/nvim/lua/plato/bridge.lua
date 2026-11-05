@@ -167,7 +167,7 @@ function methods.scroll(p)
     end
   end
   local key = n > 0 and "\5" or "\25"
-  return api.nvim_win_call(target, function()
+  local moved = api.nvim_win_call(target, function()
     local before = vim.fn.winsaveview()
     if n > 0 then
       -- NOT PAST THE END. <C-e> goes on until the last line is at the top,
@@ -185,6 +185,16 @@ function methods.scroll(p)
     local after = vim.fn.winsaveview()
     return before.topline ~= after.topline or before.skipcol ~= after.skipcol
   end)
+  -- REDRAWN HERE, BEFORE ITS FRAME IS BUILT. nvim's own redraw is where the
+  -- lines that came into view get what decoration providers lay on them as
+  -- they are drawn (LSP's semantic tokens: `lsp.Range` in a ---@field);
+  -- left to the main loop, that came after the frame the keys had asked
+  -- for, and only a second frame (WinScrolled's) ever showed those colors
+  -- (2026-11-03). Now they are in place, and the events that follow only
+  -- echo the frame (view.lua's M.wheeled).
+  pcall(vim.cmd, "redraw")
+  view.wheeled()
+  return moved
 end
 
 -- A scrollbar dragged: window `win` shows `line` at its top. The cursor is
@@ -539,7 +549,7 @@ function methods.projectReplace(p)
   vim.fn.setqflist({}, " ", { title = "Replace " .. p.query, items = items })
   vim.cmd("silent cfirst")
   local nfiles = vim.tbl_count(files)
-  vim.notify(("%d matches in %d file%s — type the replacement, Enter to replace all")
+  vim.notify(("%d matches in %d file%s — type the replacement, Return to replace all")
     :format(count, nfiles, nfiles == 1 and "" or "s"))
   local q = p.query:gsub("/", "\\/")
   local case = q:find("%u") and "" or "\\c"
@@ -593,6 +603,12 @@ function methods.quit()
 end
 
 function methods.ping() return "pong" end
+
+-- plato lost track of the rows it holds (view.lua's holdRow): a whole frame
+function methods.redraw()
+  view.schedule(true)
+  return true
+end
 
 -- A COLOR UNDER THE CURSOR, for the window's color sheet (ColorSheet.qml):
 -- a #rgb, #rrggbb or #rrggbbaa the cursor is on, with where it stands (on

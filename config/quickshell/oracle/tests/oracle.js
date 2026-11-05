@@ -271,7 +271,8 @@ module.exports = {
         (bySection[m[2]] = bySection[m[2]] || []).push(m[1]);
       }
       for (const page of ["notify", "bar", "menu", "idle", "windows", "time", "datetime", "motion", "surfaces",
-                         "tiling", "workspaces", "wineffects", "display"]) {
+                         "tiling", "workspaces", "wineffects", "display", "keys", "cynosure", "cynosureSearch",
+                         "cynosureKeys", "cynosureWindows"]) {
         const listed = [].concat(...T.pageLayout(page).map((p) => p[1]));
         t.eq(page + ": each setting listed once", listed.length, new Set(listed).size);
         t.eq(page + ": every setting of the page is under a heading",
@@ -605,6 +606,35 @@ module.exports = {
   }
   ,
 
+  "the Cursor theme row pairs a hyprcursor theme with its X twin"(t, T) {
+    const scan = "h\tXCursor-Pro-Hyprcursor-Dark\nh\tXCursor-Pro-Hyprcursor-Light\n"
+      + "x\tXCursor-Pro-Dark\nx\tXCursor-Pro-Light\nx\tAdwaita\nx\tAdwaita\n"
+      + "h\tBibata-Hypr\nh\tBoth\nx\tBoth\nx\tdefault\nnonsense\nh\tAdwaita-Hyprcursor\n";
+    const sc = T.cursorScan(scan);
+    t.eq("each name once, default gone", [sc.h.length, sc.x.length], [5, 4]);
+    const l = T.cursorThemes(scan);
+    t.eq("one row per cursor, sorted, twins folded, Hyprcursor marked with the glyph", l.map((o) => o.label),
+      ["Adwaita  \uF359", "Bibata-Hypr  \uF359", "Both  \uF359",
+       "XCursor-Pro-Dark  \uF359", "XCursor-Pro-Light  \uF359"]);
+    t.eq("a twin: Hyprland wears the sharp one", T.cursorPair(l, "XCursor-Pro-Dark"),
+      { hypr: "XCursor-Pro-Hyprcursor-Dark", x: "XCursor-Pro-Dark" });
+    t.eq("one oracle made is a twin too", T.cursorPair(l, "Adwaita"), { hypr: "Adwaita-Hyprcursor", x: "Adwaita" });
+    t.eq("X only: Hyprland reads it too, no mark",
+      T.cursorThemes("x\tPlain").map((o) => [o.label, o.hypr, o.sharp]), [["Plain", "Plain", false]]);
+    t.eq("both in one directory", T.cursorPair(l, "Both"), { hypr: "Both", x: "Both" });
+    t.eq("Hyprland only: X apps get Adwaita", T.cursorPair(l, "Bibata-Hypr"), { hypr: "Bibata-Hypr", x: "Adwaita" });
+    t.eq("not installed: the name for both", T.cursorPair(l, "Gone"), { hypr: "Gone", x: "Gone" });
+    t.eq("picked by hand wins", T.cursorPair(l, "XCursor-Pro-Dark", "Bibata-Hypr", "Adwaita"), { hypr: "Bibata-Hypr", x: "Adwaita" });
+    t.eq("hand lists: Automatic first, both formats marked",
+      T.cursorHyprOptions(T.cursorScan("h\tB\nx\tA")).map((o) => o.label), ["Automatic", "A", "B  \uF359"]);
+    t.eq("X apps: X themes only", T.cursorXOptions(T.cursorScan("h\tB\nx\tA")).map((o) => o.value), ["", "A"]);
+    const d = T.cursorScan("x\tA\t/usr/share/icons/A\nx\tA\t/elsewhere\nm\tA-Hyprcursor\n");
+    t.eq("an X theme's directory, the first one; made ones listed", [d.dir.A, d.m], ["/usr/share/icons/A", ["A-Hyprcursor"]]);
+    t.eq("made name: safe, and a twin by its name", T.cursorMadeName("My Theme/x"), "My-Theme-x-Hyprcursor");
+    t.eq("nothing scanned is nothing", T.cursorThemes("").length, 0);
+  }
+  ,
+
   // ── the Display section ────────────────────────────────────────────────
   // monitors.lua is the store, so what is written has to read back as the
   // same thing — or every open of the panel would drift a screen further.
@@ -919,6 +949,27 @@ module.exports.shortcuts = (t, T) => {
   t.eq("nor the capture submap's", T.chordTaken("F24", "zeus", b, {}, live), "");
   t.eq("a chord coerced", T.coerce({ type: "chord" }, "ctrl+super+p"), "SUPER + CONTROL + P");
   t.eq("off displayed", T.display({ type: "chord" }, ""), "off");
+};
+
+// Muted and blocked notification sources (2026-11-03)
+module.exports.sources = (t, T) => {
+  const S = { key: "notifSources", type: "sources", fallback: "" };
+  t.eq("empty is no sources", T.parseSources(""), []);
+  t.eq("a line read", T.parseSources("mute\tSlack"), [{ name: "Slack", state: "mute" }]);
+  t.eq("unknown state and no tab dropped", T.parseSources("hush\tA\nB\nblock\tC"), [{ name: "C", state: "block" }]);
+  t.eq("a name twice keeps its last state, first place",
+       T.parseSources("mute\tA\nblock\tB\nblock\tA"), [{ name: "A", state: "block" }, { name: "B", state: "block" }]);
+  t.eq("coerced to one spelling", T.coerce(S, " mute\t Slack \n\nnope"), "mute\tSlack");
+  t.eq("added at the end", T.withSource("mute\tA", "B", "block"), "mute\tA\nblock\tB");
+  t.eq("changed in place", T.withSource("mute\tA\nmute\tB", "A", "block"), "block\tA\nmute\tB");
+  t.eq("removed", T.withSource("mute\tA\nblock\tB", "A", ""), "block\tB");
+  t.eq("a tab in a name cannot make a second field", T.withSource("", "a\tb", "mute"), "mute\ta b");
+  t.eq("map", T.sourceMap("mute\tA\nblock\tB"), { A: "mute", B: "block" });
+  t.eq("an Object member's name is a name", T.parseSources("mute\tconstructor\nblock\ttoString"),
+       [{ name: "constructor", state: "mute" }, { name: "toString", state: "block" }]);
+  t.eq("no Object member answers the door", T.sourceMap("mute\tA")["constructor"], undefined);
+  t.eq("summary none", T.sourcesSummary(""), "none");
+  t.eq("summary both", T.sourcesSummary("mute\tA\nblock\tB\nmute\tC"), "2 muted, 1 blocked");
 };
 
 // The harness runs `cases` and nothing else, so the named cases above were

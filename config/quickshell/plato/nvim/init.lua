@@ -92,6 +92,10 @@ vim.opt.shortmess:append("cIF")
 -- application bindings and belong to plato's own keymap.
 local map = vim.keymap.set
 map("n", "<Esc>", "<cmd>nohlsearch<cr>", { silent = true })
+-- Q does nothing. From nvim 0.13 it adds a built-in extra cursor (before, it
+-- replayed the last recorded register), and plato draws only multicursor.nvim's
+-- cursors, so a built-in one would edit text where nothing shows.
+map({ "n", "x" }, "Q", "<Nop>")
 -- moving lines (Alt j/k, and h/l) is mini.move's: config/mini.nvim.lua
 map("v", "<", "<gv")
 map("v", ">", ">gv")

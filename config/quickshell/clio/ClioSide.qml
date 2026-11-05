@@ -83,7 +83,7 @@ Item {
   SideGlass { edge: "right" }
 
   Flickable {
-    id: flick
+    id: sideFlick
     // no name over it now (user, 2026-11-02): the list from the top, its
     // settings gone to the search bar's line, beside New note
     anchors.top: parent.top
@@ -98,7 +98,7 @@ Item {
 
     Column {
       id: col
-      width: flick.width
+      width: sideFlick.width
       spacing: 1
 
       // making a container, or a note from a template: buttons on the
@@ -172,7 +172,7 @@ Item {
         readonly property var open: side.mgr ? N.tasks(side.mgr.notes, Date.now()) : []
         visible: open.length > 0
         glyph: "\u{F0756}"
-        glyphInk: open.some((t) => t.group === "overdue") ? Zenon.yellow : Zenon.cyan
+        glyphInk: open.some((t) => t.group === "overdue") ? Zenon.yellow : Zenon.accent
         label: "Tasks"
         count: String(open.length)
         onClicked: side.win.tasksOpen = true
@@ -249,13 +249,13 @@ Item {
             radius: Zenon.windowRadius
             color: on ? side.win.hiFill : Zenon.wash(0.05)
             border.width: 1
-            border.color: on ? Zenon.alpha(Zenon.cyan, 0.5) : Zenon.border
+            border.color: on ? Zenon.alpha(Zenon.accent, 0.5) : Zenon.border
             Text {
               textFormat: Text.PlainText
               id: tagText
               anchors.centerIn: parent
               text: "#" + modelData.name
-              color: parent.on ? Zenon.cyan : Zenon.accentSoft
+              color: parent.on ? Zenon.accent : Zenon.accentSoft
               font.family: Zenon.face
               font.weight: Zenon.weight
               font.pixelSize: Zenon.px(12)
@@ -281,7 +281,7 @@ Item {
           required property var modelData
           host: side
           glyph: modelData.locked ? "" : "\u{F0B64}"
-          glyphInk: Zenon[modelData.hue] || Zenon.cyan
+          glyphInk: Zenon[modelData.hue] || Zenon.accent
           label: modelData.name
           here: side.scope.shelf === "journal" && side.scope.id === modelData.id
           drop: ({ shelf: "journal", id: modelData.id })
@@ -307,7 +307,7 @@ Item {
           readonly property bool barred: entry && side.win.journalLocked(n.journal)
           host: side
           glyph: n.sealed || barred ? "\uF023" : entry ? "\u{F0B64}" : "\u{F09ED}"
-          glyphInk: n.sealed || barred ? Zenon.yellow : entry ? (Zenon[journal.hue] || Zenon.cyan) : Zenon.accentMuted
+          glyphInk: n.sealed || barred ? Zenon.yellow : entry ? (Zenon[journal.hue] || Zenon.accent) : Zenon.accentMuted
           label: barred ? N.dateLong(n.date) : entry ? N.titleOf(n, N.dateLong(n.date)) : N.titleOf(n)
           here: side.win.selId === n.id
           count: N.dayShort(modelData.at, Date.now())
@@ -326,17 +326,19 @@ Item {
       }
     }
   }
-  ElasticScroll { anchors.fill: flick; view: flick }
+  ElasticScroll { anchors.fill: sideFlick; view: sideFlick }
+  // on the sidebar's edge, as terminus' and delphi's
+  Scrollbar { flick: sideFlick; anchors.right: sideFlick.right; anchors.top: sideFlick.top; anchors.bottom: sideFlick.bottom }
 
   // ── THE FOOT: the trash, pinned ──
   // terminus' sidebar foot: the list goes on under it, frosted, and it is
   // as tall as the window's hint strip, so the two seams run as one line
   ScrollEdge {
-    view: flick
+    view: sideFlick
     below: true
     x: 0
     y: trashFoot.y
-    width: flick.width
+    width: sideFlick.width
     height: trashFoot.height
   }
   Item {

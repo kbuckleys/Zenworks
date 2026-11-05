@@ -206,7 +206,7 @@ function palette(colors, opts) {
     muted: text(lv.muted, need.muted),
     // the seed's own tone, clamped to where an accent can live, then walked
     // to read; vividness only scales the chroma it already has
-    cyan: accent(seedH, need.acc,
+    accent: accent(seedH, need.acc,
       neutral ? lv.acc : Math.max(light ? 0.5 : 0.62, Math.min(light ? 0.8 : 0.86, seed.L)),
       neutral ? 0 : Math.min(0.22, seedC * (0.85 + 0.6 * v))),
     pink: accent(hueToward(10, seedH, neutral), need.acc, lv.pink, accC * (light ? 0.75 : 0.55)),
@@ -219,7 +219,7 @@ function palette(colors, opts) {
   c.red = accent(redFrom(seedH, neutral), need.acc, lv.acc, accC * 1.15);
   const border = oklch(lv.border, bgC, seedH);
   const a = (alpha, hex) => "#" + Math.round(alpha * 255).toString(16).padStart(2, "0") + hex.slice(1);
-  c.sparkFill = a(0.2, c.cyan);
+  c.sparkFill = a(0.2, c.accent);
   c.border = a(light ? 0.4 : 0.3, border);
   c.headBg = a(0.4, c.surface);
   c.selBg = a(0.3, c.dim);

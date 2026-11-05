@@ -147,7 +147,7 @@ Item {
       anchors.horizontalCenter: parent.horizontalCenter
       label: lock.missing ? "Install " + (lock.info ? lock.info.pkg : lock.p.name)
         : lock.signedOut ? "Sign in to " + lock.p.name : "Open " + (lock.acct ? lock.acct.name : "")
-      ink: Zenon.cyan
+      ink: Zenon.accent
       primary: true
       busy: lock.busy || (lock.missing && !!lock.win && !!lock.win.mgr.installing)
       busyText: lock.missing ? "Installing…" : "Opening…"

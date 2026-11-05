@@ -381,8 +381,8 @@ Rectangle {
       // destination with nothing to be a destination FROM.
       sendTo.names = [sendTo.pretty(term.cwd)];
       sendTo.icon = Icons.glyphFor({ name: Terminus.basename(term.cwd),
-                                     isDir: true });
-      sendTo.iconInk = Zenon.cyan;
+                                     isDir: true, path: term.cwd });
+      sendTo.iconInk = Zenon.accent;
     } else {
       const rows = term.acting();
       if (rows.length === 0) return;
@@ -443,6 +443,11 @@ Rectangle {
     // filter, and as a root it only ever restated the window behind it.
     // The mounted disks are back — see below.
     add(Paths.home(), "Home");
+    // THE SIDEBAR'S PLACES, the ones checked in the settings (user,
+    // 2026-11-03): the same rows, names and glyphs as the sidebar's
+    const places = term.placesRef.rows;
+    for (let i = 0; i < places.length; i++)
+      add(places[i].path, places[i].label, Icons.glyphFor({ name: places[i].key, isDir: true, path: places[i].path }));
     if (term.dual && term.pas) add(term.pas.cwd);
     // ── AND THE DISKS, AFTER ALL ──────────────────────────────────
     // Left out once for repeating the root. A drive you plugged in is
@@ -555,7 +560,7 @@ Rectangle {
 
   // ── THE ROW FLASHES, THEN THE SHEET GOES, THEN IT HAPPENS ────────
   // The same three beats a menu row gives when you click it, and the same
-  // numbers — 60ms up, 130ms down, cyan at 0.55 — because it is the same
+  // numbers — 60ms up, 130ms down, accent at 0.55 — because it is the same
   // gesture: you have picked a thing and the card is answering before it
   // acts. Return used to send with the sheet vanishing on the keystroke,
   // which leaves you unsure which row you were on at the moment it went.
@@ -975,6 +980,8 @@ Rectangle {
     // for one; while the crawl is out "searching…" takes the KEYS' place,
     // never the query's — a query that blinked out every time you stopped
     // typing would be the one thing you wanted to read.
+    // the rows still to come run on under the keys' pill, which frosts them
+    ScrollEdge { view: sendToList; below: true; follow: true; bar: sendToFoot }
     HintBar {
       id: sendToFoot
       anchors.bottom: parent.bottom

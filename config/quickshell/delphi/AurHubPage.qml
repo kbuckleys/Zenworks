@@ -44,7 +44,7 @@ Item {
   readonly property var hints: [["n", "new package"], ["/", "search"], ["y", "yours"], ["return", "open"], ["v", "vote"], ["o", "on the web"]]
   readonly property var buttons: [
     { label: pg.mine === null ? "Ask the AUR" : "Check again", visible: pg.tab === "yours", run: () => pg.mine === null ? pg.loadMine() : pg.checkUpstream() },
-    { label: "New package…", ink: Zenon.cyan, primary: true, run: () => pg.newPackage() },
+    { label: "New package…", ink: Zenon.accent, primary: true, run: () => pg.newPackage() },
   ]
   function takeFocus() { if (pg.tab === "search" && pg.searched === "") pg.claimField(); else if (pg.win) pg.win.focusKeys(); }
 
@@ -116,7 +116,7 @@ Item {
       }
       pg.win.card_({ question: r.name, glyph: "", ink: Zenon.ink,
         detail: (r.description ? r.description + "  ·  " : "") + (r.version ? r.version + "  ·  " : "") + "Not cloned here yet.",
-        choices: [{ label: "Clone", ink: Zenon.cyan, run: () => pg.clone(r) },
+        choices: [{ label: "Clone", ink: Zenon.accent, run: () => pg.clone(r) },
                   { label: "On the web", run: () => pg.web(r) },
                   { label: "Cancel" }] });
     });

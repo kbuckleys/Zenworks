@@ -226,7 +226,7 @@ FloatingWindow {
   }
   function refocus() {
     if (sampleField.activeFocus) return;
-    if (win.page === "glyphs") glyphField.forceActiveFocus();
+    if (win.page === "glyphs") glyphView.field.forceActiveFocus();
     else if (win.solo) soloKeys.forceActiveFocus();
     else famField.forceActiveFocus();
   }
@@ -491,7 +491,8 @@ FloatingWindow {
   // own engine, 2026-10-09)
   readonly property var groups: win.page !== "glyphs" ? [] : A.groupsOf(win.charset, win.mgr ? win.mgr.blocks : [])
   property int group: -1
-  property string gquery: ""
+  // the grid's own (morpheus/GlyphGrid), read and set here by these names
+  property alias gquery: glyphView.query
   property var found: []
   Timer { id: findDelay; interval: 140; onTriggered: win.runSearch() }
   onGqueryChanged: findDelay.restart()
@@ -504,7 +505,7 @@ FloatingWindow {
   // what the grid walks: a search's answer, a group, or everything
   readonly property var gix: win.gquery.trim() !== "" ? A.indexOfList(win.found)
     : (win.group >= 0 && win.group < win.groups.length ? A.groupIndex(win.charset, win.groups[win.group]) : win.charset)
-  property int gsel: 0
+  property alias gsel: glyphView.sel
   readonly property int gcp: A.codeAt(win.gix, win.gsel)
   function findGlyphs(q) {
     win.setPage("glyphs");
@@ -513,7 +514,7 @@ FloatingWindow {
   function moveGlyph(d) {
     if (win.gix.count === 0) return;
     win.gsel = Math.max(0, Math.min(win.gix.count - 1, win.gsel + d));
-    glyphGrid.positionViewAtIndex(win.gsel, GridView.Contain);
+    glyphView.show(win.gsel);
   }
   function nameOf(cp) {
     return cp < 0 || !win.mgr ? "" : A.glyphName(cp, win.mgr.uni, win.mgr.nerd);
@@ -625,7 +626,7 @@ FloatingWindow {
     if (alt && (k === Qt.Key_Up || k === Qt.Key_Down)) { win.moveFam(k === Qt.Key_Up ? -1 : 1); return true; }
     if (ctrl && (k === Qt.Key_J || k === Qt.Key_K)) { win.moveFam(k === Qt.Key_K ? -1 : 1); return true; }
     if (glyphs) {
-      const cols = glyphGrid.cols;
+      const cols = glyphView.cols;
       if (k === Qt.Key_Left) { win.moveGlyph(-1); return true; }
       if (k === Qt.Key_Right) { win.moveGlyph(1); return true; }
       if (k === Qt.Key_Up) { win.moveGlyph(-cols); return true; }
@@ -775,7 +776,7 @@ FloatingWindow {
           text: win.query
           onTextChanged: if (win.query !== text) { win.toTop = true; win.query = text; }
           color: Zenon.ink
-          selectionColor: Zenon.alpha(Zenon.cyan, 0.4)
+          selectionColor: Zenon.alpha(Zenon.accent, 0.4)
           font.family: Zenon.face
           font.weight: Zenon.weight
           font.pixelSize: Zenon.px(15)
@@ -830,7 +831,7 @@ FloatingWindow {
             required property var modelData
             width: shelfCol.width
             glyph: shelfRow.modelData.glyph
-            glyphInk: shelfRow.modelData.id === "fav" ? Zenon.cyan : "transparent"
+            glyphInk: shelfRow.modelData.id === "fav" ? Zenon.accent : "transparent"
             label: shelfRow.modelData.label
             here: win.shelf === shelfRow.modelData.id
             fill: win.hiFill
@@ -902,9 +903,9 @@ FloatingWindow {
             anchors.topMargin: 1
             anchors.bottomMargin: 1
             radius: Zenon.windowRadius
-            color: Zenon.alpha(Zenon.cyan, 0.08)
+            color: Zenon.alpha(Zenon.accent, 0.08)
             border.width: 1
-            border.color: Zenon.alpha(Zenon.cyan, 0.35)
+            border.color: Zenon.alpha(Zenon.accent, 0.35)
             opacity: famRow.ticked ? 1 : 0
             visible: opacity > 0
             Behavior on opacity { NumberAnimation { duration: Zenon.fast } }
@@ -960,7 +961,7 @@ FloatingWindow {
             Text {
               visible: !!(win.mgr && win.mgr.favs[famRow.modelData.name])
               text: "\uF47A"
-              color: Zenon.cyan
+              color: Zenon.accent
               font.family: Zenon.glyphFace
               font.pixelSize: Zenon.px(12)
             }
@@ -1027,13 +1028,13 @@ FloatingWindow {
       x: head.x
       y: head.y
       width: head.width
-      height: head.height + glyphGrid.y
+      height: head.height + glyphView.grid.y
     }
     ScrollEdge {
-      view: glyphGrid
+      view: glyphView.grid
       follow: true
       bar: glyphChrome
-      visible: glyphGrid.visible
+      visible: glyphView.grid.visible
     }
 
     // ── the head ─────────────────────────────────────────────────────────
@@ -1068,7 +1069,7 @@ FloatingWindow {
             ? A.styleLabel(win.fam, win.style) + "  ·  " + A.weightName(win.style.css) + " " + win.style.css
               + (win.style.mono ? "  ·  monospaced" : "") + (win.picking ? "  ·  " + win.picking.title : "")
             : ""
-          color: win.picking ? Zenon.cyan : Zenon.accentMuted
+          color: win.picking ? Zenon.accent : Zenon.accentMuted
           font.family: Zenon.face
           font.weight: Zenon.weight
           font.pixelSize: Zenon.px(13)
@@ -1107,7 +1108,7 @@ FloatingWindow {
           Text {
             anchors.centerIn: parent
             text: win.fav ? "\uF47A" : "\uF461"
-            color: win.fav ? Zenon.cyan : Zenon.accentMuted
+            color: win.fav ? Zenon.accent : Zenon.accentMuted
             font.family: Zenon.glyphFace
             font.pixelSize: Zenon.px(15)
           }
@@ -1257,7 +1258,7 @@ FloatingWindow {
                     textFormat: Text.PlainText
                     anchors.centerIn: parent
                     text: tool.modelData[0]
-                    color: toolMa.pressed ? Zenon.cyan : Zenon.accentMuted
+                    color: toolMa.pressed ? Zenon.accent : Zenon.accentMuted
                     font.family: Zenon.glyphFace
                     font.pixelSize: Zenon.px(13)
                   }
@@ -1286,7 +1287,7 @@ FloatingWindow {
               text: win.sample
               wrapMode: TextInput.Wrap
               color: Zenon.ink
-              selectionColor: Zenon.alpha(Zenon.cyan, 0.35)
+              selectionColor: Zenon.alpha(Zenon.accent, 0.35)
               font.family: win.style ? win.style.family : Zenon.face
               font.styleName: win.style ? win.style.style : ""
               font.pixelSize: win.size
@@ -1336,7 +1337,7 @@ FloatingWindow {
                   else win.askFace(styleRow);
                 }
                 radius: Zenon.windowRadius
-                color: styleRow.here ? win.hiFill : styleMa.pressed ? Zenon.wash(0.05) : Zenon.alpha(Zenon.cyan, 0)
+                color: styleRow.here ? win.hiFill : styleMa.pressed ? Zenon.wash(0.05) : Zenon.alpha(Zenon.accent, 0)
                 Behavior on color { ColorAnimation { duration: Zenon.fast } }
                 Text {
                   id: styleName
@@ -1345,7 +1346,7 @@ FloatingWindow {
                   anchors.verticalCenter: parent.verticalCenter
                   elide: Text.ElideRight
                   text: A.styleLabel(win.fam, styleRow.modelData)
-                  color: styleRow.here ? Zenon.cyan : Zenon.accentMuted
+                  color: styleRow.here ? Zenon.accent : Zenon.accentMuted
                   font.family: Zenon.face
                   font.weight: Zenon.weight
                   font.pixelSize: Zenon.px(12)
@@ -1468,171 +1469,25 @@ FloatingWindow {
         anchors.fill: parent
         visible: win.page === "glyphs"
 
-        // the search over names and codepoints
-        Rectangle {
-          id: glyphSearch
+        // the search and the grid: morpheus/GlyphGrid, which terminus'
+        // Change glyph… sheet wears too (2026-11-05)
+        GlyphGrid {
+          id: glyphView
           anchors.left: parent.left
           anchors.right: detail.left
           anchors.top: parent.top
-          anchors.margins: 14
-          height: 34
-          radius: Zenon.windowRadius
-          color: Zenon.wash(0.06)
-          border.width: 1
-          border.color: Zenon.border
-          Text {
-            id: glyphLens
-            anchors.left: parent.left
-            anchors.leftMargin: 13
-            anchors.verticalCenter: parent.verticalCenter
-            text: ""
-            color: Zenon.accentMuted
-            font.family: Zenon.glyphFace
-            font.pixelSize: Zenon.px(13)
-          }
-          TextInput {
-            id: glyphField
-            // the shell's breathing caret, as every field wears
-            cursorDelegate: Caret { field: glyphField }
-            anchors.left: glyphLens.right
-            anchors.leftMargin: 9
-            anchors.right: glyphCount.left
-            anchors.rightMargin: 10
-            anchors.verticalCenter: parent.verticalCenter
-            text: win.gquery
-            onTextChanged: if (win.gquery !== text) win.gquery = text
-            color: Zenon.ink
-            selectionColor: Zenon.alpha(Zenon.cyan, 0.4)
-            font.family: Zenon.face
-            font.weight: Zenon.weight
-            font.pixelSize: Zenon.px(15)
-            clip: true
-            Keys.onPressed: (e) => { if (win.navKey(e)) e.accepted = true; }
-            Text {
-              visible: glyphField.text === ""
-              anchors.verticalCenter: parent.verticalCenter
-              text: "Search by name, codepoint or character — folder, U+F031, →"
-              color: Zenon.accentMuted
-              font: glyphField.font
-              elide: Text.ElideRight
-              width: glyphField.width
-            }
-          }
-          Text {
-            id: glyphCount
-            anchors.right: glyphClear.visible ? glyphClear.left : parent.right
-            anchors.rightMargin: glyphClear.visible ? 10 : 14
-            anchors.verticalCenter: parent.verticalCenter
-            text: win.gix.count === win.charset.count ? win.charset.count + " glyphs"
-              : win.gix.count + " of " + win.charset.count
-            color: Zenon.accentMuted
-            font.family: Zenon.face
-            font.weight: Zenon.weight
-            font.features: { "tnum": 1 }
-            font.pixelSize: Zenon.px(12)
-          }
-          ClearChip {
-            id: glyphClear
-            size: Zenon.px(15)
-            shown: glyphField.text !== ""
-            anchors.right: parent.right
-            anchors.rightMargin: 9
-            anchors.verticalCenter: parent.verticalCenter
-            onClicked: { glyphField.text = ""; glyphField.forceActiveFocus(); }
-          }
-          // focused for typing: terminus' held ring (user, 2026-10-11 — every
-          // text field wears it, its own border staying neutral)
-          HeldRing { anchors.fill: parent; radius: parent.radius; z: 10; on: glyphField.activeFocus }
-        }
-
-        GridView {
-          id: glyphGrid
-          anchors.left: parent.left
-          anchors.right: detail.left
-          anchors.top: glyphSearch.bottom
           anchors.bottom: parent.bottom
-          anchors.topMargin: 10
-          clip: true
-          boundsBehavior: Flickable.StopAtBounds
-          // THE LEFT MARGIN IS INSIDE THE VIEW, not an anchor margin: the
-          // frost under the chrome is as wide as the view, and a view set in
-          // by 14 left a 14px column of the head unfrosted. The cells are laid
-          // over width − pad and moved right by it (each delegate's Translate).
-          readonly property real pad: 14
-          readonly property int cols: Math.max(1, Math.floor((width - pad) / win.cell))
-          readonly property real cw: Math.max(1, (width - pad) / cols)
-          cellWidth: cw
-          // the glyph, and its codepoint line under it at the Font size
-          cellHeight: win.cell + 6 + Zenon.px(10)
-          cacheBuffer: 600
-          // only on its own page: the pages are hidden, not unloaded, and a
-          // hidden grid still built a screenful of cells in every family
-          // passed on the way down the list (see faceGate's note)
-          model: win.page === "glyphs" ? win.gix.count : 0
-          delegate: Item {
-            id: gcell
-            required property int index
-            readonly property int cp: A.codeAt(win.gix, gcell.index)
-            readonly property bool here: gcell.index === win.gsel
-            width: glyphGrid.cellWidth
-            height: glyphGrid.cellHeight
-            transform: Translate { x: glyphGrid.pad }
-            Rectangle {
-              anchors.fill: parent
-              anchors.margins: 3
-              radius: Zenon.windowRadius
-              color: gcell.here ? win.hiFill : gMa.pressed ? Zenon.wash(0.06) : Zenon.wash(0.02)
-              border.width: gcell.here ? 1 : 0
-              border.color: Zenon.alpha(Zenon.cyan, 0.7)
-            }
-            Text {
-              anchors.horizontalCenter: parent.horizontalCenter
-              y: 6
-              height: win.cell - 4
-              verticalAlignment: Text.AlignVCenter
-              text: A.charOf(gcell.cp)
-              color: Zenon.ink
-              font.family: win.style ? win.style.family : Zenon.face
-              font.styleName: win.style ? win.style.style : ""
-              font.pixelSize: Math.round(win.cell * 0.52)
-            }
-            Text {
-              anchors.horizontalCenter: parent.horizontalCenter
-              anchors.bottom: parent.bottom
-              anchors.bottomMargin: 6
-              text: A.hex(gcell.cp)
-              color: gcell.here ? Zenon.cyan : Zenon.accentMuted
-              font.family: Zenon.faceMono
-              font.weight: Zenon.weight
-              font.pixelSize: Zenon.px(10)
-            }
-            MouseArea {
-              id: gMa
-              anchors.fill: parent
-              hoverEnabled: true
-              acceptedButtons: Qt.LeftButton | Qt.RightButton
-              onClicked: (m) => {
-                win.gsel = gcell.index;
-                win.copyGlyph(m.button === Qt.RightButton || (m.modifiers & Qt.ShiftModifier));
-              }
-            }
-          }
-          EmptyState {
-            anchors.centerIn: parent
-            visible: glyphGrid.count === 0 && !csProc.running
-            filtered: win.gquery !== ""
-          }
+          index: win.gix
+          total: win.charset.count
+          cell: win.cell
+          family: win.style ? win.style.family : Zenon.face
+          styleName: win.style ? win.style.style : ""
+          hiFill: win.hiFill
+          busy: csProc.running
+          navKey: win.navKey
+          zoom: win.zoom
+          onChose: (i, alt) => win.copyGlyph(alt)
         }
-        ElasticScroll {
-          anchors.fill: glyphGrid
-          view: glyphGrid
-          intercept: (w) => {
-            if (!(w.modifiers & Qt.ControlModifier)) return false;
-            win.zoom(w.angleDelta.y > 0 ? 1 : -1);
-            return true;
-          }
-        }
-        Scrollbar { flick: glyphGrid; anchors.right: glyphGrid.right; anchors.top: glyphGrid.top; anchors.bottom: glyphGrid.bottom }
 
         // the glyph under the cursor, and the groups
         Item {
@@ -1724,7 +1579,7 @@ FloatingWindow {
                   anchors.rightMargin: 10
                   anchors.verticalCenter: parent.verticalCenter
                   text: ""
-                  color: spellMa.pressed ? Zenon.cyan : Zenon.accentMuted
+                  color: spellMa.pressed ? Zenon.accent : Zenon.accentMuted
                   font.family: Zenon.glyphFace
                   font.pixelSize: Zenon.px(11)
                 }
@@ -1765,7 +1620,7 @@ FloatingWindow {
               width: groupList.width
               height: 28
               radius: Zenon.windowRadius
-              color: grow.here ? win.hiFill : growMa.pressed ? Zenon.wash(0.06) : Zenon.alpha(Zenon.cyan, 0)
+              color: grow.here ? win.hiFill : growMa.pressed ? Zenon.wash(0.06) : Zenon.alpha(Zenon.accent, 0)
               Text {
                 textFormat: Text.PlainText
                 anchors.left: parent.left
@@ -1800,7 +1655,7 @@ FloatingWindow {
                   win.gquery = "";
                   win.group = grow.index - 1;
                   win.gsel = 0;
-                  glyphGrid.positionViewAtBeginning();
+                  glyphView.grid.positionViewAtBeginning();
                   win.refocus();
                 }
               }
@@ -1905,7 +1760,7 @@ FloatingWindow {
                 width: infoCol.width
                 height: 28
                 radius: Zenon.windowRadius
-                color: fileMa.pressed ? Zenon.wash(0.06) : Zenon.alpha(Zenon.cyan, 0)
+                color: fileMa.pressed ? Zenon.wash(0.06) : Zenon.alpha(Zenon.accent, 0)
                 Text {
                   textFormat: Text.PlainText
                   anchors.left: parent.left
@@ -1915,7 +1770,7 @@ FloatingWindow {
                   anchors.verticalCenter: parent.verticalCenter
                   elide: Text.ElideMiddle
                   text: fileRow.modelData
-                  color: win.style && win.style.file === fileRow.modelData ? Zenon.cyan : Zenon.accentSoft
+                  color: win.style && win.style.file === fileRow.modelData ? Zenon.accent : Zenon.accentSoft
                   font.family: Zenon.faceMono
                   font.weight: Zenon.weight
                   font.pixelSize: Zenon.px(12)
@@ -1925,7 +1780,7 @@ FloatingWindow {
                   anchors.rightMargin: 10
                   anchors.verticalCenter: parent.verticalCenter
                   text: ""
-                  color: fileMa.pressed ? Zenon.cyan : Zenon.accentMuted
+                  color: fileMa.pressed ? Zenon.accent : Zenon.accentMuted
                   font.family: Zenon.glyphFace
                   font.pixelSize: Zenon.px(12)
                 }
@@ -1965,14 +1820,14 @@ FloatingWindow {
     Repeater {
       // (not the families: the sidebar runs to the window's bottom, past
       // the foot, so its rows have no foot to go under)
-      model: [specFlick, infoFlick, glyphGrid, groupList]
+      model: [specFlick, infoFlick, glyphView.grid, groupList]
       delegate: ScrollEdge {
         required property var modelData
         view: modelData
         below: true
         follow: true
         bar: foot
-        visible: modelData.visible && glyphPage.visible === (modelData === glyphGrid || modelData === groupList)
+        visible: modelData.visible && glyphPage.visible === (modelData === glyphView.grid || modelData === groupList)
       }
     }
 
@@ -1998,7 +1853,7 @@ FloatingWindow {
         label: "Open a font\u2026"
         busy: win.installing
         busyText: win.busyShown
-        busyInk: win.mgr && win.mgr.busyKind === "remove" ? Zenon.red : Zenon.cyan
+        busyInk: win.mgr && win.mgr.busyKind === "remove" ? Zenon.red : Zenon.accent
         onClicked: win.chooseFile()
       }
       DialogButton {
@@ -2010,7 +1865,7 @@ FloatingWindow {
       DialogButton {
         visible: win.installable.length > 0 && !win.installing
         label: win.installable.length > 1 ? "Install " + win.installable.length : "Install"
-        ink: Zenon.cyan
+        ink: Zenon.accent
         primary: true
         onClicked: win.installOpened()
       }
@@ -2022,7 +1877,7 @@ FloatingWindow {
       DialogButton {
         visible: !!win.picking
         label: win.fam ? "Use " + win.fam.name : "Use"
-        ink: Zenon.cyan
+        ink: Zenon.accent
         primary: true
         ready: !!win.fam && !win.fam.loose
         onClicked: win.usePick()

@@ -45,14 +45,14 @@ Item {
     anchors.fill: parent
     visible: ic.src === "" || img.status === Image.Error
     radius: Zenon.windowRadius
-    color: Zenon.alpha(Zenon.cyan, 0.16)
+    color: Zenon.alpha(Zenon.accent, 0.16)
     border.width: 1
-    border.color: Zenon.alpha(Zenon.cyan, 0.4)
+    border.color: Zenon.alpha(Zenon.accent, 0.4)
     Text {
       textFormat: Text.PlainText
       anchors.centerIn: parent
       text: ic.app ? ic.app.name.charAt(0).toUpperCase() : ""
-      color: Zenon.cyan
+      color: Zenon.accent
       font.family: Zenon.face
       font.weight: Font.Bold
       font.pixelSize: Math.round(ic.size * 0.46)
@@ -79,7 +79,7 @@ Item {
       // the AUR in its magenta, as Updates and Packages mark it; an app from
       // more than one source in the accent, under the layers mark
       color: !ic.app ? Zenon.blue
-        : (ic.app.others || []).length ? Zenon.cyan
+        : (ic.app.others || []).length ? Zenon.accent
         : ic.app.source === "aur" ? Zenon.magenta : Zenon.blue
       font.family: Zenon.face
       font.weight: Zenon.weight

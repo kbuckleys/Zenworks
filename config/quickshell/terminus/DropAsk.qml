@@ -31,7 +31,6 @@
 import QtQuick
 import Quickshell
 import Quickshell.Io
-import Quickshell.Widgets
 import Quickshell.Wayland
 import "../morpheus"
 
@@ -49,34 +48,14 @@ PanelWindow {
   // The card is drawn here, on this surface, and not by CardMenu: a card
   // on a surface of its own has to stack above this one to be clicked,
   // and when it did not, the click fell to the catcher below and the drop
-  // was abandoned without a word. What CardMenu does is copied instead —
-  // the shade that fades and grows the card in and out, and the cyan
-  // flash on the row you chose, with the action at the end of it.
+  // was abandoned without a word. The card itself is CardBody, as
+  // CardMenu's is (2026-11-04; it was a hand-drawn copy): the shade here
+  // fades and grows it in and out.
   property real shade: 0
   onOpenChanged: dropAsk.shade = dropAsk.open ? 1 : 0
   Behavior on shade {
     NumberAnimation { duration: Zenon.menuFade; easing.type: Easing.OutCubic }
   }
-  property int flashAt: -1
-  property real flash: 0
-  property var pendingAct: null
-  SequentialAnimation {
-    id: dropFlash
-    NumberAnimation { target: dropAsk; property: "flash"; to: 1;
-                      duration: Zenon.ms(60); easing.type: Easing.OutQuad }
-    NumberAnimation { target: dropAsk; property: "flash"; to: 0;
-                      duration: Zenon.ms(130); easing.type: Easing.InQuad }
-    ScriptAction {
-      script: {
-        const act = dropAsk.pendingAct;
-        dropAsk.pendingAct = null;
-        dropAsk.flashAt = -1;
-        dropAsk.dismiss();
-        if (act) act();
-      }
-    }
-  }
-
   // Keyboard of its OWN, unlike quick look's layer which leaves the keys
   // to the window behind it. The window behind this one may be buried —
   // that is the whole reason this surface exists — so it cannot be the
@@ -167,7 +146,7 @@ PanelWindow {
     dropAsk.open = false;
     // Abort, Escape or a click away: nothing landed, so the branches the
     // drag opened go now. A turn later, because a chosen row's act runs
-    // just AFTER this — see dropFlash — and Copy or Move starts
+    // just AFTER this — see act() — and Copy or Move starts
     // springGrace instead.
     Qt.callLater(() => { if (!term.springGraceRef.running) term.springShut(term.springHeld); });
     // The rows stay until the next show: the card fades out, and emptying
@@ -176,15 +155,25 @@ PanelWindow {
     term.takeFocus();
   }
 
-  // The row flashes, then it acts — see dropFlash.
+  // By key, the row flashes (CardBody's flash), then it acts; by click,
+  // CardBody flashes it itself and says `chosen`.
+  property bool acting: false
   function choose(i) {
-    if (dropFlash.running || !dropAsk.open) return;
+    if (dropAsk.acting || !dropAsk.open) return;
     const r = dropAsk.rows[i];
     if (!r || r.sep) return;
     dropAsk.at = i;
-    dropAsk.flashAt = i;
-    dropAsk.pendingAct = r.act || null;
-    dropFlash.restart();
+    dropAsk.acting = true;
+    dropCard.fire(i, () => dropAsk.act(i));
+  }
+  function act(i) {
+    dropAsk.acting = false;
+    // once only: a click's flash and a Return's can both end here (audit
+    // 11-04: Copy then Move both ran); the first one closes the card
+    if (!dropAsk.open) return;
+    const r = dropAsk.rows[i];
+    dropAsk.dismiss();
+    if (r && r.act) r.act();
   }
 
   // Skips the rule when walking, so the ring is the three verbs.
@@ -218,109 +207,26 @@ PanelWindow {
       }
     }
 
-    MenuShadow {
-      panel: dropCard
-      cornerRadius: Zenon.menuRadius
-      opacity: dropAsk.shade
-      transformOrigin: Item.TopLeft
-      scale: dropCard.scale
-    }
-
-    ClippingRectangle {
+    // THE CARD IS THE SHARED ONE (morpheus/CardBody, 2026-11-04): its
+    // rows, band, flash and shadow, on this surface — only the surface and
+    // the keys are this file's (why a surface of its own: see the head)
+    CardBody {
       id: dropCard
+      readonly property real cardH: dropAsk.rows.reduce((h, r) => h + (r.sep ? Zenon.menuSepHeight : Zenon.menuRowHeight), 0) + 2
+      pad: Zenon.menuShadowPad
+      width: Zenon.menuWidth + 2 * pad
+      height: cardH + 2 * pad
       // Clamped to the screen, because a card that opened near the right
       // or bottom edge would otherwise hang off it — the compositor does
       // this for a popup and does not for a layer's contents.
-      x: Math.round(Math.min(Math.max(8, dropAsk.cx),
-                             dropAsk.width - dropCard.width - 8))
-      y: Math.round(Math.min(Math.max(8, dropAsk.cy),
-                             dropAsk.height - dropCard.height - 8))
-      width: Zenon.menuWidth
-      height: dropCol.implicitHeight + 2   // the border: rows run flush to it
-      color: Zenon.menuBg   // its own layer surface (dropAsk), so frosted like every menu
-      radius: Zenon.menuRadius
-      border.color: Zenon.border
-      border.width: 1
-      // Out of the pointer's corner, faded and grown by the shade, as
-      // CardMenu arrives.
-      transformOrigin: Item.TopLeft
-      scale: Zenon.menuScale(dropAsk.shade)
-      opacity: dropAsk.shade
-
-      Column {
-        id: dropCol
-        x: Zenon.menuCardPad
-        width: parent.width - 2 * Zenon.menuCardPad
-
-        Repeater {
-          model: dropAsk.rows
-
-          delegate: Item {
-            required property var modelData
-            required property int index
-            width: dropCol.width
-            height: modelData.sep ? Zenon.menuSepHeight : Zenon.menuRowHeight
-
-            Rectangle {
-              visible: modelData.sep === true
-              anchors.verticalCenter: parent.verticalCenter
-              anchors.left: parent.left
-              anchors.right: parent.right
-              // edge to edge, as every menu's separator: the rows sit
-              // inside the card's padding, so it reaches back out by that
-              anchors.leftMargin: -Zenon.menuCardPad
-              anchors.rightMargin: -Zenon.menuCardPad
-              height: 1
-              color: Zenon.border
-            }
-
-            // the lit row, flush to the card's border as CardMenu's is
-            Rectangle {
-              visible: !modelData.sep && dropAsk.at === index
-              anchors.fill: parent
-              anchors.leftMargin: -Zenon.menuCardPad
-              anchors.rightMargin: -Zenon.menuCardPad
-              color: Zenon.menuHi
-            }
-
-            // and the flash on the one chosen
-            Rectangle {
-              visible: dropAsk.flashAt === index && dropAsk.flash > 0
-              anchors.fill: parent
-              color: Qt.rgba(Zenon.cyan.r, Zenon.cyan.g, Zenon.cyan.b,
-                             0.55 * dropAsk.flash)
-            }
-
-            // FROM THE LEFT, as every shared menu's labels are. It was
-            // centered, after menu.openCustom's custom lists — but this is
-            // a menu, and the shared ones set its type, size and edge.
-            Text {
-              textFormat: Text.PlainText
-              visible: !modelData.sep
-              anchors.verticalCenter: parent.verticalCenter
-              anchors.left: parent.left
-              anchors.right: parent.right
-              anchors.leftMargin: 12
-              anchors.rightMargin: 10
-              horizontalAlignment: Text.AlignLeft
-              elide: Text.ElideRight
-              text: modelData.label || ""
-              color: Zenon.white
-              font.family: Zenon.face
-              font.weight: Zenon.weight
-              font.pixelSize: Zenon.px(16)
-            }
-
-            MouseArea {
-              anchors.fill: parent
-              enabled: !modelData.sep && !dropFlash.running
-              hoverEnabled: true
-              onEntered: dropAsk.at = index
-              onClicked: dropAsk.choose(index)
-            }
-          }
-        }
-      }
+      x: Math.round(Math.min(Math.max(8, dropAsk.cx), dropAsk.width - Zenon.menuWidth - 8)) - pad
+      y: Math.round(Math.min(Math.max(8, dropAsk.cy), dropAsk.height - cardH - 8)) - pad
+      still: true
+      shade: dropAsk.shade
+      model: dropAsk.rows.map((r) => r.sep ? { isSeparator: true } : { text: r.label || "" })
+      activeIndex: dropAsk.at
+      onHovered: (i) => dropAsk.at = i
+      onChosen: (i) => dropAsk.act(i)
     }
   }
 }

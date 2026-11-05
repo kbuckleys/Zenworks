@@ -144,7 +144,8 @@ Item {
     const cut = n.lastIndexOf(".");
     if (cut <= 0) return;
     const e = n.slice(cut + 1).toLowerCase();
-    if (term.blindExt[e]) return;
+    // a format Qt always reads failed on this one file only (Terminus.qtSure)
+    if (term.blindExt[e] || Terminus.qtSure(n)) return;
     const next = Object.assign({}, term.blindExt);
     next[e] = true;
     term.blindExt = next;

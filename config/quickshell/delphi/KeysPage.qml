@@ -35,8 +35,8 @@ Item {
   readonly property var buttons: [
     { label: "Delete", ink: Zenon.red, visible: !!pg.key_ && !!pg.st && pg.st.ssh, run: () => pg.remove(pg.key_) },
     { label: "Test", visible: !!pg.key_ && pg.key_.hosts.length > 0, run: () => pg.test(pg.key_) },
-    pg.st && !pg.st.ssh ? { label: "Install openssh", ink: Zenon.cyan, primary: true, run: () => pg.needOpenssh(null) }
-                        : { label: "New key", ink: Zenon.cyan, primary: true, run: () => pg.newKey([]) },
+    pg.st && !pg.st.ssh ? { label: "Install openssh", ink: Zenon.accent, primary: true, run: () => pg.needOpenssh(null) }
+                        : { label: "New key", ink: Zenon.accent, primary: true, run: () => pg.newKey([]) },
   ]
   function takeFocus() { if (pg.win) pg.win.focusKeys(); }
 
@@ -121,7 +121,7 @@ Item {
     if (!pg.st.keygen) {
       pg.win.card_({ question: "SSH keys need openssh", glyph: "", ink: Zenon.ink,
         detail: "ssh-keygen, which makes them, comes with openssh — not installed. Ceres can install it (it asks for your password).",
-        choices: [{ label: "Install openssh", ink: Zenon.cyan, run: () => pg.needOpenssh(() => pg.newKey(preset)) },
+        choices: [{ label: "Install openssh", ink: Zenon.accent, run: () => pg.needOpenssh(() => pg.newKey(preset)) },
                   { label: "Cancel", ink: Zenon.accentMuted }] });
       return;
     }
@@ -175,7 +175,7 @@ Item {
         pg.win.card_({ question: host + " has keys of its own", glyph: "", ink: Zenon.yellow,
           detail: "~/.ssh/config already says which key goes to " + host + ". Use the new one there instead? Only that line changes.",
           items: res.block.split("\n"),
-          choices: [{ label: "Use the new key", ink: Zenon.cyan,
+          choices: [{ label: "Use the new key", ink: Zenon.accent,
                       run: () => pg.win.act("sshUse", { host: host, key: k.path, agent: agent, replace: true }, { repo: null, refresh: false, then: next, failed: next }) },
                     { label: "Leave it", run: next }] });
       } });
@@ -196,7 +196,7 @@ Item {
         items: [k.public.slice(0, 64) + "…"],
         choices: [{ label: "Copy the key", keep: true, run: () => pg.win.copy(k.public, "the public key") },
                   { label: "Open the " + h.name, keep: true, run: () => Quickshell.execDetached(["xdg-open", h.page]) },
-                  { label: "Test it now", ink: Zenon.cyan, run: () => { pages.shift(); paste(); } },
+                  { label: "Test it now", ink: Zenon.accent, run: () => { pages.shift(); paste(); } },
                   { label: "Later", ink: Zenon.accentMuted, run: () => { pg.win.say("Test it from this page (t) once it is pasted"); } }] });
     };
     if (apis.length === 0) { paste(); return; }
@@ -209,7 +209,7 @@ Item {
       pg.win.card_({ question: "Add it to " + signed.map((h) => h.name).join(" and ") + "?", glyph: "", ink: Zenon.ink,
         detail: "Signed in there, so Delphi can add the public key to your account itself."
           + (apis.length > signed.length ? " Not signed in to " + apis.filter((h) => signed.indexOf(h) < 0).map((h) => h.name).join(", ") + ": add it there from this page later (a)." : ""),
-        choices: [{ label: "Add it", ink: Zenon.cyan, run: () => pg.addTo(k, signed.map((h) => h.api), paste) },
+        choices: [{ label: "Add it", ink: Zenon.accent, run: () => pg.addTo(k, signed.map((h) => h.api), paste) },
                   { label: "Not now", ink: Zenon.accentMuted, run: paste }] });
     }));
   }
@@ -319,7 +319,7 @@ Item {
             const names = on.map((x) => D.FORGES[x.forge] ? D.FORGES[x.forge].name : x.forge);
             pg.win.card_({ question: "Take it off " + names.join(" and ") + " too?", glyph: "", ink: Zenon.ink,
               detail: k.name + " is in the trash. The forges still accept it; with the key gone here, nothing needs it there.",
-              choices: [{ label: "Take it off", ink: Zenon.cyan, run: () => on.forEach((x) =>
+              choices: [{ label: "Take it off", ink: Zenon.accent, run: () => on.forEach((x) =>
                             pg.win.act(x.forge + "DeleteSshKey", { id: x.id }, { repo: null, network: true, refresh: false,
                               label: "Removing it from " + (D.FORGES[x.forge] ? D.FORGES[x.forge].name : x.forge),
                               then: () => pg.reload() })) },

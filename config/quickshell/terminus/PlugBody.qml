@@ -130,7 +130,7 @@ Item {
         anchors.leftMargin: 22
         anchors.verticalCenter: parent.verticalCenter
         text: row.modelData.removable || row.modelData.hotplug ? "" : ""
-        color: row.mounted ? Zenon.cyan : Zenon.white
+        color: row.mounted ? Zenon.accent : Zenon.white
         font.family: Zenon.faceMono
         font.weight: Zenon.weight
         font.pixelSize: Zenon.px(20)
@@ -179,7 +179,7 @@ Item {
         anchors.verticalCenter: parent.verticalCenter
         visible: body.many
         label: row.mounted ? "Open" : "Mount"
-        ink: row.mounted ? Zenon.cyan : Zenon.white
+        ink: row.mounted ? Zenon.accent : Zenon.white
         onClicked: { body.selected(row.index); body.mountOne(row.index); }
       }
 
@@ -197,6 +197,7 @@ Item {
       }
     }
   }
+  Scrollbar { flick: list; anchors.right: list.right; anchors.top: list.top; anchors.bottom: list.bottom }
 
   Rectangle {
     anchors.bottom: foot.top
@@ -237,7 +238,7 @@ Item {
       anchors.right: parent.right
       anchors.rightMargin: 14
       anchors.verticalCenter: parent.verticalCenter
-      spacing: 8
+      spacing: Zenon.buttonGap
       DialogButton {
         label: (body.many && body.waiting === 0) || foot.onlyMounted ? "Close" : "Not now"
         ink: Zenon.accentMuted
@@ -257,7 +258,7 @@ Item {
           : foot.onlyMounted ? "Open"
           : body.goAfter !== "" ? (body.openVerb ? "Opening…" : "Mounting…")
           : (body.openVerb ? "Mount & open" : "Mount")
-        ink: Zenon.cyan
+        ink: Zenon.accent
         primary: true
         ready: !body.busy
         onClicked: body.primary()

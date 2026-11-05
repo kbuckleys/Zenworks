@@ -155,36 +155,6 @@ function eventTime(e) {
   return e.start;
 }
 
-// One line, typed, for a new event on the chosen day:
-//   "14:00 Dentist"                 an hour from 14:00
-//   "14:00-15:30 Dentist @ Clinic"  that span, and where
-//   "9 Standup", "9:30 Standup"     hours alone are fine
-//   "Holiday"                       all day
-// → { allDay, start, end, title, location } or { error }
-function parseQuick(text, iso) {
-  let s = String(text || "").trim();
-  if (s === "") return { error: "Type what it is" };
-  let location = "";
-  const at = s.lastIndexOf(" @ ");
-  if (at > 0) { location = s.slice(at + 3).trim(); s = s.slice(0, at).trim(); }
-  const m = /^(\d{1,2})(?::(\d{2}))?(?:\s*[-–]\s*(\d{1,2})(?::(\d{2}))?)?\s+(.+)$/.exec(s);
-  if (!m) return { allDay: true, start: iso, end: "", title: s, location: location };
-  const h = Number(m[1]), mi = Number(m[2] || 0);
-  if (h > 23 || mi > 59) return { error: "That is not a time of day" };
-  const two = (n) => (n < 10 ? "0" : "") + n;
-  const start = two(h) + ":" + two(mi);
-  let end;
-  if (m[3] !== undefined) {
-    const h2 = Number(m[3]), m2 = Number(m[4] || 0);
-    if (h2 > 23 || m2 > 59) return { error: "That is not a time of day" };
-    if (h2 * 60 + m2 <= h * 60 + mi) return { error: "It ends before it starts" };
-    end = two(h2) + ":" + two(m2);
-  } else {
-    const e = Math.min(23 * 60 + 59, h * 60 + mi + 60);
-    end = two(Math.floor(e / 60)) + ":" + two(e % 60);
-  }
-  return { allDay: false, start: iso + " " + start, end: iso + " " + end, title: m[5].trim(), location: location };
-}
 // ── AN EVENT IN PLAIN WORDS (Quick Access, 2026-10-28) ─────────────────
 // "Lunch with Sam tomorrow 1pm @ Luigi's", "Dentist fri 14:30-15:15",
 // "Standup every day 9:15 for 15 min" (no: repeats are the sheet's),
@@ -285,13 +255,6 @@ function parseNatural(text, iso, now) {
   return { allDay: false, start: d + " " + hhmm(t0), end: d + " " + hhmm(t1), title: title, location: location, iso: d };
 }
 
-// cal.py new's arguments for it. An all-day event ends the day it starts,
-// said: given a start alone, khal read the title's first word as the end
-// when it could be one ("Friday drinks" ran to Friday, titled "drinks").
-function newArgs(q, cal) {
-  if (q.allDay) return [cal || "", q.start, q.start, q.title, q.location || ""];
-  return [cal || "", q.start, q.end, q.title, q.location || ""];
-}
 
 // ── REMINDERS ────────────────────────────────────────────────────────────
 // An event's moment, as epoch ms (local time)
@@ -387,18 +350,6 @@ function layoutDay(events, iso) {
   close();
   return items;
 }
-// what the window's head says for where it is
-function rangeTitle(view, date) {
-  if (view === "year") return String(date.getFullYear());
-  if (view === "day") return longDay(date) + " " + date.getFullYear();
-  if (view === "week") {
-    const a = weekStart(date), b = addDays(a, 6);
-    return a.getMonth() === b.getMonth()
-      ? monthName(a.getMonth()) + " " + a.getDate() + " – " + b.getDate() + ", " + b.getFullYear()
-      : monthName(a.getMonth()).slice(0, 3) + " " + a.getDate() + " – " + monthName(b.getMonth()).slice(0, 3) + " " + b.getDate() + ", " + b.getFullYear();
-  }
-  return monthName(date.getMonth()) + " " + date.getFullYear();
-}
 // the days a view lists events for: [from, to) as ISO
 function rangeOf(view, date) {
   if (view === "year") return [isoDay(date.getFullYear(), 0, 1), isoDay(date.getFullYear() + 1, 0, 1)];
@@ -420,7 +371,7 @@ function stepDate(view, date, n) {
 // own inks. Stored for other calendar apps: an event's as RFC 7986's COLOR
 // (a CSS name — sand is "tan"), a calendar's as vdir's hex (core/cal.py
 // CAL_COLORS), read back to the hue here. [hue, label]
-const COLORS = [["sand", "Sand"], ["yellow", "Yellow"], ["green", "Green"], ["cyan", "Cyan"],
+const COLORS = [["sand", "Sand"], ["yellow", "Yellow"], ["green", "Green"], ["cyan", "Accent"],
                 ["blue", "Blue"], ["magenta", "Magenta"], ["pink", "Pink"]];
 const COLOR_HEX = { "#c8b48c": "sand", "#e8c547": "yellow", "#7fb069": "green", "#5fb3b3": "cyan",
                     "#5b8fd9": "blue", "#b07cc6": "magenta", "#e48aa5": "pink" };

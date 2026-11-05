@@ -311,16 +311,8 @@ LayerPopup {
     return Wx.hhmm(h.time) + "  " + Weather.fmt(h.temp) + "°";
   }
 
-  function roleColor(code) {
-    const r = Wx.role(code);
-    if (r === "sun") return Zenon.sand;
-    if (r === "cloud") return Zenon.cyan;
-    if (r === "rain") return Zenon.blue;
-    if (r === "snow") return Zenon.white;
-    if (r === "sleet") return Zenon.pink;
-    if (r === "storm") return Zenon.magenta;
-    return Zenon.muted;
-  }
+  // the condition's Zenon color (Wx.tone, shared with Cynosure's card)
+  function roleColor(code) { return Zenon[Wx.tone(code)]; }
 
   // How long ago the forecast came in. Zero means it was restored from disk and
   // has not been refreshed this session, which is worth saying out loud rather
@@ -544,7 +536,7 @@ LayerPopup {
                     Text {
                       anchors.verticalCenter: parent.verticalCenter
                       text: Chr.monthName(popup.viewMonth)
-                      color: headMa.pressed ? Zenon.white : Zenon.cyan
+                      color: headMa.pressed ? Zenon.white : Zenon.accent
                       Behavior on color { ColorAnimation { duration: Zenon.fast } }
                       font.family: popup.face
                       font.weight: Font.Bold
@@ -621,10 +613,10 @@ LayerPopup {
                       width: popup.cellW - 6
                       height: popup.cellH - 4
                       radius: Zenon.windowRadius
-                      color: dayCell.isToday ? Zenon.cyan
+                      color: dayCell.isToday ? Zenon.accent
                         : (dayCell.isSel ? Zenon.menuHi
                             : (dayMa.pressed ? Zenon.pressTile(false) : Zenon.alpha(Zenon.border, 0)))
-                      border.color: (dayCell.isSel && !dayCell.isToday) ? Zenon.cyan : "transparent"
+                      border.color: (dayCell.isSel && !dayCell.isToday) ? Zenon.accent : "transparent"
                       border.width: 1
                       Behavior on color { ColorAnimation { duration: Zenon.fast } }
                     }
@@ -692,7 +684,7 @@ LayerPopup {
                   anchors.leftMargin: 12
                   anchors.verticalCenter: parent.verticalCenter
                   text: Chr.longDay(popup.selDate)
-                  color: popup.selIsToday ? Zenon.cyan : Zenon.keyInk
+                  color: popup.selIsToday ? Zenon.accent : Zenon.keyInk
                   Behavior on color { ColorAnimation { duration: Zenon.normal } }
                   font.family: popup.face
                   font.weight: Font.Bold
@@ -705,7 +697,7 @@ LayerPopup {
                   anchors.rightMargin: 12
                   anchors.verticalCenter: parent.verticalCenter
                   label: "Today"
-                  ink: Zenon.cyan
+                  ink: Zenon.accent
                   ready: !(popup.selIsToday && popup.viewMonth === popup.today.getMonth()
                     && popup.viewYear === popup.today.getFullYear())
                   onClicked: popup.goToday()
@@ -763,7 +755,7 @@ LayerPopup {
                 anchors.horizontalCenter: parent.horizontalCenter
                 visible: !Weather.disabled
                 label: Weather.located ? "Try again" : "Find me"
-                ink: Zenon.cyan
+                ink: Zenon.accent
                 ready: !Weather.loading
                 onClicked: Weather.refresh()
               }
@@ -796,7 +788,7 @@ LayerPopup {
                   Text {
                     anchors.verticalCenter: parent.verticalCenter
                     text: Weather.place !== "" ? Weather.place : "Here"
-                    color: Zenon.cyan
+                    color: Zenon.accent
                     font.family: popup.face
                     font.weight: Font.Bold
                     font.pixelSize: Zenon.px(16)
@@ -1082,7 +1074,7 @@ LayerPopup {
                     radius: Zenon.windowRadius
                     color: dayStrip.isSel ? Zenon.menuHi
                       : (stripMa.pressed ? Zenon.pressTile(false) : Zenon.alpha(Zenon.border, 0))
-                    border.color: dayStrip.isSel ? Zenon.cyan : "transparent"
+                    border.color: dayStrip.isSel ? Zenon.accent : "transparent"
                     border.width: 1
                     Behavior on color { ColorAnimation { duration: Zenon.fast } }
                   }
@@ -1096,7 +1088,7 @@ LayerPopup {
                       anchors.horizontalCenter: parent.horizontalCenter
                       text: dayStrip.isToday ? "Today"
                         : Chr.dayShort(Chr.weekIndex(dayStrip.when))
-                      color: dayStrip.isToday ? Zenon.cyan : Zenon.muted
+                      color: dayStrip.isToday ? Zenon.accent : Zenon.muted
                       font.family: popup.face
                       font.weight: Font.Bold
                       font.pixelSize: Zenon.px(11)
@@ -1158,7 +1150,7 @@ LayerPopup {
             visible: !Chronos.calReady && popup.dayTasks.length === 0
             // centered in the strip (user, 2026-10-21)
             anchors.centerIn: parent
-            spacing: 12
+            spacing: Zenon.buttonGap
             Text {
               anchors.verticalCenter: parent.verticalCenter
               text: "\u{F00F0}"
@@ -1180,7 +1172,7 @@ LayerPopup {
             DialogButton {
               anchors.verticalCenter: parent.verticalCenter
               label: "On this computer"
-              ink: Zenon.cyan
+              ink: Zenon.accent
               onClicked: if (!Chronos.setupCalendar((ok) => popup.agendaSay(ok ? "Your calendar is ready" : "Not set up", !ok)))
                 popup.agendaSay("Ceres is busy \u2014 try again in a moment", true)
             }
@@ -1188,7 +1180,7 @@ LayerPopup {
               anchors.verticalCenter: parent.verticalCenter
               visible: !!popup.calendar
               label: "Online account\u2026"
-              ink: Zenon.cyan
+              ink: Zenon.accent
               onClicked: popup.calendar.accounts()
             }
           }
@@ -1208,7 +1200,7 @@ LayerPopup {
               text: popup.agendaNote !== "" ? popup.agendaNote
                 : popup.dayEvents.length === 0 ? "Nothing on " + Chr.longDay(popup.selDate)
                 : popup.agendaCount() + " on " + Chr.longDay(popup.selDate)
-              color: popup.agendaNote !== "" ? (popup.agendaNoteBad ? Zenon.red : Zenon.cyan) : Zenon.keyInk
+              color: popup.agendaNote !== "" ? (popup.agendaNoteBad ? Zenon.red : Zenon.accent) : Zenon.keyInk
               font.family: popup.face
               font.weight: Font.Bold
               font.pixelSize: Zenon.px(13)
@@ -1245,8 +1237,8 @@ LayerPopup {
                 verticalAlignment: TextInput.AlignVCenter
                 clip: true
                 color: Zenon.white
-                selectionColor: Zenon.cyan
-                selectedTextColor: Zenon.onAccent
+                selectionColor: Zenon.accent
+                selectedTextColor: Zenon.inkOnAccent
                 font.family: popup.face
                 font.pixelSize: Zenon.px(13)
                 cursorDelegate: Caret { field: addField }
@@ -1429,7 +1421,7 @@ LayerPopup {
                   Text {
                     anchors.verticalCenter: parent.verticalCenter
                     text: popup.glyphTimer
-                    color: emptyMa.pressed ? Zenon.cyan : Zenon.accentMuted
+                    color: emptyMa.pressed ? Zenon.accent : Zenon.accentMuted
                     Behavior on color { ColorAnimation { duration: Zenon.fast } }
                     font.family: popup.face
                     font.weight: Zenon.weight
@@ -1514,7 +1506,7 @@ LayerPopup {
                 width: 22
                 horizontalAlignment: Text.AlignHCenter
                 text: popup.nameTarget < 0 ? popup.glyphTimer : popup.glyphRename
-                color: Zenon.cyan
+                color: Zenon.accent
                 font.family: popup.face
                 font.weight: Zenon.weight
                 font.pixelSize: Zenon.px(17)
@@ -1538,8 +1530,8 @@ LayerPopup {
                   anchors.rightMargin: 12
                   verticalAlignment: TextInput.AlignVCenter
                   color: Zenon.white
-                  selectionColor: Zenon.cyan
-                  selectedTextColor: Zenon.onAccent
+                  selectionColor: Zenon.accent
+                  selectedTextColor: Zenon.inkOnAccent
                   selectByMouse: true
                   font.family: popup.face
                   font.weight: Font.Bold
@@ -1629,7 +1621,7 @@ LayerPopup {
     // the whole of it is still ahead of you
     readonly property real frac: Math.max(0, Math.min(1, cell.remain / cell.total))
     readonly property color accent: cell.running ? Zenon.green
-      : (cell.armed ? Zenon.sand : Zenon.cyan)
+      : (cell.armed ? Zenon.sand : Zenon.accent)
     readonly property bool showTools: cellHover.hovered || toolsHover.hovered
 
     radius: Zenon.radiusCard
@@ -1920,7 +1912,7 @@ LayerPopup {
     Text {
       anchors.centerIn: parent
       text: chev.glyph
-      color: chevMa.pressed ? Zenon.cyan : Zenon.muted
+      color: chevMa.pressed ? Zenon.accent : Zenon.muted
       Behavior on color { ColorAnimation { duration: Zenon.fast } }
       font.family: popup.face
       font.weight: Font.Bold

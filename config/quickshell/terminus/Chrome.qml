@@ -128,7 +128,7 @@ Column {
       id: tabStrip.uidOf(t),
       name: tabStrip.nameOf(t, i === term.tab),
       glyph: tabStrip.glyphOf(t, i === term.tab),
-      glyphInk: Zenon.cyan,
+      glyphInk: Zenon.accent,
       current: i === term.tab
     }))
     onPicked: (id) => term.switchTab(tabStrip.indexOf(id))
@@ -189,7 +189,7 @@ Column {
         }
       }
     }
-    // The tab under the drag, outlined — the same cyan the directory rows
+    // The tab under the drag, outlined — the same accent the directory rows
     // and crumbs light with under a drag.
     Rectangle {
       z: 6
@@ -199,9 +199,9 @@ Column {
       y: 2
       height: tabStrip.height - 4
       radius: Zenon.windowRadius
-      color: Qt.rgba(Zenon.cyan.r, Zenon.cyan.g, Zenon.cyan.b, 0.10)
+      color: Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.10)
       border.width: 1
-      border.color: Zenon.cyan
+      border.color: Zenon.accent
       Behavior on x { NumberAnimation { duration: Zenon.fast; easing.type: Zenon.ease } }
     }
   }
@@ -512,8 +512,8 @@ Column {
             const f = term.collById(term.collOpenId);
             // Recents is neutral, as its sidebar row is
             if (f && f.builtin) return Zenon.accentSoft;
-            if (f && f.ink) return Zenon[f.ink] || Zenon.cyan;
-            return Zenon.cyan;
+            if (f && f.ink) return Zenon[f.ink] || Zenon.accent;
+            return Zenon.accent;
           }
           return Zenon.sand;
         }
@@ -671,7 +671,7 @@ Column {
       Text {
         anchors.verticalCenter: parent.verticalCenter
         text: "\uF002"
-        color: Zenon.cyan
+        color: Zenon.accent
         font.family: Zenon.face
         font.weight: Zenon.weight
         font.pixelSize: Zenon.px(15)
@@ -681,9 +681,9 @@ Column {
         id: filterField
         anchors.verticalCenter: parent.verticalCenter
         width: Math.max(8, Math.min(260, contentWidth + 2))
-        color: Zenon.cyan
-        selectionColor: Zenon.cyan
-        selectedTextColor: Zenon.onAccent
+        color: Zenon.accent
+        selectionColor: Zenon.accent
+        selectedTextColor: Zenon.inkOnAccent
         font.family: Zenon.face
         font.weight: Zenon.weight
         font.pixelSize: Zenon.px(17)
@@ -783,7 +783,7 @@ Column {
       Text {
         anchors.verticalCenter: parent.verticalCenter
         text: "\uF002"
-        color: Zenon.cyan
+        color: Zenon.accent
         font.family: Zenon.face
         font.weight: Zenon.weight
         font.pixelSize: Zenon.px(15)
@@ -793,9 +793,9 @@ Column {
         id: liveField
         anchors.verticalCenter: parent.verticalCenter
         width: Math.max(120, Math.min(260, contentWidth + 2))
-        color: Zenon.cyan
-        selectionColor: Zenon.cyan
-        selectedTextColor: Zenon.onAccent
+        color: Zenon.accent
+        selectionColor: Zenon.accent
+        selectedTextColor: Zenon.inkOnAccent
         font.family: Zenon.face
         font.weight: Zenon.weight
         font.pixelSize: Zenon.px(17)
@@ -1089,7 +1089,7 @@ Column {
       }
 
       // ── the undo, offered ──────────────────────────────────────
-      // The status chip's shape in cyan: a thing to press rather than a
+      // The status chip's shape in accent: a thing to press rather than a
       // thing to read. See undoOffer.
       Rectangle {
         id: undoChip
@@ -1102,10 +1102,10 @@ Column {
         radius: Zenon.windowRadius
         Behavior on opacity { NumberAnimation { duration: Zenon.normal; easing.type: Zenon.ease } }
         Behavior on width { NumberAnimation { duration: Zenon.fast; easing.type: Zenon.ease } }
-        color: Qt.rgba(Zenon.cyan.r, Zenon.cyan.g, Zenon.cyan.b,
+        color: Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b,
                        undoMa.pressed ? 0.28 : (0.10))
         border.width: 1
-        border.color: Qt.rgba(Zenon.cyan.r, Zenon.cyan.g, Zenon.cyan.b, 0.40)
+        border.color: Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.40)
         clip: true
 
         Text {
@@ -1114,7 +1114,7 @@ Column {
           textFormat: Text.StyledText
           text: "\uF0E2&#160;&#160;" + term.undoLabel
             + "&#160;&#160;<font color=\"" + Zenon.hex(Zenon.accentMuted) + "\">u</font>"
-          color: Zenon.cyan
+          color: Zenon.accent
           font.family: Zenon.face
           font.weight: Zenon.weight
           font.pixelSize: Zenon.px(13)
@@ -1171,7 +1171,7 @@ Column {
           return term.inTrash && term.trashSize !== ""
             ? items + " \u00b7 " + term.trashSize : items;
         }
-        color: (term.markedCount > 0 || term.visualOn) ? Zenon.cyan : Zenon.accentMuted
+        color: (term.markedCount > 0 || term.visualOn) ? Zenon.accent : Zenon.accentMuted
         font.family: Zenon.face
         font.weight: Zenon.weight
         font.pixelSize: Zenon.px(14)
@@ -1393,7 +1393,7 @@ Column {
             visible: !!term.sendToRef.current && !term.sendToRef.sending
             text: term.sendToRef.glyphOf(term.sendToRef.current) || ""
             rightPadding: 3
-            color: term.sendToRef.blocked ? Zenon.accentMuted : Zenon.cyan
+            color: term.sendToRef.blocked ? Zenon.accentMuted : Zenon.accent
             font.family: Zenon.face
             font.weight: Zenon.weight
             font.pixelSize: Zenon.px(15)
@@ -2630,16 +2630,16 @@ Column {
     // and nothing else: no filter, no marks, no preview, no view modes.
     // Everything a pane can DO belongs to the active one, and Tab, `o` or
     // a click in here is how this side becomes that.
-    // The same neutral border every other seam in this window uses. A cyan
-    // one was tried and read as decoration rather than structure — cyan
+    // The same neutral border every other seam in this window uses. An accent
+    // one was tried and read as decoration rather than structure — accent
     // here means "chosen", and a line that is always there is not making a
-    // choice. The CHEVRON on it is cyan, which is the one thing that is.
+    // choice. The CHEVRON on it is accent, which is the one thing that is.
     //
     // UNDER THE POINTER IT IS CYAN, which is the sidebar's grip exactly:
     // the seam is neutral while it is only a seam, and says so the moment
     // it is a thing you can take hold of. That is not decoration — it is
     // the line answering the cursor that has just changed shape over it.
-    // terminus/SeamGrip: the line and its grip, cyan under the pointer,
+    // terminus/SeamGrip: the line and its grip, accent under the pointer,
     // measured in bodyBox (whose width is fixed while the split is dragged);
     // double click back to even
     SeamGrip {
@@ -2664,7 +2664,7 @@ Column {
     // the line: the shape every draggable seam wears, so the divider says
     // it can be taken hold of — and the bar on the side the keyboard is
     // in is lit, so it doubles as the split's indicator. The line between
-    // them is what answers the pointer, turning cyan under it.
+    // them is what answers the pointer, turning accent under it.
     //
     // Both panes still say it a second way — the inactive one's cursor is
     // an outline rather than a fill — so the grip is the confirmation, not
@@ -2682,7 +2682,7 @@ Column {
         x: modelData === 0 ? term.paneSplit - 4 : term.paneSplit + 3
         y: (parent.height - height) / 2
         z: 4
-        color: lit ? Zenon.cyan : Zenon.accentMuted
+        color: lit ? Zenon.accent : Zenon.accentMuted
         Behavior on color { ColorAnimation { duration: Zenon.fast } }
       }
     }
@@ -2817,7 +2817,7 @@ Column {
       // Not while a directory is the target: two things lit at once says
       // the drop is going to both.
       visible: dropHint.containsDrag && term.dropDir === ""
-      color: Qt.rgba(Zenon.cyan.r, Zenon.cyan.g, Zenon.cyan.b, 0.07)
+      color: Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.07)
       border.width: 1
       border.color: Zenon.border
       z: 8
@@ -2959,7 +2959,7 @@ Column {
       width: band.held.width
       height: band.held.height
       radius: Zenon.windowRadius
-      color: Qt.rgba(Zenon.cyan.r, Zenon.cyan.g, Zenon.cyan.b, 0.12)
+      color: Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.12)
       border.width: 1
       border.color: Zenon.border
       z: 5
@@ -3223,7 +3223,7 @@ Column {
     height: term.picking ? 46 : 0
     visible: height > 0
     clip: true
-    // FROSTED AND DARKER, no gradient (the user's call — the cyan washed up
+    // FROSTED AND DARKER, no gradient (the user's call — the accent washed up
     // from the bottom edge is gone): a shade over the window's own glass,
     // which Hyprland blurs, so the strip reads as the same frosted pane set
     // a step deeper. darken() halves in light themes.
@@ -3237,7 +3237,7 @@ Column {
       : term.portal.directory ? "\uF07C"
       : term.portal.multiple ? "\uF0C5" : "\uF15B"
 
-    // The neutral seam every other strip in this window uses. A cyan rule
+    // The neutral seam every other strip in this window uses. An accent rule
     // here was the loudest line on the surface, for a bar that is already
     // tinted and already says what it is.
     Rectangle {
@@ -3260,7 +3260,7 @@ Column {
       Text {
         anchors.verticalCenter: parent.verticalCenter
         text: portalBar.mark
-        color: Zenon.cyan
+        color: Zenon.accent
         font.family: Zenon.face
         font.weight: Zenon.weight
         font.pixelSize: Zenon.px(16)
@@ -3327,7 +3327,7 @@ Column {
         height: 24
         radius: Zenon.windowRadius
         width: Math.min(saveWhereRow.implicitWidth + 16, saveBox.width * 0.42)
-        color: Qt.rgba(Zenon.cyan.r, Zenon.cyan.g, Zenon.cyan.b, 0.10)
+        color: Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.10)
         clip: true
         Row {
           id: saveWhereRow
@@ -3339,7 +3339,7 @@ Column {
           Text {
             anchors.verticalCenter: parent.verticalCenter
             text: Terminus.dirGlyph(term.saveDir, Icons)
-            color: Zenon.cyan
+            color: Zenon.accent
             font.family: Zenon.face
             font.weight: Zenon.weight
             font.pixelSize: Zenon.px(12)
@@ -3349,7 +3349,7 @@ Column {
             width: Math.min(implicitWidth, saveBox.width * 0.42 - 40)
             elide: Text.ElideLeft
             text: term.saveDir === "/" ? "/" : Terminus.basename(term.saveDir)
-            color: Zenon.cyan
+            color: Zenon.accent
             font.family: Zenon.face
             font.weight: Zenon.weight
             font.pixelSize: Zenon.px(13)
@@ -3408,9 +3408,9 @@ Column {
           + (saveNumber.visible ? saveNumber.width + 6 : 0)
         verticalAlignment: TextInput.AlignVCenter
         color: Zenon.white
-        selectionColor: Zenon.cyan
-        // dark on the cyan selection — white on it was barely there
-        selectedTextColor: Zenon.onAccent
+        selectionColor: Zenon.accent
+        // dark on the accent selection — white on it was barely there
+        selectedTextColor: Zenon.inkOnAccent
         font.family: Zenon.face
         font.weight: Zenon.weight
         font.pixelSize: Zenon.px(14)
@@ -3485,8 +3485,8 @@ Column {
               Text {
                 textFormat: Text.PlainText
                 anchors.verticalCenter: parent.verticalCenter
-                text: Icons.glyphFor({ name: pick.name, isDir: !!term.portal && (term.portal.directory || term.portalDirSet[String(pick.modelData)] === true) })
-                color: Zenon.cyan
+                text: Icons.glyphFor({ name: pick.name, path: String(pick.modelData), isDir: !!term.portal && (term.portal.directory || term.portalDirSet[String(pick.modelData)] === true) })
+                color: Zenon.accent
                 font.family: Zenon.face
                 font.weight: Zenon.weight
                 font.pixelSize: Zenon.px(13)
@@ -3522,7 +3522,7 @@ Column {
       anchors.right: parent.right
       anchors.rightMargin: 14
       anchors.verticalCenter: parent.verticalCenter
-      spacing: 8
+      spacing: Zenon.buttonGap
 
       DialogButton {
         label: "Cancel"
@@ -3533,7 +3533,7 @@ Column {
       DialogButton {
         label: (!!term.portal && term.portal.save)
           ? (term.saveClash ? "Replace" : "Save") : "Choose"
-        ink: term.saveClash ? Zenon.yellow : Zenon.cyan
+        ink: term.saveClash ? Zenon.yellow : Zenon.accent
         ready: term.portalChoice.length > 0
         primary: term.portalChoice.length > 0
         onClicked: term.portalConfirm()

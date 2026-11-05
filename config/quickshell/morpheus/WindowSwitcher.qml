@@ -41,7 +41,6 @@ import Quickshell.Hyprland
 import Quickshell.Wayland
 import "."
 import "switcher.js" as S
-import "icons.js" as Icons
 import "offspecial.js" as Off
 import "hypr.js" as Hypr
 
@@ -311,7 +310,7 @@ PanelWindow {
               textFormat: Text.PlainText
               anchors.centerIn: parent
               visible: !shot.hasContent
-              text: Icons.appGlyph([tile.appId, tile.win ? tile.win.title : ""]) || "\u{F05C4}"
+              text: Strings.appGlyph([tile.appId, tile.win ? tile.win.title : ""]) || "\u{F05C4}"
               color: Zenon.muted
               font.family: Zenon.face
               font.pixelSize: Zenon.px(36)
@@ -366,8 +365,8 @@ PanelWindow {
               textFormat: Text.PlainText
               id: glyph
               anchors.verticalCenter: parent.verticalCenter
-              text: Icons.appGlyph([tile.appId, tile.win ? tile.win.title : ""]) || "\u{F05C4}"
-              color: tile.lit ? Zenon.cyan : Zenon.accentMuted
+              text: Strings.appGlyph([tile.appId, tile.win ? tile.win.title : ""]) || "\u{F05C4}"
+              color: tile.lit ? Zenon.accent : Zenon.accentMuted
               font.family: Zenon.face
               font.pixelSize: Zenon.px(15)
             }

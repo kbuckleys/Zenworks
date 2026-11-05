@@ -49,7 +49,7 @@ Item {
     anchors.verticalCenter: parent.verticalCenter
     width: 24
     text: r.glyph
-    color: r.live ? Zenon.cyan : Zenon.accentMuted
+    color: r.live ? Zenon.accent : Zenon.accentMuted
     font.family: Zenon.glyphFace
     font.pixelSize: Zenon.px(17)
   }
@@ -65,7 +65,7 @@ Item {
     anchors.rightMargin: 16
     elide: Text.ElideRight
     text: r.row ? r.row.name : ""
-    color: r.live ? Zenon.cyan : r.picked ? Zenon.ink : Zenon.white
+    color: r.live ? Zenon.accent : r.picked ? Zenon.ink : Zenon.white
     font.family: Zenon.face
     font.weight: r.live ? Zenon.titleWeight : 600
     font.pixelSize: Zenon.px(15)
@@ -90,7 +90,7 @@ Item {
     anchors.rightMargin: lockGlyph.visible ? 8 : 0
     anchors.verticalCenter: parent.verticalCenter
     text: r.stateWords
-    color: r.live ? Zenon.cyan : Zenon.accentMuted
+    color: r.live ? Zenon.accent : Zenon.accentMuted
     font.family: Zenon.face
     font.weight: Zenon.weight
     font.pixelSize: Zenon.px(13)

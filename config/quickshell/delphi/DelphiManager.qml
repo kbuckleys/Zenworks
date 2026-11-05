@@ -448,5 +448,7 @@ Scope {
   IpcHandler {
     target: "Delphi"
     function open(path: string): string { mgr.open(path); return "ok"; }
+    // the Accounts page, for the setup assistant's Accounts step
+    function accounts(): string { mgr.withWindow((w) => w.setPage("github")); return "ok"; }
   }
 }

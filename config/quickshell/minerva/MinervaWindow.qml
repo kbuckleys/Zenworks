@@ -716,7 +716,7 @@ FloatingWindow {
         anchors.verticalCenter: parent.verticalCenter
         // back to the library: md-chevron_left, bolder (user, 2026-10-21)
         text: mw.mode === "reading" ? "\u{F0141}" : "\u{F03D2}"
-        color: mw.mode === "reading" ? Zenon.white : Zenon.cyan
+        color: mw.mode === "reading" ? Zenon.white : Zenon.accent
         opacity: owlPress.pressed ? Zenon.pressDim : 1
         font.family: Zenon.glyphFace
         font.pixelSize: Zenon.px(mw.mode === "reading" ? 26 : 20)
@@ -818,8 +818,8 @@ FloatingWindow {
             anchors.verticalCenter: parent.verticalCenter
             clip: true
             color: Zenon.ink
-            selectionColor: Zenon.cyan
-            selectedTextColor: Zenon.onAccent
+            selectionColor: Zenon.accent
+            selectedTextColor: Zenon.inkOnAccent
             font.family: Zenon.face
             font.pixelSize: Zenon.px(14)
             cursorDelegate: Caret { field: findField }
@@ -867,7 +867,6 @@ FloatingWindow {
         // the library's own
         DialogButton {
           id: statsBtn
-          implicitHeight: 30
           visible: mw.mode === "library"
           glyph: true
           label: mw.glyphs.stats
@@ -876,19 +875,17 @@ FloatingWindow {
         }
         DialogButton {
           id: watchBtn
-          implicitHeight: 30
           visible: mw.mode === "library"
           label: mw.glyphs.watch + "  Watch…"
-          ink: mw.settings.watch.length > 0 ? Zenon.cyan : Zenon.muted
+          ink: mw.settings.watch.length > 0 ? Zenon.accent : Zenon.muted
           held: mw.heldBy(watchBtn)
         onClicked: mw.watchMenu(watchBtn)
           HoverHandler { onHoveredChanged: hovered ? tip.show(watchBtn, "Directories whose books join the library by themselves") : tip.hide(watchBtn) }
         }
         DialogButton {
-          implicitHeight: 30
           visible: mw.mode === "library"
           label: "Open…"
-          ink: Zenon.cyan
+          ink: Zenon.accent
           ready: !!mw.mgr && !!mw.mgr.fileManager
           onClicked: mw.openFile()
         }
@@ -987,13 +984,17 @@ FloatingWindow {
       anchors.top: head.bottom
       anchors.left: parent.left
       anchors.right: parent.right
-      anchors.bottom: foot.top
+      // to the window's foot: the hint pill floats over the page, no strip
+      // of its own under it (user, 2026-11-04)
+      anchors.bottom: parent.bottom
       readonly property real insetTop: 0
       // ON UNDER THE SIDEBAR (user, 2026-10-21): a page zoomed past the view
       // carries on under it, frosted there (sideBox's Frost), and sits clear
       // of it at rest
       readonly property real insetRight: sideBox.width
-      readonly property real insetBottom: 0
+      // the hint pill's room: the page rests clear of it and scrolls on
+      // under it; the selection and voice bars stand above it (audit 11-04)
+      readonly property real insetBottom: foot.visible ? foot.height : 0
       // the middle of what shows between them
       readonly property real midX: -readBox.insetRight / 2
       readonly property real midY: (readBox.insetTop - readBox.insetBottom) / 2
@@ -1033,7 +1034,7 @@ FloatingWindow {
         Text {
           anchors.horizontalCenter: parent.horizontalCenter
           text: "\u{F0226}"
-          color: Zenon.cyan
+          color: Zenon.accent
           font.family: Zenon.glyphFace
           font.pixelSize: Zenon.px(40)
         }
@@ -1053,7 +1054,7 @@ FloatingWindow {
         BusyButton {
           anchors.horizontalCenter: parent.horizontalCenter
           label: "Install Qt PDF"
-          ink: Zenon.cyan
+          ink: Zenon.accent
           primary: true
           busy: !!mw.mgr && mw.mgr.settingUp
           busyText: "Installing…"
@@ -1093,7 +1094,7 @@ FloatingWindow {
         Row {
           id: selRow
           anchors.centerIn: parent
-          spacing: 6
+          spacing: Zenon.buttonGap
           Repeater {
             model: M.COLORS
             delegate: Rectangle {
@@ -1114,13 +1115,12 @@ FloatingWindow {
           }
           Rectangle { anchors.verticalCenter: parent.verticalCenter; width: 1; height: 22; color: Zenon.border }
           DialogButton {
-            implicitHeight: 30
             label: "Note"
             onClicked: { const id = mw.highlight(); if (id) mw.askNote({ id: id, list: "highlights" }); }
           }
-          DialogButton { implicitHeight: 30; label: "Look up"; onClicked: mw.lookUp("define") }
-          DialogButton { implicitHeight: 30; label: "Translate"; onClicked: mw.lookUp("translate") }
-          DialogButton { implicitHeight: 30; label: "Copy"; onClicked: { if (mw.page) mw.page.copy(); mw.say("Copied"); } }
+          DialogButton { label: "Look up"; onClicked: mw.lookUp("define") }
+          DialogButton { label: "Translate"; onClicked: mw.lookUp("translate") }
+          DialogButton { label: "Copy"; onClicked: { if (mw.page) mw.page.copy(); mw.say("Copied"); } }
         }
       }
 
@@ -1135,7 +1135,7 @@ FloatingWindow {
         radius: Zenon.windowRadius
         color: Zenon.hud(0.94)
         border.width: 1
-        border.color: Zenon.alpha(Zenon.cyan, 0.5)
+        border.color: Zenon.alpha(Zenon.accent, 0.5)
         z: 4
         opacity: voice.on ? 1 : 0
         visible: opacity > 0
@@ -1143,20 +1143,20 @@ FloatingWindow {
         Row {
           id: voiceRow
           anchors.centerIn: parent
-          spacing: 6
+          spacing: Zenon.buttonGap
           Text {
             anchors.verticalCenter: parent.verticalCenter
             text: voice.paused ? "Paused" : "Reading aloud"
-            color: Zenon.cyan
+            color: Zenon.accent
             font.family: Zenon.face
             font.weight: Font.DemiBold
             font.pixelSize: Zenon.px(14)
             rightPadding: 6
           }
-          DialogButton { implicitHeight: 30; glyph: true; label: "\u{F04AE}"; onClicked: voice.skip(-1) }
-          DialogButton { implicitHeight: 30; glyph: true; label: voice.paused ? "\u{F040A}" : "\u{F03E4}"; onClicked: voice.pause() }
-          DialogButton { implicitHeight: 30; glyph: true; label: "\u{F04AD}"; onClicked: voice.skip(1) }
-          DialogButton { implicitHeight: 30; glyph: true; label: "\u{F04DB}"; ink: Zenon.red; onClicked: voice.stop() }
+          DialogButton { glyph: true; label: "\u{F04AE}"; onClicked: voice.skip(-1) }
+          DialogButton { glyph: true; label: voice.paused ? "\u{F040A}" : "\u{F03E4}"; onClicked: voice.pause() }
+          DialogButton { glyph: true; label: "\u{F04AD}"; onClicked: voice.skip(1) }
+          DialogButton { glyph: true; label: "\u{F04DB}"; ink: Zenon.red; onClicked: voice.stop() }
         }
       }
 
@@ -1181,15 +1181,14 @@ FloatingWindow {
       id: tools5
       parent: mw.sideOpen ? sideTools : headSlot
       anchors.centerIn: parent
-      spacing: 8
+      spacing: Zenon.buttonGap
       visible: mw.mode === "reading"
       DialogButton {
         id: aaBtn
         implicitWidth: head.toolW
-        implicitHeight: 30
         visible: mw.mode === "reading"
         label: "Aa"
-        ink: mw.typeOpen ? Zenon.cyan : Zenon.muted
+        ink: mw.typeOpen ? Zenon.accent : Zenon.muted
         held: mw.typeOpen
         onClicked: mw.typeOpen = !mw.typeOpen
         HoverHandler { onHoveredChanged: hovered ? tip.show(aaBtn, "The page: its colors and layout") : tip.hide(aaBtn) }
@@ -1197,29 +1196,26 @@ FloatingWindow {
       DialogButton {
         id: markBtn
         implicitWidth: head.toolW
-        implicitHeight: 30
         visible: mw.mode === "reading" && !!mw.page
         glyph: true
         label: mw.hereMark ? "\uF47A" : "\uF461"
-        ink: mw.hereMark ? Zenon.cyan : Zenon.muted
+        ink: mw.hereMark ? Zenon.accent : Zenon.muted
         onClicked: mw.toggleBookmark()
         HoverHandler { onHoveredChanged: hovered ? tip.show(markBtn, mw.hereMark ? "Remove the bookmark" : "Bookmark this page", "ctrl d") : tip.hide(markBtn) }
       }
       DialogButton {
         id: voiceBtn
         implicitWidth: head.toolW
-        implicitHeight: 30
         visible: mw.mode === "reading" && mw.kind !== "comic" && !!mw.page
         glyph: true
         label: mw.glyphs.voice
-        ink: voice.on ? Zenon.cyan : Zenon.muted
+        ink: voice.on ? Zenon.accent : Zenon.muted
         onClicked: voice.toggle()
         HoverHandler { onHoveredChanged: hovered ? tip.show(voiceBtn, voice.on ? "Stop reading aloud" : "Read aloud", "ctrl r") : tip.hide(voiceBtn) }
       }
       DialogButton {
         id: moreBtn
         implicitWidth: head.toolW
-        implicitHeight: 30
         visible: mw.mode === "reading"
         glyph: true
         label: mw.glyphs.more
@@ -1230,12 +1226,11 @@ FloatingWindow {
       DialogButton {
         id: sideBtn
         implicitWidth: head.toolW
-        implicitHeight: 30
         visible: mw.mode === "reading"
         glyph: true
         // the panel shown or not (user's glyphs, 2026-10-21)
         label: mw.settings.sidebar ? "" : ""
-        ink: mw.settings.sidebar ? Zenon.cyan : Zenon.muted
+        ink: mw.settings.sidebar ? Zenon.accent : Zenon.muted
         onClicked: mw.setSidebar(!mw.settings.sidebar)
         HoverHandler { onHoveredChanged: hovered ? tip.show(sideBtn, "Sidebar", "ctrl b") : tip.hide(sideBtn) }
       }
@@ -1417,14 +1412,8 @@ FloatingWindow {
       z: 1.5
       visible: mw.mode === "reading" && !mw.focusMode && !!mw.page
     }
-    ScrollEdge {
-      view: mw.page && mw.page.view ? mw.page.view : null
-      below: true
-      follow: true
-      bar: foot
-      z: 1.5
-      visible: mw.mode === "reading" && !mw.focusMode && !!mw.page
-    }
+    // none under the hint bar (user, 2026-11-04): its fade read as a gray
+    // bar across the page's foot; the pill floats over the page as it is
     HintBar {
       id: foot
       z: 3
@@ -1437,11 +1426,10 @@ FloatingWindow {
         ? [["arrows", "choose"], ["return", "read"], ["ctrl click", "select"], ["ctrl a", "all"], ["type", "filter"], ["delete", "remove"], ["ctrl i", "info"], ["ctrl o", "open"], ["esc", "close"]]
         : [["← →", "turn"], ["ctrl f", "find"], ["ctrl h", "highlight"], ["ctrl k", "look up"], ["ctrl n", "note"], ["ctrl r", "read aloud"],
            ["f11", "focus"], ["esc", "library"]]
-      // where you are and what is left, at the right end
-      Text {
+      // where you are and what is left, inside the pill before the keys
+      // (user, 2026-11-04), not a box of its own at the right end
+      leading: Text {
         textFormat: Text.PlainText
-        anchors.verticalCenter: parent.verticalCenter
-        rightPadding: 6
         visible: text !== ""
         text: {
           if (mw.mode !== "reading" || !mw.page || !mw.page.ready || !mw.book) return "";
@@ -1515,8 +1503,8 @@ FloatingWindow {
           width: parent.width - 20
           wrapMode: TextEdit.Wrap
           color: Zenon.ink
-          selectionColor: Zenon.cyan
-          selectedTextColor: Zenon.onAccent
+          selectionColor: Zenon.accent
+          selectedTextColor: Zenon.inkOnAccent
           font.family: Zenon.face
           font.pixelSize: Zenon.px(15)
           cursorDelegate: Caret { field: noteEdit }
@@ -1532,11 +1520,11 @@ FloatingWindow {
         }
       }
       Row {
-        spacing: 8
+        spacing: Zenon.buttonGap
         DialogButton { label: "Cancel"; onClicked: { mw.noteSheetOpen = false; keys.forceActiveFocus(); } }
         DialogButton {
           label: mw.mgr && mw.mgr.hasClio && !mw.noteFor ? "Keep, and file in Clio" : "Keep"
-          ink: Zenon.cyan
+          ink: Zenon.accent
           primary: true
           onClicked: mw.saveNote()
         }
@@ -1581,9 +1569,9 @@ FloatingWindow {
         onAccepted: mw.answerName(true)
       }
       Row {
-        spacing: 8
+        spacing: Zenon.buttonGap
         DialogButton { label: "Cancel"; onClicked: mw.answerName(false) }
-        DialogButton { label: "Make"; ink: Zenon.cyan; primary: true; onClicked: mw.answerName(true) }
+        DialogButton { label: "Make"; ink: Zenon.accent; primary: true; onClicked: mw.answerName(true) }
       }
     }
   }

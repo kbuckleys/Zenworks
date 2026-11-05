@@ -123,7 +123,7 @@ Item {
     Text {
       anchors.centerIn: parent
       text: ""
-      color: Zenon.onAccent
+      color: Zenon.inkOnAccent
       font.family: Zenon.glyphFace
       font.pixelSize: Zenon.px(10)
     }
@@ -151,7 +151,7 @@ Item {
     Text {
       anchors.centerIn: parent
       text: ""
-      color: Zenon.onAccent
+      color: Zenon.inkOnAccent
       font.family: Zenon.glyphFace
       font.pixelSize: Zenon.px(10)
     }

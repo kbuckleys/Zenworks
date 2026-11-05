@@ -30,9 +30,31 @@ Item {
     onFileChanged: tagFile.reload()
     onTextChanged: term.loadTags()
   }
+  // A TAG RENAMED BY THE SUITE (grey → gray, favourite → favorite) is
+  // read under its new name everywhere the state keeps one, not only off
+  // the xattrs (audit 11-04: a stray "grey" in the tally beside an empty
+  // "gray"). Written back under the new names by the next edit.
+  function renamedState(o) {
+    if (!o || typeof o !== "object") return o;
+    const fix = (n) => typeof n === "string" ? Tags.renamed(n) : n;
+    const rekey = (m, vals) => {
+      if (!m || typeof m !== "object" || Array.isArray(m)) return m;
+      const out = {};
+      for (const k in m) out[fix(k)] = vals ? fix(m[k]) : m[k];
+      return out;
+    };
+    if (Array.isArray(o.defs))
+      o.defs = o.defs.map((d) => typeof d === "string" ? fix(d)
+        : d && typeof d.name === "string" ? Object.assign({}, d, { name: fix(d.name) }) : d);
+    if (o.index && typeof o.index === "object")
+      for (const k in o.index) if (Array.isArray(o.index[k])) o.index[k] = o.index[k].map(fix);
+    o.views = rekey(o.views, false);
+    o.gone = rekey(o.gone, true);
+    return o;
+  }
   function tagState() {
     try {
-      const o = JSON.parse(String(tagFile.text() || "") || "{}");
+      const o = tagging.renamedState(JSON.parse(String(tagFile.text() || "") || "{}"));
       return {
         defs: Array.isArray(o.defs) ? o.defs : [],
         index: (o.index && typeof o.index === "object") ? o.index : ({}),
@@ -114,10 +136,10 @@ Item {
   function tagInk(name) {
     for (let i = 0; i < term.tagDefs.length; ++i)
       if (term.tagDefs[i].name === name)
-        return Zenon[term.tagDefs[i].ink] || Zenon.cyan;
+        return Zenon[term.tagDefs[i].ink] || Zenon.accent;
     const preset = Tags.presetInk(name);
-    if (preset !== "") return Zenon[preset] || Zenon.cyan;
-    return Zenon.cyan;
+    if (preset !== "") return Zenon[preset] || Zenon.accent;
+    return Zenon.accent;
   }
   function tagsFor(path) { return term.tagMarks[path] || []; }
   // Nothing in the delete, trash or rename paths ever touched the index, and
@@ -135,6 +157,8 @@ Item {
   // different path.
   function forgetTags(paths) {
     if (!paths || paths.length === 0) return;
+    // a glyph chosen for it goes with it (morpheus/FileGlyphs)
+    FileGlyphs.forget(paths);
     const hit = paths.filter((p) => term.tagMarks[p] !== undefined);
     // editTags reloads the shared file and waits for the write; not worth
     // paying for the overwhelmingly common case of untagged files.
@@ -148,6 +172,8 @@ Item {
   // disagreeing with the truth it is a cache of.
   function moveTags(pairs) {
     if (!pairs || pairs.length === 0) return;
+    // and so does a glyph chosen for it, descendants too (FileGlyphs)
+    FileGlyphs.moved(pairs);
     const hit = pairs.filter((q) => term.tagMarks[q[0]] !== undefined);
     if (hit.length === 0) return;
     term.editTags((st) => {
@@ -293,7 +319,7 @@ Item {
     // The NAME of the Zenon color, not the color: that is what a
     // definition stores and what tagInk resolves on the way out. Handing
     // it the resolved value made the lookup miss and every renamed preset
-    // came out in the default cyan.
+    // came out in the default accent.
     const ink = Tags.presetInk(from) || "cyan";
     term.editTags((st) => {
       // The view follows the name, or the page you had arranged comes back

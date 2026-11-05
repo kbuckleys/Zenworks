@@ -3,7 +3,7 @@
 // └─┘└─┘┘└┘└┴┘└─┘┴└─┴ ┴└─┘
 // https://github.com/kbuckleys/
 //
-// THE SUITE'S CHECKBOX: a box with a tick, in `ink` (cyan) when on, and an
+// THE SUITE'S CHECKBOX: a box with a tick, in `ink` (accent) when on, and an
 // optional label beside it. It was ceres' (its settings' flags and repos,
 // setup's "Also add Flatpak apps", the store); Oracle's Tools wanted the
 // same box for picking what to install (user, 2026-10-18: "make it a
@@ -31,7 +31,7 @@ Row {
   property bool lit: false
   property string label: ""
   property bool enabled2: true
-  property color ink: Zenon.cyan
+  property color ink: Zenon.accent
   // the label's and the empty box's inks, and the label's size — for a
   // Check standing among controls that speak in another (picasso's foot,
   // in the accent beside its chips: user, 2026-10-25)
@@ -77,7 +77,7 @@ Row {
       radius: ckBox.radius + 3
       color: "transparent"
       border.width: 2
-      border.color: Zenon.cyan
+      border.color: Zenon.accent
     }
   }
   Text {

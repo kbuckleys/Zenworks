@@ -1010,13 +1010,13 @@ PanelWindow {
             height: Math.round(pageBox.width * 1.3)
             // The tint alone was no cursor: a rendered page is opaque and
             // covers all but 4px of it. So the page you are on takes the
-            // cyan ring a tile's cursor wears over a photograph — see
+            // accent ring a tile's cursor wears over a photograph — see
             // SelectCell — one pixel, the same width as everyone else's.
             color: pageCell.here
-              ? Qt.rgba(Zenon.cyan.r, Zenon.cyan.g, Zenon.cyan.b, 0.22)
+              ? Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.22)
               : Zenon.wash(0.04)
             border.width: 1
-            border.color: pageCell.here ? Zenon.cyan : Zenon.border
+            border.color: pageCell.here ? Zenon.accent : Zenon.border
             radius: Zenon.rad(2)
 
             Image {
@@ -1038,7 +1038,7 @@ PanelWindow {
             anchors.topMargin: 3
             anchors.horizontalCenter: parent.horizontalCenter
             text: String(pageCell.page)
-            color: pageCell.here ? Zenon.cyan : Zenon.accentMuted
+            color: pageCell.here ? Zenon.accent : Zenon.accentMuted
             font.family: Zenon.face
             font.weight: Zenon.weight
             font.pixelSize: Math.round(11 * root.zoom)
@@ -1120,7 +1120,7 @@ PanelWindow {
           vertical: false
           value: lookPlayer.duration > 0
             ? lookPlayer.position / lookPlayer.duration : 0
-          accent: Zenon.cyan
+          accent: Zenon.accent
           thickness: 4
           segLength: 5
           segGap: 3
@@ -1683,7 +1683,7 @@ PanelWindow {
           // hand-written escape is exactly how the first attempt at this
           // ended up drawing a lorry.
           text: look.row ? look.row.glyph : ""
-          color: look.row ? root.inkFor(look.row) : Zenon.cyan
+          color: look.row ? root.inkFor(look.row) : Zenon.accent
           font.family: Zenon.faceMono
           font.weight: Zenon.weight
           font.pixelSize: Zenon.px(44)
@@ -1706,7 +1706,7 @@ PanelWindow {
           vertical: false
           value: lookPlayer.duration > 0
             ? lookPlayer.position / lookPlayer.duration : 0
-          accent: Zenon.cyan
+          accent: Zenon.accent
           thickness: 6
           segLength: 6
           segGap: 3

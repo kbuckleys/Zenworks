@@ -293,13 +293,13 @@ Item {
     // SelectBar stands down and the cursor's row wears a HeldRing (below)
     // instead — hollow, no fill of its own (user, 2026-10-18).
     color: entryRow.ticked
-      ? Qt.rgba(Zenon.cyan.r, Zenon.cyan.g, Zenon.cyan.b, 0.10)
+      ? Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.10)
       : "transparent"
 
     Rectangle {
       anchors.fill: parent
       visible: entryRow.bornGlow > 0
-      color: Qt.rgba(Zenon.cyan.r, Zenon.cyan.g, Zenon.cyan.b,
+      color: Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b,
                      0.30 * entryRow.bornGlow)
     }
 
@@ -314,7 +314,7 @@ Item {
         GradientStop { position: 0.0; color: "transparent" }
         GradientStop {
           position: 0.5
-          color: Qt.rgba(Zenon.cyan.r, Zenon.cyan.g, Zenon.cyan.b, 0.30)
+          color: Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.30)
         }
         GradientStop { position: 1.0; color: "transparent" }
       }
@@ -462,7 +462,7 @@ Item {
     anchors.fill: parent
     z: 6
     visible: entryRow.dropTarget
-    color: Qt.rgba(Zenon.cyan.r, Zenon.cyan.g, Zenon.cyan.b, 0.12)
+    color: Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.12)
     border.width: 1
     border.color: Zenon.border
     radius: Zenon.radiusControl
@@ -771,7 +771,7 @@ Item {
         anchors.verticalCenter: parent.verticalCenter
         visible: !!entryRow.entry && host.isBookmarked(entryRow.entry.path)
         text: "\uF47A"
-        color: Zenon.cyan
+        color: Zenon.accent
         opacity: entryRow.dim ? 0.65 : 1
         font.family: Zenon.glyphFace   // JetBrainsMono's, whatever the shell face (Zenon.glyphFace)
         font.weight: Zenon.weight
@@ -922,7 +922,7 @@ Item {
         color: Zenon.white
         // the accent, not selBg: the row being renamed is the selected row,
         // already filled in selBg, so the highlighted name was invisible on it
-        selectionColor: Zenon.alpha(Zenon.cyan, 0.22)
+        selectionColor: Zenon.alpha(Zenon.accent, 0.22)
         selectedTextColor: Zenon.white
         font.family: Zenon.face
         font.weight: Zenon.weight
@@ -1129,7 +1129,7 @@ Item {
         fromRight: true
         frac: sizeCell.frac
         pending: sizeCell.pending
-        accent: sizeCell.biggest ? Zenon.sand : Zenon.cyan
+        accent: sizeCell.biggest ? Zenon.sand : Zenon.accent
         // Brighter in the usage view than the muted gray it uses elsewhere,
         // because gray on a tinted band is the one place that color stops
         // being readable.

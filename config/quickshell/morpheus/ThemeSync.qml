@@ -6,7 +6,8 @@
 // THE THEME AND THE FONTS, CARRIED OUT OF THE SHELL. Oracle is the one
 // place a font is set: hyprland gets lua/font.lua (below), and kitty, GTK,
 // gsettings and fontconfig's generic families scripts/fontsync.sh. Oracle's
-// Corner rounding reaches hyprland's windows through lua/corner.lua.
+// Corner rounding reaches hyprland's windows through lua/corner.lua, and
+// its Cursor rows lua/cursor.lua (gtkscheme.sh hands them to GTK and X).
 //
 // THE THEME. kitty, hyprland, GTK and Qt paint with their
 // own config, so when the theme changes they are each written a file
@@ -47,9 +48,9 @@ Item {
     if (Zenon.accentOwn === "" && (Zenon.themeName === "zenon" || !Zenon.theme.colors)) return null;
     const out = { name: Zenon.theme.name || Zenon.themeName };
     for (const s of ["ground", "card", "surface", "ink", "muted", "soft", "keyInk", "dim", "red",
-                     "green", "yellow", "blue", "magenta", "cyan", "pink", "sand",
+                     "green", "yellow", "blue", "magenta", "accent", "pink", "sand",
                      "border", "onAccent"])
-      out[s] = Zenon.hex(Zenon[s]);
+      out[s] = Zenon.hex(Zenon[s === "onAccent" ? "inkOnAccent" : s]);
     return out;
   }
   readonly property string kittyText: Sync.renderKitty(sync.colors, Zenon.light)
@@ -75,9 +76,9 @@ Item {
   // another palette's, so hyprland is always handed the colors
   readonly property var hyprColors: {
     const out = { name: Zenon.theme.name || Zenon.themeName };
-    for (const s of ["surface", "ink", "red", "blue", "magenta", "cyan", "pink", "sand",
+    for (const s of ["surface", "ink", "red", "blue", "magenta", "accent", "pink", "sand",
                      "green", "yellow", "border", "onAccent"])
-      out[s] = Zenon.hex(Zenon[s]);
+      out[s] = Zenon.hex(Zenon[s === "onAccent" ? "inkOnAccent" : s]);
     return out;
   }
   readonly property string hyprText: Sync.renderHyprTheme(sync.hyprColors)
@@ -85,8 +86,8 @@ Item {
   readonly property var qtColors: {
     const out = { name: Zenon.theme.name || Zenon.themeName };
     for (const s of ["ground", "card", "surface", "ink", "muted", "red", "blue", "magenta",
-                     "cyan", "border", "onAccent"])
-      out[s] = Zenon.hex(Zenon[s]);
+                     "accent", "border", "onAccent"])
+      out[s] = Zenon.hex(Zenon[s === "onAccent" ? "inkOnAccent" : s]);
     return out;
   }
   readonly property string qtText: Sync.renderQtColors(sync.qtColors, Zenon.light)
@@ -95,8 +96,8 @@ Item {
   // Font and Corner rounding: its stock look is no theme of ours
   readonly property var toolkitColors: {
     const out = { name: Zenon.theme.name || Zenon.themeName };
-    for (const s of ["ground", "card", "surface", "ink", "blue", "cyan", "magenta"])
-      out[s] = Zenon.hex(Zenon[s]);
+    for (const s of ["ground", "card", "surface", "ink", "blue", "accent", "magenta"])
+      out[s] = Zenon.hex(Zenon[s === "onAccent" ? "inkOnAccent" : s]);
     return out;
   }
   readonly property string toolkitText: Sync.renderHyprtoolkit(sync.toolkitColors, Zenon.light, {
@@ -108,7 +109,7 @@ Item {
   // yet, then a running fcitx5 told to read it again
   readonly property string fcitxText: Oracle.imOn ? Sync.renderFcitxTheme({
     name: Zenon.theme.name || Zenon.themeName, card: Zenon.hex(Zenon.card),
-    border: Zenon.hex(Zenon.border), ink: Zenon.hex(Zenon.ink), cyan: Zenon.hex(Zenon.cyan) }) : ""
+    border: Zenon.hex(Zenon.border), ink: Zenon.hex(Zenon.ink), accent: Zenon.hex(Zenon.accent) }) : ""
   readonly property string fcitxPath: (Quickshell.env("XDG_DATA_HOME") || (Quickshell.env("HOME") + "/.local/share"))
     + "/fcitx5/themes/default/theme.conf"
   property string fcitxLast: ""
@@ -143,8 +144,13 @@ Item {
   readonly property string cornerText: Sync.renderCornerLua(sync.windowCorner)
   onWindowCornerChanged: settle.restart()
   // and its Frost style: lua/frost.lua (themesync.js)
-  readonly property string frostText: Sync.renderFrostLua(Oracle.frostStyle, Zenon.cyan, Zenon.magenta)
+  readonly property string frostText: Sync.renderFrostLua(Oracle.frostStyle, Zenon.accent, Zenon.magenta)
   onFrostTextChanged: settle.restart()
+  // and its Cursor rows: lua/cursor.lua (themesync.js), once oracle's scan
+  // has said which theme is whose twin — never a guess written first
+  readonly property string cursorText: Oracle.cursorThemesScanned
+    ? Sync.renderCursorLua(Oracle.cursorPair.hypr, Oracle.cursorPair.x, Oracle.cursorSize) : ""
+  onCursorTextChanged: settle.restart()
 
   onKittyTextChanged: settle.restart()
   onGtk4TextChanged: settle.restart()
@@ -167,6 +173,12 @@ Item {
       if (sync.put(fontFile, sync.fontText, true)) tell.hypr = true;
       if (sync.put(cornerFile, sync.cornerText, true)) tell.hypr = true;
       if (sync.put(frostFile, sync.frostText, true)) tell.hypr = true;
+      // the env for apps started from now on (reload), the pointer now
+      // (setcursor), and GTK's and X's once it has landed (cursorFile)
+      if (sync.cursorText !== "" && sync.put(cursorFile, sync.cursorText, true)) {
+        tell.hypr = true;
+        tell.cursor = true;
+      }
       // nothing to tell GTK 4: an app reads its gtk.css as it starts
       sync.put(gtk4File, sync.gtk4Text);
       // GTK 3 rereads colors.css when gtkscheme.sh names a fresh theme slot,
@@ -191,11 +203,18 @@ Item {
     interval: 250
     property bool kitty: false
     property bool hypr: false
+    property bool cursor: false
     onTriggered: {
       if (tell.kitty) Quickshell.execDetached(["pkill", "-USR1", "-x", "kitty"]);
-      if (tell.hypr) Quickshell.execDetached(["hyprctl", "reload"]);
+      // setcursor after the reload, which would otherwise put back the
+      // theme hyprland started with
+      if (tell.hypr && tell.cursor)
+        Quickshell.execDetached(["sh", "-c", "hyprctl reload >/dev/null; hyprctl setcursor \"$1\" \"$2\" >/dev/null",
+          "setcursor", Oracle.cursorPair.hypr, String(Oracle.cursorSize)]);
+      else if (tell.hypr) Quickshell.execDetached(["hyprctl", "reload"]);
       tell.kitty = false;
       tell.hypr = false;
+      tell.cursor = false;
     }
   }
 
@@ -221,6 +240,18 @@ Item {
     blockLoading: true
     printErrors: false
     onLoadFailed: exists = false
+  }
+
+  FileView {
+    id: cursorFile
+    property bool exists: true
+    property string last: ""
+    path: sync.hyprLuaDir + "/cursor.lua"
+    blockLoading: true
+    printErrors: false
+    onLoadFailed: exists = false
+    // gtkscheme.sh reads it: GTK's settings.ini, gsettings, ~/.icons/default
+    onSaved: sync.gtkScheme("")
   }
 
   FileView {

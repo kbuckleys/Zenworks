@@ -120,7 +120,7 @@ Item {
         x: 6
         anchors.verticalCenter: parent.verticalCenter
         spacing: 12
-        Text { textFormat: Text.PlainText; anchors.verticalCenter: parent.verticalCenter; text: Icons.glyphFor({ name: modelData.b.name || "" }) || ""; color: Zenon.cyan; font.family: Zenon.glyphFace; font.pixelSize: Zenon.px(18) }
+        Text { textFormat: Text.PlainText; anchors.verticalCenter: parent.verticalCenter; text: Icons.glyphFor({ name: modelData.b.name || "" }) || ""; color: Zenon.accent; font.family: Zenon.glyphFace; font.pixelSize: Zenon.px(18) }
         Column {
           anchors.verticalCenter: parent.verticalCenter
           Text { textFormat: Text.PlainText; text: modelData.b.name || "file"; color: Zenon.ink; font.family: Zenon.face; font.weight: Font.DemiBold; font.pixelSize: Zenon.px(14) }

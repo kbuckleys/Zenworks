@@ -33,7 +33,7 @@ TextEdit {
   textFormat: view.has ? TextEdit.MarkdownText : TextEdit.PlainText
   text: view.has ? D.mdCodeMarks(D.mdLinesOf(view.body)) : view.empty
   color: view.has ? Zenon.ink : Zenon.accentMuted
-  selectionColor: Zenon.alpha(Zenon.cyan, 0.4)
+  selectionColor: Zenon.alpha(Zenon.accent, 0.4)
   font.family: Zenon.face
   font.weight: Zenon.weight
   font.pixelSize: view.textSize

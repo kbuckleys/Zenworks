@@ -603,7 +603,7 @@ Item {
         anchors.horizontalCenter: parent.horizontalCenter
         running: store.loading
         visible: store.loading
-        ink: Zenon.cyan
+        ink: Zenon.accent
       }
       Text {
         anchors.horizontalCenter: parent.horizontalCenter
@@ -841,7 +841,7 @@ Item {
       // the app's own brand color when its catalog gives one; else the
       // color of its icon (user, 2026-10-14), else the accent
       readonly property color brand: page.a && page.a.color ? page.a.color
-        : iconTint.found.a > 0 ? iconTint.found : Zenon.cyan
+        : iconTint.found.a > 0 ? iconTint.found : Zenon.accent
 
       // ── THE ICON'S COLOR, sampled once a page ─────────────────────────
       // Drawn at 16×16 and averaged over its vivid pixels — weighted by
@@ -944,7 +944,7 @@ Item {
                 readonly property var sec: St.sectionOf(page.a)
                 visible: !!sec
                 text: sec ? sec[1] : ""
-                color: Zenon.cyan
+                color: Zenon.accent
                 font.family: Zenon.face
                 font.weight: Font.Bold
                 font.pixelSize: Zenon.px(17)
@@ -1071,7 +1071,7 @@ Item {
                   Text {
                     anchors.verticalCenter: parent.verticalCenter
                     text: link.modelData.glyph
-                    color: Zenon.cyan
+                    color: Zenon.accent
                     font.family: Zenon.face
                     font.weight: Zenon.weight
                     font.pixelSize: Zenon.px(14)
@@ -1304,7 +1304,7 @@ Item {
                   textFormat: Text.StyledText
                   linkColor: Zenon.link   // a link in it is the theme's (Zenon.link)
                   text: Cer.esc(permRow.modelData.text)
-                    + (permRow.modelData.changed ? "  <font color='" + Zenon.hex(Zenon.cyan) + "'>"
+                    + (permRow.modelData.changed ? "  <font color='" + Zenon.hex(Zenon.accent) + "'>"
                       + (permRow.modelData.on ? "given by you" : "taken away") + "</font>" : "")
                   color: page.permsLive && !permRow.modelData.on ? Zenon.accentMuted : Zenon.white
                   font.family: Zenon.face
@@ -1475,7 +1475,7 @@ Item {
             Text {
               anchors.centerIn: parent
               text: "\uF078"
-              color: Zenon.cyan
+              color: Zenon.accent
               rotation: about.open ? 180 : 0
               Behavior on rotation { NumberAnimation { duration: Zenon.ms(220); easing.type: Easing.OutCubic } }
               font.family: Zenon.face
@@ -1608,7 +1608,7 @@ Item {
         Text {
           anchors.horizontalCenter: parent.horizontalCenter
           text: "\u{F0D68}"
-          color: Zenon.cyan
+          color: Zenon.accent
           font.family: Zenon.face
           font.pixelSize: Zenon.px(40)
         }
@@ -1639,7 +1639,7 @@ Item {
         DialogButton {
           anchors.horizontalCenter: parent.horizontalCenter
           label: Ceres.installing ? "Installing…" : "Install"
-          ink: Zenon.cyan
+          ink: Zenon.accent
           primary: true
           ready: !Ceres.installing && !Ceres.txBusy
           onClicked: {

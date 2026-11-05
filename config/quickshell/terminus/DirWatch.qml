@@ -118,6 +118,31 @@ Item {
     }
     if (best === "") return;
     term.watchHits[best] = true;
+    dirWatch.noteMoved(s, best);
+  }
+  // ── AND WHICH MEASURED TOTALS THAT MAKES WRONG ───────────────────────
+  // Every event is a change inside `dir`, so its total and every total above
+  // it are stale; a directory that arrived or left whole (ISDIR) takes the
+  // totals of everything inside it too. Handed to Measure when the burst
+  // settles — see sizesMoved.
+  property var movedIn: ({})
+  property var movedWhole: ({})
+  function noteMoved(line, dir) {
+    dirWatch.movedIn[dir] = true;
+    // inotifywait's line is "<dir>/ EVENTS name": past the dir and its
+    // slash comes a SPACE, then the events (audit 2026-11-05 — read from
+    // the space on, the events came out empty and ISDIR was never seen)
+    const rest = line.slice((dir === "/" ? "/" : dir + "/").length).replace(/^ /, "");
+    const sp = rest.indexOf(" ");
+    if (sp < 0 || rest.slice(0, sp).indexOf("ISDIR") < 0) return;
+    const name = rest.slice(sp + 1);
+    if (name !== "") dirWatch.movedWhole[Terminus.joinPath(dir, name)] = true;
+  }
+  function flushMoved() {
+    const ins = Object.keys(dirWatch.movedIn), whole = Object.keys(dirWatch.movedWhole);
+    dirWatch.movedIn = ({});
+    dirWatch.movedWhole = ({});
+    if (ins.length > 0 || whole.length > 0) term.sizesMoved(ins.concat(whole), whole);
   }
   // ── COALESCED, BUT NEVER FOR EVER ────────────────────────────────────
   // Each event restarted its settle timer, so a directory written more often
@@ -170,6 +195,7 @@ Item {
       // re-reading every BRANCH, not from re-reading the directory.
       term.refresh();
       if (branches.length > 0) term.rereadBranches(branches);
+      dirWatch.flushMoved();
       // A directory on screen may have gained or lost its last item. The
       // view does not change when that happens — the row is the same row
       // — so the chevron would go on saying whatever it said when the
@@ -222,14 +248,17 @@ Item {
     id: peekSettle
     property real since: 0   // the first event of this burst — see nudge
     interval: 250
-    onTriggered: term.repeek()
+    onTriggered: {
+      if (term.peekWatched !== "") term.sizesMoved([term.peekWatched], []);
+      term.repeek();
+    }
   }
   function watchPeek(dir) {
     if (dir === term.peekWatched) return;
     term.peekWatched = dir;
     peekWatchProc.running = false;
     if (dir === "" || !term.shown) return;
-    peekWatchProc.command = Terminus.watchArgv([dir]);
+    peekWatchProc.command = Terminus.watchArgv([dir], true);
     peekWatchProc.running = true;
   }
   // Something changed in the directory being previewed, so the peek we hold of it
@@ -283,7 +312,7 @@ Item {
     // openBranches names only the ones actually on screen.
     const dirs = term.watching();
     term.watchArmed = dirs.join("\n");
-    watchProc.command = Terminus.watchArgv(dirs);
+    watchProc.command = Terminus.watchArgv(dirs, true);
     watchProc.running = true;
   }
   Timer {
@@ -398,7 +427,7 @@ Item {
     if (!term.shown || !term.dual || term.otherCwd === "") return;
     const dirs = term.otherWatching();
     term.otherWatchArmed = dirs.join("\n");
-    otherWatchProc.command = Terminus.watchArgv(dirs);
+    otherWatchProc.command = Terminus.watchArgv(dirs, true);
     otherWatchProc.running = true;
   }
   function noteOtherHit(line) {
@@ -410,7 +439,9 @@ Item {
       if (d.length <= best.length) continue;
       if (s.indexOf(d === "/" ? "/" : d + "/") === 0) best = d;
     }
-    if (best !== "") term.otherHits[best] = true;
+    if (best === "") return;
+    term.otherHits[best] = true;
+    dirWatch.noteMoved(s, best);
   }
   Timer {
     id: otherSettle
@@ -421,6 +452,7 @@ Item {
       term.otherHits = ({});
       const pane = term.pas;
       term.refreshOther();
+      dirWatch.flushMoved();
       if (!pane || !pane.treed) return;
       for (const d in hits)
         if (d !== pane.cwd && pane.isOpen(d)) pane.readKids(d, true);
@@ -458,6 +490,9 @@ Item {
     term.refreshOther();
     if (term.act && term.act.treed) term.rereadBranches(term.act.liveBranches());
     term.emptyDelayRef.restart();
+    // and every measured total, for the same reason: nothing was watching
+    // what lay under them either
+    term.sizesAllMoved();
   }
   // Back to one tab at home, which is what "do not restore" means when it is
   // asked of a window that is already open rather than of one being built.

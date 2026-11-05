@@ -130,7 +130,7 @@ FocusScope {
         anchors.verticalCenter: parent.verticalCenter
         label: body.out !== "" ? "Change…" : "Choose…"
         primary: body.out === ""
-        ink: body.out === "" ? Zenon.cyan : Zenon.accentMuted
+        ink: body.out === "" ? Zenon.accent : Zenon.accentMuted
         onClicked: body.choose()
       }
     }
@@ -171,7 +171,7 @@ FocusScope {
           anchors.fill: parent
           radius: band.radius
           frac: S.phaseFrac(body.job)
-          ink: body.job && body.job.result && !body.job.result.ok ? Zenon.red : Zenon.cyan
+          ink: body.job && body.job.result && !body.job.result.ok ? Zenon.red : Zenon.accent
         }
       }
       Text {
@@ -188,7 +188,7 @@ FocusScope {
 
     Row {
       anchors.right: parent.right
-      spacing: 10
+      spacing: Zenon.buttonGap
       DialogButton {
         visible: body.face !== "done"
         label: body.face === "running" ? "Hide" : "Cancel"
@@ -205,7 +205,7 @@ FocusScope {
         visible: body.face !== "running"
         label: body.face === "done" ? "Done" : "Back up"
         primary: true
-        ink: Zenon.cyan
+        ink: Zenon.accent
         ready: body.face === "done" || body.out !== ""
         onClicked: body.go()
       }

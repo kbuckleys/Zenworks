@@ -30,21 +30,6 @@ module.exports = {
     t.eq("a span", C.eventTime(ev[0]), "09:30 – 09:45");
     t.eq("all day", C.eventTime(ev[1]), "All day");
 
-    // quick add
-    t.eq("time and title", C.parseQuick("14:00 Dentist", "2026-10-22"),
-      { allDay: false, start: "2026-10-22 14:00", end: "2026-10-22 15:00", title: "Dentist", location: "" });
-    t.eq("a span and a place", C.parseQuick("14:00-15:30 Dentist @ Clinic", "2026-10-22"),
-      { allDay: false, start: "2026-10-22 14:00", end: "2026-10-22 15:30", title: "Dentist", location: "Clinic" });
-    t.eq("an hour alone", C.parseQuick("9 Standup", "2026-10-22").start, "2026-10-22 09:00");
-    t.eq("no time is all day", C.parseQuick("Holiday", "2026-10-22"), { allDay: true, start: "2026-10-22", end: "", title: "Holiday", location: "" });
-    t.eq("late, ends at midnight's edge", C.parseQuick("23:30 Late", "2026-10-22").end, "2026-10-22 23:59");
-    t.has("not a time", C.parseQuick("25:00 x", "2026-10-22").error, "time of day");
-    t.has("backwards", C.parseQuick("15-14 x", "2026-10-22").error, "ends before");
-    t.has("nothing", C.parseQuick("  ", "2026-10-22").error, "Type");
-    t.eq("cal.py's arguments", C.newArgs(C.parseQuick("Holiday", "2026-10-22"), "personal"), ["personal", "2026-10-22", "2026-10-22", "Holiday", ""]);
-    t.eq("all day ends the day it starts, so a weekday is title", C.newArgs(C.parseQuick("Friday drinks", "2026-10-23"), ""),
-      ["", "2026-10-23", "2026-10-23", "Friday drinks", ""]);
-
     // reminders
     const dentist = ev[2];
     const at = C.eventMs(dentist);
@@ -70,8 +55,6 @@ module.exports = {
          [["2026-11-02", "2026-11-03"], ["2026-11-02", "2026-11-09"], ["2026-10-26", "2026-12-07"]]);
     t.eq("steps", [C.isoOf(C.stepDate("month", new Date(2026, 0, 31), 1)), C.isoOf(C.stepDate("week", new Date(2026, 10, 2), -1))],
          ["2026-02-01", "2026-10-26"]);
-    t.eq("titles", [C.rangeTitle("month", new Date(2026, 10, 2)), C.rangeTitle("week", new Date(2026, 10, 30))],
-         ["November 2026", "Nov 30 – Dec 6, 2026"]);
     t.eq("colors", [C.calColor("dark cyan", 0), C.calColor("#AA00ff", 0), C.calColor("", 1), C.calColor("light purple", 0), C.calColor("#007aff")],
          ["cyan", "#aa00ff", "green", "magenta", "#007aff"]);
     t.eq("other apps' words", [C.calColor("tan"), C.calColor("#5B8FD9"), C.calColor("Gold")], ["sand", "blue", "yellow"]);
@@ -83,8 +66,8 @@ module.exports = {
     t.eq("undo of a new event deletes it", C.inverse({ kind: "save", before: null, after: { uid: "x" } }), { kind: "delete", before: { uid: "x" } });
     t.eq("undo of a delete saves it", C.inverse({ kind: "delete", before: { uid: "x" } }).kind, "save");
     t.eq("undo of a shift", C.inverse({ kind: "shift", uid: "x", ds: 30, de: 60 }), { kind: "shift", uid: "x", ds: -30, de: -60 });
-    t.eq("a year", [C.rangeOf("year", new Date(2026, 4, 3)), C.isoOf(C.stepDate("year", new Date(2026, 4, 3), 1)), C.rangeTitle("year", new Date(2026, 4, 3))],
-         [["2026-01-01", "2027-01-01"], "2027-05-01", "2026"]);
+    t.eq("a year", [C.rangeOf("year", new Date(2026, 4, 3)), C.isoOf(C.stepDate("year", new Date(2026, 4, 3), 1))],
+         [["2026-01-01", "2027-01-01"], "2027-05-01"]);
     t.eq("title parts", [C.titleParts("month", new Date(2026, 9, 2)), C.titleParts("week", new Date(2026, 9, 28)), C.titleParts("day", new Date(2026, 9, 28))],
          [["October", "2026"], ["Oct – Nov", "2026"], ["Wednesday, October 28", "2026"]]);
     t.eq("groups", [C.groupOf({ path: "/h/.local/share/vdirsyncer/calendars/icloud/home" }, [{ name: "icloud" }]), C.groupOf({ path: "/h/khal/personal" }, [{ name: "icloud" }])],

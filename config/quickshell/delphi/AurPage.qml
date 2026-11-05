@@ -51,8 +51,8 @@ Item {
   readonly property var buttons: [
     { label: "Maintain…", visible: !!pg.info && !!pg.info.aur && !pg.running, run: () => pg.maintain() },
     { label: "Build and check", visible: !!pg.info && !pg.running, run: () => pg.build() },
-    { label: "Publish…", ink: Zenon.cyan, primary: pg.ready, visible: !!pg.info && !pg.running && pg.ready, run: () => pg.publish() },
-    { label: "Release…", ink: Zenon.cyan, primary: !pg.ready, visible: !!pg.info && !pg.running, run: () => pg.release() },
+    { label: "Publish…", ink: Zenon.accent, primary: pg.ready, visible: !!pg.info && !pg.running && pg.ready, run: () => pg.publish() },
+    { label: "Release…", ink: Zenon.accent, primary: !pg.ready, visible: !!pg.info && !pg.running, run: () => pg.release() },
   ]
   function takeFocus() { if (pg.win) pg.win.focusKeys(); }
 
@@ -250,7 +250,7 @@ Item {
       pg.win.card_({ question: "No tag " + v + " on the source", glyph: "\uF303", ink: Zenon.yellow,
         detail: res.url + " has no tag " + v + (res.tags.length > 0 ? " (its newest is " + res.tags[0] + ")" : "")
           + ". If it is not pushed yet, the checksums would be of the wrong files, or none. Tagged otherwise, go on.",
-        choices: [{ label: "Stop", ink: Zenon.cyan },
+        choices: [{ label: "Stop", ink: Zenon.accent },
                   { label: "Go on anyway", ink: Zenon.yellow, run: () => { pg.mark("tag", "skip", "No tag " + v + " — gone on without it"); rest(); } }] });
     });
   }
@@ -274,7 +274,7 @@ Item {
     if (st && offered.length === 0) {
       pg.win.card_({ question: "No SSH key for the AUR", glyph: "\uF43D", ink: Zenon.yellow,
         detail: "The AUR takes pushes over SSH only, with a key added to your AUR account (My Account → SSH Public Key). Make one, or pick one you have, on SSH keys.",
-        choices: [{ label: "SSH keys", ink: Zenon.cyan, run: () => pg.win.setPage("keys") },
+        choices: [{ label: "SSH keys", ink: Zenon.accent, run: () => pg.win.setPage("keys") },
                   { label: "Push anyway", ink: Zenon.accentMuted, run: () => pg.publishAsk("") }] });
       return;
     }
@@ -284,7 +284,7 @@ Item {
   function publishAsk(note) {
     const name = pg.r.pkgname || pg.a.pkg;
     const words = pg.r.pkgrel === "1" ? name + " " + pg.r.pkgver : name + " " + pg.here;
-    pg.win.ask({ title: "Publish " + name + " " + pg.here, glyph: "\uF303", ink: Zenon.cyan,
+    pg.win.ask({ title: "Publish " + name + " " + pg.here, glyph: "\uF303", ink: Zenon.accent,
       detail: "Commits the recipe and pushes it to the AUR. The push is public at once: paru and yay offer it within minutes."
         + (pg.shown !== "" ? " The AUR has " + pg.shown + " now." : " It is the package's first push.") + note,
       fields: [{ key: "message", label: "Commit message", value: words }],
@@ -317,12 +317,12 @@ Item {
         + (orphan ? "It is orphaned: adopting it makes it yours." : "Kept by " + p.maintainer + ".")
         + (flagged ? " Flagged out of date since " + pg.when(p.outOfDate) + "." : ""),
       choices: [
-        flagged ? { label: "Unflag", ink: Zenon.cyan, run: () => pg.aurSsh("unflag", [base], "Unflagging", "Unflagged") }
+        flagged ? { label: "Unflag", ink: Zenon.accent, run: () => pg.aurSsh("unflag", [base], "Unflagging", "Unflagged") }
                 : { label: "Flag out of date…", ink: Zenon.yellow, run: () => pg.flag(base) },
         { label: "Vote", run: () => pg.aurSsh("vote", [base], "Voting", "Voted for " + base) },
         { label: "Keywords…", run: () => pg.words(base, "set-keywords", "Its keywords", "Words it is found by on the AUR's search, space-separated. Empty clears them.", "editor text vim") },
         { label: "Co-maintainers…", run: () => pg.words(base, "set-comaintainers", "Its co-maintainers", "AUR user names, space-separated: they can push to it too. Empty clears them.", "someone another") },
-        orphan ? { label: "Adopt", ink: Zenon.cyan, run: () => pg.aurSsh("adopt", [base], "Adopting", "Adopted — it is yours") }
+        orphan ? { label: "Adopt", ink: Zenon.accent, run: () => pg.aurSsh("adopt", [base], "Adopting", "Adopted — it is yours") }
                : { label: "Disown…", ink: Zenon.red, run: () => pg.disown(base) },
         { label: "Cancel" }] });
   }
@@ -383,7 +383,7 @@ Item {
     ["Version", pg.here + (pg.shown === pg.here ? "   ·   as on the AUR"
       : pg.lagging ? "   ·   pushed — the AUR shows it in a few minutes"
       : pg.info.aur || pg.dirty || !pg.pushed ? "   ·   not pushed yet" : ""),
-      pg.shown === pg.here ? Zenon.ink : pg.lagging ? Zenon.yellow : Zenon.cyan],
+      pg.shown === pg.here ? Zenon.ink : pg.lagging ? Zenon.yellow : Zenon.accent],
     [".SRCINFO", pg.r.srcinfo === "ok" ? "In step with the PKGBUILD" : pg.r.srcinfo === "missing" ? "Missing — write it"
       : pg.r.srcinfo === "stale" ? "Behind the PKGBUILD — write it" : "Could not be checked",
       pg.r.srcinfo === "ok" ? Zenon.accentMuted : Zenon.yellow],
@@ -455,7 +455,7 @@ Item {
           required property var modelData
           spacing: 16
           readonly property color mark: modelData.state === "ok" ? Zenon.green : modelData.state === "bad" ? Zenon.red
-            : modelData.state === "run" ? Zenon.cyan : Zenon.accentMuted
+            : modelData.state === "run" ? Zenon.accent : Zenon.accentMuted
           Text { textFormat: Text.PlainText; width: Zenon.px(15) * 8; text: srow.modelData.label; color: Zenon.accentMuted; font.family: Zenon.face; font.weight: Zenon.weight; font.pixelSize: Zenon.px(14) }
           Text {
             width: Zenon.px(15) * 1.4

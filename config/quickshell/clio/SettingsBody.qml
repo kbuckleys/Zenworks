@@ -122,7 +122,7 @@ Column {
             visible: !!sb.mgr && sb.mgr.remind
             label: "At"
             Row {
-              spacing: 8
+              spacing: Zenon.buttonGap
               DialogButton { glyph: true; label: ""; onClicked: sb.shift(-15) }
               Text { anchors.verticalCenter: parent.verticalCenter; text: sb.mgr ? sb.mgr.remindAt : ""; color: Zenon.ink; font.family: Zenon.face; font.weight: Font.Bold; font.pixelSize: Zenon.px(15); font.features: { "tnum": 1 } }
               DialogButton { glyph: true; label: ""; onClicked: sb.shift(15) }
@@ -153,7 +153,7 @@ Column {
             label: "The Clio password"
             note: !sb.mgr ? "" : sb.mgr.hasPassword ? (sb.mgr.unlocked ? "Set, and open now" : "Set") : "Not set yet — asked the first time something is locked"
             Row {
-              spacing: 8
+              spacing: Zenon.buttonGap
               DialogButton { visible: !!sb.mgr && sb.mgr.unlocked; label: "Lock now"; ink: Zenon.yellow; onClicked: sb.win.lockNow() }
               DialogButton { label: sb.mgr && sb.mgr.hasPassword ? "Change…" : "Set…"; onClicked: { sb.closed(); sb.win.changePassword(); } }
             }
@@ -222,7 +222,7 @@ Column {
   Item {
     width: sb.width - 44
     height: 32
-    DialogButton { anchors.right: parent.right; label: "Close"; ink: Zenon.cyan; primary: true; onClicked: sb.closed() }
+    DialogButton { anchors.right: parent.right; label: "Close"; ink: Zenon.accent; primary: true; onClicked: sb.closed() }
   }
 
   // the dictionaries looked at again whenever the sheet comes up: one added

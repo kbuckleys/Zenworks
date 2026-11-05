@@ -21,13 +21,13 @@ Item {
     anchors.centerIn: parent
     width: 1
     height: parent.height
-    color: root.glow ? Zenon.cyan : Zenon.border
+    color: root.glow ? Zenon.accent : Zenon.border
     opacity: root.glow ? 0.95 : 1
 
     layer.enabled: root.glow
     layer.effect: MultiEffect {
       shadowEnabled: true
-      shadowColor: Zenon.cyan
+      shadowColor: Zenon.accent
       shadowBlur: 1.0
       shadowScale: 1.25
       blurMax: 32

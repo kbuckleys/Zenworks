@@ -806,7 +806,7 @@ FloatingWindow {
   // What the gallery's cursor is on, acted on: a directory is gone into, a
   // picture is looked at.
   // ── THE CELL THAT WAS OPENED, LIT ─────────────────────────────────────
-  // terminus' open flare: a cyan ring and wash that come up and fade on
+  // terminus' open flare: an accent ring and wash that come up and fade on
   // smooth curves. On the cell a picture leaves from (while the gallery is
   // still fading under the flight) and the cell it lands back in.
   property string flarePath: ""
@@ -1949,6 +1949,7 @@ FloatingWindow {
   function runLines(argv, onLine, then) {
     const p = lineComp.createObject(win, { command: argv, onLine: onLine, then: then || null });
     if (p) p.running = true;
+    return p;
   }
   Component {
     id: lineComp
@@ -1966,9 +1967,21 @@ FloatingWindow {
   // -1 when it does not say). Only what reports its steps (bin/cutout.py)
   // sets the fraction — never a guess.
   property bool makeRunning: false
+  property var makeJob: null
   property string makeSrc: ""
   property string makeWhat: ""
   property real makeFrac: -1
+
+  // The make at work ended, its whole process group (it runs under setsid),
+  // when another starts or the window goes.
+  function killMake() {
+    const j = win.makeJob;
+    win.makeJob = null;
+    win.makeRunning = false;
+    const pid = j && j.running ? j.processId : 0;
+    if (pid > 0) Quickshell.execDetached(["sh", "-c", "kill -TERM -" + pid + " 2>/dev/null"]);
+  }
+  Component.onDestruction: win.killMake()
 
   // As run(), with what it printed: then(text), once it has finished.
   function capture(argv, then) {
@@ -2326,6 +2339,7 @@ FloatingWindow {
   // trash like any other. Pixel and ASCII art too, from the edit panel
   // (user, 2026-10-24: "let me compare before i export"): `opts` is a
   // V.PIXELS or V.ASCIIS row, and `art` on the result says which is shown.
+  // Bitgrain the same, from its three rows (grainOpts).
   function makeBeside(kind, opts) {
     if (win.path === "" || !win.stillOnly()) return;
     const src = win.path, tools = win.mgr ? win.mgr.tools : {};
@@ -2335,9 +2349,12 @@ FloatingWindow {
       cutout:  { tag: "cutout", cmd: V.cutoutCommand(Quickshell.shellDir + "/picasso/bin/cutout.py"), keep: false, said: "cutting out the subject…", steps: true },
       upscale: { tag: "x4", cmd: V.upscaleCommand(up), keep: false, said: "upscaling — a minute, for a big picture…" },
       pixel:   { tag: "pixel", cmd: Terminus.artScript("pixel", opts), keep: false, said: "making pixel art…" },
-      ascii:   { tag: "ascii", cmd: Terminus.artScript("ascii", opts), keep: false, said: "making ASCII art…" }
+      ascii:   { tag: "ascii", cmd: Terminus.artScript("ascii", opts), keep: false, said: "making ASCII art…" },
+      grain:   { tag: "bitgrain", cmd: Terminus.artScript("grain", opts), keep: false, said: "making Bitgrain…" }
     }[kind];
     if (!k) return;
+    // one make at a time: another choice ends the one still at work
+    win.killMake();
     let name = V.editedName(src, k.tag);
     if (!k.keep) name = name.replace(/\.[^.]+$/, ".png");
     name = Terminus.freeNameKeeping(win.allRows, name);
@@ -2354,7 +2371,13 @@ FloatingWindow {
       win.makeFrac = p.frac;
       if (p.frac < 1) win.makeWhat = p.what;
     };
-    win.runLines(["sh", "-c", 'mkdir -p -- "${2%/*}" || exit 1\n' + k.cmd, "sh", src, dest], step, (code) => {
+    // setsid: its own process group, so killMake takes the awk or magick
+    // under the sh down with it — stopping the sh alone left them running
+    // on, orphaned (user, 2026-11-03)
+    let job = null;
+    job = win.runLines(["setsid", "sh", "-c", 'mkdir -p -- "${2%/*}" || exit 1\n' + k.cmd, "sh", src, dest], step, (code) => {
+      if (win.makeJob !== job) { win.run(["rm", "-f", "--", dest]); return; }
+      win.makeJob = null;
       win.makeRunning = false;
       if (code !== 0) { win.say("Could not make it  \u00b7  " + kind + " failed"); return; }
       if (win.path !== src) { win.run(["rm", "-f", "--", dest]); return; }
@@ -2365,6 +2388,7 @@ FloatingWindow {
       win.mode = "view";
       win.say(name + " on the right, not saved  \u00b7  ctrl+s saves it  \u00b7  esc lets it go", 8000);
     });
+    win.makeJob = job;
   }
 
   // ── an unsaved result ─────────────────────────────────────────────────
@@ -2427,7 +2451,34 @@ FloatingWindow {
       win.say("The file picker is busy with another request");
   }
 
-  // and as art — pixel or ASCII, beside each one (terminus.js
+  // Bitgrain's three rows — how fine, how dithered, in which colors — kept
+  // while the window is open, for the panel and Export alike. Accent is the
+  // theme's ground and accent, whichever is darker taking the dark dots.
+  property int grainSize: 1
+  property int grainMethod: 1
+  property int grainInk: 0
+  function grainOpts(size, method, ink) {
+    const lum = (c) => 0.299 * c.r + 0.587 * c.g + 0.114 * c.b;
+    const g = Zenon.black, a = Zenon.accent, gDark = lum(g) <= lum(a);
+    return V.grainOpts(size === undefined ? win.grainSize : size, method === undefined ? win.grainMethod : method,
+                       ink === undefined ? win.grainInk : ink,
+                       Zenon.hex(gDark ? g : a), Zenon.hex(gDark ? a : g));
+  }
+  // which choice of a kind the result on the right is ("96", "gray"), ""
+  // while it is not that kind's
+  function artShown(kind) {
+    const a = win.showsMade && win.made.art ? win.made.art : "";
+    return a.indexOf(kind + ":") === 0 ? a.slice(kind.length + 1) : "";
+  }
+  readonly property bool grainShown: win.artShown("grain") !== ""
+  function makeGrain(size, method, ink) {
+    win.grainSize = size;
+    win.grainMethod = method;
+    win.grainInk = ink;
+    win.makeBeside("grain", win.grainOpts());
+  }
+
+  // and as art — pixel, ASCII or Bitgrain, beside each one (terminus.js
   // artExportCommand)
   function exportArt(ps, kind, opts) {
     ps = ps.filter((p) => !Terminus.isVideo(Terminus.basename(p)));
@@ -2520,7 +2571,7 @@ FloatingWindow {
     const th = ps.length === 1 ? (win.thumbs[p] || "") : "";
     dragCard.thumb = th !== "" ? Strings.fileUrl(th) : "";
     dragCard.glyph = Terminus.isVideo(Terminus.basename(p)) ? "\uf03d" : "\uf03e";
-    dragCard.ink = Zenon.cyan;
+    dragCard.ink = Zenon.accent;
     dragCard.label = win.some(ps);
     dragCard.count = ps.length;
     item.Drag.hotSpot = Qt.point(16, dragCard.height / 2);
@@ -3015,14 +3066,14 @@ FloatingWindow {
     signal alt()
     width: 34; height: 34; radius: Zenon.windowRadius
     opacity: tool.live ? 1 : Zenon.disabledDim
-    color: tool.on ? Qt.rgba(Zenon.cyan.r, Zenon.cyan.g, Zenon.cyan.b, 0.20)
+    color: tool.on ? Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.20)
       : (toolMa.pressed ? Zenon.wash(0.06) : "transparent")
     border.width: tool.on ? 1 : 0
-    border.color: Zenon.cyan
+    border.color: Zenon.accent
     Text {
       anchors.centerIn: parent
       text: tool.glyph
-      color: tool.on ? Zenon.cyan : Zenon.white
+      color: tool.on ? Zenon.accent : Zenon.white
       font.family: Zenon.face
       font.weight: Zenon.weight
       font.pixelSize: Zenon.px(16)
@@ -3196,7 +3247,7 @@ FloatingWindow {
           anchors.fill: parent
           // while the search is typed in, what it understands
           text: filterField.activeFocus && win.note === ""
-            ? "Words, #tag, \u2605, is:video is:picture is:marked is:directory  \u00b7  enter keeps it, esc clears it"
+            ? "Words, #tag, \u2605, is:video is:picture is:marked is:directory  \u00b7  return keeps it, esc clears it"
             : win.note !== "" ? win.note
             : win.mode === "map" ? win.mapPoints.length + " of " + win.rows.length + " say where  \u00b7  a pin opens its picture  \u00b7  esc goes back"
             : (win.mode === "gallery" ? win.where : win.facts)
@@ -3308,7 +3359,7 @@ FloatingWindow {
           Behavior on x { NumberAnimation { duration: Zenon.normal; easing.type: Easing.OutCubic } }
           anchors.verticalCenter: parent.verticalCenter
           text: "\uf002"
-          color: searchPill.busy ? Zenon.cyan : Zenon.white
+          color: searchPill.busy ? Zenon.accent : Zenon.white
           font.family: Zenon.face
           font.weight: Zenon.weight
           font.pixelSize: Zenon.px(searchPill.busy ? 13 : 16)
@@ -3322,8 +3373,8 @@ FloatingWindow {
           anchors.verticalCenter: parent.verticalCenter
           visible: searchPill.busy
           color: Zenon.white
-          selectionColor: Zenon.cyan
-          selectedTextColor: Zenon.onAccent
+          selectionColor: Zenon.accent
+          selectedTextColor: Zenon.inkOnAccent
           font.family: Zenon.face
           font.weight: Zenon.weight
           font.pixelSize: Zenon.px(13)
@@ -3936,7 +3987,7 @@ FloatingWindow {
           width: modelData.w * k; height: modelData.h * k
           color: "transparent"
           border.width: 2
-          border.color: modelData.short ? Zenon.sand : [Zenon.cyan, Zenon.magenta, Zenon.green, Zenon.blue][index % 4]
+          border.color: modelData.short ? Zenon.sand : [Zenon.accent, Zenon.magenta, Zenon.green, Zenon.blue][index % 4]
           Rectangle {
             x: 6; y: 6 + index * 26
             width: monName.implicitWidth + 14
@@ -4148,7 +4199,7 @@ FloatingWindow {
         anchors.leftMargin: 14
         anchors.verticalCenter: parent.verticalCenter
         text: win.vid && win.vid.going ? "\uf04c" : "\uf04b"
-        color: vplayMa.pressed ? Zenon.cyan : Zenon.white
+        color: vplayMa.pressed ? Zenon.accent : Zenon.white
         font.family: Zenon.face
         font.weight: Zenon.weight
         font.pixelSize: Zenon.px(15)
@@ -4172,7 +4223,7 @@ FloatingWindow {
         anchors.rightMargin: 14
         anchors.verticalCenter: parent.verticalCenter
         text: win.muted ? "\uf6a9" : "\uf028"
-        color: vmuteMa.pressed ? Zenon.cyan : Zenon.white
+        color: vmuteMa.pressed ? Zenon.accent : Zenon.white
         font.family: Zenon.face
         font.weight: Zenon.weight
         font.pixelSize: Zenon.px(15)
@@ -4188,7 +4239,7 @@ FloatingWindow {
         height: 18
         Rectangle { anchors.verticalCenter: parent.verticalCenter; width: parent.width; height: 4; radius: 2
                     color: Qt.rgba(1, 1, 1, 0.12) }
-        Rectangle { anchors.verticalCenter: parent.verticalCenter; height: 4; radius: 2; color: Zenon.cyan
+        Rectangle { anchors.verticalCenter: parent.verticalCenter; height: 4; radius: 2; color: Zenon.accent
                     width: win.vid && win.vid.duration > 0 ? parent.width * win.vid.position / win.vid.duration : 0 }
         MouseArea {
           anchors.fill: parent
@@ -4216,7 +4267,7 @@ FloatingWindow {
         anchors.rightMargin: 8
         verticalAlignment: Text.AlignVCenter
         text: win.row ? win.row.name : ""
-        color: Zenon.cyan
+        color: Zenon.accent
         font.family: Zenon.face
         font.weight: Zenon.weight
         font.pixelSize: Zenon.px(12)
@@ -4388,9 +4439,9 @@ FloatingWindow {
       Row {
         id: madeRow
         anchors.centerIn: parent
-        spacing: 8
+        spacing: Zenon.buttonGap
         DialogButton { label: "Let it go"; onClicked: win.dropMade() }
-        DialogButton { label: win.made && win.made.saved ? "Save again\u2026" : "Save\u2026"; ink: Zenon.cyan; primary: !(win.made && win.made.saved); onClicked: win.saveMade() }
+        DialogButton { label: win.made && win.made.saved ? "Save again\u2026" : "Save\u2026"; ink: Zenon.accent; primary: !(win.made && win.made.saved); onClicked: win.saveMade() }
       }
     }
     }
@@ -4654,7 +4705,7 @@ FloatingWindow {
           MarkRing {
             anchors.fill: parent
             anchors.margins: -4
-            ink: Zenon.cyan
+            ink: Zenon.accent
             on: cell.marked
           }
 
@@ -4688,7 +4739,7 @@ FloatingWindow {
             anchors.verticalCenterOffset: -Math.round(parent.height * 0.08)
             visible: cell.directory && !dirCover.shown
             text: cell.directory ? Terminus.glyphOf(cell.modelData, Icons) : ""
-            color: cell.directory ? Terminus.inkOf(cell.modelData) : Zenon.cyan
+            color: cell.directory ? Terminus.inkOf(cell.modelData) : Zenon.accent
             font.family: Zenon.face
             font.weight: Zenon.weight
             font.pixelSize: Math.round(win.rowH * 0.36)
@@ -4776,9 +4827,9 @@ FloatingWindow {
             radius: Zenon.rad(7)
             visible: cellFlare.glow > 0.003
             opacity: cellFlare.glow
-            color: Qt.rgba(Zenon.cyan.r, Zenon.cyan.g, Zenon.cyan.b, 0.18)
+            color: Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.18)
             border.width: 3
-            border.color: Zenon.cyan
+            border.color: Zenon.accent
             Connections {
               target: win
               function onFlarePulseChanged() {
@@ -4840,7 +4891,7 @@ FloatingWindow {
           name: cell.modelData.isUp ? "Up to " + (Terminus.basename(cell.modelData.path) || "/") : (cell.modelData.name || "")
           // what the filter's words matched, lit
           mark: win.filterWords
-          color: cell.directory ? Zenon.cyan : Zenon.white
+          color: cell.directory ? Zenon.accent : Zenon.white
           font.family: Zenon.face
           font.weight: cell.here ? Font.Bold : Font.Medium
           font.pixelSize: Zenon.px(14)
@@ -4925,7 +4976,7 @@ FloatingWindow {
             Text {
               visible: !!cell.chip && !!cell.chip.burst
               text: "Fold \uf068"
-              color: foldMa.pressed ? Zenon.cyan : Zenon.accentMuted
+              color: foldMa.pressed ? Zenon.accent : Zenon.accentMuted
               font.family: Zenon.face
               font.weight: Zenon.weight
               font.pixelSize: Zenon.px(12)
@@ -4954,7 +5005,7 @@ FloatingWindow {
 
     SelectCell { view: grid; index: win.gidx
       // the accent: only its rim shows round a full-bleed tile
-      ink: Zenon.cyan
+      ink: Zenon.accent
       // not while the tiles are scaled between two layouts (see zoomK)
       // nor with more than one marked: the marks are the selection then,
       // and a cursor over one of them read as a second kind of mark
@@ -5108,7 +5159,7 @@ FloatingWindow {
       width: gband.held.width
       height: gband.held.height
       radius: Zenon.windowRadius
-      color: Qt.rgba(Zenon.cyan.r, Zenon.cyan.g, Zenon.cyan.b, 0.12)
+      color: Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.12)
       border.width: 1
       border.color: Zenon.border
       z: 5
@@ -5150,7 +5201,7 @@ FloatingWindow {
           height: 22
           verticalAlignment: Text.AlignVCenter
           text: modelData.short
-          color: index === scrub.here ? Zenon.cyan : (scrubMa.pressed ? Zenon.white : Zenon.accentMuted)
+          color: index === scrub.here ? Zenon.accent : (scrubMa.pressed ? Zenon.white : Zenon.accentMuted)
           font.family: Zenon.face
           font.weight: index === scrub.here ? 600 : 400
           font.pixelSize: Zenon.px(12)
@@ -5348,7 +5399,8 @@ FloatingWindow {
         Component.onCompleted: win.wantThumb(tile.modelData.path, tile.modelData)
 
         // the current one lifted off the strip on a shadow, with a pip
-        // under it — the others already stand back at 0.6
+        // under it; the others at full strength, only smaller (user,
+        // 2026-11-03: no fading)
         RectangularShadow {
           visible: tile.current
           anchors.fill: parent
@@ -5367,7 +5419,7 @@ FloatingWindow {
           z: 2
           height: 3
           radius: 1.5
-          color: Zenon.cyan
+          color: Zenon.accent
         }
         // No fades here, in or out: going through pictures moves the
         // current tile and scrolls new ones in on every step, and each of
@@ -5382,14 +5434,13 @@ FloatingWindow {
           wait: !(tile.modelData.path in win.thumbs) && known === ""
           spinner: false
           fade: false
-          opacity: tile.current || tileMa.pressed ? 1 : 0.6
         }
         Rectangle {
           anchors.fill: parent
           radius: Zenon.windowRadius
           color: "transparent"
           border.width: 2
-          border.color: Zenon.cyan
+          border.color: Zenon.accent
           visible: tile.current
         }
         // the other half of a comparison
@@ -5409,7 +5460,7 @@ FloatingWindow {
           width: 15
           height: 15
           radius: height / 2
-          color: Zenon.cyan
+          color: Zenon.accent
           Text { anchors.centerIn: parent; text: "\uf00c"; color: Zenon.black; font.family: Zenon.face; font.pixelSize: Zenon.px(8) }
         }
         Text {
@@ -5512,10 +5563,19 @@ FloatingWindow {
       shown: navTab.side
         ? win.mode === "view" && navTab.live && (hoverWatch.hovered || navTab.hot) && !win.cropping
         : strip.can && !win.cropping && (!win.full || win.peekBottom)
+          && (win.full || hoverWatch.hovered || stripHover.hovered || navTab.hot)
       // Prev and next come up as the pointer nears their side, not anywhere
-      // over the picture: full within 80px of the edge, gone past 240.
+      // over the picture: full within 80px of the edge, gone past 240. The
+      // strip's tab the same way, by the stage's bottom edge — where the
+      // strip starts, or the window's foot with it put away (user,
+      // 2026-11-03); over the strip itself it is full.
       near: {
-        if (!navTab.side || navTab.hot) return 1;
+        if (navTab.hot) return 1;
+        if (!navTab.side) {
+          if (win.full || stripHover.hovered) return 1;
+          const dy = stage.height - hoverWatch.point.position.y;
+          return Math.max(0, Math.min(1, 1 - (dy - 80) / 160));
+        }
         const px = hoverWatch.point.position.x;
         const dist = navTab.edge === "left" ? px : stage.width - px;
         return Math.max(0, Math.min(1, 1 - (dist - 80) / 160));
@@ -5612,16 +5672,13 @@ FloatingWindow {
             width: parent.width
             height: cropHead.height
             Head { id: cropHead; text: "Crop" }
-            Text {
+            // the crop taken off: the suite's clear chip
+            ClearChip {
               anchors.right: parent.right
-              visible: win.crop !== null
-              text: "Clear"
-              color: clearMa.pressed ? Zenon.cyan : Zenon.accentSoft
-              font.family: Zenon.face
-              font.weight: 600
-              font.pixelSize: Zenon.px(13)
-              MouseArea { id: clearMa; anchors.fill: parent; anchors.margins: -4; hoverEnabled: true
-                          onClicked: { win.crop = null; win.cropping = false; } }
+              anchors.verticalCenter: cropHead.verticalCenter
+              size: Zenon.px(14)
+              shown: win.crop !== null
+              onClicked: { win.crop = null; win.cropping = false; }
             }
           }
           Flow {
@@ -5683,7 +5740,7 @@ FloatingWindow {
               text: win.outW > 0 ? Math.round(win.outW) + " \u00d7 " + Math.round(win.outH)
                 + (win.resizeK !== 1 ? "  \u2192  " + Math.round(win.outW * win.resizeK) + " \u00d7 " + Math.round(win.outH * win.resizeK) : "")
                 : ""
-              color: win.resizeK !== 1 ? Zenon.cyan : Zenon.accentSoft
+              color: win.resizeK !== 1 ? Zenon.accent : Zenon.accentSoft
               font.family: Zenon.face
               font.weight: Zenon.weight
               font.pixelSize: Zenon.px(12)
@@ -5717,8 +5774,8 @@ FloatingWindow {
                 text: win.outW > 0 ? String(Math.round(win.outW * win.resizeK)) : ""
                 validator: IntValidator { bottom: 1; top: 100000 }
                 color: Zenon.white
-                selectionColor: Zenon.cyan
-                selectedTextColor: Zenon.onAccent
+                selectionColor: Zenon.accent
+                selectedTextColor: Zenon.inkOnAccent
                 font.family: Zenon.face
                 font.weight: Zenon.weight
                 font.pixelSize: Zenon.px(13)
@@ -5792,55 +5849,60 @@ FloatingWindow {
           // export"). From the file as it is, not the edit above.
           Item { width: 1; height: 8 }
           Head { text: "Pixel art" }
-          Row {
-            spacing: 4
-            Repeater {
-              model: V.PIXELS
-              delegate: Seg {
-                required property var modelData
-                width: (panelCol.width - 12) / 4
-                height: 42
-                chosen: win.showsMade && win.made.art === V.artKey("pixel", modelData)
-                onHit: win.makeBeside("pixel", modelData)
-                Column {
-                  anchors.centerIn: parent
-                  spacing: 1
-                  Text {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    text: modelData.t.split("  \u00b7  ")[0]
-                    color: Zenon.white
-                    font.family: Zenon.face
-                    font.weight: 600
-                    font.pixelSize: Zenon.px(13)
-                  }
-                  Text {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    text: modelData.blocks + " blocks"
-                    color: Zenon.accentSoft
-                    font.family: Zenon.face
-                    font.weight: Zenon.weight
-                    font.pixelSize: Zenon.px(11)
-                  }
-                }
-              }
-            }
+          // Segments, as every few-choices row (user, 2026-11-03): the one
+          // lit is the result shown on the right, none while there is none
+          Segments {
+            width: parent.width
+            even: true
+            textSize: Zenon.px(13)
+            options: V.PIXELS.map((x) => [String(x.blocks), x.t.split("  \u00b7  ")[0]])
+            current: win.artShown("pixel")
+            onChose: (v) => win.makeBeside("pixel", V.PIXELS.find((x) => String(x.blocks) === v))
+            onPointed: (v, at, inside) => inside ? tips.show(at, v + " blocks across", "") : tips.hide(at)
           }
           Item { width: 1; height: 8 }
           Head { text: "ASCII art" }
-          Row {
-            spacing: 4
-            Repeater {
-              // the text kind has no picture to compare: Export has it
-              model: V.ASCIIS.filter((x) => x.kind === "ascii")
-              delegate: Seg {
-                required property var modelData
-                width: (panelCol.width - 4) / 2
-                height: 30
-                label: modelData.t.split("  \u00b7  ")[0]
-                chosen: win.showsMade && win.made.art === V.artKey("ascii", modelData)
-                onHit: win.makeBeside("ascii", modelData)
-              }
-            }
+          Segments {
+            width: parent.width
+            even: true
+            textSize: Zenon.px(13)
+            // the text kind has no picture to compare: Export has it
+            options: [["color", "In color"], ["gray", "In grays"]]
+            current: win.artShown("ascii")
+            onChose: (v) => win.makeBeside("ascii", V.ASCIIS.find((x) => x.kind === "ascii" && x.gray === (v === "gray")))
+          }
+          Item { width: 1; height: 8 }
+          Head { text: "Bitgrain" }
+          // three choices, each made with the other two as they are; while
+          // none is shown the settings it would use are dotted
+          Segments {
+            width: parent.width
+            even: true
+            textSize: Zenon.px(13)
+            options: V.GRAIN_SIZES.map((x, i) => [String(i), x.t])
+            current: win.grainShown ? String(win.grainSize) : ""
+            dotted: win.grainShown ? [] : [String(win.grainSize)]
+            onChose: (v) => win.makeGrain(Number(v), win.grainMethod, win.grainInk)
+            onPointed: (v, at, inside) => inside ? tips.show(at, V.GRAIN_SIZES[Number(v)].blocks + " grains across", "") : tips.hide(at)
+          }
+          Segments {
+            width: parent.width
+            even: true
+            textSize: Zenon.px(13)
+            options: V.GRAIN_METHODS.map((x, i) => [String(i), x.t])
+            current: win.grainShown ? String(win.grainMethod) : ""
+            dotted: win.grainShown ? [] : [String(win.grainMethod)]
+            onChose: (v) => win.makeGrain(win.grainSize, Number(v), win.grainInk)
+            onPointed: (v, at, inside) => inside ? tips.show(at, V.GRAIN_METHODS[Number(v)].hint, "") : tips.hide(at)
+          }
+          Segments {
+            width: parent.width
+            even: true
+            textSize: Zenon.px(13)
+            options: V.GRAIN_INKS.map((x, i) => [String(i), x.t])
+            current: win.grainShown ? String(win.grainInk) : ""
+            dotted: win.grainShown ? [] : [String(win.grainInk)]
+            onChose: (v) => win.makeGrain(win.grainSize, win.grainMethod, Number(v))
           }
           Text {
             width: parent.width
@@ -5878,15 +5940,11 @@ FloatingWindow {
             width: parent.width
             height: tintHead.height
             Head { id: tintHead; text: "Tint color" }
-            Text {
+            DialogButton {
               anchors.right: parent.right
-              text: "Done"
-              color: doneMa.pressed ? Zenon.cyan : Zenon.white
-              font.family: Zenon.face
-              font.weight: 600
-              font.pixelSize: Zenon.px(14)
-              MouseArea { id: doneMa; anchors.fill: parent; anchors.margins: -6; hoverEnabled: true
-                          onClicked: win.editingColor = "" }
+              anchors.verticalCenter: tintHead.verticalCenter
+              label: "Done"
+              onClicked: win.editingColor = ""
             }
           }
           ColorPicker {
@@ -5905,11 +5963,11 @@ FloatingWindow {
         anchors.right: parent.right
         anchors.bottom: parent.bottom
         anchors.margins: 18
-        spacing: 8
+        spacing: Zenon.buttonGap
         DialogButton { label: "Reset"; ink: Zenon.accentMuted; ready: win.edited && !win.saving; onClicked: win.resetEdit() }
         DialogButton { label: "Save new"; ink: Zenon.white; ready: (win.edited || win.scratch) && !win.saving; onClicked: win.saveNew() }
         // the save under way, as alexandria's install is shown
-        BusyButton { label: "Save"; ink: Zenon.cyan; primary: true; ready: win.edited
+        BusyButton { label: "Save"; ink: Zenon.accent; primary: true; ready: win.edited
                      busy: win.saving; busyText: "Saving\u2026"; onClicked: win.save() }
       }
 
@@ -6034,7 +6092,7 @@ FloatingWindow {
               textFormat: Text.PlainText
               width: infoCol.width - 116
               text: modelData.v
-              color: modelData.url || modelData.mapAt ? (linkMa.containsMouse ? Zenon.cyan : Zenon.link)
+              color: modelData.url || modelData.mapAt ? (linkMa.containsMouse ? Zenon.accent : Zenon.link)
                 : (modelData.note ? Zenon.accentMuted : Zenon.white)
               font.family: Zenon.face
               font.weight: Zenon.weight
@@ -6293,7 +6351,7 @@ FloatingWindow {
     const exportRows = () => V.EXPORTS.map((x, i) => ({ text: x.t, icon: "\uf1d8", act: "export", preset: i }))
       .concat([{ isSeparator: true }, { text: "Into a directory…  \u00b7  2048 px WebP", icon: "\uf07c", act: "exportTo", asks: true },
                { isSeparator: true }, branch("Pixel art", "\u{F013A}", "exportPixel"),
-               branch("ASCII art", "\uf031", "exportAscii")]);
+               branch("ASCII art", "\uf031", "exportAscii"), branch("Bitgrain", "\u{F0161}", "exportGrain")]);
 
     switch (kind) {
     case "selection":
@@ -6336,7 +6394,7 @@ FloatingWindow {
         branch("Share", Share.glyph, "share"),
         sep,
         { text: "Show in terminus", icon: "\uf07c", act: "reveal", hint: "o" },
-        { text: "Info", icon: "\u{F064E}", act: "props", hint: "alt enter" },
+        { text: "Info", icon: "\u{F064E}", act: "props", hint: "alt return" },
         { text: "Move to trash", icon: "\uf1f8", act: "trash", hint: "d" },
         { text: "Delete permanently…", icon: "\uf00d", act: "deleteP", hint: "D", asks: true }
       ]));
@@ -6357,6 +6415,11 @@ FloatingWindow {
     case "exportAscii":
       return V.ASCIIS.map((x) => ({ text: x.t, icon: x.kind === "text" ? "\uf15c" : "\uf031", act: "exportArt",
                                     kind: x.kind, opts: x }));
+    case "exportGrain":
+      // each way of dithering, at the size and colors the edit panel has
+      return V.GRAIN_METHODS.map((x, i) => ({ text: x.t + "  \u00b7  " + x.hint, icon: "\u{F0161}", act: "exportArt", kind: "grain",
+                                             opts: win.grainOpts(undefined, i),
+                                             hint: (V.GRAIN_SIZES[win.grainSize] || {}).t + ", " + (V.GRAIN_INKS[win.grainInk] || {}).t.toLowerCase() }));
 
     case "places":
       return win.placeRows();
@@ -6402,7 +6465,7 @@ FloatingWindow {
     case "cell": {
       const bAt = win.burstAt[win.rowIndex[p]];
       return [
-        { text: "Open", icon: "\uf06e", act: "open", hint: kind === "cell" ? "enter" : "" }
+        { text: "Open", icon: "\uf06e", act: "open", hint: kind === "cell" ? "return" : "" }
       ].concat(kind === "cell" && bAt ? [{ text: bAt.open ? "Fold the burst" : "Open the burst  \u00b7  " + bAt.n,
                                            icon: "\uf24d", act: "fold", key: bAt.key, fold: bAt.open }] : []).concat([
         { text: "Compare with the shown picture", icon: "\uf0db", act: "compareWith", enabled: p !== win.path },
@@ -6419,7 +6482,7 @@ FloatingWindow {
       ]).concat(fileRows()).concat(editIn).concat([
         sep,
         { text: "Show in terminus", icon: "\uf07c", act: "reveal" },
-        { text: "Info", icon: "\u{F064E}", act: "props", hint: "alt enter" },
+        { text: "Info", icon: "\u{F064E}", act: "props", hint: "alt return" },
         { text: "Move to trash", icon: "\uf1f8", act: "trashP", hint: "d" },
         { text: "Delete permanently…", icon: "\uf00d", act: "deleteP", hint: "D", asks: true }
       ]));
@@ -6449,19 +6512,19 @@ FloatingWindow {
       ]).concat(fileRows()).concat([
         sep,
         { text: "Unmark all", icon: "\uf00d", act: "unmarkAll", hint: "esc" },
-        { text: "Info", icon: "\u{F064E}", act: "props", hint: "alt enter" },
+        { text: "Info", icon: "\u{F064E}", act: "props", hint: "alt return" },
         { text: "Move " + ps.length + " to trash", icon: "\uf1f8", act: "trashP", hint: "d" },
         { text: "Delete " + ps.length + " permanently…", icon: "\uf00d", act: "deleteP", hint: "D", asks: true }
       ]);
 
     case "directory":
       return [
-        { text: "Open", icon: "\uf07c", act: "openDirectory", hint: "enter" },
+        { text: "Open", icon: "\uf07c", act: "openDirectory", hint: "return" },
         { text: "Slideshow of it", icon: "\uf04b", act: "showDirectory" },
         { text: "Show in terminus", icon: "\uf07c", act: "revealDirectory" },
         { text: "Copy path", icon: "\uf0c1", act: "copyPathP" },
         sep,
-        { text: "Info", icon: "\u{F064E}", act: "props", hint: "alt enter" }
+        { text: "Info", icon: "\u{F064E}", act: "props", hint: "alt return" }
       ];
 
     case "gallery": {
@@ -6712,7 +6775,7 @@ FloatingWindow {
     readonly property var tagMarks: win.tags
     function tagInk(name) {
       const k = name === V.FAVORITE ? "yellow" : Tags.presetInk(name);
-      return (k !== "" && Zenon[k]) ? Zenon[k] : Zenon.cyan;
+      return (k !== "" && Zenon[k]) ? Zenon[k] : Zenon.accent;
     }
     // the gallery's own thumbnails: a picture shows itself, a video its frame
     function thumbKind(r) { return Terminus.isImage(r.name) ? "i" : Terminus.isVideo(r.name) ? "v" : ""; }
@@ -6724,39 +6787,17 @@ FloatingWindow {
       for (const k in win.thumbs) if (win.thumbs[k] !== "" && win.thumbs[k] !== "-") out[k] = win.thumbs[k];
       return out;
     }
-    // what opens it — terminus' scan (Terminus.appsCommand)
-    property var openWithApps: []
-    property string openWithDefault: ""
-    property string openWithMime: ""
-    property bool appsScanned: false
-    property string appsPath: ""
-    function findApps(path) {
-      propsHost.openWithApps = [];
-      propsHost.openWithDefault = "";
-      propsHost.openWithMime = "";
-      propsHost.appsScanned = !path;
-      if (!path) return;
-      propsApps.command = ["sh", "-c", Terminus.appsCommand(path)];
-      propsApps.running = true;
-    }
-    function rescan() { if (propsHost.appsPath !== "") propsHost.findApps(propsHost.appsPath); }
-    function setDefaultApp(id) {
-      if (!id || propsHost.openWithMime === "") return;
-      propsHost.run(Terminus.setDefaultAppCommand(id, propsHost.openWithMime));
-      win.say("Default set");
-    }
-    Process {
-      id: propsApps
-      stdout: StdioCollector {
-        waitForEnd: true
-        onStreamFinished: {
-          propsHost.openWithApps = Terminus.parseApps(text);
-          propsHost.openWithMime = Terminus.parseAppsMime(text);
-          propsHost.openWithDefault = Terminus.parseAppsDefault(text);
-          propsHost.appsScanned = true;
-        }
-      }
-    }
+    // what opens it — terminus/OpenWithScan, under the names the card reads
+    OpenWithScan { id: openWith; run: propsHost.run; onSaid: (t) => win.say(t) }
+    readonly property alias openWithApps: openWith.apps
+    readonly property alias openWithDefault: openWith.defaultId
+    readonly property alias openWithMime: openWith.mime
+    readonly property alias appsScanned: openWith.scanned
+    property alias appsPath: openWith.path
+    function findApps(path) { openWith.find(path); }
+    function rescan() { openWith.rescan(); }
+    function setDefaultApp(id) { openWith.setDefault(id); }
+    function removeApp(id) { openWith.remove(id); }
   }
 
   // ── WHAT A SHEET FROSTS — see sheetUp ─────────────────────────────────
@@ -6871,7 +6912,7 @@ FloatingWindow {
       title: propsCard.many ? propsCard.rows.length + " items"
         : (propsCard.rows[0] ? propsCard.rows[0].name : "Info")
       glyph: propsCard.many ? "\uf0c5" : (propsCard.rows[0] ? propsCard.rows[0].glyph || "" : "")
-      glyphInk: propsCard.rows[0] && !propsCard.many ? Terminus.inkOf(propsCard.rows[0]) : Zenon.cyan
+      glyphInk: propsCard.rows[0] && !propsCard.many ? Terminus.inkOf(propsCard.rows[0]) : Zenon.accent
       cardW: propsCard.wantW
       cardH: propsCard.implicitHeight
       // the title renames the file (user, 2026-10-15) — one file, not a set
@@ -6919,8 +6960,8 @@ FloatingWindow {
       splice: true
       shown: bgBox.open
       fromTop: bar.height
-      title: "Set as background"
-      glyph: "\uf108"
+      // no title row (user, 2026-11-03): with no title the card draws no
+      // header (Sheet.headH), the setter starts at its top
       cardW: Math.min(980, win.width - 64)
       cardH: bgSetter.implicitHeight
       BackgroundSetter {
@@ -6951,7 +6992,7 @@ FloatingWindow {
     // which answer Return takes: 0 the verb, 1 Cancel
     property int pick: 0
     property string okLabel: "OK"
-    property color okInk: Zenon.cyan
+    property color okInk: Zenon.accent
     property var then: null
     // a line to type into — a new name, tags — and a word under it
     property bool withField: false
@@ -6977,7 +7018,7 @@ FloatingWindow {
       confirm.fieldHint = hint || "";
       askField.text = initial || "";
       confirm.selectTo = selectTo === undefined ? askField.text.length : selectTo;
-      confirm.question = q; confirm.okLabel = ok; confirm.okInk = Zenon.cyan; confirm.then = fn;
+      confirm.question = q; confirm.okLabel = ok; confirm.okInk = Zenon.accent; confirm.then = fn;
       confirm.open = true;
     }
     function answer(yes) {
@@ -7046,8 +7087,8 @@ FloatingWindow {
           anchors.rightMargin: 10
           verticalAlignment: TextInput.AlignVCenter
           color: Zenon.white
-          selectionColor: Zenon.cyan
-          selectedTextColor: Zenon.onAccent
+          selectionColor: Zenon.accent
+          selectedTextColor: Zenon.inkOnAccent
           font.family: Zenon.face
           font.weight: Zenon.weight
           font.pixelSize: Zenon.px(15)
@@ -7082,7 +7123,7 @@ FloatingWindow {
         anchors.right: parent.right
         anchors.bottom: parent.bottom
         anchors.margins: 14
-        spacing: 8
+        spacing: Zenon.buttonGap
         DialogButton { label: "Cancel"; ink: Zenon.accentMuted; onClicked: confirm.answer(false) }
         DialogButton { label: confirm.okLabel; ink: confirm.okInk; primary: true; onClicked: confirm.answer(true) }
       }

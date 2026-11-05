@@ -692,13 +692,13 @@ Variants {
               { text: "Typeface", icon: "\uE659", run: () => slot.openFaces() },
               // the head's swatches, in words: changed with the menu still on the note
               { text: "Color", icon: "\u{F0765}", iconInk: slot.hue,
-                children: Scribe.HUES.map((h) => ({ text: h[0].toUpperCase() + h.slice(1),
+                children: Scribe.HUES.map((h) => ({ text: Scribe.hueName(h),
                   icon: slot.note && slot.note.hue === h ? "\uF111" : "\uF10C", iconInk: Clio.ink(h),
                   run: () => Clio.set(slot.noteId, "hue", h) })) },
               { text: "Fit to text", icon: "\u{F0EF5}", enabled: !!(slot.note && slot.note.sized),
                 run: () => slot.fit(true) },
               { isSeparator: true },
-              { text: "New note", icon: "\uF067", run: () => Clio.addHere() },
+              { text: "New sticky note", icon: "\uF067", run: () => Clio.addHere() },
               // the notebook, on this sticky in its Stickies shelf
               { text: "Open in Clio", icon: "\uE678", enabled: Clio.app !== null,
                 run: () => Clio.app.openSticky(slot.noteId) },

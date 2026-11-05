@@ -31,7 +31,7 @@ Rectangle {
   property int dayIndex: 0
 
   readonly property bool task: !!chip.ev && !!chip.ev.task
-  readonly property color ink: chip.task ? Zenon.accentMuted : chip.win ? chip.win.evInk(chip.ev) : Zenon.cyan
+  readonly property color ink: chip.task ? Zenon.accentMuted : chip.win ? chip.win.evInk(chip.ev) : Zenon.accent
   readonly property bool chosen: !!chip.win && !chip.task && chip.win.isSelected(chip.ev)
   property bool dragging: false
   property bool waiting: false

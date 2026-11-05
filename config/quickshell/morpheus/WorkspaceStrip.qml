@@ -23,7 +23,6 @@ import Quickshell.Hyprland
 import Quickshell.Wayland
 import "../oracle"
 import "."
-import "icons.js" as Icons
 
 PanelWindow {
   id: strip
@@ -103,7 +102,7 @@ PanelWindow {
       .map((w) => ({
         ws: w,
         apps: tops.filter((t) => t.workspace === w).map((t) =>
-          Icons.appGlyph([t.wayland ? String(t.wayland.appId || "") : "", t.title]) || "\u{F05C4}")
+          Strings.appGlyph([t.wayland ? String(t.wayland.appId || "") : "", t.title]) || "\u{F05C4}")
       }));
   }
   readonly property int maxApps: 4
@@ -154,7 +153,7 @@ PanelWindow {
               y: 8
               src: String(tile.modelData.ws.id)
               numeric: true
-              color: tile.lit ? Zenon.cyan : Zenon.light ? Zenon.dimInk : Zenon.mix(Zenon.dimInk, Zenon.cyan, 0.5)
+              color: tile.lit ? Zenon.accent : Zenon.light ? Zenon.dimInk : Zenon.mix(Zenon.dimInk, Zenon.accent, 0.5)
             }
             // the apps on it, a glyph each; an empty one says so with a dot
             Text {

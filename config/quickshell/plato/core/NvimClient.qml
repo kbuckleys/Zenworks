@@ -42,6 +42,15 @@ Item {
   // typed from them (keysSent)
   signal keysSent(string keys)
   signal view(var ev)
+  // WHO READS THE FRAMES, CALLED RATHER THAN SIGNALLED (EditorState). A
+  // signal's `var` turns the frame into a copy of QML lists and maps, the
+  // whole of it, on every frame; and a row of that copy kept in a `var`
+  // property reads back as yet another object, so WindowView's "the very
+  // same row" test never once held, and every row on screen was signed
+  // again (JSON of its spans) on every frame (2026-11-03). A method called
+  // with the parsed frame gets plain arrays and objects that keep who they
+  // are. `view` is still sent when no reader is set.
+  property var viewSink: null
   signal theme(var ev)
   signal pum(var ev)
   signal pumSelect(int selected)
@@ -176,7 +185,8 @@ Item {
     switch (ev.event) {
       case "view":
         if (client._measure && client._keyAt > 0) client._noteLatency();
-        client.view(ev);
+        if (client.viewSink) client.viewSink.applyView(ev);
+        else client.view(ev);
         break;
       case "hello": client._hello = true; client.hello(); break;
       case "theme": client.theme(ev); break;

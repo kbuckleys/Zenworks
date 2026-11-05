@@ -498,7 +498,7 @@ LayerPopup {
             anchors.verticalCenter: parent.verticalCenter
             visible: popup.mode === "bt" && Hermes.btScanning
             text: "Searching…"
-            color: Zenon.cyan
+            color: Zenon.accent
             font.family: Zenon.face
             font.weight: Zenon.weight
             font.pixelSize: Zenon.px(13)
@@ -579,7 +579,10 @@ LayerPopup {
           }
         }
 
+        // the rows still to come run on under the keys' pill, which frosts them
+        ScrollEdge { view: rowList; below: true; follow: true; bar: listFoot }
         HintBar {
+          id: listFoot
           anchors.bottom: parent.bottom
           width: parent.width
           rows: popup.mode !== "main" ? popup.hints() : []

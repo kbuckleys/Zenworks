@@ -383,7 +383,7 @@ Rectangle {
     const add = (path, label) => {
       if (!path || seen[path]) return;
       seen[path] = true;
-      rows.push({ text: label, icon: Icons.glyphFor({ name: path === home ? "home" : Terminus.basename(path) || "/", isDir: true }),
+      rows.push({ text: label, icon: Icons.glyphFor({ name: path === home ? "home" : Terminus.basename(path) || "/", isDir: true, path: path }),
                   run: () => collEdit.setRoot(path) });
     };
     add(term.cwd, "Here — " + (term.cwd === "/" ? "/" : Terminus.basename(term.cwd)));
@@ -699,7 +699,7 @@ Rectangle {
             DialogButton {
               label: collEdit.searching && !collEdit.naming ? "Search"
                 : (collEdit.making ? "Create" : "Save")
-              ink: collEdit.searching && !collEdit.naming ? Zenon.sand : Zenon.cyan
+              ink: collEdit.searching && !collEdit.naming ? Zenon.sand : Zenon.accent
               // the sheet's default answer glows (user, 2026-10-14)
               primary: true
               ready: collEdit.searching && !collEdit.naming ? collEdit.asks

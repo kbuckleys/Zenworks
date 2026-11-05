@@ -96,7 +96,7 @@ Row {
         tip: slot.gap ? "" : slot.modelData[1]
         keys: slot.gap ? "" : slot.modelData[2]
         lit: !slot.gap && slot.modelData[3]
-        litInk: Zenon.cyan
+        litInk: Zenon.accent
         enabled: !!bar.target
         onPressed: if (!slot.gap) slot.modelData[4]()
       }

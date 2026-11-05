@@ -28,7 +28,7 @@ Item {
   property string face: Zenon.face
   property color fgColor: Zenon.white
   property color dimColor: Zenon.accentMuted
-  property color highlight: Zenon.cyan
+  property color highlight: Zenon.accent
   // the setting it edits
   property string key: "accentColor"
 
@@ -212,7 +212,7 @@ Item {
       Row {
         id: tools
         width: parent.width
-        spacing: 8
+        spacing: Zenon.buttonGap
         // any color on screen: the suite's own picker (picasso), whose
         // click comes back here rather than to the clipboard
         DialogButton {

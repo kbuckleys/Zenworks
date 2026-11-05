@@ -23,9 +23,9 @@ Collapsible {
   signal activated()
 
   // the drawer's own rule: red for bad news, green once everything that ran
-  // has landed, cyan while anything is still going
+  // has landed, accent while anything is still going
   readonly property color tone: Jobs.faults > 0 ? Zenon.red
-    : (Jobs.live === 0 && Jobs.done > 0 ? Zenon.green : Zenon.cyan)
+    : (Jobs.live === 0 && Jobs.done > 0 ? Zenon.green : Zenon.accent)
 
   // No glyph: the number is the module. It is drawn the way the clock is —
   // live digits over the same digits unlit — so the two read as one family,

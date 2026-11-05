@@ -459,7 +459,7 @@ FloatingWindow {
       cards.card_({ question: "Install " + info.pkg + "?", glyph: p.glyph, ink: Zenon[p.ink],
         detail: p.name + " is read through " + info.cli + ", which is not installed. Ceres installs it"
           + (info.aur ? " from the AUR" : "") + " — it asks for your password — then you sign in.",
-        choices: [{ label: "Install " + info.pkg, ink: Zenon.cyan, run: () => win.mgr.install(kind, (ok) => { if (ok) win.askSetup(kind); }) },
+        choices: [{ label: "Install " + info.pkg, ink: Zenon.accent, run: () => win.mgr.install(kind, (ok) => { if (ok) win.askSetup(kind); }) },
                   { label: "Cancel", ink: Zenon.accentMuted }] });
       return;
     }
@@ -471,7 +471,7 @@ FloatingWindow {
     if (kind === "proton" && !how) {
       cards.card_({ question: "Sign in to Proton Pass", glyph: C.platform(kind).glyph, ink: Zenon.magenta,
         detail: "In your browser — the way for SSO and security keys — or here, with your email and password.",
-        choices: [{ label: "Use the browser", ink: Zenon.cyan, run: () => win.protonBrowser(again) },
+        choices: [{ label: "Use the browser", ink: Zenon.accent, run: () => win.protonBrowser(again) },
                   { label: "Sign in here", ink: Zenon.accentMuted, run: () => win.askSetup(kind, "here", again) },
                   { label: "Cancel", ink: Zenon.accentMuted }] });
       return;
@@ -523,7 +523,7 @@ FloatingWindow {
       if (!ok && err && err.kind === "2fa") {
         // two-step login: the code, and the way it came — then the same
         // sign-in again with it
-        cards.ask({ title: "Two-step login", glyph: "\u{F0565}", ink: Zenon.cyan, detail: C.failWords(err),
+        cards.ask({ title: "Two-step login", glyph: "\u{F0565}", ink: Zenon.accent, detail: C.failWords(err),
           fields: [{ key: "method", label: "Code from", options: [["app", "Authenticator app"], ["email", "Email"], ["key", "YubiKey"]],
                      value: values.method || "app" },
                    { key: "code", label: "Code", hint: "123456" }],
@@ -534,7 +534,7 @@ FloatingWindow {
       if (!ok) {
         cards.card_({ question: again ? "Not signed in to " + p.name : p.name + " was not added", glyph: p.glyph, ink: Zenon.red,
           detail: C.failWords(err),
-          choices: [{ label: "Try again", ink: Zenon.cyan, run: () => win.askSetup(kind, values.how, again) },
+          choices: [{ label: "Try again", ink: Zenon.accent, run: () => win.askSetup(kind, values.how, again) },
                     { label: "Close", ink: Zenon.accentMuted }] });
         return;
       }
@@ -549,9 +549,9 @@ FloatingWindow {
   // `retry` does what was asked again. Anything else is said.
   function failed(err, retry) {
     if (err && err.kind === "needs" && err.pkgs && err.pkgs.length > 0) {
-      cards.card_({ question: "Install " + err.pkgs.join(", ") + "?", glyph: "\uF019", ink: Zenon.cyan,
+      cards.card_({ question: "Install " + err.pkgs.join(", ") + "?", glyph: "\uF019", ink: Zenon.accent,
         detail: C.failWords(err) + ". Ceres installs " + (err.pkgs.length > 1 ? "them" : "it") + " — it asks for your password.",
-        choices: [{ label: "Install", ink: Zenon.cyan, run: () => Ceres.install(err.pkgs, "for calypso", (ok) => { if (ok && retry) retry(); }) },
+        choices: [{ label: "Install", ink: Zenon.accent, run: () => Ceres.install(err.pkgs, "for calypso", (ok) => { if (ok && retry) retry(); }) },
                   { label: "Cancel", ink: Zenon.accentMuted }] });
       return;
     }
@@ -582,7 +582,7 @@ FloatingWindow {
       if (win.setupCard >= 0) cards.dropCard(win.setupCard);
       win.setupCard = cards.card_({ question: "Sign in to Proton Pass in your browser", glyph: C.platform("proton").glyph, ink: Zenon.magenta,
         detail: "Open this address, sign in there, and calypso carries on by itself:\n" + url,
-        choices: [{ label: "Open", ink: Zenon.cyan, keep: true, run: () => win.openUrl(url) },
+        choices: [{ label: "Open", ink: Zenon.accent, keep: true, run: () => win.openUrl(url) },
                   { label: "Copy", ink: Zenon.accentMuted, keep: true, run: () => win.mgr.call("copyText", null, { text: url }, () => win.say("Copied the address")) },
                   { label: "Cancel", ink: Zenon.accentMuted }] });
     }
@@ -968,7 +968,7 @@ FloatingWindow {
           anchors.rightMargin: 12
           anchors.verticalCenter: parent.verticalCenter
           text: ""
-          color: win.menuHeld === "chip" && menu.isOpen ? Zenon.cyan : Zenon.accentMuted
+          color: win.menuHeld === "chip" && menu.isOpen ? Zenon.accent : Zenon.accentMuted
           rotation: win.menuHeld === "chip" && menu.isOpen ? 180 : 0
           Behavior on rotation { NumberAnimation { duration: Zenon.normal; easing.type: Zenon.travelEase } }
           font.family: Zenon.glyphFace
@@ -1258,7 +1258,7 @@ FloatingWindow {
                 width: parent.width
                 elide: Text.ElideRight
                 textFormat: Text.StyledText
-                text: C.highlight(rowItem.it.title, win.query, Zenon.cyan)
+                text: C.highlight(rowItem.it.title, win.query, Zenon.accent)
                 color: rowItem.here ? Zenon.ink : Zenon.accentSoft
                 font.family: Zenon.face
                 font.weight: Font.DemiBold
@@ -1285,7 +1285,7 @@ FloatingWindow {
               Text {
                 visible: rowItem.it.totp === true
                 text: "\u{F097F}"
-                color: Zenon.alpha(Zenon.cyan, 0.8)
+                color: Zenon.alpha(Zenon.accent, 0.8)
                 font.family: Zenon.glyphFace
                 font.pixelSize: Zenon.px(12)
               }
@@ -1385,7 +1385,7 @@ FloatingWindow {
           anchors.verticalCenter: parent.verticalCenter
           onTextChanged: if (win.query !== text) { win.toTop = true; win.query = text; }
           color: Zenon.ink
-          selectionColor: Zenon.alpha(Zenon.cyan, 0.4)
+          selectionColor: Zenon.alpha(Zenon.accent, 0.4)
           font.family: Zenon.face
           font.weight: Zenon.weight
           font.pixelSize: Zenon.px(15)
@@ -1602,7 +1602,7 @@ FloatingWindow {
         anchors.right: parent.right
         anchors.rightMargin: 12
         anchors.verticalCenter: parent.verticalCenter
-        spacing: 8
+        spacing: Zenon.buttonGap
         DialogButton {
           visible: win.editing
           label: "Cancel"
@@ -1611,7 +1611,7 @@ FloatingWindow {
         BusyButton {
           visible: win.editing
           label: win.editSt && win.editSt.id ? "Save" : "Make it"
-          ink: Zenon.cyan
+          ink: Zenon.accent
           primary: true
           busy: win.saving
           busyText: "Saving…"
@@ -1621,7 +1621,7 @@ FloatingWindow {
           id: newBtn
           visible: !win.editing && !win.welcoming && !!win.mgr && win.mgr.anyOpen
           label: "\uF067  New"
-          ink: Zenon.cyan
+          ink: Zenon.accent
           onClicked: win.newItemMenu()
         }
         BusyButton {
@@ -1702,7 +1702,7 @@ FloatingWindow {
         Text {
           anchors.verticalCenter: parent.verticalCenter
           text: ""
-          color: Zenon.cyan
+          color: Zenon.accent
           font.family: Zenon.glyphFace
           font.pixelSize: Zenon.px(18)
         }

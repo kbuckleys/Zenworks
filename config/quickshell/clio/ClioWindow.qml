@@ -236,7 +236,7 @@ FloatingWindow {
       if (!paths || !paths.length) return;
       const path = paths[0];
       const stem = path.replace(/^.*\//, "").replace(/\.[^.]*$/, "");
-      cards.ask({ title: "Import a template", glyph: "\u{F0DC9}", ink: Zenon.cyan,
+      cards.ask({ title: "Import a template", glyph: "\u{F0DC9}", ink: Zenon.accent,
         detail: "Its words, lists and tables, to start new notes and entries from. {date}, {weekday}, {time}, {day}, {month} and {year} are filled in when it is used.",
         fields: [{ key: "name", label: "Name", value: stem || "Template" }], verb: "Import",
         then: (v) => {
@@ -250,7 +250,7 @@ FloatingWindow {
     win.commit();
     const bs = win.mgr.blocksOf(n);
     if (!bs) return;
-    cards.ask({ title: "Save as a template", glyph: "\u{F0DC9}", ink: Zenon.cyan,
+    cards.ask({ title: "Save as a template", glyph: "\u{F0DC9}", ink: Zenon.accent,
       detail: "Its words, lists and tables, to start new notes and entries from. {date}, {weekday}, {time}, {day}, {month} and {year} are filled in when it is used.",
       fields: [{ key: "name", label: "Name", value: N.titleOf(n, "Template") }], verb: "Save",
       then: (v) => { win.mgr.addTemplate(v.name.trim(), bs); win.say("Saved as a template"); } });
@@ -352,7 +352,7 @@ FloatingWindow {
   function renameNote(n) {
     if (!n || n.kind === "sticky") return;
     win.commit();
-    cards.ask({ title: n.kind === "entry" ? "Name this entry" : "Rename note", glyph: "\u{F0455}", ink: Zenon.cyan,
+    cards.ask({ title: n.kind === "entry" ? "Name this entry" : "Rename note", glyph: "\u{F0455}", ink: Zenon.accent,
       detail: "Shown in the list in place of its first line. Leave it empty to go back to the first line.",
       fields: [{ key: "name", label: "Name", value: n.name || N.titleOf(n, ""), optional: true }], verb: "Rename",
       then: (v) => { win.mgr.setField(n.id, "name", v.name.trim(), false); win.say(v.name.trim() ? "Renamed" : "Named by its first line again"); } });
@@ -382,7 +382,7 @@ FloatingWindow {
     if (d.tags.length) lines.push("Tags: " + d.tags.map((t) => "#" + t).join(" "));
     const back = win.mgr.notes.filter((o) => o.d && o.d.links.indexOf(n.id) >= 0 && !o.deleted);
     if (back.length) lines.push("Linked from: " + back.map((o) => N.titleOf(o)).join(", "));
-    cards.card_({ question: N.titleOf(n, "Entry"), glyph: "\u{F064E}", ink: Zenon.cyan, detail: lines.join("\n"),
+    cards.card_({ question: N.titleOf(n, "Entry"), glyph: "\u{F064E}", ink: Zenon.accent, detail: lines.join("\n"),
                   choices: [{ label: "Close", ink: Zenon.accentMuted }] });
   }
   function exportNote(n, format) {
@@ -438,10 +438,10 @@ FloatingWindow {
 
   // ── FOLDERS, JOURNALS ──────────────────────────────────────────────────
   function askFolder(parent, then) {
-    cards.ask({ title: parent ? "New container in " + win.folderName(parent) : "New container", glyph: "\u{F0257}", ink: Zenon.cyan,
-      fields: [{ key: "name", label: "Name", value: N.freeName("New Container", win.mgr.folders.map((f) => f.name)) }], verb: "Make it",
+    cards.ask({ title: parent ? "New container in " + win.folderName(parent) : "New container", glyph: "\u{F0257}", ink: Zenon.accent,
+      fields: [{ key: "name", label: "Name", value: N.freeName("New container", win.mgr.folders.map((f) => f.name)) }], verb: "Make it",
       then: (v) => {
-        const id = win.mgr.addFolder(v.name.trim() || "New Container", parent || "");
+        const id = win.mgr.addFolder(v.name.trim() || "New container", parent || "");
         if (then) then(id); else win.setScope({ shelf: "folder", id: id });
       } });
   }
@@ -473,7 +473,7 @@ FloatingWindow {
       } });
   }
   function renameFolder(f) {
-    cards.ask({ title: "Rename " + f.name, glyph: "", ink: Zenon.cyan, fields: [{ key: "name", label: "Name", value: f.name }], verb: "Rename",
+    cards.ask({ title: "Rename " + f.name, glyph: "", ink: Zenon.accent, fields: [{ key: "name", label: "Name", value: f.name }], verb: "Rename",
       then: (v) => { if (v.name.trim()) win.mgr.renameFolder(f.id, v.name.trim()); } });
   }
   function deleteFolder(f) {
@@ -484,9 +484,9 @@ FloatingWindow {
       verb: "Delete", then: () => { win.mgr.deleteFolder(f.id); if (win.scope.id === f.id) win.setScope({ shelf: "all" }); } });
   }
   function askJournal(j) {
-    cards.ask({ title: j ? "Rename " + j.name : "New journal", glyph: "\u{F0B64}", ink: Zenon.cyan,
-      fields: [{ key: "name", label: "Name", value: j ? j.name : N.freeName("New Journal", win.mgr.journals.map((x) => x.name)) },
-               { key: "hue", label: "Color", options: [["cyan", "Cyan"], ["magenta", "Magenta"], ["yellow", "Orange"], ["green", "Green"], ["blue", "Blue"], ["pink", "Pink"], ["sand", "Sand"]], value: j ? j.hue : "cyan" }],
+    cards.ask({ title: j ? "Rename " + j.name : "New journal", glyph: "\u{F0B64}", ink: Zenon.accent,
+      fields: [{ key: "name", label: "Name", value: j ? j.name : N.freeName("New journal", win.mgr.journals.map((x) => x.name)) },
+               { key: "hue", label: "Color", options: [["cyan", "Accent"], ["magenta", "Magenta"], ["yellow", "Orange"], ["green", "Green"], ["blue", "Blue"], ["pink", "Pink"], ["sand", "Sand"]], value: j ? j.hue : "cyan" }],
       verb: j ? "Save" : "Make it",
       then: (v) => {
         if (j) win.mgr.setJournal(j.id, { name: v.name.trim() || j.name, hue: v.hue });
@@ -719,7 +719,7 @@ FloatingWindow {
     menu.open(x, y, items);
   }
   function hueMenu(n, x, y) {
-    menu.open(x, y, Scribe.HUES.map((h) => ({ text: h[0].toUpperCase() + h.slice(1), icon: n.hue === h ? "" : "",
+    menu.open(x, y, Scribe.HUES.map((h) => ({ text: Scribe.hueName(h), icon: n.hue === h ? "" : "",
                                                 iconInk: Clio.ink(h), run: () => Clio.set(n.sticky, "hue", h) })));
   }
   function folderMenu(f, x, y) {
@@ -1136,18 +1136,18 @@ FloatingWindow {
   // [glyph, name, glyph's ink, the sheet]; latched, so the fade out keeps it
   // a question card first, nameless (its question is the card), as
   // terminus' bar is for its confirmation
-  readonly property var sheetName: cards.carding ? ["", "", Zenon.cyan, cards.sheetRef]
-    : win.setOpen ? ["\u{F08BB}", "Settings", Zenon.cyan, setSheet]
+  readonly property var sheetName: cards.carding ? ["", "", Zenon.accent, cards.sheetRef]
+    : win.setOpen ? ["\u{F08BB}", "Settings", Zenon.accent, setSheet]
     : win.moodOpen ? ["\u{F01F2}", "Mood", Zenon.yellow, moodSheet]
-    : win.dateOpen ? ["\u{F00F0}", "Date", Zenon.cyan, dateSheet]
-    : win.sketching ? ["\u{F0F49}", "Sketch", Zenon.cyan, sketchSheet]
-    : win.picsOpen ? ["", "Pictures and files", Zenon.cyan, picsSheet]
+    : win.dateOpen ? ["\u{F00F0}", "Date", Zenon.accent, dateSheet]
+    : win.sketching ? ["\u{F0F49}", "Sketch", Zenon.accent, sketchSheet]
+    : win.picsOpen ? ["", "Pictures and files", Zenon.accent, picsSheet]
     : win.momentsOpen ? ["\u{F02EF}", "Moments", Zenon.magenta, momentsSheet]
     : win.highlightsOpen ? ["\u{F0652}", "Highlights", Zenon.sand, highlightsSheet]
-    : win.tasksOpen ? ["\u{F0756}", "Tasks", Zenon.cyan, tasksSheet]
-    : win.linkOpen ? ["\u{F0339}", "Link a note", Zenon.cyan, linkSheet]
+    : win.tasksOpen ? ["\u{F0756}", "Tasks", Zenon.accent, tasksSheet]
+    : win.linkOpen ? ["\u{F0339}", "Link a note", Zenon.accent, linkSheet]
     : null
-  property var barName: ["", "", Zenon.cyan, null]
+  property var barName: ["", "", Zenon.accent, null]
   readonly property var barSheet: win.barName[3]
   onSheetNameChanged: if (win.sheetName) win.barName = win.sheetName
   property real sheetInk: win.sheetOpen || cards.carding ? 1 : 0
@@ -1217,7 +1217,7 @@ FloatingWindow {
     radius: Zenon.windowRadius
     color: Zenon.hud(0.9)
     border.width: 1
-    border.color: Zenon.alpha(side.dropHot.indexOf("trash") >= 0 ? Zenon.yellow : Zenon.cyan, 0.6)
+    border.color: Zenon.alpha(side.dropHot.indexOf("trash") >= 0 ? Zenon.yellow : Zenon.accent, 0.6)
     Row {
       x: 12
       anchors.verticalCenter: parent.verticalCenter

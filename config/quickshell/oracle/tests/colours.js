@@ -31,7 +31,8 @@ const BUDGET = {
   "cerberus/CerberusLock.qml": 0,
   "clio/JournalCalendar.qml": 2,
   "clio/Paper.qml": 2,             // white paper and its ink, in every theme   // a day's number and mood dot over its picture
-  "metis/ChipStrip.qml": 6,
+  "cynosure/CynosurePopup.qml": 1,  // a QR code's paper: dark on light in every theme, or a camera cannot read it
+  "cynosure/metis/ChipStrip.qml": 6,
   "chronos/chronos.js": 7,         // the hexes calendar colors are stored as (vdir color files), read back to names — never drawn
   "minerva/minerva.js": 9,         // the page's own tones (paper, sepia, night): content colors, the same in every theme
   "morpheus/Frost.qml": 6,

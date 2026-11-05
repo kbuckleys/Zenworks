@@ -151,13 +151,8 @@ Item {
   // built rather than written out.
   property var shellEntries: {
     const out = [];
-    // A note is made from here because here is where you are when you want
-    // one: the desktop, with nothing else open. It needs no panel of its own
-    // — the note IS the panel.
-    if (Oracle.menuShowNote)
-      out.push({ id: "note", text: "New note", icon: "\uF24A",
-                 cmd: "qs ipc call Clio add" });
-    // And the wall of them put out of sight, or brought back — one row
+    // The wall of notes put out of sight, or brought back — first, above
+    // making another (user, 2026-11-03) — one row
     // saying whichever it will do, read off clio's own state. Only once
     // there is a note: hiding nothing is not a choice worth a row.
     if (Oracle.menuShowNote && Clio.count > 0)
@@ -165,6 +160,12 @@ Item {
                  text: Clio.shown ? "Hide notes" : "Show notes",
                  icon: Clio.shown ? "\uF070" : "\uF06E",
                  cmd: "qs ipc call Clio toggle" });
+    // A note is made from here because here is where you are when you want
+    // one: the desktop, with nothing else open. It needs no panel of its own
+    // — the note IS the panel.
+    if (Oracle.menuShowNote)
+      out.push({ id: "note", text: "New sticky note", icon: "\uF24A",
+                 cmd: "qs ipc call Clio add" });
     if (Oracle.menuShowBackground)
       out.push({ id: "background", text: "Set background", icon: "\uF03E",
                  cmd: "qs ipc call Picasso toggle" });
@@ -935,7 +936,7 @@ Item {
         label: p.label, path: p.path,
         // Home wears the root menu's Home glyph; the rest, the shared map's
         glyph: p.path === home ? ""
-          : Icons.glyphFor({ name: Terminus.basename(p.path), isDir: true })
+          : Icons.glyphFor({ name: Terminus.basename(p.path), isDir: true, path: p.path })
       }));
   }
 
@@ -1137,7 +1138,7 @@ Item {
     : (root.owApps.length === 0
       ? [{ text: "No applications", enabled: false }]
       : root.owApps.map((a) => ({
-          text: a.name, icon: Icons.appGlyph([a.id, a.name]),
+          text: a.name, icon: Strings.appGlyph([a.id, a.name]),
           mark: a.id === root.owDefault
         })))
 
@@ -1296,7 +1297,6 @@ Item {
     id: rootMenu
     screen: root.screen
     model: root.rootModel
-    cardWidth: Zenon.menuWidth
     fit: true   // as wide as its longest row, as every menu (CardMenu.fit)
     open: root.shown
 
@@ -1414,11 +1414,12 @@ Item {
                     + Zenon.menuShadowPad)
 
     // Emptying cannot be undone, so the row arms on the first click and acts
-    // on the second. `danger` turns it red while it is armed — arming is not
-    // an event, so it does not flash; the row going red is the reply.
+    // on the second. Armed, its words ask (menus have one ink since
+    // 2026-11-04, so the row no longer goes red) — arming is not an event,
+    // so it does not flash; the words changing are the reply.
     model: [
       { text: "Open" },
-      { text: "Empty trash", danger: root.trashArmed, asks: !root.trashArmed }
+      { text: root.trashArmed ? "Empty trash for good?" : "Empty trash", asks: !root.trashArmed }
     ]
 
     onChosen: index => {
@@ -1446,7 +1447,7 @@ Item {
     // the shared map's (morpheus/icons.js), the one terminus draws the same
     // place with.
     model: root.recentEntries.map(e => ({
-      text: e.text, icon: Icons.glyphFor({ name: e.text, isDir: e.isDir })
+      text: e.text, icon: Icons.glyphFor({ name: e.text, isDir: e.isDir, path: e.path })
     }))
     hinged: true
     flipFrom: rootMenu.cardX + rootMenu.cardW   // its drawn width: it fits its rows
@@ -1486,7 +1487,7 @@ Item {
       font.pixelSize: Zenon.px(16)
     }
     // sorted and deduplicated — see Icarus.appRows
-    readonly property var rows: Icarus.appRows(DesktopEntries.applications.values, Icons.appGlyph)
+    readonly property var rows: Icarus.appRows(DesktopEntries.applications.values, Strings.appGlyph)
     readonly property int cardW: {
       appsMenu.wanted;      // measured again on every opening
       appMetrics.height;    // and when the face resolves
@@ -1677,7 +1678,7 @@ Item {
             }
           }
         }
-        Scrollbar { flick: appsFlick; visible: appsFlick.visible; anchors.right: parent.right; anchors.top: appsFlick.top; anchors.bottom: appsFlick.bottom }
+        // no scrollbar: it is a menu (user, 2026-11-04); the wheel scrolls it
 
         }
       }
@@ -1758,7 +1759,6 @@ Item {
   CardMenu {
     id: sessionMenu
     screen: root.screen
-    cardWidth: Zenon.menuWidth
     fit: true   // as wide as its longest row, as every menu (CardMenu.fit)
     open: root.shown && root.childMenu === "session"
     hinged: true
@@ -1828,177 +1828,34 @@ Item {
   }
 
   // ── confirm submenu (tertiary, to the right of session) ──────────
-  PanelWindow {
-    // OVERLAY, like every other popup this shell puts up. These eight set no
-    // layer at all, which left the desktop menu on Top while the pill's
-    // panels sat on Overlay above it — a menu opened over a panel went
-    // behind it. Within a layer the last surface mapped is the top one, and
-    // a menu maps when you open it, so this puts it where it belongs.
-    WlrLayershell.layer: WlrLayer.Overlay
-    WlrLayershell.namespace: "morpheus-menu"
+  // A CardMenu hinged off the session row that asked, as the trash and
+  // recent cards are off theirs (2026-11-04: it was a hand-built surface
+  // with two hand-drawn rows and a hover band).
+  CardMenu {
     id: confirmMenu
-    property bool wanted: root.shown && root.childMenu === "session" && root.pendingConfirmId !== ""
-    property real shade: 0
-    onWantedChanged: confirmMenu.shade = confirmMenu.wanted ? 1 : 0
-
-    // As wide as its longer label, as every menu (CardMenu.fit). The labels
-    // are centered, so it is the label and the row's insets each side.
-    FontMetrics {
-      id: confirmMetrics
-      font.family: Zenon.face
-      font.weight: Zenon.weight
-      font.pixelSize: Zenon.px(16)
-    }
-    readonly property int cardW: {
-      confirmMetrics.height;   // again when the face resolves
-      const most = Math.max(confirmMetrics.advanceWidth(confirmLabel.text),
-                            confirmMetrics.advanceWidth(cancelLabel.text));
-      return Math.max(Zenon.menuMinWidth, Math.ceil(most + 12 * 2
-        + Zenon.menuCardPad * 2 + 2 + Zenon.menuFitSlack));
-    }
-    Behavior on shade {
-      NumberAnimation { duration: Zenon.menuFade; easing.type: Easing.OutCubic }
-    }
-    visible: confirmMenu.wanted || confirmMenu.shade > 0.01
-    focusable: false
-    aboveWindows: true
-    exclusionMode: ExclusionMode.Ignore
-    color: "transparent"
-    // THE CARD'S RECTANGLE, NOT THE CARD. It arrives scaled up from
-    // Zenon.menuScaleFrom, and a Region following an ITEM re-reads it only when
-    // its geometry changes — never when its scale does. So the mask could be
-    // left at the arrival's 94%, and the bottom rows of a long menu sat outside
-    // it: a click on them went through to the desktop, the focus grab took it
-    // as a click away, and the menu closed without its row ever flashing.
-    mask: Region { x: confirmBg.x; y: confirmBg.y; width: confirmBg.width; height: confirmBg.height }
-    anchors { top: true; left: true }
     screen: root.screen
-    implicitWidth: confirmMenu.cardW + Zenon.menuShadowPad * 2
-    implicitHeight: {
-      if (!root.screen) return 160 + Zenon.menuShadowPad * 2;
-      const maxBgH = root.screen.height - Zenon.menuShadowPad * 2;
-      return Math.min(confirmContent.implicitHeight + 2, maxBgH) + Zenon.menuShadowPad * 2;
+    fit: true   // as wide as its longest row, as every menu (CardMenu.fit)
+    open: root.shown && root.childMenu === "session" && root.pendingConfirmId !== ""
+    hinged: true
+    flipFrom: sessionMenu.cardX + sessionMenu.cardW
+    flipParentLeft: sessionMenu.margins.left + Zenon.menuShadowPad
+    // against the row that asked, kept on the screen
+    at: {
+      const pad = Zenon.menuShadowPad, gap = Zenon.padScreen;
+      let idx = 0;
+      for (let k = 0; k < root.sessionEntries.length; ++k) if (root.sessionEntries[k].id === root.pendingConfirmId) { idx = k; break; }
+      let y = sessionMenu.cardY + sessionMenu.rowY(idx);
+      if (root.screen && y + confirmMenu.contentH > root.screen.height - gap) y = root.screen.height - confirmMenu.contentH - gap;
+      return Qt.point(0, Math.max(gap, y));
     }
-
-    property var pendingEntry: root.sessionEntryById(root.pendingConfirmId)
-
-    margins.left: {
-      if (!root.screen || !sessionMenu.visible) return 0;
-      return Math.round(Zenon.hingeX(
-        sessionMenu.cardX, sessionMenu.cardW, confirmMenu.cardW,
-        root.screen.width, Zenon.padScreen)) - Zenon.menuShadowPad;
-    }
-    margins.top: {
-      if (!root.screen || !sessionMenu.visible) return 0;
-      const pad = Zenon.menuShadowPad;
-      const parentBgY = sessionMenu.margins.top + pad;
-      // the session card's own rows, not numbers that match them today
-      let idx = -1;
-      for (let i = 0; i < root.sessionEntries.length; ++i) if (root.sessionEntries[i].id === root.pendingConfirmId) { idx = i; break; }
-      const rowH = Zenon.menuRowHeight;
-      const bgH = confirmMenu.implicitHeight - pad * 2;
-      let bgY = parentBgY + 1 + idx * rowH;
-      if (bgY + bgH > root.screen.height - pad) bgY = root.screen.height - bgH - pad;
-      if (bgY < pad) bgY = pad;
-      return bgY - pad;
-    }
-
-    ClippingRectangle {
-      id: confirmBg
-      anchors.fill: parent
-      anchors.margins: Zenon.menuShadowPad
-      transformOrigin: Item.TopLeft
-      scale: Zenon.menuScale(confirmMenu.shade)
-      opacity: confirmMenu.shade
-      color: Zenon.menuBg
-      border.color: Zenon.border
-      border.width: 1
-      radius: Zenon.menuRadius
-      topLeftRadius: 0
-      topRightRadius: Zenon.menuRadius
-      bottomLeftRadius: 0
-      bottomRightRadius: Zenon.menuRadius
-
-      Column {
-        id: confirmContent
-        anchors.fill: parent
-        anchors.leftMargin: Zenon.menuCardPad
-        anchors.rightMargin: Zenon.menuCardPad
-        spacing: 0
-
-        Item {
-          width: parent.width
-          height: Zenon.menuRowHeight
-          Rectangle {
-            id: confirmBand
-            anchors.fill: parent
-            // flush to the border, as every menu's band (CardBody)
-            anchors.leftMargin: -Zenon.menuCardPad
-            anchors.rightMargin: -Zenon.menuCardPad
-            color: confirmHover.containsMouse ? Zenon.menuHi : "transparent"
-          }
-          Text {
-            id: confirmLabel
-            anchors.centerIn: parent
-            text: " Confirm"
-            color: Zenon.white
-            font.family: Zenon.face
-            font.weight: Zenon.weight
-            font.pixelSize: Zenon.px(16)
-          }
-          ChosenFlash { id: confirmFlash; band: confirmBand }
-
-          MouseArea {
-            id: confirmHover
-            anchors.fill: parent
-            hoverEnabled: true
-            enabled: !confirmFlash.running
-            onClicked: confirmFlash.fire(() => {
-              const e = confirmMenu.pendingEntry;
-              if (e) root.execCmd(e.cmd);
-              root.closeAll();
-            })
-          }
-        }
-
-        Item {
-          width: parent.width
-          height: Zenon.menuRowHeight
-          Rectangle {
-            id: cancelBand
-            anchors.fill: parent
-            anchors.leftMargin: -Zenon.menuCardPad
-            anchors.rightMargin: -Zenon.menuCardPad
-            color: cancelHover.containsMouse ? Zenon.menuHi : "transparent"
-          }
-          Text {
-            id: cancelLabel
-            anchors.centerIn: parent
-            text: " Cancel"
-            color: Zenon.white
-            font.family: Zenon.face
-            font.weight: Zenon.weight
-            font.pixelSize: Zenon.px(16)
-          }
-          ChosenFlash { id: cancelFlash; band: cancelBand }
-
-          MouseArea {
-            id: cancelHover
-            anchors.fill: parent
-            hoverEnabled: true
-            enabled: !cancelFlash.running
-            onClicked: cancelFlash.fire(() => root.pendingConfirmId = "")
-          }
-        }
-      }
-    }
-
-    MenuShadow {
-      panel: confirmBg
-      visible: Zenon.menuShadows
-      opacity: confirmMenu.shade
-      transformOrigin: Item.TopLeft
-      scale: confirmBg.scale
+    readonly property var pendingEntry: root.sessionEntryById(root.pendingConfirmId)
+    model: [{ text: "Confirm", icon: "\uF00C" }, { text: "Cancel", icon: "\uF00D" }]
+    onChosen: index => {
+      if (index === 0) {
+        const e = confirmMenu.pendingEntry;
+        if (e) root.execCmd(e.cmd);
+        root.closeAll();
+      } else root.pendingConfirmId = "";
     }
   }
 

@@ -17,6 +17,6 @@ Rectangle {
   z: 3
   visible: !!flash && index === flash.at && flash.ink > 0
   color: flash
-    ? Qt.rgba(Zenon.cyan.r, Zenon.cyan.g, Zenon.cyan.b, 0.55 * flash.ink)
+    ? Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.55 * flash.ink)
     : "transparent"
 }

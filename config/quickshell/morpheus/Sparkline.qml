@@ -12,7 +12,7 @@ Item {
   implicitHeight: 16
 
   property var values: []
-  property color lineColor: Zenon.cyan
+  property color lineColor: Zenon.accent
   property color fillColor: Zenon.sparkFill
   property real fillOpacity: 0.18
   property int maxPoints: 32

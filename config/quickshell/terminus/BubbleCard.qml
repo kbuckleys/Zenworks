@@ -111,16 +111,18 @@ Item {
   implicitHeight: face.near + face.tail + Math.max(face.roomH, face.wantH) + face.pad
   // where the tail's point is, in this item's y
   readonly property real tipY: face.up ? card.y + card.height + face.tail : face.padTop
-  // the glass comes up fast, so the spring is what is seen; going, it
-  // stays until the spring has nearly drawn it back into the tail
-  opacity: face.opening ? Math.min(1, face.shade * 2) : Math.min(1, Math.max(0, face.grow) * 2.5)
+  // THE DROP SHELF'S POP, EXACTLY (user, 2026-11-04): arriving, from
+  // 0.72 of its size to over it and back (OutBack 2.2, 180 ms), faded in
+  // over the first 108; going, back to 0.72 (InCubic) as it fades (InQuart),
+  // 180 ms both. Out of its tail's point, as before
+  opacity: face.fade
+  property real fade: 0
   // ── IT EXPANDS OUT OF ITS TAIL, WITH A SPRING (user, 2026-10-14) ──────
-  // macOS' popovers: from half its size at the tail's point to a hair past
-  // full and back, on its own clock rather than the fade's. The swell is
-  // small (about 1%): the old one (10%) pushed card and shadow past the
-  // surface's edge and they were cut, and it read as a wobble, not a pop.
-  // Closing is quicker and plain: drawn straight back into the tail, at
-  // once — no wait, no swell (user, 2026-10-14). `opening` is which
+  // From the tail's point, on its own clock rather than the holder's fade;
+  // since 2026-11-04 the drop shelf's pop (above). Its swell is about 4%,
+  // inside the surface's 40 px pad (a 10% one once pushed card and shadow
+  // past the edge, where they were cut). Going: drawn straight back into
+  // the tail, no swell first (user, 2026-10-14). `opening` is which
   // way the holder's fade is going; `grow` 0 → 1 is the size, and the
   // bubble is up while either is (Bubble.visible).
   //
@@ -133,7 +135,9 @@ Item {
   property real grow: 0
   property real heldW: 0
   property real heldH: 0
-  readonly property int springTime: 260
+  // morpheus/DropShelf's card.popMs
+  // through Zenon.ms, so reduced motion shortens it (audit 11-05)
+  readonly property int popMs: Zenon.ms(180)
   onShadeChanged: {
     const wasShut = face.lastShade <= 0.001;
     // the size it leaves at, taken before `opening` turns and holds it
@@ -151,10 +155,14 @@ Item {
       }
       growIn.from = Math.max(0, face.grow);
       growIn.restart();
+      fadeOut.stop();
+      fadeIn.restart();
     } else if (!face.opening && !growOut.running && face.grow > 0) {
       growIn.stop();
       growOut.from = Math.min(1, face.grow);
       growOut.restart();
+      fadeIn.stop();
+      fadeOut.restart();
     }
   }
   NumberAnimation {
@@ -162,25 +170,27 @@ Item {
     target: face
     property: "grow"
     to: 1
-    duration: face.springTime
+    duration: face.popMs
     easing.type: Easing.OutBack
-    easing.overshoot: 0.9
+    easing.overshoot: 2.2
   }
-  // going: straight back into the tail, no swell first (user, 2026-10-14)
+  NumberAnimation { id: fadeIn; target: face; property: "fade"; to: 1; duration: Math.round(face.popMs * 0.6); easing.type: Zenon.ease }
+  // going: no pop, it shrinks and fades
   NumberAnimation {
     id: growOut
     target: face
     property: "grow"
     to: 0
-    duration: Zenon.ms(160)
+    duration: face.popMs
     easing.type: Easing.InCubic
   }
+  NumberAnimation { id: fadeOut; target: face; property: "fade"; to: 0; duration: face.popMs; easing.type: Easing.InQuart }
   readonly property real pop: Math.max(0, face.grow)
   transform: Scale {
     origin.x: face.tailX
     origin.y: face.tipY
-    xScale: 0.5 + 0.5 * face.pop
-    yScale: 0.5 + 0.5 * face.pop
+    xScale: 0.72 + 0.28 * face.pop
+    yScale: 0.72 + 0.28 * face.pop
   }
 
   readonly property real tailX: Math.max(card.x + 14 + face.tail,
@@ -260,8 +270,8 @@ Item {
   // is what is being worked out. Measured by hand, not bound, for the same
   // reason, and again whenever the content may have changed.
   property real fitWidth: face.cardWidth
-  function natural(it) {
-    if (!it || !it.visible) return 0;
+  function natural(it, blind) {
+    if (!it || (!blind && !it.visible)) return 0;
     if (it.contentY !== undefined) return 1e6;               // a Flickable/ListView
     if (it.wrapMode !== undefined || it.font !== undefined)   // Text, TextEdit, a label
       return it.implicitWidth;
@@ -270,7 +280,7 @@ Item {
     let w = 0;
     for (let i = 0; i < it.children.length; i++) {
       const k = it.children[i];
-      const n = face.natural(k);
+      const n = face.natural(k, blind);
       if (n > 0) w = Math.max(w, (isPositioner ? k.x : Math.max(0, k.x)) + n);
     }
     return w;
@@ -280,9 +290,19 @@ Item {
     // Shut, it may: a bubble about to open again is fitted before it does
     // (`opening` only turns once its fade has started)
     if (!face.opening && (face.shade > 0.001 || face.grow > 0.001)) return;
+    // MEASURED AS IF SHOWN (user's capture, 2026-11-05: a second hover
+    // opened the card at fitMin, cut, then sprang to its width). Once the
+    // popup has been unmapped, quickshell hides its content root, so every
+    // Text here read `visible: false` and measured nothing — and the fit
+    // for the next opening is taken before it maps again. So while the
+    // card is hidden, visibility is not asked (`blind`): what is hidden on
+    // purpose is nearly always an empty line, and the refit below puts any
+    // difference right once it is up. (Showing the root for the measure
+    // instead stuck: quickshell never showed it again.)
+    const blind = !face.visible;
     let w = 0;
     for (let i = 0; i < col.children.length; i++)
-      w = Math.max(w, face.natural(col.children[i]));
+      w = Math.max(w, face.natural(col.children[i], blind));
     face.fitWidth = Math.max(face.fitMin, Math.min(face.cardWidth, Math.ceil(w) + 28));
   }
   onCardWidthChanged: face.refit()

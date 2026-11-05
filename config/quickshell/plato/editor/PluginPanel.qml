@@ -46,6 +46,7 @@ import "../../terminus/terminus.js" as Terminus
 
 PlatoSheet {
   id: panel
+  footCentered: true
 
   required property font face
 
@@ -441,6 +442,7 @@ PlatoSheet {
       }
     }
   }
+  Scrollbar { flick: list; anchors.right: list.right; anchors.top: list.top; anchors.bottom: list.bottom }
 
   // the name of a plugin to add, typed in place under the list
   Rectangle {

@@ -20,6 +20,8 @@ import "hestia.js" as H
 
 Item {
   id: ov
+  // the page's scroll, for the window's ScrollEdge under its foot
+  readonly property alias view: pageFlick
 
   property var mgr: null
   property var win: null
@@ -97,7 +99,7 @@ Item {
         // the green one went)
         centered: ov.failed.length + ov.looping.length === 0
         glyph: ov.failed.length + ov.looping.length === 0 ? "\uF05D" : "\u{F0028}"
-        glyphInk: ov.failed.length + ov.looping.length === 0 ? Zenon.cyan : Zenon.red
+        glyphInk: ov.failed.length + ov.looping.length === 0 ? Zenon.accent : Zenon.red
         title: ov.failed.length + ov.looping.length === 0 ? "Everything is running as it should"
           : ov.failed.length > 0 && ov.looping.length > 0 ? ov.failed.length + " failed, " + ov.looping.length + " restarting over and over"
           : ov.failed.length > 0 ? (ov.failed.length === 1 ? "1 service failed" : ov.failed.length + " services failed")
@@ -228,7 +230,7 @@ Item {
       // ── the boot ─────────────────────────────────────────────────────────
       HermesCard {
         glyph: "\u{F14DE}"
-        glyphInk: Zenon.cyan
+        glyphInk: Zenon.accent
         title: "The last boot"
         note: ""
         EmptyState {
@@ -254,7 +256,7 @@ Item {
       // ── the drives ───────────────────────────────────────────────────────
       HermesCard {
         glyph: "\u{F02CA}"
-        glyphInk: ov.sickDrives.length > 0 ? Zenon.yellow : Zenon.cyan
+        glyphInk: ov.sickDrives.length > 0 ? Zenon.yellow : Zenon.accent
         title: ov.sickDrives.length > 0 ? "A drive wants looking at" : "Drives"
         note: ov.drives.length > 0 ? ov.drives.length + (ov.drives.length === 1 ? " drive" : " drives") : ""
         EmptyState {

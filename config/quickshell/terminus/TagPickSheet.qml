@@ -322,7 +322,7 @@ Rectangle {
         anchors.rightMargin: 8
         radius: Zenon.windowRadius
         color: tagPick.sel === 0
-          ? Qt.rgba(Zenon.cyan.r, Zenon.cyan.g, Zenon.cyan.b, 0.16)
+          ? Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.16)
           : "transparent"
       }
 
@@ -332,7 +332,7 @@ Rectangle {
         horizontalAlignment: Text.AlignHCenter
         anchors.verticalCenter: parent.verticalCenter
         text: "\uF067"
-        color: Zenon.cyan
+        color: Zenon.accent
         font.family: Zenon.face
         font.weight: Zenon.weight
         font.pixelSize: Zenon.px(14)
@@ -404,7 +404,7 @@ Rectangle {
         }
 
         // The row IS the name field while this one is being renamed —
-        // see tagPick.renaming. Cyan and a caret, so which row is
+        // see tagPick.renaming. Accent and a caret, so which row is
         // taking the typing is never in question.
         readonly property bool editing: tagPick.renaming !== ""
           && tagPick.renaming === tagRow.modelData.name
@@ -420,7 +420,7 @@ Rectangle {
           anchors.verticalCenter: parent.verticalCenter
           text: tagRow.editing ? tagPick.renameText : tagRow.modelData.name
           elide: Text.ElideRight
-          color: tagRow.editing ? Zenon.cyan : Zenon.white
+          color: tagRow.editing ? Zenon.accent : Zenon.white
           font.family: Zenon.face
           font.weight: Zenon.weight
           font.pixelSize: Zenon.px(17)
@@ -432,7 +432,7 @@ Rectangle {
           anchors.verticalCenter: parent.verticalCenter
           width: 1
           height: 19
-          color: Zenon.cyan
+          color: Zenon.accent
         }
 
         // Whether the SELECTION carries it, then how many files do.
@@ -445,7 +445,7 @@ Rectangle {
           anchors.verticalCenter: parent.verticalCenter
           text: tagRow.modelData.on ? "\uF00C"
             : (tagRow.modelData.partly ? "\uF068" : "")
-          color: tagRow.modelData.on ? Zenon.cyan : Zenon.accentMuted
+          color: tagRow.modelData.on ? Zenon.accent : Zenon.accentMuted
           font.family: Zenon.face
           font.weight: Zenon.weight
           font.pixelSize: Zenon.px(13)
@@ -473,6 +473,8 @@ Rectangle {
 
     // morpheus/HintBar, as every strip (ceres' height, ground and rule); a
     // complaint takes the keys' place, in red
+    // the rows still to come run on under the keys' pill, which frosts them
+    ScrollEdge { view: tagList; below: true; follow: true; bar: tagFoot }
     HintBar {
       id: tagFoot
       anchors.bottom: parent.bottom

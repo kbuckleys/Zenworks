@@ -130,7 +130,7 @@ FloatingWindow {
           const fps = Math.round(aw.probeFps);
           const mb = (Number((j.format || {}).size) || 0) / 1048576;
           aw.facts = [st.width && st.height ? st.width + "×" + st.height : "", fps ? fps + " fps" : "",
-                      mb ? (mb >= 10 ? Math.round(mb) : mb.toFixed(1)) + " MB" : ""].filter((x) => x).join("  ·  ");
+                      mb ? A.megabytes(mb * 1048576) : ""].filter((x) => x).join("  ·  ");
         } catch (e) { aw.facts = ""; }
       }
     }
@@ -274,6 +274,7 @@ FloatingWindow {
   }
   function stopSave() {
     if (saveProc.running) { saveProc.stopped = true; saveProc.signal(15); }
+    if (squeezeProc.running) { squeezeProc.stopped = true; squeezeProc.signal(15); }
     aw.stopFrames();
   }
   Process {
@@ -298,12 +299,75 @@ FloatingWindow {
         return;
       }
       if (code !== 0) { aw.say("Could not save: " + (saveProc.tail || "ffmpeg failed"), true); return; }
-      aw.savedTo = aw.savingTo;
-      aw.savedDir = false;
-      aw.say("Saved " + aw.savingTo.replace(/.*\//, ""));
-      aw.announce(aw.savingTo, "Cut saved");
+      if (/\.gif$/i.test(aw.savingTo)) {
+        aw.saving = true;
+        squeezeProc.command = A.squeezeArgs(aw.savingTo);
+        squeezeProc.running = true;
+        return;
+      }
+      aw.saved();
     }
   }
+  // a GIF goes through gifsicle before it counts as saved; a squeeze that
+  // fails leaves ffmpeg's GIF as it was, which is still a good one
+  Process {
+    id: squeezeProc
+    property bool stopped: false
+    onExited: (code) => {
+      aw.saving = false;
+      if (squeezeProc.stopped) {
+        squeezeProc.stopped = false;
+        Quickshell.execDetached(["rm", "-f", aw.savingTo]);
+        aw.say("Stopped");
+        return;
+      }
+      aw.saved();
+    }
+  }
+  function saved() {
+    aw.savedTo = aw.savingTo;
+    aw.savedDir = false;
+    aw.say("Saved " + aw.savingTo.replace(/.*\//, ""));
+    aw.announce(aw.savingTo, "Cut saved");
+  }
+  // ── HOW BIG THE GIF WILL BE (user, 2026-11-04) ────────────────────────
+  // A sample made with the settings as they are (A.estimateArgs), a moment
+  // after the last change, never while a save runs. A change during a run
+  // lets it finish and asks again; an answer for other settings is dropped.
+  property real estBytes: -1
+  readonly property string estKey: aw.opts.format !== "gif" || aw.path === "" || aw.dur <= 0 ? ""
+    : JSON.stringify([aw.path, aw.inMs, aw.outMs, aw.opts.gifWidth, aw.opts.gifFps, aw.cropNow])
+  onEstKeyChanged: { aw.estBytes = -1; if (aw.estKey !== "") estWait.restart(); }
+  onBusyChanged: if (!aw.busy && aw.estKey !== "" && aw.estBytes < 0) estWait.restart()
+  Timer {
+    id: estWait
+    interval: 600
+    onTriggered: {
+      if (aw.estKey === "" || aw.busy) return;
+      if (estProc.running) { estProc.again = true; return; }
+      const o = Object.assign({}, aw.opts, { inMs: aw.inMs, outMs: aw.outMs, crop: aw.cropNow });
+      estProc.key = aw.estKey;
+      estProc.scale = A.estimateSpan(o).scale;
+      estProc.command = A.estimateArgs(aw.path, o);
+      estProc.running = true;
+    }
+  }
+  Process {
+    id: estProc
+    property string key: ""
+    property real scale: 1
+    property bool again: false
+    stdout: StdioCollector {
+      id: estOut
+      waitForEnd: true
+      onStreamFinished: {
+        const n = Number(estOut.text.trim());
+        if (estProc.key === aw.estKey && n > 0) aw.estBytes = n * estProc.scale;
+      }
+    }
+    onExited: if (estProc.again) { estProc.again = false; estWait.restart(); }
+  }
+
   // howler's capture card, as a recording gets: a frame of it, its file
   function announce(file, title) {
     // a GIF or a frame is a picture to howler, not a video
@@ -589,7 +653,7 @@ FloatingWindow {
         x: 22
         anchors.verticalCenter: parent.verticalCenter
         text: player.going ? "" : ""
-        color: playPress.pressed ? Zenon.cyan : Zenon.white
+        color: playPress.pressed ? Zenon.accent : Zenon.white
         font.family: Zenon.glyphFace
         font.pixelSize: Zenon.px(16)
         MouseArea { id: playPress; anchors.fill: parent; anchors.margins: -8; onClicked: aw.toggle() }
@@ -619,7 +683,7 @@ FloatingWindow {
         anchors.rightMargin: 22
         anchors.verticalCenter: parent.verticalCenter
         text: aw.muted ? "" : ""
-        color: aw.muted ? Zenon.red : mutePress.pressed ? Zenon.cyan : Zenon.white
+        color: aw.muted ? Zenon.red : mutePress.pressed ? Zenon.accent : Zenon.white
         font.family: Zenon.glyphFace
         font.pixelSize: Zenon.px(15)
         MouseArea { id: mutePress; anchors.fill: parent; anchors.margins: -8; onClicked: aw.muted = !aw.muted }
@@ -700,7 +764,7 @@ FloatingWindow {
           Row {
             id: barRow1
             width: parent.width
-            spacing: 6
+            spacing: Zenon.buttonGap
             readonly property real each: (width - 2 * spacing) / 3
             DialogButton {
               width: barRow1.each
@@ -721,28 +785,30 @@ FloatingWindow {
               primary: true
               ready: !aw.busy && aw.dur > 0
               busy: aw.saving
-              busyText: Math.round(aw.progress * 100) + "%"
+              // gifsicle has no progress to read, and a word does not fit a
+              // third of the bar (user, 2026-11-04): the readout below says it
+              busyText: squeezeProc.running ? "\u2026" : Math.round(aw.progress * 100) + "%"
               onClicked: aw.save("")
             }
           }
           Row {
             id: barRow2
             width: parent.width
-            spacing: 6
+            spacing: Zenon.buttonGap
             visible: aw.savedTo !== ""
-            // one alone (a directory of frames has no Share) takes the line
-            readonly property real each: shareBtn.visible ? (width - spacing) / 2 : width
             DialogButton {
-              width: barRow2.each
+              // the rest of the line beside Share's glyph, or all of it
+              width: barRow2.width - (shareBtn.visible ? shareBtn.width + barRow2.spacing : 0)
               label: "Show in Terminus"
               onClicked: Quickshell.execDetached(["qs", "ipc", "call", "Terminus", "reveal", aw.savedTo])
             }
             // the cut just saved, out to something else (morpheus/Share)
             DialogButton {
               id: shareBtn
-              width: barRow2.each
               visible: !aw.savedDir
-              label: "Share \u25BE"
+              // a glyph, not the word (user, 2026-11-04: too wide)
+              glyph: true
+              label: Share.glyph
               onClicked: {
                 const at = shareBtn.mapToItem(shareMenu, 0, shareBtn.height + 4);
                 shareMenu.open(at.x, at.y, Share.items([aw.savedTo], false, 1)
@@ -773,32 +839,15 @@ FloatingWindow {
         width: sideFlick.width - 40
         spacing: 14
 
+        // the side's choices are one Segments each (user, 2026-11-04), as
+        // Frames was already
         SectionLabel { text: "Keep it as" }
-        Row {
-          spacing: 6
-          Repeater {
-            model: A.FORMATS
-            delegate: Rectangle {
-              required property var modelData
-              readonly property bool on: aw.opts.format === modelData.id
-              width: (aw.sideW - 40 - 12) / 3
-              height: 34
-              radius: Zenon.radiusControl
-              color: fmtPress.pressed ? Zenon.pressTile(on) : on ? Zenon.alpha(Zenon.yellow, 0.18) : Zenon.wash(0.05)
-              border.width: 1
-              border.color: on ? Zenon.alpha(Zenon.yellow, 0.6) : Zenon.border
-              Text {
-                textFormat: Text.PlainText
-                anchors.centerIn: parent
-                text: modelData.label
-                color: parent.on ? Zenon.yellow : Zenon.ink
-                font.family: Zenon.face
-                font.weight: parent.on ? Zenon.titleWeight : Zenon.weight
-                font.pixelSize: Zenon.px(15)
-              }
-              MouseArea { id: fmtPress; anchors.fill: parent; onClicked: if (aw.mgr) aw.mgr.set("format", modelData.id) }
-            }
-          }
+        Segments {
+          width: parent.width
+          even: true
+          options: A.FORMATS.map((f) => [f.id, f.label])
+          current: aw.opts.format
+          onChose: (v) => { if (aw.mgr) aw.mgr.set("format", v); }
         }
 
         // MP4
@@ -824,66 +873,34 @@ FloatingWindow {
 
         // GIF
         SectionLabel { visible: aw.opts.format === "gif"; text: "Width" }
-        Flow {
+        Segments {
           visible: aw.opts.format === "gif"
           width: parent.width
-          spacing: 6
-          Repeater {
-            model: A.GIF_WIDTHS
-            delegate: Rectangle {
-              required property int modelData
-              readonly property bool on: aw.opts.gifWidth === modelData
-              width: (aw.sideW - 40 - 18) / 4
-              height: 30
-              radius: Zenon.radiusControl
-              color: wPress.pressed ? Zenon.pressTile(on) : on ? Zenon.alpha(Zenon.yellow, 0.18) : Zenon.wash(0.05)
-              border.width: 1
-              border.color: on ? Zenon.alpha(Zenon.yellow, 0.6) : Zenon.border
-              Text {
-                anchors.centerIn: parent
-                text: modelData === 0 ? "Full" : String(modelData)
-                color: parent.on ? Zenon.yellow : Zenon.ink
-                font.family: Zenon.face
-                font.weight: Zenon.weight
-                font.pixelSize: Zenon.px(14)
-              }
-              MouseArea { id: wPress; anchors.fill: parent; onClicked: aw.mgr.set("gifWidth", modelData) }
-            }
-          }
+          even: true
+          options: A.GIF_WIDTHS.map((w) => [String(w), w === 0 ? "Full" : String(w)])
+          current: String(aw.opts.gifWidth)
+          onChose: (v) => { if (aw.mgr) aw.mgr.set("gifWidth", Number(v)); }
         }
         SectionLabel { visible: aw.opts.format === "gif"; text: "Frames a second" }
-        Flow {
+        Segments {
           visible: aw.opts.format === "gif"
           width: parent.width
-          spacing: 6
-          Repeater {
-            model: A.GIF_FPS
-            delegate: Rectangle {
-              required property int modelData
-              readonly property bool on: aw.opts.gifFps === modelData
-              width: (aw.sideW - 40 - 18) / 4
-              height: 30
-              radius: Zenon.radiusControl
-              color: rPress.pressed ? Zenon.pressTile(on) : on ? Zenon.alpha(Zenon.yellow, 0.18) : Zenon.wash(0.05)
-              border.width: 1
-              border.color: on ? Zenon.alpha(Zenon.yellow, 0.6) : Zenon.border
-              Text {
-                anchors.centerIn: parent
-                text: String(modelData)
-                color: parent.on ? Zenon.yellow : Zenon.ink
-                font.family: Zenon.face
-                font.weight: Zenon.weight
-                font.pixelSize: Zenon.px(14)
-              }
-              MouseArea { id: rPress; anchors.fill: parent; onClicked: aw.mgr.set("gifFps", modelData) }
-            }
-          }
+          even: true
+          options: A.GIF_FPS.map((r) => [String(r), String(r)])
+          current: String(aw.opts.gifFps)
+          onChose: (v) => { if (aw.mgr) aw.mgr.set("gifFps", Number(v)); }
         }
         Ctl.Check {
           visible: aw.opts.format === "gif"
           label: "Loop forever"
           lit: aw.opts.loop
           onToggled: aw.mgr.set("loop", !aw.opts.loop)
+        }
+        EmptyState {
+          width: parent.width
+          horizontalAlignment: Text.AlignLeft
+          visible: aw.opts.format === "gif" && aw.estKey !== ""
+          text: aw.estBytes < 0 ? "Measuring how big it will be…" : "About " + A.megabytes(aw.estBytes)
         }
 
         // WebM
@@ -896,34 +913,16 @@ FloatingWindow {
 
         // ── the crop ──────────────────────────────────────────────────
         SectionLabel { text: "Crop" }
-        Flow {
+        // six in one pill: a narrower pad round each word
+        Segments {
           width: parent.width
-          spacing: 6
-          Repeater {
-            model: [{ id: "off", label: "Off" }].concat(A.CROP_RATIOS)
-            delegate: Rectangle {
-              required property var modelData
-              readonly property bool on: modelData.id === "off" ? !aw.crop && !aw.cropping
-                : (!!aw.crop || aw.cropping) && aw.cropRatio === modelData.id
-              width: (aw.sideW - 40 - 12) / 3
-              height: 30
-              radius: Zenon.radiusControl
-              opacity: aw.vw > 0 ? 1 : Zenon.disabledDim
-              color: cropPress.pressed ? Zenon.pressTile(on) : on ? Zenon.alpha(Zenon.yellow, 0.18) : Zenon.wash(0.05)
-              border.width: 1
-              border.color: on ? Zenon.alpha(Zenon.yellow, 0.6) : Zenon.border
-              Text {
-                textFormat: Text.PlainText
-                anchors.centerIn: parent
-                text: modelData.label
-                color: parent.on ? Zenon.yellow : Zenon.ink
-                font.family: Zenon.face
-                font.weight: Zenon.weight
-                font.pixelSize: Zenon.px(14)
-              }
-              MouseArea { id: cropPress; anchors.fill: parent; onClicked: aw.cropWith(modelData.id) }
-            }
-          }
+          even: true
+          pad: 14
+          options: [["off", "Off"]].concat(A.CROP_RATIOS.map((r) => [r.id, r.label]))
+          current: !!aw.crop || aw.cropping ? aw.cropRatio : "off"
+          // nothing to crop until a video is loaded
+          allowed: aw.vw > 0 ? null : []
+          onChose: (v) => aw.cropWith(v)
         }
         EmptyState {
           width: parent.width
@@ -1041,7 +1040,8 @@ FloatingWindow {
         Text {
           text: aw.framing ? (aw.frameOne ? "Saving the frame…"
                               : "Saving frames" + (aw.framesTo !== "" ? " to " + aw.framesTo.replace(/.*\//, "") : "") + "…  " + aw.framesMade)
-            : aw.savingTo === "" ? "Saving…" : "Saving " + aw.savingTo.replace(/.*\//, "") + "…"
+            : aw.savingTo === "" ? "Saving…"
+            : (squeezeProc.running ? "Shrinking " : "Saving ") + aw.savingTo.replace(/.*\//, "") + "…"
           width: parent.width
           elide: Text.ElideMiddle
           color: Zenon.ink
@@ -1070,6 +1070,8 @@ FloatingWindow {
 
     HintBar {
       id: foot
+      // the pill in the middle, under the film (user, 2026-11-03)
+      centered: true
       anchors.bottom: parent.bottom
       anchors.left: parent.left
       anchors.right: parent.right

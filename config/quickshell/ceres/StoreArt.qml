@@ -35,8 +35,8 @@ Item {
       anchors.fill: parent
       visible: shotImg.status !== Image.Ready
       gradient: Gradient {
-        GradientStop { position: 0.0; color: Zenon.alpha(art.app && art.app.color ? art.app.color : Zenon.cyan, 0.30) }
-        GradientStop { position: 1.0; color: Zenon.alpha(art.app && art.app.color ? art.app.color : Zenon.cyan, 0.06) }
+        GradientStop { position: 0.0; color: Zenon.alpha(art.app && art.app.color ? art.app.color : Zenon.accent, 0.30) }
+        GradientStop { position: 1.0; color: Zenon.alpha(art.app && art.app.color ? art.app.color : Zenon.accent, 0.06) }
       }
       StoreIcon {
         anchors.centerIn: parent

@@ -27,7 +27,6 @@ import QtQuick
 import Quickshell
 import "../morpheus"
 import "terminus.js" as Terminus
-import "../morpheus/icons.js" as Icons
 
 Item {
   id: picker
@@ -46,6 +45,22 @@ Item {
   property var handlers: []
   property string defaultId: ""
   property string mime: ""
+
+  // ── A LIST ON TOP THAT IS NOT A TYPE'S HANDLERS ───────────────────────
+  // Oracle's hot corners choose an app to open, the suite's own above the
+  // installed ones (2026-11-04): `findHandlers` puts them at the head of
+  // the one scrolling list, under a heading row named for them and one
+  // for the rest (a list of its own above ran the card past a short
+  // window), nothing in it can be struck out, and typing finds them too.
+  property string handlersLabel: "Opens with"
+  property bool removable: true
+  property bool findHandlers: false
+  // desktop entries left out of the list below, by id (no .desktop): the
+  // suite's own, which the top list already has (user, 2026-11-04: "a lot
+  // of dupe/overlapping entries between the two lists")
+  property var hiddenIds: []
+  // how many rows the list shows before it scrolls
+  property int listRows: 10
 
   property bool open: false
   // EVERYTHING IT WILL OPEN. `path` is the first of them, because the type
@@ -85,8 +100,18 @@ Item {
   // the caret and the footer say without spending a row on it.
   property string query: ""
 
-  readonly property var hits:
-    Terminus.filterApps(picker.installed, picker.query)
+  readonly property var hits: {
+    if (!picker.findHandlers) return Terminus.filterApps(picker.installed, picker.query);
+    if (picker.query !== "") return Terminus.filterApps(picker.handlers.concat(picker.installed), picker.query);
+    return [{ head: picker.handlersLabel }].concat(picker.handlers, [{ head: "Installed" }], picker.installed);
+  }
+  // a heading row is passed over: the cursor never rests on one
+  function isHead(i) { const a = picker.hits[i]; return !!(a && a.head); }
+  function offHead() {
+    const n = picker.hits.length;
+    for (let k = 0; k < n && picker.isHead(picker.hitIndex); ++k)
+      picker.pick = picker.handlerCount + (picker.hitIndex + 1) % n;
+  }
 
   // ── ONE CURSOR OVER TWO LISTS ───────────────────────────────────────
   // The card shows the handlers this type already has above the several
@@ -99,7 +124,7 @@ Item {
   // the moment a filter is typed, which is also when the section is hidden,
   // so the cursor never points at a row that is not on screen.
   readonly property int handlerCount:
-    picker.query === "" ? picker.handlers.length : 0
+    !picker.findHandlers && picker.query === "" ? picker.handlers.length : 0
   readonly property bool onHandler: picker.pick < picker.handlerCount
   readonly property int hitIndex: picker.pick - picker.handlerCount
 
@@ -107,6 +132,7 @@ Item {
   // the cursor, so where it was means nothing.
   onQueryChanged: {
     picker.pick = 0;
+    picker.offHead();
     appList.positionViewAtBeginning();
   }
 
@@ -142,6 +168,7 @@ Item {
   // is simply an application that has never claimed the type, and saying
   // so is better than a key that silently does nothing.
   function strike() {
+    if (!picker.removable) return;
     if (picker.onHandler) {
       const h = picker.handlers[picker.pick];
       if (h) picker.removeRequested(h.id);
@@ -170,9 +197,10 @@ Item {
       // is a row that cannot be launched OR registered — neither belongs
       // in a list whose only job is to be chosen from.
       if (nm === "" || id === "") continue;
+      if (picker.hiddenIds.indexOf(id.replace(/\.desktop$/, "").toLowerCase()) >= 0) continue;
       // the app's own glyph, from the map icarus and the launcher read
       out.push({ name: nm, id: id,
-                 glyph: Icons.appGlyph([id, String(e.execString || ""), nm]) });
+                 glyph: Strings.appGlyph([id, String(e.execString || ""), nm]) });
     }
     // By name, once, here — filterApps breaks every tie by the order it
     // was handed, so this is the order the unfiltered list appears in and
@@ -193,6 +221,7 @@ Item {
     picker.installed = picker.snapshot();
     picker.pick = 0;
     picker.query = "";
+    picker.offHead();
     picker.open = true;
     // the card is still invisible on the frame that opens it, and an
     // invisible item refuses active focus without saying so
@@ -216,6 +245,8 @@ Item {
     const n = picker.handlerCount + picker.hits.length;
     if (n === 0) return;
     picker.pick = (picker.pick + d + n) % n;
+    for (let k = 0; k < n && picker.isHead(picker.hitIndex); ++k)
+      picker.pick = (picker.pick + d + n) % n;
     if (!picker.onHandler)
       appList.positionViewAtIndex(picker.hitIndex, ListView.Contain);
   }
@@ -229,7 +260,7 @@ Item {
       return;
     }
     const a = picker.hits[picker.hitIndex];
-    if (!a) return;
+    if (!a || a.head) return;
     picker.choose(a);
   }
 
@@ -291,13 +322,13 @@ Item {
     // search result and a second list above it is in the way.
     Column {
       width: parent.width
-      visible: picker.handlers.length > 0 && picker.query === ""
+      visible: picker.handlers.length > 0 && picker.query === "" && !picker.findHandlers
 
       Item { width: 1; height: 10 }
 
       Text {
         x: 14
-        text: "Opens with"
+        text: picker.handlersLabel
         color: Zenon.accentMuted
         font.family: Zenon.face
         font.weight: Zenon.weight
@@ -336,7 +367,8 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             width: picker.glyphW
             horizontalAlignment: Text.AlignHCenter
-            text: Icons.appGlyph([handlerRow.modelData.id, handlerRow.modelData.name || ""])
+            text: handlerRow.modelData.glyph
+                  || Strings.appGlyph([handlerRow.modelData.id, handlerRow.modelData.name || ""])
             color: Zenon.white
             font.family: Zenon.face
             font.weight: Zenon.weight
@@ -348,7 +380,7 @@ Item {
             anchors.left: handlerGlyph.right
             anchors.leftMargin: picker.glyphGap
             anchors.right: handlerDef.visible ? handlerDef.left
-                                              : handlerX.left
+                         : handlerX.visible ? handlerX.left : parent.right
             anchors.rightMargin: 10
             anchors.verticalCenter: parent.verticalCenter
             elide: Text.ElideRight
@@ -370,6 +402,7 @@ Item {
 
           Text {
             id: handlerX
+            visible: picker.removable
             anchors.right: parent.right
             anchors.rightMargin: 12
             anchors.verticalCenter: parent.verticalCenter
@@ -425,7 +458,7 @@ Item {
       width: parent.width
       // Ten rows of room, and fewer when there are fewer — the card
       // shrinks around a filter that has narrowed to two.
-      height: Math.min(picker.hits.length, 10) * 30
+      height: Math.min(picker.hits.length, picker.listRows) * 30
       model: picker.hits
       clip: true
       reuseItems: true
@@ -447,10 +480,35 @@ Item {
         // name carries it rather than a chip: the right-hand column is
         // the id, and a badge between the two would crowd a row that is
         // mostly name already.
-        readonly property bool handler: {
+        readonly property bool listed: {
           for (const h of picker.handlers)
             if (h.id === appRow.modelData.id) return true;
           return false;
+        }
+        // tinted as a type's handler; the suite's rows (findHandlers) are
+        // not handlers of anything, and have no id worth showing
+        readonly property bool handler: appRow.listed && !picker.findHandlers
+        readonly property bool head: !!appRow.modelData.head
+
+        // the rule between the two lists (the open-with card's, above its
+        // list), over every heading but the first
+        Rectangle {
+          visible: appRow.head && appRow.index > 0
+          width: parent.width
+          height: 1
+          color: Zenon.border
+        }
+        Text {
+          visible: appRow.head
+          x: 14
+          anchors.bottom: parent.bottom
+          anchors.bottomMargin: 6
+          text: appRow.modelData.head || ""
+          textFormat: Text.PlainText
+          color: Zenon.accentMuted
+          font.family: Zenon.face
+          font.weight: Zenon.weight
+          font.pixelSize: Zenon.px(12)
         }
 
         // NO HOVER, AND NO TINT — the rule every other sheet follows. The
@@ -461,13 +519,14 @@ Item {
 
         Text {
           id: appGlyph
+          visible: !appRow.head
           anchors.left: parent.left
           anchors.leftMargin: 14
           anchors.verticalCenter: parent.verticalCenter
           width: picker.glyphW
           horizontalAlignment: Text.AlignHCenter
           text: appRow.modelData.glyph || ""
-          color: appRow.handler ? Zenon.cyan
+          color: appRow.handler ? Zenon.accent
                : (appRow.target ? Zenon.white : Zenon.accentKey)
           font.family: Zenon.face
           font.weight: Zenon.weight
@@ -477,13 +536,14 @@ Item {
         Text {
           textFormat: Text.PlainText
           id: appName
+          visible: !appRow.head
           anchors.left: appGlyph.right
           anchors.leftMargin: picker.glyphGap
           anchors.verticalCenter: parent.verticalCenter
           width: Math.min(implicitWidth, appRow.width - 14 - picker.glyphW - picker.glyphGap - 14)
-          text: modelData.name
+          text: modelData.name || ""
           elide: Text.ElideRight
-          color: appRow.handler ? Zenon.cyan
+          color: appRow.handler ? Zenon.accent
                : (appRow.target ? Zenon.white : Zenon.accentKey)
           font.family: Zenon.face
           font.weight: Zenon.weight
@@ -499,7 +559,7 @@ Item {
           anchors.right: parent.right
           anchors.rightMargin: 14
           anchors.verticalCenter: parent.verticalCenter
-          text: modelData.id
+          text: appRow.head || (appRow.listed && picker.findHandlers) ? "" : modelData.id
           elide: Text.ElideMiddle
           horizontalAlignment: Text.AlignRight
           color: Zenon.accentMuted
@@ -510,7 +570,11 @@ Item {
 
         MouseArea {
           anchors.fill: parent
-          onClicked: picker.choose(modelData)
+          onClicked: {
+            if (appRow.head) return;
+            picker.pick = picker.handlerCount + appRow.index;
+            picker.choose(modelData);
+          }
         }
       }
     }
@@ -527,7 +591,7 @@ Item {
         anchors.left: parent.left
         anchors.leftMargin: 43
         anchors.verticalCenter: parent.verticalCenter
-        text: picker.query !== "" ? "Nothing matches \u201C" + picker.query + "\u201D" : "nothing matches"
+        text: picker.query !== "" ? "Nothing matches \u201C" + picker.query + "\u201D" : "No matches"
         color: Zenon.accentMuted
         font.family: Zenon.face
         font.weight: Zenon.weight
@@ -540,9 +604,13 @@ Item {
     // left where the instruction was, and the keys as chips on the right.
     // morpheus/HintBar, as every strip (ceres' height, ground and rule)
     HintBar {
+      id: pickerFoot
       width: parent.width
-      rows: [["↑↓", "move"], ["↵", "open"],
-              ["del", "remove"], ["esc", "close"]]
+      // in the middle of the foot, as a settings sheet's (user, 2026-11-04)
+      centered: true
+      rows: picker.removable
+        ? [["↑↓", "move"], ["↵", "open"], ["del", "remove"], ["esc", "close"]]
+        : [["↑↓", "move"], ["↵", "choose"], ["esc", "close"]]
       leading: Text {
         anchors.verticalCenter: parent.verticalCenter
         text: picker.query !== "" ? picker.query : "Type to filter"
@@ -553,6 +621,12 @@ Item {
       }
     }
   }
+  // the rows still to come run on under the keys' pill, which frosts them.
+  // OUTSIDE the column: a follow ScrollEdge inside it took a place in the
+  // flow, its own height pushed the foot down, and it re-measured to the
+  // foot's new place without end — the shell froze opening Oracle, which
+  // builds this card for its app rows (2026-11-04)
+  ScrollEdge { view: appList; below: true; follow: true; bar: pickerFoot }
   // the list's rail, on the card's edge (the list sits in the column, so it
   // is placed by the list's y rather than anchored to it)
   ScrollRail { target: appList; anchors.right: parent.right; y: appCol.y + appList.y; height: appList.height }

@@ -12,7 +12,7 @@ const LATTE = {
   name: "Catppuccin Latte", ground: "#eff1f5", surface: "#ccd0da", ink: "#4c4f69",
   muted: "#7c7f93", soft: "#6c6f85", keyInk: "#5c5f77", dim: "#acb0be",
   red: "#d20f39", green: "#40a02b", yellow: "#fe640b", blue: "#1e66f5",
-  magenta: "#8839ef", cyan: "#179299", pink: "#ea76cb", sand: "#df8e1d",
+  magenta: "#8839ef", accent: "#179299", pink: "#ea76cb", sand: "#df8e1d",
   border: "#9ca0b0", onAccent: "#eff1f5", card: "#e6e9ef"
 };
 
@@ -39,7 +39,7 @@ module.exports = {
     const g4 = S.renderGtk4(LATTE, true);
     t.match("gtk4: the window is the ground", g4, /^@define-color window_bg_color #eff1f5;$/m);
     t.match("gtk4: libadwaita's variable too", g4, /^  --window-bg-color: #eff1f5;$/m);
-    t.match("gtk4: the accent is cyan", g4, /^  --accent-bg-color: #179299;$/m);
+    t.match("gtk4: the accent is the theme's", g4, /^  --accent-bg-color: #179299;$/m);
     t.match("gtk4: type on the accent is onAccent", g4, /^  --accent-fg-color: #eff1f5;$/m);
     t.match("gtk4: bars are the card", g4, /^  --headerbar-bg-color: #e6e9ef;$/m);
     t.match("gtk4: popovers are the card", g4, /^@define-color popover_bg_color #e6e9ef;$/m);
@@ -139,14 +139,21 @@ module.exports = {
     t.match("frost: aurora's second curtain is the second hue", fr, /^\taurora2 = "rgba\(0,0,255,0\.48\)",$/m);
     t.match("frost: a moving variant is kept", S.renderFrostLua("water", {}, {}), /variant = "water"/);
     t.match("frost: an unknown one is plain", S.renderFrostLua("lava", {}, {}), /variant = "kawase"/);
+    const cu = S.renderCursorLua("XCursor-Pro-Hyprcursor-Dark", "XCursor-Pro-Dark", 32);
+    t.match("cursor: hyprland's theme", cu, /^\thypr = "XCursor-Pro-Hyprcursor-Dark",$/m);
+    t.match("cursor: X's theme, as gtkscheme.sh reads it", cu, /^\tx    = "XCursor-Pro-Dark",$/m);
+    t.match("cursor: the size", cu, /^\tsize = 32,$/m);
+    t.match("cursor: no size is 24", S.renderCursorLua("a", "b", ""), /size = 24,/);
+    // a carriage return in a directory name ended the Lua string (audit 2026-11-05)
+    t.ok("cursor: CR and LF never break the string", !/[\r]/.test(S.renderCursorLua("a\rb", "c\nd", 24)));
     t.ok("frost: the lua parses", (() => {
       try { require("child_process").execFileSync("luac", ["-p", "-"], { input: fr }); return true; }
       catch (e) { return e.code === "ENOENT"; }
     })());
     t.match("corner: no number is 0, a fraction rounded", S.renderCornerLua("x") + S.renderCornerLua(4.6), /rounding = 0 \}[\s\S]*rounding = 5 \}/);
-    const fx = S.renderFcitxTheme({ name: "Latte", card: "#e6e9ef", border: "#ccd0da", ink: "#4c4f69", cyan: "#179299" });
+    const fx = S.renderFcitxTheme({ name: "Latte", card: "#e6e9ef", border: "#ccd0da", ink: "#4c4f69", accent: "#179299" });
     t.match("fcitx: the panel is the card", fx, /^\[InputPanel\/Background\]\nColor=#e6e9ef\nBorderColor=#ccd0da$/m);
-    t.match("fcitx: the cursor is the card tinted 16% cyan", fx, /^\[InputPanel\/Highlight\]\nColor=#c5dbe1$/m);
+    t.match("fcitx: the cursor is the card tinted 16% accent", fx, /^\[InputPanel\/Highlight\]\nColor=#c5dbe1$/m);
     t.match("fcitx: candidates in the ink", fx, /^NormalColor=#4c4f69$/m);
     t.ok("fcitx: every line a comment, a [section], key=value or blank", fx.split("\n")
       .every((l) => l === "" || /^# /.test(l) || /^\[[A-Za-z\/]+\]$/.test(l) || /^[A-Za-z]+=\S/.test(l)));
@@ -155,7 +162,7 @@ module.exports = {
     const hk = S.renderHyprtoolkit(LATTE, true, fk);
     t.match("toolkit: the background is the ground", hk, /^background\s+= 0xffeff1f5$/m);
     t.match("toolkit: buttons are the card", hk, /^base\s+= 0xffe6e9ef$/m);
-    t.match("toolkit: the accent is cyan", hk, /^accent\s+= 0xff179299$/m);
+    t.match("toolkit: the accent is the theme's", hk, /^accent\s+= 0xff179299$/m);
     t.match("toolkit: light: bright text is the ground", hk, /^bright_text\s+= 0xffeff1f5$/m);
     t.match("toolkit: dark: bright text is the ink", S.renderHyprtoolkit(LATTE, false, fk),
       /^bright_text\s+= 0xff4c4f69$/m);

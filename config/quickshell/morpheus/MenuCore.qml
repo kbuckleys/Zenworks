@@ -27,6 +27,13 @@ Item {
   property int cardWidth: 220
   // as wide as its longest row (cardWidth is then ignored; see Zenon.menuMinWidth)
   property bool fit: false
+  // never narrower than this — a dropdown's list is at least as wide as the
+  // face it hangs from (CardPopup.attach)
+  property int minWidth: 0
+  // a dropdown's list, laid against its face: see CardBody's joinEdge
+  property alias joinEdge: body.joinEdge
+  property alias joinSpan: body.joinSpan
+  property alias joinRadius: body.joinRadius
   property int activeIndex: -1
   // A third of a layer card's shadow room, as terminus' menus have it: the
   // compositor fits the SURFACE, not the card, so every pixel of padding is a
@@ -40,38 +47,10 @@ Item {
   // a row picked in a branch's card
   signal subChosen(int branch, int index)
 
-  FontMetrics {
-    id: rowMetrics
-    font.family: Zenon.face
-    font.weight: Zenon.weight
-    font.pixelSize: Zenon.px(16)
-  }
-
-  FontMetrics {
-    id: hintMetrics
-    font.family: Zenon.face
-    font.weight: Zenon.weight
-    font.pixelSize: Zenon.px(12)
-  }
-
-  readonly property int cardW: {
-    if (!core.fit) return core.cardWidth;
-    core.open;   // measured again on every opening (see CardMenu.fitWidth)
-    rowMetrics.height;
-    let most = 0;
-    const rows = core.model || [];
-    for (let i = 0; i < rows.length; ++i) {
-      const r = rows[i];
-      if (!r || r.isSeparator) continue;
-      let w = rowMetrics.advanceWidth(String(r.text || "")) + 12 + 10;
-      if (r.icon || r.image) w += 16 + Zenon.menuIconGap;
-      if (r.hasChildren || r.children || r.mark !== undefined) w += 16 + 8;
-      // the hint on its key cap: the cap's padding round the words (KeyCap)
-      if (r.hint) w += hintMetrics.advanceWidth(String(r.hint)) + Math.round(Zenon.px(12) * 1.15) + 2 + 12;
-      most = Math.max(most, w);
-    }
-    return Math.max(Zenon.menuMinWidth, Math.ceil(most + Zenon.menuCardPad * 2 + 2 + Zenon.menuFitSlack));
-  }
+  readonly property int cardW: Math.max(core.minWidth, core.fitW)
+  // the one measure (MenuFit), again on every opening (see CardMenu)
+  MenuFit { id: measure; model: core.model; again: core.open }
+  readonly property int fitW: core.fit ? measure.cardW : core.cardWidth
 
   readonly property int contentH: {
     let h = 2;   // the border, top and bottom: the rows run edge to edge

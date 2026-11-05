@@ -30,6 +30,25 @@ Item {
   property bool onRight: false
   property string squareEdge: ""
 
+  // ── A DROPDOWN'S LIST: ONE SURFACE WITH ITS BUTTON ───────────────────
+  // `joinEdge` ("top" or "bottom") is the card's edge laid against a
+  // dropdown's face (morpheus/DropFace) — no gap, the card's hairline on the
+  // face's, so the face reads as the menu's header (user, 2026-11-04). The
+  // corners there are square for as far as the face covers them
+  // (`joinSpan`, its width from the card's left edge) and the rest wear the
+  // face's own radius (`joinRadius`), so only the outer ends are round. It
+  // unrolls out of that edge rather than growing from a corner, and casts no
+  // shadow back over the face.
+  property string joinEdge: ""
+  property real joinSpan: 0
+  property real joinRadius: Zenon.radiusControl
+  readonly property bool joined: root.joinEdge !== ""
+  // drawn inside a window rather than on a surface of its own: nothing
+  // behind it can be blurred, so a dropdown's frost is laid solid
+  property bool inWindow: false
+  // the face covers the card's whole width: both corners on that edge square
+  readonly property bool joinAll: root.joinSpan >= bg.width - 1
+
   signal chosen(int index)
 
   readonly property alias card: bg
@@ -48,22 +67,38 @@ Item {
     // Grows out of its own top-left corner rather than appearing at full
     // size, so the card unfolds FROM the thing it belongs to.
     transformOrigin: Item.TopLeft
-    scale: Zenon.menuScale(root.shade)
+    // a dropdown's list unrolls out of its face (joinEdge), in height only
+    scale: root.joined ? 1 : Zenon.menuScale(root.shade)
+    transform: Scale {
+      origin.y: root.joinEdge === "bottom" ? bg.height : 0
+      yScale: root.joined ? Zenon.menuUnfold(root.shade) : 1
+    }
     opacity: root.shade
     // Opaque, like terminus' card: a menu sits ON what is behind it, not in
     // it, and a translucent ground let the background read through the rows.
-    color: Zenon.menuBg
+    // A dropdown's list is frosted as a sheet is (Zenon.dropFrost): on its
+    // own surface Hyprland blurs what is behind; drawn inside a window
+    // (`inWindow`, BulkDrop) the same glass is laid solid instead.
+    color: !root.joined ? Zenon.menuBg
+         : root.inWindow ? Zenon.dropFrostSolid : Zenon.dropFrost
     border.color: Zenon.border
     border.width: 1
-    radius: Zenon.menuRadius
+    // a dropdown's list wears its face's radius: one outline, one rounding
+    radius: root.joined ? root.joinRadius : Zenon.menuRadius
     // Square where it meets its parent, round everywhere else — so a submenu
     // reads as hinged off the row that opened it rather than as a second card
     // that happens to be touching. Only when there IS a parent: a root card
-    // opened at a pointer keeps all four corners.
-    topLeftRadius:     (root.hinged &&  root.onRight) || root.squareEdge === "top" ? 0 : bg.radius
-    bottomLeftRadius:  (root.hinged &&  root.onRight) || root.squareEdge === "bottom" ? 0 : bg.radius
-    topRightRadius:    (root.hinged && !root.onRight) || root.squareEdge === "top" ? 0 : bg.radius
-    bottomRightRadius: (root.hinged && !root.onRight) || root.squareEdge === "bottom" ? 0 : bg.radius
+    // opened at a pointer keeps all four corners. A dropdown's list is square
+    // where its face sits on it: the left always (it hangs from the face's
+    // left), the right too when the face spans the card.
+    topLeftRadius:     (root.hinged &&  root.onRight) || root.squareEdge === "top"
+                       || root.joinEdge === "top" ? 0 : bg.radius
+    bottomLeftRadius:  (root.hinged &&  root.onRight) || root.squareEdge === "bottom"
+                       || root.joinEdge === "bottom" ? 0 : bg.radius
+    topRightRadius:    (root.hinged && !root.onRight) || root.squareEdge === "top"
+                       || (root.joinEdge === "top" && root.joinAll) ? 0 : bg.radius
+    bottomRightRadius: (root.hinged && !root.onRight) || root.squareEdge === "bottom"
+                       || (root.joinEdge === "bottom" && root.joinAll) ? 0 : bg.radius
 
     // ── TALLER THAN THE CARD, IT SCROLLS ───────────────────────────────
     // The card is capped at Zenon.menuMaxHeight by whichever surface holds
@@ -94,10 +129,16 @@ Item {
         spacing: 0
 
         Repeater {
+          id: rowsRep
           model: root.model
 
           delegate: Item {
             id: row
+            // the flash, for a row chosen by key rather than by click (fire)
+            Connections {
+              target: root
+              function onFireAt(i) { if (i === row.index) flash.fire(root.firedThen); }
+            }
             required property var modelData
             required property int index
             width: flick.width
@@ -108,11 +149,11 @@ Item {
             // rows for CardPopup to open beside it (children)
             readonly property bool branch: (row.modelData.hasChildren || false) || !!row.modelData.children
             readonly property bool on: row.modelData.enabled !== false && !row.sep
-            // `danger` is for a row that is ARMED — one that has been clicked
-            // once and is waiting to be confirmed. Arming is not an event, so it
-            // does not flash; the row going red is the reply.
-            readonly property color ink: !row.on ? Zenon.accentMuted
-              : ((row.modelData.danger || false) ? Zenon.red : Zenon.white)
+            // ONE INK FOR EVERY ROW (user, 2026-11-04): no red Trash, no red
+            // Empty trash. A row tinted for what it MEANS is gone; only a row
+            // that stands for a color shows it, on its glyph (`iconInk`: a
+            // tag, a sticky's hue). `danger` is still accepted and ignored.
+            readonly property color ink: !row.on ? Zenon.accentMuted : Zenon.white
             // Lit by the pointer, OR because the card it opened is still up.
             // A branch you are standing inside is still the row you came from,
             // and the pointer has by then moved off it onto the child.
@@ -242,13 +283,13 @@ Item {
                 text: row.branch ? ""
                   : ((row.modelData.mark || false) ? "" : "")
                 // Three answers, not two. A TICK is a state and keeps its
-                // cyan; a CHEVRON is punctuation belonging to the label beside
+                // accent; a CHEVRON is punctuation belonging to the label beside
                 // it and takes the label's own white. Muted was lumping the
                 // chevron in with "nothing here", which is what made it look
                 // like a disabled row. A branch that IS off (icarus' Recent
                 // with nothing learned yet) dims it with its label (user,
                 // 2026-10-25).
-                color: (row.modelData.mark || false) ? Zenon.cyan
+                color: (row.modelData.mark || false) ? Zenon.accent
                   : (row.branch ? (row.on ? Zenon.white : Zenon.accentMuted)
                     : Zenon.accentMuted)
                 font.family: Zenon.face
@@ -299,17 +340,32 @@ Item {
       }
     }
 
-    // the windows' rail (ScrollRail's settings): only where there is
-    // somewhere to go, and the wheel left to the rows' own ElasticScroll
-    Scrollbar {
-      flick: flick
-      thickness: 10
-      grabPad: 0
-      handleWheel: false
-      anchors.right: parent.right
-      anchors.top: parent.top
-      anchors.bottom: parent.bottom
-    }
+    // NO SCROLLBAR (user, 2026-11-04: "it's a menu"): a long card scrolls
+    // by the wheel and the cursor keys alone, its rows' own ElasticScroll
+  }
+
+  // A ROW CHOSEN BY KEY flashes as a clicked one does, then `then` runs —
+  // for a host that walks the rows with the keyboard (terminus' DropAsk).
+  // (`then` waits in a property: a signal's var argument is a copy, and
+  // a function does not survive being one)
+  signal fireAt(int i)
+  property var firedThen: null
+  function fire(i, then) {
+    const t = then || null;
+    root.firedThen = () => { root.firedThen = null; if (t) t(); };
+    if (i >= 0 && i < rowsRep.count) root.fireAt(i);
+    else root.firedThen();
+  }
+
+  // A ROW WALKED TO BY KEY is scrolled into the card, as a ListView's
+  // Contain would (terminus' BulkDrop arrows down a clamped list).
+  function showRow(i) {
+    const rows = root.model || [];
+    let y = 0;
+    for (let k = 0; k < i && k < rows.length; ++k) y += root.rowHeight(rows[k]);
+    const h = root.rowHeight(rows[i]);
+    if (y < flick.contentY) flick.contentY = y;
+    else if (y + h > flick.contentY + flick.height) flick.contentY = y + h - flick.height;
   }
 
   // How far the rows are scrolled, for a host placing a submenu against one.
@@ -363,8 +419,17 @@ Item {
   // the last of the blur lands on the last pixel of the surface.
   readonly property real shadowScale: Math.min(1, root.pad / Zenon.menuShadowPad)
 
+  // A DROPDOWN'S LIST CASTS NOTHING BACK OVER ITS FACE: the face is the
+  // menu's header, and a shadow across it would read as a second card laid
+  // on top of the first. The face's footprint (its width, everything past
+  // the joined edge) is punched out of the shadow like the card's own;
+  // beside it the shadow falls as it always did, as the whole thing's.
   MenuShadow {
     panel: bg
+    cornerRadius: bg.radius
+    alsoHole: root.joinEdge === "top" ? Qt.rect(0, -root.pad, root.joinSpan, root.pad)
+            : root.joinEdge === "bottom" ? Qt.rect(0, bg.height, root.joinSpan, root.pad)
+            : Qt.rect(0, 0, 0, 0)
     visible: Zenon.menuShadows
     reach: root.pad
     grow: Math.round(Zenon.menuShadowGrow * root.shadowScale)
@@ -373,5 +438,10 @@ Item {
     opacity: root.shade
     transformOrigin: Item.TopLeft
     scale: bg.scale
+    // unrolled with the card, from its joined edge
+    transform: Scale {
+      origin.y: root.joinEdge === "bottom" ? bg.height : 0
+      yScale: root.joined ? Zenon.menuUnfold(root.shade) : 1
+    }
   }
 }

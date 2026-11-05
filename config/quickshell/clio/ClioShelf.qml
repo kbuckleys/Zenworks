@@ -36,7 +36,7 @@ ShelfRow {
   // ── SOMETHING CARRIED OVER IT: terminus' sidebar swell ──
   // the row grows a little and its outline breathes for as long as the
   // drop is on offer; on the Trash in yellow, a trashing (terminus/SideRow)
-  readonly property color dropInk: !!row.drop && row.drop.shelf === "trash" ? Zenon.yellow : Zenon.cyan
+  readonly property color dropInk: !!row.drop && row.drop.shelf === "trash" ? Zenon.yellow : Zenon.accent
   property real swell: row.hot ? 1 : 0
   Behavior on swell { NumberAnimation { duration: Zenon.fast; easing.type: Easing.OutCubic } }
   scale: 1 + 0.03 * row.swell

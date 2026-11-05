@@ -28,7 +28,7 @@ Item {
   readonly property var buttons: [
     { label: "Drop", ink: Zenon.red, visible: !!pg.stash, run: () => pg.drop() },
     { label: "Apply", visible: !!pg.stash, run: () => pg.apply(false) },
-    { label: "Stash changes", ink: Zenon.cyan, primary: true, run: () => pg.push() },
+    { label: "Stash changes", ink: Zenon.accent, primary: true, run: () => pg.push() },
   ]
   function takeFocus() { if (pg.win) pg.win.focusKeys(); }
 

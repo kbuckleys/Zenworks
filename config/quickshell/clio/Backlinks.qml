@@ -45,7 +45,7 @@ Column {
         Text {
           anchors.verticalCenter: parent.verticalCenter
           text: row.modelData.kind === "entry" ? "\u{F0B64}" : "\u{F11D7}"
-          color: row.modelData.kind === "entry" ? Zenon.magenta : Zenon.cyan
+          color: row.modelData.kind === "entry" ? Zenon.magenta : Zenon.accent
           font.family: Zenon.glyphFace
           font.pixelSize: Zenon.px(14)
         }
@@ -54,7 +54,7 @@ Column {
           anchors.verticalCenter: parent.verticalCenter
           width: Math.min(implicitWidth, bl.width - 160)
           elide: Text.ElideRight
-          text: N.titleOf(row.modelData, row.modelData.kind === "entry" ? N.dateLong(row.modelData.date) : "New Note")
+          text: N.titleOf(row.modelData, row.modelData.kind === "entry" ? N.dateLong(row.modelData.date) : "New note")
           color: Zenon.ink
           font.family: Zenon.face
           font.weight: Font.DemiBold

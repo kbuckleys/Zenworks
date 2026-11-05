@@ -187,7 +187,7 @@ Rectangle {
       }
 
       readonly property color ink: diskInfo.used > 0.95 ? Zenon.red
-        : (diskInfo.used > 0.85 ? Zenon.yellow : Zenon.cyan)
+        : (diskInfo.used > 0.85 ? Zenon.yellow : Zenon.accent)
 
       UsageBar {
         id: diskInfoGauge
@@ -361,7 +361,7 @@ Rectangle {
         anchors.right: parent.right
         anchors.rightMargin: 14
         anchors.verticalCenter: parent.verticalCenter
-        spacing: 8
+        spacing: Zenon.buttonGap
         DialogButton {
           visible: Terminus.ejectable(diskInfo.cur)
           label: "Safely remove"
@@ -377,7 +377,7 @@ Rectangle {
         DialogButton {
           visible: !!diskInfo.cur && diskInfo.cur.mount !== ""
           label: "Open"
-          ink: Zenon.cyan
+          ink: Zenon.accent
           primary: true
           onClicked: diskInfo.enter()
         }

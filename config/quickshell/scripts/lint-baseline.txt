@@ -11,7 +11,7 @@
 1	calypso/PlatformGrid.qml	missing-property	Member "info" not found on type "QQuickItem"
 1	calypso/WatchPane.qml	id-shadows-member	Id for object Flickable shadows property "flick". Rename one or the other.
 1	calypso/WatchPane.qml	id-shadows-member	Note: Id defined here
-4	cerberus/CerberusLock.qml	missing-property	Member "name" not found on type "QuickshellScreenInfo"
+6	cerberus/CerberusLock.qml	missing-property	Member "name" not found on type "QuickshellScreenInfo"
 1	cerberus/CerberusLock.qml	uncreatable-type	Type PanelWindow is not creatable.
 1	ceres/ConfigView.qml	id-shadows-member	Id for object Flickable shadows property "flick". Rename one or the other.
 1	ceres/ConfigView.qml	id-shadows-member	Id for object Rectangle shadows property "add". Rename one or the other.
@@ -34,6 +34,7 @@
 1	clio/MomentsBody.qml	id-shadows-member	Note: Id defined here
 1	clio/SettingsBody.qml	missing-property	Member "toLowerCase" not found on type "QJSPrimitiveValue"
 2	clio/TableBlock.qml	missing-property	Member "cellAt" not found on type "QQuickItem"
+1	cynosure/Confetti.qml	uncreatable-type	Type PanelWindow is not creatable.
 1	delphi/BlameView.qml	id-shadows-member	Id for object ListView shadows property "view". Rename one or the other.
 1	delphi/BlameView.qml	id-shadows-member	Note: Id defined here
 1	delphi/ConflictView.qml	id-shadows-member	Id for object ListView shadows property "view". Rename one or the other.
@@ -61,6 +62,7 @@
 1	howler/HowlerPopup.qml	missing-property	Member "eventDayOf" not found on type "Howler"
 1	howler/HowlerPopup.qml	missing-property	Member "eventInk" not found on type "Howler"
 1	howler/HowlerPopup.qml	missing-property	Member "forget" not found on type "Howler"
+1	howler/HowlerPopup.qml	missing-property	Member "forgetSource" not found on type "Howler"
 8	howler/HowlerPopup.qml	missing-property	Member "history" not found on type "Howler"
 1	howler/HowlerPopup.qml	missing-property	Member "iconRadius" not found on type "Howler"
 1	howler/HowlerPopup.qml	missing-property	Member "iconSource" not found on type "Howler"
@@ -70,9 +72,12 @@
 1	howler/HowlerPopup.qml	missing-property	Member "markRead" not found on type "Howler"
 1	howler/HowlerPopup.qml	missing-property	Member "markup" not found on type "Howler"
 1	howler/HowlerPopup.qml	missing-property	Member "missingGlyph" not found on type "Howler"
-1	howler/HowlerPopup.qml	missing-property	Member "openRow" not found on type "Howler"
+2	howler/HowlerPopup.qml	missing-property	Member "openRow" not found on type "Howler"
 3	howler/HowlerPopup.qml	missing-property	Member "radius" not found on type "Howler"
+3	howler/HowlerPopup.qml	missing-property	Member "setSource" not found on type "Howler"
 4	howler/HowlerPopup.qml	missing-property	Member "silent" not found on type "Howler"
+4	howler/HowlerPopup.qml	missing-property	Member "sourceOf" not found on type "Howler"
+3	howler/HowlerPopup.qml	missing-property	Member "sourceState" not found on type "Howler"
 1	howler/HowlerPopup.qml	missing-property	Member "toggleMusicTracking" not found on type "Howler"
 2	howler/HowlerPopup.qml	missing-property	Member "toggleSilent" not found on type "Howler"
 3	howler/HowlerPopup.qml	missing-property	Member "trackMusic" not found on type "Howler"
@@ -99,11 +104,10 @@
 2	icarus/HomeCard.qml	missing-property	Member "width" not found on type "QuickshellScreenInfo"
 1	icarus/HomeCard.qml	uncreatable-type	Type PanelWindow is not creatable.
 1	icarus/IcarusDesktop.qml	uncreatable-type	Type PanelWindow is not creatable.
-2	icarus/IcarusPopup.qml	missing-property	Could not find property "left".
-2	icarus/IcarusPopup.qml	missing-property	Could not find property "top".
-3	icarus/IcarusPopup.qml	uncreatable-type	Type PanelWindow is not creatable.
-1	morpheus/CardBody.qml	id-shadows-member	Id for object Flickable shadows property "flick". Rename one or the other.
-1	morpheus/CardBody.qml	id-shadows-member	Note: Id defined here
+1	icarus/IcarusPopup.qml	missing-property	Could not find property "left".
+1	icarus/IcarusPopup.qml	missing-property	Could not find property "top".
+2	icarus/IcarusPopup.qml	uncreatable-type	Type PanelWindow is not creatable.
+1	kairos/FocusVeil.qml	uncreatable-type	Type PanelWindow is not creatable.
 1	morpheus/CardMenu.qml	missing-property	Could not find property "left".
 1	morpheus/CardMenu.qml	missing-property	Could not find property "top".
 3	morpheus/CardMenu.qml	missing-property	Member "height" not found on type "QuickshellScreenInfo"
@@ -126,8 +130,13 @@
 1	morpheus/CursorAnchor.qml	missing-property	Member "width" not found on type "QuickshellScreenInfo"
 1	morpheus/CursorAnchor.qml	uncreatable-type	Type PanelWindow is not creatable.
 1	morpheus/Desktop.qml	unused-imports	Unused import
+2	morpheus/DropShelf.qml	missing-property	Member "fetch" not found on type "QObject"
+1	morpheus/DropShelf.qml	missing-property	Member "running" not found on type call to method createObject, returning QObject
+1	morpheus/DropShelf.qml	missing-property	Member "write" not found on type "QObject"
+2	morpheus/DropShelf.qml	uncreatable-type	Type PanelWindow is not creatable.
 1	morpheus/Elastic.qml	missing-property	Member "grow" not found on type "QObject"
 1	morpheus/Elastic.qml	missing-property	Member "hold" not found on type "QObject"
+1	morpheus/HotCorners.qml	uncreatable-type	Type PanelWindow is not creatable.
 1	morpheus/LayerPopup.qml	uncreatable-type	Type PanelWindow is not creatable.
 1	morpheus/Strings.qml	missing-property	Member "done" not found on type Strings::pasteProc with type Process
 3	morpheus/Sysmon.qml	missing-property	Member "reload" not found on type "QObject"
@@ -147,7 +156,7 @@
 1	oracle/EffectsSample.qml	missing-property	Member "range" not found on type "Repeater"
 2	oracle/EffectsSample.qml	missing-property	Member "steps" not found on type "Repeater"
 1	oracle/KeysSheet.qml	uncreatable-type	Type PanelWindow is not creatable.
-1	oracle/WelcomeLook.qml	uncreatable-type	Type PanelWindow is not creatable.
+1	oracle/SetupAssistant.qml	uncreatable-type	Type PanelWindow is not creatable.
 1	picasso/BackgroundSetter.qml	missing-property	Member "ink" not found on type "QQuickItem"
 1	picasso/BackgroundSetter.qml	missing-property	Member "value" not found on type "QQuickItem"
 1	picasso/MapView.qml	missing-property	Member "running" not found on type call to method createObject, returning QObject

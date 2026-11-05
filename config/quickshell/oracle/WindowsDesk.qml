@@ -26,7 +26,7 @@ Item {
   property string face: Zenon.face
   property color fgColor: Zenon.white
   property color dimColor: Zenon.accentMuted
-  property color highlight: Zenon.cyan
+  property color highlight: Zenon.accent
 
   // which of the three has the focus here (nothing in the session moves)
   property int focused: 0

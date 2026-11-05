@@ -23,6 +23,8 @@ Item {
   property int grow: 0
   // the News tab: every item the feed carries, not only the unread
   property bool all: false
+  // the list, for the holder's ScrollEdge: the cards run on under its foot
+  readonly property alias list: items
   // the tab, offline: the feed last read is kept, and the lead says so
   readonly property bool stale: view.all && Ceres.newsFailed && Ceres.news.length > 0
   readonly property bool leadShown: !view.all || view.stale

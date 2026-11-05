@@ -18,6 +18,8 @@ import "hestia.js" as H
 
 Item {
   id: pg
+  // the unit's log (right, under the pill), for the window's ScrollEdge
+  readonly property var view: log.view
 
   property var mgr: null
   property var win: null
@@ -287,7 +289,7 @@ Item {
               required property var modelData
               implicitHeight: 32
               label: modelData.label
-              ink: ({ red: Zenon.red, green: Zenon.green, cyan: Zenon.cyan, yellow: Zenon.yellow })[modelData.ink] || Zenon.accentMuted
+              ink: ({ red: Zenon.red, green: Zenon.green, cyan: Zenon.accent, yellow: Zenon.yellow })[modelData.ink] || Zenon.accentMuted
               busy: !!pg.mgr && pg.mgr.busy === modelData.verb + " " + (pg.unit ? pg.unit.unit : "")
               busyText: "…"
               ready: !!pg.mgr && pg.mgr.busy === ""
@@ -320,7 +322,7 @@ Item {
         Row {
           anchors.right: parent.right
           anchors.verticalCenter: parent.verticalCenter
-          spacing: 8
+          spacing: Zenon.buttonGap
           DialogButton {
             implicitHeight: 28
             label: "In the journal"
@@ -329,7 +331,7 @@ Item {
           DialogButton {
             implicitHeight: 28
             label: pg.following ? "Following" : "Follow"
-            ink: pg.following ? Zenon.cyan : Zenon.muted
+            ink: pg.following ? Zenon.accent : Zenon.muted
             onClicked: pg.follow(!pg.following)
           }
         }

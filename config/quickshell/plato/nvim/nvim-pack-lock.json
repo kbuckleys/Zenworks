@@ -8,6 +8,10 @@
       "rev": "016802de402556da54c36bd7359b441266b01cdd",
       "src": "https://github.com/stevearc/conform.nvim"
     },
+    "diffbandit.nvim": {
+      "rev": "f190e33d807c07a97259472e13a3bba3299f0f80",
+      "src": "https://github.com/CoreyKaylor/diffbandit.nvim"
+    },
     "guess-indent.nvim": {
       "rev": "84a4987ff36798c2fc1169cbaff67960aed9776f",
       "src": "https://github.com/NMAC427/guess-indent.nvim"

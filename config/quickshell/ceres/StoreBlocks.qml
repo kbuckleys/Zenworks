@@ -47,7 +47,7 @@ Column {
             width: 18
             horizontalAlignment: Text.AlignRight
             text: blk.numbered ? (index + 1) + "." : "•"
-            color: Zenon.cyan
+            color: Zenon.accent
             font.family: Zenon.face
             font.weight: Zenon.weight
             font.pixelSize: Zenon.px(16)

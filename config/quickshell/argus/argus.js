@@ -134,9 +134,14 @@ function ffmpegArgs(src, out, o) {
   var crop = cropFilter(o.crop || null);
   var vf = crop ? ["-vf", crop] : [];
   if (o.format === "gif") {
-    var w = o.gifWidth > 0 ? String(o.gifWidth) : "iw";
-    var graph = (crop ? crop + "," : "") + "fps=" + o.gifFps + ",scale='min(" + w + ",iw)':-1:flags=lanczos,split[a][b];"
-      + "[a]palettegen=stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=4:diff_mode=rectangle";
+    // the cap is on the longest side, so a tall crop is not 720 wide and
+    // 1280 high; never upscaled
+    var w = o.gifWidth > 0 ? String(o.gifWidth) : "";
+    var scale = w ? ",scale='if(gte(iw,ih),min(" + w + ",iw),-1)':'if(gte(iw,ih),-1,min(" + w + ",ih))':flags=lanczos" : "";
+    // 128 colors and bayer 5 (2026-11-04): a quarter smaller on film, an
+    // eighth on a screen, and closer to the source by SSIM than 256 at bayer 4
+    var graph = (crop ? crop + "," : "") + "fps=" + o.gifFps + scale + ",split[a][b];"
+      + "[a]palettegen=stats_mode=diff:max_colors=128[p];[b][p]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle";
     return head.concat(cut, ["-filter_complex", graph, "-loop", o.loop ? "0" : "-1", out]);
   }
   if (o.format === "webm")
@@ -150,6 +155,42 @@ function ffmpegArgs(src, out, o) {
                        ["-avoid_negative_ts", "make_zero", "-movflags", "+faststart", out]);
   return head.concat(cut, vf, ["-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p"],
                      audio(["-c:a", "aac", "-b:a", "160k"]), ["-movflags", "+faststart", out]);
+}
+
+// A saved GIF, squeezed in place by gifsicle (2026-11-04): its lossy LZW
+// halves a screen recording and takes a quarter or more off camera footage,
+// with no difference to see; -O2 is as small as -O3 here at a third of the
+// time. `exec`, so a stop's SIGTERM reaches gifsicle, not a waiting shell;
+// with no gifsicle it is a step that does nothing
+var SQUEEZE = "gifsicle -O2 --lossy=60 -b";
+function squeezeArgs(gif) {
+  return ["sh", "-c", "command -v gifsicle >/dev/null || exit 0; exec " + SQUEEZE + " \"$1\"", "sh", gif];
+}
+
+// ── HOW BIG A GIF WILL BE (2026-11-04) ───────────────────────────────────
+// A GIF's size is all in its content (a still screen is tiny, a handheld
+// camera huge), so it is measured, not guessed: up to ESTIMATE_MS from the
+// middle of the kept part, made with the very same command and squeeze,
+// and its bytes scaled up to the whole length. argv: the output is made
+// here, a temporary file; the answer is its size on stdout.
+var ESTIMATE_MS = 2000;
+function estimateSpan(o) {
+  var len = Math.max(MIN_LEN, o.outMs - o.inMs), take = Math.min(len, ESTIMATE_MS);
+  var at = o.inMs + (len - take) / 2;
+  return { inMs: at, outMs: at + take, scale: len / take };
+}
+function estimateArgs(src, o) {
+  var span = estimateSpan(o);
+  var f = ffmpegArgs(src, "", Object.assign({}, o, { inMs: span.inMs, outMs: span.outMs }));
+  f.pop();   // the "" output: the temporary file goes there
+  return ["sh", "-c", "g=$(mktemp --suffix=.gif) || exit 1; "
+    + "if \"$@\" \"$g\" >/dev/null 2>&1; then "
+    + "command -v gifsicle >/dev/null && " + SQUEEZE + " \"$g\" 2>/dev/null; stat -c %s \"$g\"; fi; rm -f \"$g\"", "sh"].concat(f);
+}
+// bytes → "0.8 MB", "13 MB"
+function megabytes(bytes) {
+  var mb = (Number(bytes) || 0) / 1048576;
+  return (mb >= 10 ? String(Math.round(mb)) : mb.toFixed(1)) + " MB";
 }
 
 // `-progress pipe:1`: key=value lines, a block at a time; the last

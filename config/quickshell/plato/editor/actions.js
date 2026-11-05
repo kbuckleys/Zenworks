@@ -56,6 +56,16 @@ function gitOr(c, viaDelphi, cmd) {
   else c.client.cmd(cmd);
 }
 
+// a diffbandit command, or word that the plugin is not there (switched off
+// or removed in the plugin panel). What it refuses ("no git changes") is
+// said plainly, not as a Lua error with its stack
+function diffbandit(cmd) {
+  return "lua if vim.fn.exists(':" + cmd + "') == 2 then "
+    + "local ok, err = pcall(vim.cmd, '" + cmd + "') "
+    + "if not ok then vim.notify((tostring(err):match('DiffBandit: ([^\\n]*)') or tostring(err):match('[^\\n]*')):gsub('^%l', string.upper), vim.log.levels.INFO) end "
+    + "else vim.notify('diffbandit.nvim is not installed or is switched off', vim.log.levels.WARN) end";
+}
+
 const groups = {
   "l": "LSP",
   "g": "Git",
@@ -149,6 +159,10 @@ const list = [
       "lua require('plato.confine').toggle('blame', 'Git blame')") },
   { keys: "gl", title: "Git log", run: (c) => gitOr(c, (g, f) => g.history(f),
       "lua require('plato.confine').toggle('log', 'Git log --oneline')") },
+  // side by side, in diffbandit.nvim's own tab page (see its config file);
+  // q closes it
+  { keys: "gd", title: "Diff this file", run: (c) => c.client.cmd(diffbandit("DiffBanditGitCurrent")) },
+  { keys: "gD", title: "Diff every changed file", run: (c) => c.client.cmd(diffbandit("DiffBanditGit")) },
 
   // ── several cursors (multicursor.nvim; see its config file) ──────────
   { keys: "mn", title: "Add cursor at next match", run: (c) => c.client.cmd("lua require('multicursor-nvim').matchAddCursor(1)") },

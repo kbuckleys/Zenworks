@@ -134,9 +134,12 @@ Singleton {
   // Not a dependency: a question setup asks once — Arch and the AUR, or
   // Flathub's apps in the Store too. The answer is kept ("yes" / "no");
   // "" is not asked yet, and with no flatpak here that alone is setup to do.
-  // Having flatpak already is an answer: nothing to ask.
+  // Having flatpak already is an answer: nothing to ask. "want" is the
+  // setup assistant's yes (oracle/SetupAssistant, 2026-11-04): still asked
+  // here, where flatpak is fetched, with the box ticked already — one
+  // question, answered once, not a second copy of it.
   property string flatpakPref: ""
-  readonly property bool flatpakAsk: !root.deps.flatpak && root.flatpakPref === ""
+  readonly property bool flatpakAsk: !root.deps.flatpak && (root.flatpakPref === "" || root.flatpakPref === "want")
   FileView {
     id: storePrefs
     path: Quickshell.statePath("ceres-store.json")
@@ -443,7 +446,7 @@ Singleton {
 
   readonly property var ink: ({
     muted: Zenon.hex(Zenon.accentMuted), arrow: Zenon.hex(Zenon.yellow), repo: Zenon.hex(Zenon.blue), aur: Zenon.hex(Zenon.magenta),
-    flat: Zenon.hex(Zenon.cyan),
+    flat: Zenon.hex(Zenon.accent),
     warn: Zenon.hex(Zenon.red)
   })
 

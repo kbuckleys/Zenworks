@@ -16,6 +16,6 @@ Rectangle {
   radius: Zenon.radiusCard
   color: "transparent"
   border.width: 2
-  border.color: Zenon.cyan
+  border.color: Zenon.accent
   visible: on
 }

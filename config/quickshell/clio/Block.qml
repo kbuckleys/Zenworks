@@ -176,7 +176,7 @@ Item {
         anchors.centerIn: parent
         visible: !!blk.b && !!blk.b.c
         text: ""
-        color: Zenon.onAccent
+        color: Zenon.inkOnAccent
         font.family: Zenon.glyphFace
         font.pixelSize: Math.round(blk.ts * 0.5)
       }
@@ -213,7 +213,7 @@ Item {
     x: -24
     y: blk.padTop + (text.firstLineH - height) / 2
     text: blk.b && blk.b.fold ? "" : ""
-    color: blk.b && blk.b.fold ? Zenon.cyan : Zenon.muted
+    color: blk.b && blk.b.fold ? Zenon.accent : Zenon.muted
     font.family: Zenon.glyphFace
     font.pixelSize: Zenon.px(11)
   }
@@ -277,7 +277,7 @@ Item {
       persistentSelection: true
       color: blk.b && blk.b.k === "check" && blk.b.c ? Zenon.muted : blk.kind === "quote" ? Zenon.soft : Zenon.ink
       // while finding, the match is marked yellow, as Apple's find marks it
-      selectionColor: blk.editor && blk.editor.findQuery !== "" ? Zenon.alpha(Zenon.yellow, 0.5) : Zenon.alpha(Zenon.cyan, 0.32)
+      selectionColor: blk.editor && blk.editor.findQuery !== "" ? Zenon.alpha(Zenon.yellow, 0.5) : Zenon.alpha(Zenon.accent, 0.32)
       selectedTextColor: color
       font.family: blk.kind === "mono" ? Zenon.faceMono : (blk.editor ? blk.editor.face : Zenon.face)
       font.weight: blk.kind === "title" || blk.kind === "heading" ? Font.Bold
@@ -392,7 +392,7 @@ Item {
         color: "transparent"
         radius: media.radius
         border.width: blk.mediaHeld ? 3 : 0
-        border.color: Zenon.alpha(Zenon.cyan, 0.8)
+        border.color: Zenon.alpha(Zenon.accent, 0.8)
       }
       // the corner to pull
       Rectangle {
@@ -431,7 +431,7 @@ Item {
       radius: Zenon.windowRadius
       color: Zenon.wash(0.05)
       border.width: blk.mediaHeld ? 2 : 1
-      border.color: blk.mediaHeld ? Zenon.alpha(Zenon.cyan, 0.8) : Zenon.border
+      border.color: blk.mediaHeld ? Zenon.alpha(Zenon.accent, 0.8) : Zenon.border
       Row {
         id: fileRow
         x: 14
@@ -441,7 +441,7 @@ Item {
           textFormat: Text.PlainText
           anchors.verticalCenter: parent.verticalCenter
           text: blk.b ? (Icons.glyphFor({ name: blk.b.name || "" }) || "") : ""
-          color: Zenon.cyan
+          color: Zenon.accent
           font.family: Zenon.glyphFace
           font.pixelSize: Zenon.px(22)
         }
@@ -475,7 +475,7 @@ Item {
       y: 8
       width: parent.width - blk.indentW
       height: blk.mediaHeld ? 3 : 1
-      color: blk.mediaHeld ? Zenon.cyan : Zenon.border
+      color: blk.mediaHeld ? Zenon.accent : Zenon.border
     }
 
     // a table: the grip it is carried by, in the margin
@@ -485,7 +485,7 @@ Item {
       x: -26
       y: 8
       text: "\u{F01DD}"
-      color: blk.mediaHeld ? Zenon.cyan : Zenon.muted
+      color: blk.mediaHeld ? Zenon.accent : Zenon.muted
       font.family: Zenon.glyphFace
       font.pixelSize: Zenon.px(16)
     }

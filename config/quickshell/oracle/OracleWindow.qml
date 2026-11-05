@@ -45,6 +45,7 @@ import "oracle.js" as Ora
 import "../morpheus"
 import "../morpheus/controls" as Controls
 import "../terminus"
+import "../morpheus/suite.js" as Suite
 
 FloatingWindow {
   id: popup
@@ -74,31 +75,31 @@ FloatingWindow {
 
   readonly property color bgColor: Zenon.layerBg
   readonly property color fgColor: Zenon.white
-  readonly property color headColor: Zenon.cyan
+  readonly property color headColor: Zenon.accent
   readonly property color dimColor: Zenon.accentMuted
   // WHAT YOU ARE TOUCHING, and what has been CHANGED, are two different
   // facts and now wear two different colors.
   //
   // Everything interactive used to light up in the pink — a focused field, an
   // open dropdown, a pressed button, a grabbed knob — and against the dark
-  // panel that reads as a red alert rather than as "this one is live". Cyan
+  // panel that reads as a red alert rather than as "this one is live". Accent
   // is the accent the rest of the shell already uses for the thing in hand:
   // the section you are standing in, a slider's filled track, the lit cell in
   // the corner picker.
   //
   // A SECOND color is kept for the one job it is good at: marking a setting
   // that is no longer at its default. That is a STATE rather than an action,
-  // it wants to be told apart from the cyan at a glance, and it appears in
+  // it wants to be told apart from the accent at a glance, and it appears in
   // exactly three places — the sidebar's per-section count, the "n changed"
   // badge in the head, and the dot at the start of a changed row.
   //
   // Yellow rather than the light red it was. Against this ground the pink
   // read as a warning — a changed setting is not a problem, it is a choice —
-  // and yellow sits far enough from the cyan to separate at a glance without
+  // and yellow sits far enough from the accent to separate at a glance without
   // claiming something has gone wrong. Not sand, which is the RAM meter's
   // and terminus' "modified" ink, and is close enough to the white text here
   // to lose the dot entirely.
-  readonly property color highlight: Zenon.cyan
+  readonly property color highlight: Zenon.accent
   readonly property color changedColor: Zenon.yellow
   // a row's name wears the accent, drawn from ink as the chrome's grays are
   // (accentGreyMix); its description stays a plain gray of the same weight
@@ -202,6 +203,10 @@ FloatingWindow {
   // `enumKey` is which setting it belongs to; "" is closed.
   property string enumKey: ""
   property point enumAt: Qt.point(0, 0)
+  // the dropdown's face (morpheus DropFace) the card hangs from, one surface
+  // with it; kept past the closing so the face stays joined while the card
+  // folds back into it. null for a card opened at a point (the corner grid).
+  property Item enumChip: null
   readonly property var enumSpec: popup.enumKey === ""
     ? null : Oracle.spec(popup.enumKey)
   // WHAT THE CARD SHOWS, which outlives the closing. enumKey goes back to ""
@@ -230,8 +235,8 @@ FloatingWindow {
   function swatchOf(sp, opt) {
     if (!sp || !opt || (sp.optionsFrom !== "themes" && sp.optionsFrom !== "themesNoSun")) return null;
     const z = Zenon.zenon;
-    const fill = (sw) => [sw[0] || z.ground, sw[1] || z.ink, sw[2] || z.cyan];
-    if (opt.value === "zenon") return [z.ground, z.ink, z.cyan];
+    const fill = (sw) => [sw[0] || z.ground, sw[1] || z.ink, sw[2] || z.accent];
+    if (opt.value === "zenon") return [z.ground, z.ink, z.accent];
     if (opt.value === "follow") {
       const sw = Ora.themeSwatch(Zenon.followTheme && Zenon.followTheme.colors);
       return sw ? fill(sw) : null;
@@ -297,16 +302,25 @@ FloatingWindow {
     return out;
   }
 
-  function openEnumMenu(key, at) {
+  function openEnumMenu(key, at, chip) {
     // the Font list asks fontconfig again as it opens: a face installed a
     // moment ago is in it (Oracle.scanFonts registers it with Qt too)
     if (Oracle.weightKeyOf[key]) Oracle.scanFonts();
     popup.enumShown = key;
     popup.enumKey = key;
     popup.enumAt = at;
+    popup.enumChip = chip || null;
   }
 
   function closeEnumMenu() { popup.enumKey = ""; }
+
+  // which setting the app card is choosing for (a hot corner's key)
+  property string appFor: ""
+  function askApp(key) {
+    popup.appFor = key;
+    appPick.handlers = Suite.rows(Strings.appGlyph);
+    appPick.ask([], false);
+  }
 
   // ── CHOOSING A PATH IN TERMINUS ───────────────────────────────────────
   // Handed in by shell.qml. The picker is a real toplevel window and this
@@ -526,13 +540,26 @@ FloatingWindow {
   readonly property int barSampleH: 130
   // Idle & lock's timeline (IdleTimeline)
   readonly property int idleH: 170
+  // the Desktop menu page's menu (MenuSample): its eleven rows and three
+  // rules at the real row height, the margins and the caption
+  readonly property int menuSampleH: Math.min(480, Zenon.menuRowHeight * 11 + Zenon.menuSepHeight * 3 + 2 + 62)
   // the pictures drawn from a file of their own, by `sample`: the file
   // (loaded by URL: no qmldir line, no restart) and its height
   readonly property var pictures: ({
     desk: { file: "WindowsDesk.qml", h: popup.deskH },
     bar:  { file: "BarSample.qml", h: popup.barSampleH },
     idle: { file: "IdleTimeline.qml", h: popup.idleH },
-    effects: { file: "EffectsSample.qml", h: popup.deskH }
+    effects: { file: "EffectsSample.qml", h: popup.deskH },
+    menu: { file: "MenuSample.qml", h: popup.menuSampleH },
+    notify: { file: "NotifySample.qml", h: popup.deskH },
+    tiling: { file: "TilingSample.qml", h: popup.deskH },
+    workspaces: { file: "WorkspacesSample.qml", h: popup.deskH },
+    look: { file: "LookSample.qml", h: popup.deskH },
+    lock: { file: "LockSample.qml", h: 270 },
+    // Shortcuts' hyper key and Cynosure's Look & place (2026-11-03)
+    hyper: { file: "HyperSample.qml", h: 200 },
+    cynosure: { file: "CynosureSample.qml", h: popup.deskH },
+    corners: { file: "CornersSample.qml", h: popup.deskH }
   })
   // ── CONTROLS HANG OFF THE RIGHT EDGE ──────────────────────────────────
   // Every control ENDS at the same x, hard against the scrollbar, and each
@@ -588,8 +615,8 @@ FloatingWindow {
   // A card opens at a point in THIS window — the chip's bottom-left — and
   // the compositor puts it on screen: see CardPopup, which is why that works
   // from a window at all.
-  function openEnumMenuAt(key, local) {
-    popup.openEnumMenu(key, local);
+  function openEnumMenuAt(key, local, chip) {
+    popup.openEnumMenu(key, local, chip);
   }
 
   // ── open and close ────────────────────────────────────────────────────
@@ -708,6 +735,7 @@ FloatingWindow {
       if (id === "display") Oracle.scanDisplays();
       if (id === "look") Oracle.scanThemes();
       if (id === "fonts") Oracle.scanFonts();
+      if (id === "cursor") Oracle.scanCursors();
       if (id === "defaults") Oracle.scanApps();
       if (id === "input") Oracle.scanInputDevices();
       popup.closeEnumMenu();
@@ -732,6 +760,8 @@ FloatingWindow {
     // and the fonts, so one installed since the shell started is too
     if (id === "look") Oracle.scanThemes();
     if (id === "fonts") Oracle.scanFonts();
+    // and the cursor themes, so one installed since is offered
+    if (id === "cursor") Oracle.scanCursors();
     // and what is installed: an application added since the last look is
     // one you may well have come here to choose
     if (id === "defaults") Oracle.scanApps();
@@ -938,35 +968,36 @@ FloatingWindow {
     id: en
     property var spec: null
     property var value: null
-    // a spec may ask for more room, for labels that are long by nature
-    readonly property int chipW: (en.spec && en.spec.chipW) || 164
-    width: en.chipW
+    // AS WIDE AS ITS CHOICE (user, 2026-11-05): the chip fits what it
+    // shows, and widens to its menu as that opens (DropFace) — leftwards,
+    // over the row, so the row itself keeps its closed width
+    width: chip.restWidth
     height: 26
 
     readonly property bool hasPicto: en.spec && en.spec.pictogram === "corner"
     readonly property bool open: en.spec && popup.enumKey === en.spec.key
 
-    Rectangle {
+    // the menu's header while its card is out: one surface (DropFace)
+    DropFace {
       id: chip
       anchors.right: parent.right
       anchors.verticalCenter: parent.verticalCenter
-      width: en.chipW
       height: 26
-      radius: Zenon.radiusControl
-      color: (en.open || chipMa.pressed)
-        ? Qt.rgba(popup.highlight.r, popup.highlight.g, popup.highlight.b, 0.18)
-        : Zenon.wash(0.06)
-      border.width: 1
-      border.color: en.open ? popup.highlight : Zenon.border
-      Behavior on color { ColorAnimation { duration: Zenon.fast; easing.type: Zenon.ease } }
-      Behavior on border.color { ColorAnimation { duration: Zenon.fast; easing.type: Zenon.ease } }
+      joined: popup.enumChip === chip ? enumMenu.joined : ""
+      menuWidth: popup.enumChip === chip ? enumMenu.fitW : 0
+      growLeft: true
+      contentWidth: (en.hasPicto ? picto.width + 8 : chipSwatch.visible ? chipSwatch.width + 8 : 0)
+                    + enLabel.implicitWidth
+      pressed: chipMa.pressed
+      pressColor: Qt.rgba(popup.highlight.r, popup.highlight.g, popup.highlight.b, 0.18)
+      chevronInk: popup.dimColor
 
       // the same six-cell screen the card's rows draw
       Item {
         id: picto
         visible: en.hasPicto
         anchors.left: parent.left
-        anchors.leftMargin: 10
+        anchors.leftMargin: chip.inset
         anchors.verticalCenter: parent.verticalCenter
         width: visible ? 22 : 0
         height: 15
@@ -1015,14 +1046,15 @@ FloatingWindow {
           : null
         visible: !en.hasPicto && chipSwatch.colors !== null
         anchors.left: parent.left
-        anchors.leftMargin: 10
+        anchors.leftMargin: chip.inset
         anchors.verticalCenter: parent.verticalCenter
       }
 
       Text {
+        id: enLabel
         anchors.left: en.hasPicto ? picto.right : chipSwatch.visible ? chipSwatch.right : parent.left
-        anchors.leftMargin: en.hasPicto || chipSwatch.visible ? 8 : 10
-        anchors.right: caret.left
+        anchors.leftMargin: en.hasPicto || chipSwatch.visible ? 8 + (Zenon.menuIconGap - 8) * chip.openness : chip.inset
+        anchors.right: chip.chevron.left
         anchors.rightMargin: 6
         anchors.verticalCenter: parent.verticalCenter
         horizontalAlignment: Text.AlignLeft
@@ -1034,28 +1066,14 @@ FloatingWindow {
         font.pixelSize: Zenon.px(en.hasPicto ? 14 : 15)
       }
 
-      // the one mark that says this opens rather than cycles
-      Text {
-        id: caret
-        anchors.right: parent.right
-        anchors.rightMargin: 9
-        anchors.verticalCenter: parent.verticalCenter
-        // a chevron, written as an escape: the glyph itself was lost once already
-        text: "\uF078"
-        color: popup.dimColor
-        font.family: popup.face
-        font.weight: Zenon.weight
-        font.pixelSize: Zenon.px(11)
-      }
-
       MouseArea {
         id: chipMa
         anchors.fill: parent
         onClicked: {
           if (en.open) { popup.closeEnumMenu(); return; }
-          // the card hangs off the chip's bottom-left, in this window —
-          // the compositor takes it from there (see CardPopup)
-          popup.openEnumMenuAt(en.spec.key, chip.mapToItem(null, 0, chip.height + 4));
+          // the card hangs from the chip, one surface with it — the
+          // compositor flips it above when there is no room (see CardPopup)
+          popup.openEnumMenuAt(en.spec.key, chip.mapToItem(null, 0, chip.height + 4), chip);
         }
         // the wheel still steps it, for the two-value ones where opening a
         // card to pick between Bottom and Top would be a ceremony
@@ -1212,7 +1230,7 @@ FloatingWindow {
             required property int index
             width: Math.ceil(ss.width / 10)
             height: ss.height * 5
-            color: [Zenon.cyan, Zenon.pink, Zenon.sand, Zenon.blue][index % 4]
+            color: [Zenon.accent, Zenon.pink, Zenon.sand, Zenon.blue][index % 4]
             opacity: 0.55
           }
         }
@@ -1284,29 +1302,29 @@ FloatingWindow {
   component DevicesControl: Item {
     id: dv
     property var spec: null
-    width: 164
+    // as wide as what it shows; wider, leftwards, while its card is out
+    width: dvChip.restWidth
     height: 26
     readonly property bool open: dv.spec && popup.enumKey === dv.spec.key
 
-    Rectangle {
+    DropFace {
       id: dvChip
       anchors.right: parent.right
       anchors.verticalCenter: parent.verticalCenter
-      width: 164
       height: 26
-      radius: Zenon.radiusControl
-      color: (dv.open || dvMa.pressed)
-        ? Qt.rgba(popup.highlight.r, popup.highlight.g, popup.highlight.b, 0.18)
-        : Zenon.wash(0.06)
-      border.width: 1
-      border.color: dv.open ? popup.highlight : Zenon.border
-      Behavior on color { ColorAnimation { duration: Zenon.fast; easing.type: Zenon.ease } }
-      Behavior on border.color { ColorAnimation { duration: Zenon.fast; easing.type: Zenon.ease } }
+      joined: popup.enumChip === dvChip ? enumMenu.joined : ""
+      menuWidth: popup.enumChip === dvChip ? enumMenu.fitW : 0
+      growLeft: true
+      contentWidth: dvLabel.implicitWidth
+      pressed: dvMa.pressed
+      pressColor: Qt.rgba(popup.highlight.r, popup.highlight.g, popup.highlight.b, 0.18)
+      chevronInk: popup.dimColor
 
       Text {
+        id: dvLabel
         anchors.left: parent.left
-        anchors.leftMargin: 10
-        anchors.right: dvCaret.left
+        anchors.leftMargin: dvChip.inset
+        anchors.right: dvChip.chevron.left
         anchors.rightMargin: 6
         anchors.verticalCenter: parent.verticalCenter
         elide: Text.ElideRight
@@ -1320,24 +1338,12 @@ FloatingWindow {
         font.pixelSize: Zenon.px(15)
       }
 
-      Text {
-        id: dvCaret
-        anchors.right: parent.right
-        anchors.rightMargin: 9
-        anchors.verticalCenter: parent.verticalCenter
-        text: "\uF078"
-        color: popup.dimColor
-        font.family: popup.face
-        font.weight: Zenon.weight
-        font.pixelSize: Zenon.px(11)
-      }
-
       MouseArea {
         id: dvMa
         anchors.fill: parent
         onClicked: {
           if (dv.open) { popup.closeEnumMenu(); return; }
-          popup.openEnumMenuAt(dv.spec.key, dvChip.mapToItem(null, 0, dvChip.height + 4));
+          popup.openEnumMenuAt(dv.spec.key, dvChip.mapToItem(null, 0, dvChip.height + 4), dvChip);
         }
       }
     }
@@ -1799,7 +1805,7 @@ FloatingWindow {
         // take on trust.
         text: {
           if (!ac.spec) return "";
-          const v = ac.spec.verb || "Run";
+          const v = Oracle.actionVerb(ac.spec.key) || ac.spec.verb || "Run";
           return ac.spec.context
             ? v + " " + popup.sectionLabel(popup.lastRealSection) : v;
         }
@@ -1812,7 +1818,7 @@ FloatingWindow {
       MouseArea {
         id: btnMa
         anchors.fill: parent
-        enabled: !ac.busy
+        enabled: !ac.busy && !Oracle.rowIdle(ac.spec.key)
         onClicked: Oracle.run(ac.spec.key, popup.lastRealSection)
       }
     }
@@ -2030,7 +2036,7 @@ FloatingWindow {
               activeFocusOnTab: false
               color: popup.fgColor
               selectionColor: popup.highlight
-              selectedTextColor: Zenon.onAccent
+              selectedTextColor: Zenon.inkOnAccent
               font.family: popup.face
               font.weight: Zenon.weight
               font.pixelSize: Zenon.px(15)
@@ -2112,6 +2118,20 @@ FloatingWindow {
               opacity: popup.searching ? 0.35 : 1
               onClicked: popup.goToSection("changed")
             }
+            // a rule between Changed and the categories (user, 2026-11-03):
+            // Changed is a view over every page, not one of them
+            Item {
+              visible: changedRow.visible
+              width: sideCol.width
+              height: 13
+              Rectangle {
+                anchors.verticalCenter: parent.verticalCenter
+                // edge to edge across the sidebar (user, 2026-11-03)
+                width: parent.width
+                height: 1
+                color: Zenon.border
+              }
+            }
             Repeater {
               model: Oracle.sections
               delegate: Column {
@@ -2136,7 +2156,9 @@ FloatingWindow {
                   // call lands, and an id read then is a ReferenceError
                   const f = sideFlick, r = secRow, c = sideCol;
                   Qt.callLater(() => {
-                    if (!f || !r || !c) return;
+                    // destroyed in the meantime, the held items are still
+                    // objects but their methods are gone (a TypeError)
+                    if (!f || !r || !c || typeof r.mapToItem !== "function") return;
                     const y = r.mapToItem(c, 0, 0).y;
                     if (y < f.contentY) f.contentY = Math.max(0, y - 30);
                     else if (y + r.height > f.contentY + f.height)
@@ -2442,6 +2464,94 @@ FloatingWindow {
               }
             }
 
+            // ── TURN HYPER OFF? (2026-11-03) ──────────────────────────
+            // asked when binds are on it; they are gathered in one frame,
+            // "Using Hyper", opened under it (Oracle.hyperOffAsked)
+            Rectangle {
+              id: hyperBar
+              anchors.top: confirmBar.bottom
+              anchors.left: parent.left
+              anchors.right: parent.right
+              height: Oracle.hyperOffAsked ? 52 : 0
+              visible: height > 0
+              clip: true
+              color: Qt.rgba(popup.changedColor.r, popup.changedColor.g, popup.changedColor.b, 0.10)
+              Behavior on height { NumberAnimation { duration: Zenon.fast; easing.type: Zenon.ease } }
+
+              Rectangle {
+                anchors.bottom: parent.bottom
+                width: parent.width
+                height: 1
+                color: Zenon.border
+              }
+              Text {
+                anchors.left: parent.left
+                anchors.leftMargin: 24
+                anchors.right: hyperBtns.left
+                anchors.rightMargin: 16
+                anchors.verticalCenter: parent.verticalCenter
+                elide: Text.ElideRight
+                textFormat: Text.PlainText
+                text: {
+                  Oracle.revision;
+                  const n = Oracle.hyperBinds().length;
+                  return (n === 1 ? "1 shortcut uses" : n + " shortcuts use") + " Hyper and will do nothing without it";
+                }
+                color: popup.changedColor
+                font.family: popup.face
+                font.weight: Font.Medium
+                font.pixelSize: Zenon.px(15)
+              }
+              Row {
+                id: hyperBtns
+                anchors.right: parent.right
+                anchors.rightMargin: 20
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: 8
+                Repeater {
+                  model: [ { text: "Turn off anyway", keep: false }, { text: "Keep Hyper", keep: true } ]
+                  Rectangle {
+                    id: hb
+                    required property var modelData
+                    width: hbText.implicitWidth + 28
+                    height: 28
+                    radius: Zenon.radiusControl
+                    color: hbMa.pressed
+                      ? Qt.rgba(popup.highlight.r, popup.highlight.g, popup.highlight.b, 0.25)
+                      : hb.modelData.keep ? Qt.rgba(popup.highlight.r, popup.highlight.g, popup.highlight.b, 0.14)
+                      : Zenon.wash(0.06)
+                    border.width: 1
+                    border.color: hb.modelData.keep ? popup.highlight : Zenon.border
+                    Text {
+                      id: hbText
+                      textFormat: Text.PlainText
+                      anchors.centerIn: parent
+                      text: hb.modelData.text
+                      color: popup.fgColor
+                      font.family: popup.face
+                      font.weight: Font.Medium
+                      font.pixelSize: Zenon.px(14)
+                    }
+                    MouseArea {
+                      id: hbMa
+                      anchors.fill: parent
+                      onClicked: hb.modelData.keep ? Oracle.hyperOffKeep() : Oracle.hyperOffConfirm()
+                    }
+                  }
+                }
+              }
+            }
+            // the frame of binds on Hyper opens when the question is asked,
+            // on Shortcuts wherever it was asked from
+            Connections {
+              target: Oracle
+              function onHyperOffAskedChanged() {
+                if (!Oracle.hyperOffAsked) return;
+                if (!popup.openGroups.hyper) popup.toggleGroup("hyper");
+                if (popup.section !== "keys") popup.goToSection("keys");
+              }
+            }
+
             EmptyState {
               anchors.centerIn: parent
               visible: popup.rows.length === 0
@@ -2459,7 +2569,7 @@ FloatingWindow {
             // band can reach under the bar; z keeps the bar over it.
             Item {
               id: pinBox
-              anchors.top: confirmBar.bottom
+              anchors.top: hyperBar.bottom
               anchors.left: parent.left
               anchors.right: parent.right
               height: popup.pinned && popup.pictures[popup.pinned.sample] ? popup.pictures[popup.pinned.sample].h : 0
@@ -2473,6 +2583,16 @@ FloatingWindow {
                   item.fgColor = Qt.binding(() => popup.fgColor);
                   item.dimColor = Qt.binding(() => popup.dimColor);
                   item.highlight = Qt.binding(() => popup.highlight);
+                  // a picture with dropdowns of its own (Hot corners) opens
+                  // this window's card for them
+                  if (item.hasOwnProperty("openEnum")) {
+                    item.openEnum = popup.openEnumMenuAt;
+                    item.closeEnum = popup.closeEnumMenu;
+                    item.openKey = Qt.binding(() => popup.enumKey);
+                    item.openChip = Qt.binding(() => popup.enumChip);
+                    item.openJoined = Qt.binding(() => enumMenu.joined);
+                    item.openMenuW = Qt.binding(() => enumMenu.fitW);
+                  }
                 }
               }
               // the hairline the rows pass under, once they do
@@ -2568,6 +2688,12 @@ FloatingWindow {
                 z: settingRow.mapRow ? -1 : 0
 
                 readonly property var spec: settingRow.modelData
+                // a row with nothing to do here (Oracle.rowIdle: the Hyprcursor
+                // version of a theme that is Hyprcursor already) fades, and
+                // its control no longer answers
+                readonly property bool idle: Oracle.rowIdle(settingRow.spec.key)
+                opacity: settingRow.idle ? Zenon.disabledDim : 1
+                Behavior on opacity { NumberAnimation { duration: Zenon.fast; easing.type: Zenon.ease } }
                 // a row that is a picture, wide and with no control: the
                 // desk's Arrangement, or Surfaces' sample
                 readonly property bool sampleRow: settingRow.spec.type === "sample"
@@ -2701,7 +2827,9 @@ FloatingWindow {
                   active: settingRow.fold && (settingRow.open || settingRow.height > rowHead.y + rowHead.height + settingRow.frameBelow)
                   source: ({ computer: "ComputerPanel.qml", tools: "ToolsPanel.qml",
                              color: "ColorFold.qml", rules: "WindowRules.qml",
-                             startup: "StartupApps.qml" })[settingRow.spec.fold] || ""
+                             startup: "StartupApps.qml",
+                             sources: "NotifySources.qml",
+                             cyhidden: "CynosureHidden.qml", cyfallbacks: "CynosureFallbacks.qml" })[settingRow.spec.fold] || ""
                   onLoaded: {
                     if (settingRow.spec.fold === "color") item.key = settingRow.spec.key;
                     item.face = Qt.binding(() => popup.face);
@@ -2948,7 +3076,12 @@ FloatingWindow {
                   }
 
                   Text {
-                    width: parent.width
+                    // A READING MEASURE AGAIN, but its own, not the row's
+                    // (user, 2026-11-03: descriptions spanned the whole
+                    // window): under both still, wrapping at about 75–80
+                    // characters, or sooner where the row is narrower.
+                    // In em, so it follows the Font size.
+                    width: Math.min(parent.width, Zenon.px(14) * 40)
                     // clear of the control's foot, which hangs past the name,
                     // and air under the line (user, 2026-10-27) — but a
                     // monitor's maker, under its name in the band, is a
@@ -3267,6 +3400,35 @@ FloatingWindow {
     // About's Export settings / Import settings — oracle/SettingsMove.qml
     SettingsMove { z: 20; fileManager: popup.fileManager }
 
+    // ── CHOOSING AN APP ───────────────────────────────────────────────
+    // A hot corner's "Open an app": terminus' open-with card (AppPicker),
+    // the suite's apps on top and everything installed under them
+    InputShield { visible: appPick.open; onClicked: appPick.dismiss() }
+    Sheet {
+      id: appSheet
+      shown: appPick.open
+      cardW: 560
+      cardH: appPick.implicitHeight
+      AppPicker {
+        id: appPick
+        width: parent.width
+        host: popup
+        handlersLabel: "Zenworks"
+        removable: false
+        findHandlers: true
+        hiddenIds: Suite.entryIds()
+        // fits the window: a short Oracle scrolls the list, not the page
+        listRows: Math.max(4, Math.floor((popup.height - 160) / 30))
+        onChosen: (app) => {
+          const sp = Oracle.spec(popup.appFor);
+          if (!sp || !app) return;
+          Oracle.set(sp.appKey, String(app.id));
+          Oracle.set(sp.key, "app");
+        }
+        onDismissed: popup.syncFocus()
+      }
+    }
+
     InputShield { visible: popup.naming; onClicked: popup.endNaming(false) }
     Sheet {
       id: nameSheet
@@ -3302,7 +3464,7 @@ FloatingWindow {
           verticalAlignment: TextInput.AlignVCenter
           color: popup.fgColor
           selectionColor: popup.highlight
-          selectedTextColor: Zenon.onAccent
+          selectedTextColor: Zenon.inkOnAccent
           font.family: popup.face
           font.weight: Zenon.weight
           font.pixelSize: Zenon.px(15)
@@ -3323,7 +3485,7 @@ FloatingWindow {
         anchors.bottom: parent.bottom
         anchors.rightMargin: 16
         anchors.bottomMargin: 14
-        spacing: 8
+        spacing: Zenon.buttonGap
         DialogButton { label: "Cancel"; onClicked: popup.endNaming(false) }
         DialogButton { label: "Save"; ink: popup.highlight; primary: true; onClicked: popup.endNaming(true) }
       }
@@ -3339,6 +3501,8 @@ FloatingWindow {
     window: popup
     open: popup.enumKey !== "" && !popup.enumIsGrid
     at: popup.enumAt
+    // hung from the chip that opened it, one surface with it (DropFace)
+    attach: popup.enumChip
     model: popup.enumRows
     // the row under the pointer — Delete on a custom theme's row removes it
     onHovered: (i) => {
@@ -3351,10 +3515,7 @@ FloatingWindow {
       if (event.key === Qt.Key_Delete && popup.deleteHoveredTheme()) event.accepted = true;
       else if (event.key === Qt.Key_Escape) { event.accepted = true; popup.closeEnumMenu(); }
     }
-    // the narrowest it may be — the Menu width every other menu on the
-    // desktop is cut to — and it grows to its longest option rather than
-    // eliding one. See CardMenu.fit
-    cardWidth: Zenon.menuWidth
+    // as wide as its longest option, as every menu (CardMenu.fit)
     fit: true
 
     onChosen: (i) => {
@@ -3375,6 +3536,13 @@ FloatingWindow {
         return;
       }
       const opts = sp.options || [];
+      // "Open an app" (a hot corner's) asks which first; the corner is set
+      // only once one is chosen, so a card put away changes nothing
+      if (i >= 0 && i < opts.length && opts[i].value === "app" && sp.appKey) {
+        popup.closeEnumMenu();
+        popup.askApp(sp.key);
+        return;
+      }
       if (i >= 0 && i < opts.length) Oracle.set(sp.key, opts[i].value);
       popup.closeEnumMenu();
     }

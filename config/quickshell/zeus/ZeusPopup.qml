@@ -5,25 +5,25 @@
 
 import QtQuick
 import Quickshell
-import Quickshell.Widgets
 import Quickshell.Io
 import Quickshell.Hyprland
 import Quickshell.Wayland
 import Quickshell.Services.Pipewire
-import QtQuick.Effects
 import "zeus.js" as Zeus
 import "sound.js" as Sound
 import "../morpheus"
 import "../morpheus/helpers.js" as Helpers
 import "../morpheus/gridnav.js" as Nav
 import "../oracle"
+// qualified: Segments and ConfirmBody alone
+import "../terminus" as Term
 
 LayerPopup {
   id: popup
 
   readonly property color bgColor: Zenon.layerBg
   readonly property color fgColor: Zenon.white
-  readonly property color headColor: Zenon.cyan
+  readonly property color headColor: Zenon.accent
   readonly property color keyColor: Zenon.keyInk
   readonly property color dimColor: Zenon.muted
   readonly property color entryColor: Zenon.pink
@@ -184,10 +184,8 @@ LayerPopup {
   Sound {
     id: sound
     active: popup.shown && popup.mode === "sound"
-    query: popup.soundQuery
   }
 
-  property string soundQuery: ""
   property int soundSel: 0
 
   // How much mixer the panel will show before it scrolls instead of growing —
@@ -996,12 +994,10 @@ LayerPopup {
       if (r && r.kind === "card")
         return [["click", "choose profile"], ["\u2190\u2192", "step profile"],
                 ["wheel", "scroll"],
-                ["tab", popup.nextLabel()], ["type", "filter"],
-                ["esc", "clear · close"]];
+                ["tab", popup.nextLabel()], ["esc", "close"]];
       return [["drag", "volume"], ["wheel on bar", "step"],
               ["click", "route · mute · default"],
-              ["tab", popup.nextLabel()], ["type", "filter"],
-              ["esc", "clear · close"]];
+              ["tab", popup.nextLabel()], ["esc", "close"]];
     }
     const n = Object.keys(popup.selected).length;
     const h = [["tab", popup.nextLabel()],
@@ -1033,8 +1029,6 @@ LayerPopup {
     listBar.clear();
     popup.netQuery = "";
     netBar.clear();
-    popup.soundQuery = "";
-    soundBar.clear();
     popup.soundSel = 0;
     // capture runs only on the Connections view — and when that view is the
     // one opened on, it has to START here, since setMode() is not the way in
@@ -1080,10 +1074,9 @@ LayerPopup {
       // reached the filter underneath would re-sort the very list the card is
       // quoting a row out of.
       if (popup.confirming) bgRoot.forceActiveFocus();
-      // both typed views own a field; everything else types into the panel
+      // list and net own a field; everything else types into the panel
       else if (popup.mode === "list") listBar.takeFocus();
       else if (popup.mode === "net") netBar.takeFocus();
-      else if (popup.mode === "sound") soundBar.takeFocus();
       else bgRoot.forceActiveFocus();
     });
   }
@@ -1542,8 +1535,7 @@ LayerPopup {
           if (popup.netQuery !== "") netBar.clear();
           else popup.closePopup();
         } else if (popup.mode === "sound") {
-          if (popup.soundQuery !== "") soundBar.clear();
-          else popup.closePopup();
+          popup.closePopup();
         } else if (listBar.text !== "") {
           listBar.clear();
         } else if (Object.keys(popup.selected).length > 0) {
@@ -1633,8 +1625,7 @@ LayerPopup {
             event.accepted = true; popup.moveVert(6);
           }
         } else if (popup.mode === "sound") {
-          // Alt+M, not a bare M: the filter field has every letter, which is
-          // the same reason the kill list carries its sort on Alt+S.
+          // Alt+M, the same chord the kill list's sort uses on Alt+S.
           if (event.key === Qt.Key_M && (event.modifiers & Qt.AltModifier)) {
             event.accepted = true;
             popup.soundMute();
@@ -1679,17 +1670,6 @@ LayerPopup {
         id: viewStack
         anchors.fill: parent
 
-        // Only while the card is up. A layer that stayed enabled would put
-        // every view through an offscreen texture for the entire session to
-        // buy a blur that is on screen for a second and a half.
-        layer.enabled: confirmLayer.opacity > 0.01
-        layer.effect: MultiEffect {
-          blurEnabled: true
-          blurMax: 32
-          // ramped by the scrim's own fade, so the panel goes soft as the card
-          // comes forward instead of snapping out of focus underneath it
-          blur: confirmLayer.opacity
-        }
 
         // -------------------------------------------------- list view --
 
@@ -1807,6 +1787,8 @@ LayerPopup {
               // the whole shell — see morpheus/Elastic.qml. Inside the view
               // rather than over it: it pins itself to the viewport.
               ElasticScroll { view: grid }
+              // on the view itself, not its content (it sits in a Column)
+              Scrollbar { parent: grid; flick: grid; anchors.right: parent.right; anchors.top: parent.top; anchors.bottom: parent.bottom }
               // the chosen one slides (morpheus/CursorBand), rather than each row lighting
               CursorBand { follows: grid; index: popup.sel }
               width: parent.width
@@ -1897,7 +1879,7 @@ LayerPopup {
         text: "\uF071"
         color: bar.ink
         font.family: Zenon.face
-        font.weight: 500
+        font.weight: Zenon.weight
         font.pixelSize: Zenon.px(19)
       }
 
@@ -1945,9 +1927,9 @@ LayerPopup {
           verticalAlignment: TextInput.AlignVCenter
           color: bar.caretInk
           selectionColor: bar.ink
-          selectedTextColor: Zenon.onAccent
+          selectedTextColor: Zenon.inkOnAccent
           font.family: Zenon.face
-          font.weight: 500
+          font.weight: Zenon.weight
           font.pixelSize: Zenon.px(17)
           cursorVisible: activeFocus
           cursorDelegate: Caret {
@@ -2659,19 +2641,8 @@ LayerPopup {
           Column {
             anchors.fill: parent
 
-            FilterBar {
-              id: soundBar
-              width: parent.width
-              // green, the color the pill's own volume meter is drawn in —
-              // the mixer is the same reading, larger
-              ink: Zenon.green
-              caretInk: Zenon.green
-              status: sound.statusLine
-              onEdited: (text) => {
-                popup.soundQuery = text;
-              }
-            }
-
+            // No filter field: a mixer holds a handful of rows, and the
+            // header starts at the top edge.
             // column headers
             Item {
               width: parent.width
@@ -2710,22 +2681,17 @@ LayerPopup {
               }
             }
 
-            // Nothing matched. Only reachable through the filter — a machine
-            // with no audio at all has no sink either, and pipewire always
-            // publishes one.
+            // No rows. Rare — pipewire always publishes a sink, so this is a
+            // machine with no audio at all.
             Item {
               width: parent.width
               height: popup.soundEmpty ? 40 : 0
               clip: true
 
-              Text {
+              EmptyState {
                 anchors.centerIn: parent
                 visible: popup.soundEmpty
-                text: popup.soundQuery !== "" ? "Nothing matches \u201C" + popup.soundQuery + "\u201D" : "Nothing here"
-                color: popup.dimColor
-                font.family: Zenon.face
-                font.weight: 600
-                font.pixelSize: Zenon.px(15)
+                text: "Nothing here"
               }
             }
 
@@ -2886,12 +2852,6 @@ LayerPopup {
                   }
 
                   // ── a row of it ─────────────────────────────────────
-                  Rectangle {
-                    anchors.fill: parent
-                    visible: !modelData.head
-                    color: rowHov.hovered && !soundRow.selected ? Zenon.menuHi : "transparent"
-                  }
-                  HoverHandler { id: rowHov; enabled: !modelData.head }
 
                   // The whole row is a click target for the selection, and
                   // nothing more.
@@ -2946,7 +2906,7 @@ LayerPopup {
                       hotInk: Zenon.green
                       width: parent.width * soundView.wName - 14
                       text: modelData.head ? ""
-                        : Zeus.highlight(modelData.name, popup.soundQuery)
+                        : Strings.escapeHtml(modelData.name)
                     }
                     Item { width: 14; height: 1 }
 
@@ -2955,7 +2915,7 @@ LayerPopup {
                       width: parent.width * soundView.wDetail - 14
                       color: popup.dimColor
                       text: modelData.head ? ""
-                        : Zeus.highlight(modelData.detail, popup.soundQuery)
+                        : Strings.escapeHtml(modelData.detail)
                     }
                     Item { width: 14; height: 1 }
 
@@ -3135,7 +3095,7 @@ LayerPopup {
                       readonly property bool menuHere: popup.profileMenuOpen
                         && !!modelData.card
                         && popup.profileMenuCard === modelData.card.name
-                      readonly property bool lit: profHov.hovered || profCell.menuHere
+                      readonly property bool lit: profCell.menuHere
 
                       Rectangle {
                         id: profBox
@@ -3192,7 +3152,6 @@ LayerPopup {
                         font.pixelSize: Zenon.px(13)
                       }
 
-                      HoverHandler { id: profHov; enabled: profCell.switchable }
 
                       MouseArea {
                         anchors.fill: parent
@@ -3424,10 +3383,10 @@ LayerPopup {
                 horizontalAlignment: Text.AlignHCenter
                 elide: Text.ElideRight
                 text: popup.failVerb() + " PID " + popup.failList.join(", ")
-                color: Zenon.onAccent
+                color: Zenon.inkOnAccent
                 font.bold: true
                 font.family: Zenon.face
-                font.weight: 700
+                font.weight: Zenon.titleWeight
                 font.pixelSize: Zenon.px(17)
               }
             }
@@ -3461,226 +3420,64 @@ LayerPopup {
 
       // ------------------------------------------ kill confirmation --
       //
-      // A card over the panel, not a view of its own. The rows you picked stay
-      // on screen behind it, which is the whole question it is asking — the
-      // separate screen was a rofi constraint, and rofi is not the frontend
-      // any more. z above every view so it covers whichever one it opened on.
-      Rectangle {
-        id: confirmLayer
-        anchors.fill: parent
+      // A sheet over the panel, not a view of its own: the rows you picked
+      // stay on screen behind it, which is the whole question it is asking.
+      // The suite's Sheet + ConfirmBody since 2026-11-04 (it was a hand-built
+      // scrim, blur and answer row): the sheet dims the panel itself, the
+      // question and its line are ConfirmBody's, and what to send (or the
+      // priority) sits between them in its `extra` slot.
+      InputShield { z: 2; visible: popup.confirming; onClicked: popup.goBack() }
+      Sheet {
+        id: confirmSheet
         z: 2
-        visible: opacity > 0.01
-        opacity: popup.confirming ? 1 : 0
-        // the panel behind dims rather than leaves
-        color: Zenon.darken(0.55)
-        Behavior on opacity { NumberAnimation { duration: Zenon.normal; easing.type: Zenon.ease } }
+        shown: popup.confirming
+        fromTop: popup.headerH
+        cardW: Math.min(560, bgRoot.width - 80)
+        cardH: confirmBody.implicitHeight
+        Term.ConfirmBody {
+          id: confirmBody
+          width: parent.width
+          question: popup.killLabel
+          glyph: "\uF071"
+          glyphInk: popup.errColor
+          detail: popup.cardMode === "nice"
+            ? "-20 runs first \u00b7 19 runs last \u00b7 raising priority asks for root"
+            : Zeus.SIGNALS[popup.sigIdx].say
+          choices: [{ label: popup.cardMode === "nice"
+                        ? "Set " + (popup.niceTarget > 0 ? "+" : "") + popup.niceTarget
+                        : "Send " + Zeus.SIGNALS[popup.sigIdx].sig,
+                      ink: popup.errColor },
+                    { label: "Abort", ink: Zenon.accentMuted }]
+          pick: popup.confirmKill ? 0 : 1
+          onPicked: (k) => popup.confirmKill = k === 0
+          onChose: (k) => { if (k === 0) popup.executeKills(false); else popup.goBack(); }
 
-        // Swallows everything that misses the card — a modal that let you sort
-        // the list underneath it would be asking about rows that had moved.
-        // A click on the dim is the same answer as Abort.
-        MouseArea {
-          anchors.fill: parent
-          hoverEnabled: true
-          cursorShape: Qt.ArrowCursor
-          onClicked: popup.goBack()
-        }
-
-        ClippingRectangle {
-          id: confirmCard
-          anchors.centerIn: parent
-          // wide enough for a full command line, but never edge to edge: the
-          // card has to read as sitting ON the panel, not as replacing it
-          width: Math.min(560, confirmLayer.width - 80)
-          height: confirmHead.height + confirmBody.height + confirmActions.height
-          color: popup.bgColor
-          border.color: Zenon.border
-          border.width: 1
-          radius: Zenon.dialogRadius
-          // arrives with the dim and a touch behind it, rising the last few
-          // pixels into place, so it reads as coming forward out of the panel
-          transform: Translate { y: (1 - confirmLayer.opacity) * 10 }
-
-          Column {
-            anchors.fill: parent
-
-            Rectangle {
-              id: confirmHead
-              width: parent.width
-              height: 34
+          // the signal: the suite's segmented switch
+          Term.Segments {
+            visible: popup.cardMode === "signal"
+            anchors.horizontalCenter: parent.horizontalCenter
+            options: Zeus.SIGNALS.map((g, k) => [String(k), g.sig])
+            current: String(popup.sigIdx)
+            textSize: Zenon.px(13)
+            onChose: (v) => popup.sigIdx = parseInt(v, 10)
+          }
+          // the priority: a stepper, chevrons round the number
+          Row {
+            visible: popup.cardMode === "nice"
+            anchors.horizontalCenter: parent.horizontalCenter
+            spacing: Zenon.stepGap
+            DialogButton { glyph: true; label: "\u{F0141}"; onClicked: popup.cardStep(-1) }
+            Text {
+              anchors.verticalCenter: parent.verticalCenter
+              width: 64
+              horizontalAlignment: Text.AlignHCenter
+              text: (popup.niceTarget > 0 ? "+" : "") + popup.niceTarget
               color: popup.errColor
-
-              Text {
-                textFormat: Text.PlainText
-                anchors.centerIn: parent
-                text: popup.killLabel
-                color: Zenon.onAccent
-                font.bold: true
-                elide: Text.ElideMiddle
-                width: Math.min(implicitWidth + 8, parent.width - 40)
-                horizontalAlignment: Text.AlignHCenter
-                font.family: Zenon.face
-                font.weight: 700
-                font.pixelSize: Zenon.px(17)
-              }
+              font.family: Zenon.clockFamily
+              font.weight: Zenon.titleWeight
+              font.pixelSize: Zenon.px(24)
             }
-
-            // ── what to do to them ──────────────────────────────────────
-            // A row of signals, or a priority — left and right move either.
-            Item {
-              id: confirmBody
-              width: parent.width
-              height: 74
-
-              Row {
-                visible: popup.cardMode === "signal"
-                anchors.horizontalCenter: parent.horizontalCenter
-                anchors.top: parent.top
-                anchors.topMargin: 12
-                spacing: 6
-
-                Repeater {
-                  model: Zeus.SIGNALS
-                  delegate: Rectangle {
-                    required property var modelData
-                    required property int index
-                    readonly property bool on: index === popup.sigIdx
-                    width: sigText.implicitWidth + 16
-                    height: 26
-                    radius: Zenon.windowRadius
-                    color: on ? popup.errColor : "transparent"
-                    border.color: on ? popup.errColor : Zenon.border
-                    border.width: 1
-                    Text {
-                      id: sigText
-                      anchors.centerIn: parent
-                      text: modelData.sig
-                      color: parent.on ? Zenon.onAccent : popup.fgColor
-                      font.family: Zenon.faceFixed
-                      font.weight: 600
-                      font.pixelSize: Zenon.px(13)
-                    }
-                    MouseArea {
-                      anchors.fill: parent
-                      onClicked: popup.sigIdx = index
-                    }
-                  }
-                }
-              }
-
-              Row {
-                visible: popup.cardMode === "nice"
-                anchors.horizontalCenter: parent.horizontalCenter
-                anchors.top: parent.top
-                anchors.topMargin: 8
-                spacing: 18
-
-                Text {
-                  anchors.verticalCenter: parent.verticalCenter
-                  text: "\u25C0"
-                  color: niceDown.pressed ? popup.fgColor : popup.dimColor
-                  font.pixelSize: Zenon.px(16)
-                  MouseArea {
-                    id: niceDown
-                    anchors.fill: parent
-                    anchors.margins: -8
-                    hoverEnabled: true
-                    onClicked: popup.cardStep(-1)
-                  }
-                }
-                Text {
-                  anchors.verticalCenter: parent.verticalCenter
-                  width: 60
-                  horizontalAlignment: Text.AlignHCenter
-                  text: (popup.niceTarget > 0 ? "+" : "") + popup.niceTarget
-                  color: popup.errColor
-                  font.family: Zenon.clockFamily
-                  font.weight: Font.Bold
-                  font.pixelSize: Zenon.px(26)
-                }
-                Text {
-                  anchors.verticalCenter: parent.verticalCenter
-                  text: "\u25B6"
-                  color: niceUp.pressed ? popup.fgColor : popup.dimColor
-                  font.pixelSize: Zenon.px(16)
-                  MouseArea {
-                    id: niceUp
-                    anchors.fill: parent
-                    anchors.margins: -8
-                    hoverEnabled: true
-                    onClicked: popup.cardStep(1)
-                  }
-                }
-              }
-
-              Text {
-                anchors.horizontalCenter: parent.horizontalCenter
-                anchors.bottom: parent.bottom
-                anchors.bottomMargin: 10
-                text: popup.cardMode === "nice"
-                  ? "-20 runs first \u00b7 19 runs last \u00b7 raising priority asks for root"
-                  : Zeus.SIGNALS[popup.sigIdx].say
-                color: popup.dimColor
-                font.family: Zenon.face
-                font.weight: Zenon.weight
-                font.pixelSize: Zenon.px(13)
-              }
-
-              Rectangle {
-                anchors.bottom: parent.bottom
-                anchors.left: parent.left
-                anchors.right: parent.right
-                height: 1
-                color: Zenon.border
-              }
-            }
-
-            Row {
-              id: confirmActions
-              width: parent.width
-              height: 34
-
-              Repeater {
-                model: [{ label: popup.cardMode === "nice"
-                            ? "Set " + (popup.niceTarget > 0 ? "+" : "") + popup.niceTarget
-                            : "Send " + Zeus.SIGNALS[popup.sigIdx].sig,
-                          action: true },
-                        { label: "Abort", action: false }]
-
-                delegate: Item {
-                  required property var modelData
-                  width: confirmActions.width / 2
-                  height: confirmActions.height
-
-                  Rectangle {
-                    anchors.fill: parent
-                    color: popup.confirmKill === modelData.action
-                      ? Zenon.alpha(Zenon.red, 0.3) : "transparent"
-                  }
-
-                  Text {
-                    textFormat: Text.PlainText
-                    anchors.centerIn: parent
-                    text: modelData.label
-                    color: popup.confirmKill === modelData.action
-                      ? (modelData.action ? popup.errColor : popup.fgColor)
-                      : popup.dimColor
-                    font.bold: popup.confirmKill === modelData.action
-                    font.family: Zenon.face
-                    font.weight: 700
-                    font.pixelSize: Zenon.px(15)
-                  }
-
-                  MouseArea {
-                    anchors.fill: parent
-                    onClicked: {
-                      popup.confirmKill = modelData.action;
-                      if (modelData.action) popup.executeKills(false);
-                      else popup.goBack();
-                    }
-                  }
-                }
-              }
-            }
+            DialogButton { glyph: true; label: "\u{F0142}"; onClicked: popup.cardStep(1) }
           }
         }
       }
@@ -3709,7 +3506,7 @@ LayerPopup {
         + (popup.netEmpty ? popup.netEmptyH : popup.netHeight())
         + popup.hintH;
     if (popup.mode === "sound")
-      return popup.headerH + 26
+      return 26
         + (popup.soundEmpty ? 40 : popup.soundHeight()) + popup.hintH;
     return 156;
   }
@@ -3721,9 +3518,7 @@ LayerPopup {
         ? bgRoot.activeFocus
         : ((popup.mode === "list" && listBar.typing) ||
         (popup.mode === "net" && netBar.typing) ||
-        (popup.mode === "sound" && soundBar.typing) ||
-        (popup.mode !== "list" && popup.mode !== "net"
-        && popup.mode !== "sound" && bgRoot.activeFocus))
+        (popup.mode !== "list" && popup.mode !== "net" && bgRoot.activeFocus))
     onPlace: popup.syncFocus()
   }
 
@@ -3743,16 +3538,6 @@ LayerPopup {
     readonly property color ink: popup.statInk(statRow.statKey)
     readonly property var valuesB: popup.statValuesB(statRow.statKey)
 
-    Rectangle {
-      anchors.fill: parent
-      anchors.margins: 4
-      anchors.leftMargin: 12
-      anchors.rightMargin: 12
-      radius: Zenon.windowRadius
-      color: rowHover.hovered ? Zenon.menuHi : Zenon.alpha(Zenon.menuHi, 0)
-      Behavior on color { ColorAnimation { duration: Zenon.fast } }
-    }
-    HoverHandler { id: rowHover }
 
     Rectangle {
       anchors.bottom: parent.bottom

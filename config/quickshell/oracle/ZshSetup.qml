@@ -25,11 +25,12 @@
 //
 // The answer is kept in welcome.json (Quickshell.statePath).
 //
-// THE CHEAT SHEET, ONCE: no welcome.json at all is the very first start,
-// so the shortcuts sheet opens over the new desktop (Oracle.keysSheetAsked,
-// KeysSheet listens) and welcome.json notes it at once. Closed, it hands on
-// to Make it yours (Oracle.welcomeLookAsked, WelcomeLook: theme, accent,
-// background). The terminal question waits until both are closed.
+// THE SETUP ASSISTANT, ONCE: no welcome.json at all is the very first
+// start, so the setup assistant opens over the new desktop
+// (Oracle.setupAsked, SetupAssistant) and welcome.json notes it at once.
+// It ends on the shortcuts sheet, and has a Terminal step of its own: the
+// notification below is for a setup skipped, and waits until the
+// assistant, the sheet and what the assistant was told to do are done.
 
 import QtQuick
 import Quickshell
@@ -46,6 +47,7 @@ Scope {
   // "" not shown yet · "shown"
   property string keys: ""
   property bool busy: false
+  Binding { target: Oracle; property: "zshAnswer"; value: zsh.answer }
 
   FileView {
     id: stateFile
@@ -76,27 +78,19 @@ Scope {
     if (zsh.answer === "" || zsh.answer === "asked") settle.start();
   }
 
-  // the bar up first, so the sheet arrives on a desktop
-  property bool lookNext: false
+  // the bar up first, so the assistant arrives on a desktop
   Timer {
     id: welcome
     interval: 2000
-    onTriggered: { zsh.lookNext = true; Oracle.keysSheetAsked(); }
+    onTriggered: Oracle.setupAsked("")
   }
-  // the first start's two cards again, on asking: `qs ipc call Welcome
-  // show` (the cheat sheet, then Make it yours), or `look` for the second
+  // the first start's assistant again, on asking: `qs ipc call Welcome
+  // open` from its start, or `look` on its Look step. Not `show`: qs reads
+  // that word as its own and lists the target instead (quickshell-reload-quirks)
   IpcHandler {
     target: "Welcome"
-    function show(): void { zsh.lookNext = true; Oracle.keysSheetAsked(); }
-    function look(): void { Oracle.welcomeLookAsked(); }
-  }
-  Connections {
-    target: Oracle
-    function onKeysSheetOpenChanged() {
-      if (Oracle.keysSheetOpen || !zsh.lookNext) return;
-      zsh.lookNext = false;
-      Oracle.welcomeLookAsked();
-    }
+    function open(): void { Oracle.setupAsked(""); }
+    function look(): void { Oracle.setupAsked("look"); }
   }
 
   // a few seconds in: the bar is up and a notification lands on a desktop
@@ -105,7 +99,9 @@ Scope {
     id: settle
     interval: 8000
     onTriggered: {
-      if (welcome.running || zsh.lookNext || Oracle.keysSheetOpen || Oracle.welcomeLookOpen) { settle.restart(); return; }
+      if (welcome.running || Oracle.keysSheetOpen || Oracle.setupOpen || zsh.busy) { settle.restart(); return; }
+      // answered in the assistant meanwhile
+      if (zsh.answer !== "" && zsh.answer !== "asked") return;
       check.then = "offer";
       check.running = true;
     }

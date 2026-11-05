@@ -50,9 +50,7 @@ CardMenu {
   property var childMenu: null
   signal menuClosed
 
-  cardWidth: Zenon.menuWidth
-  // as wide as its longest row, as the suite's menus are (CardMenu.fit):
-  // menuWidth is now the least it is, not the most (user, 2026-10-18)
+  // as wide as its longest row, as the suite's menus are (CardMenu.fit)
   fit: true
 
   QsMenuOpener {

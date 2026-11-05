@@ -227,9 +227,9 @@ Item {
     width: Math.max(0, segs.even ? (segs.partWs[segs.index] || 0) - 4 : segs.litItem ? segs.litItem.width - 4 : 0)
     height: segs.height - 6
     radius: Zenon.rad(3)
-    color: Zenon.alpha(Zenon.cyan, segs.strong ? 0.28 : 0.16)
+    color: Zenon.alpha(Zenon.accent, segs.strong ? 0.28 : 0.16)
     border.width: segs.strong ? 1 : 0
-    border.color: Zenon.alpha(Zenon.cyan, 0.75)
+    border.color: Zenon.alpha(Zenon.accent, 0.75)
     Behavior on x { enabled: segs.settled; NumberAnimation { duration: Zenon.normal; easing.type: Zenon.travelEase } }
     Behavior on width { enabled: segs.settled; NumberAnimation { duration: Zenon.normal; easing.type: Zenon.travelEase } }
   }
@@ -282,7 +282,7 @@ Item {
           width: parent.width - 4
           height: parent.height - 4
           radius: Zenon.rad(3)
-          color: Zenon.alpha(Zenon.cyan, 0.12)
+          color: Zenon.alpha(Zenon.accent, 0.12)
           visible: segs.hot !== "" && segs.hot === one.modelData[0]
         }
         // the part a menu is open on (terminus' HeldRing)
@@ -301,7 +301,7 @@ Item {
           width: 6
           height: 6
           radius: height / 2
-          color: Zenon.cyan
+          color: Zenon.accent
           visible: segs.dotted.indexOf(one.modelData[0]) >= 0
         }
         Loader {
@@ -326,7 +326,7 @@ Item {
           // art's (the Loader reads them)
           visible: segs.words
           color: segs.inks[one.modelData[0]] !== undefined ? segs.inks[one.modelData[0]]
-            : one.on || segs.hot === one.modelData[0] ? Zenon.cyan : segs.ink
+            : one.on || segs.hot === one.modelData[0] ? Zenon.accent : segs.ink
           opacity: !one.ok ? 0.35
             : press.pressed ? Zenon.pressDim
             : segs.faint.indexOf(one.modelData[0]) >= 0 && segs.hot !== one.modelData[0] ? 0.45 : 1

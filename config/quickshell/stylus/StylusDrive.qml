@@ -46,7 +46,7 @@ Rectangle {
     radius: card.radius - 1
     visible: !!card.job
     frac: S.phaseFrac(card.job)
-    ink: card.result && !card.result.ok ? Zenon.red : Zenon.cyan
+    ink: card.result && !card.result.ok ? Zenon.red : Zenon.accent
   }
 
   // a box of its own, so every drive's name starts at the same x whatever
@@ -58,7 +58,7 @@ Rectangle {
     horizontalAlignment: Text.AlignHCenter
     anchors.verticalCenter: parent.verticalCenter
     text: S.driveGlyph(card.drive)
-    color: card.result ? (card.result.ok ? Zenon.green : Zenon.red) : card.picked ? Zenon.cyan : Zenon.accentMuted
+    color: card.result ? (card.result.ok ? Zenon.green : Zenon.red) : card.picked ? Zenon.accent : Zenon.accentMuted
     font.family: Zenon.glyphFace
     font.pixelSize: Zenon.px(26)
   }

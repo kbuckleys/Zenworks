@@ -123,7 +123,7 @@ PanelWindow {
             width: capFlick.width
             wrapMode: TextEdit.Wrap
             color: Zenon.ink
-            selectionColor: Zenon.alpha(Zenon.cyan, 0.32)
+            selectionColor: Zenon.alpha(Zenon.accent, 0.32)
             selectedTextColor: color
             font.family: cap.mgr ? cap.mgr.faceFor(cap.into === "today") : Zenon.face
             font.pixelSize: Zenon.px(16)
@@ -163,7 +163,7 @@ PanelWindow {
           anchors.right: parent.right
           anchors.verticalCenter: parent.verticalCenter
           label: "Keep"
-          ink: Zenon.cyan
+          ink: Zenon.accent
           primary: true
           onClicked: cap.keep()
         }

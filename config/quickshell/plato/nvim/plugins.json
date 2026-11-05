@@ -27,6 +27,10 @@
     {
       "src": "https://github.com/folke/lazydev.nvim",
       "enabled": true
+    },
+    {
+      "src": "https://github.com/CoreyKaylor/diffbandit.nvim",
+      "enabled": true
     }
   ]
 }

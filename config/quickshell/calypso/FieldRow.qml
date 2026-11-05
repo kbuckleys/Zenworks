@@ -51,7 +51,7 @@ Item {
     Text {
       textFormat: Text.PlainText
       text: row.field ? row.field.label : ""
-      color: row.justCopied ? Zenon.cyan : Zenon.accentMuted
+      color: row.justCopied ? Zenon.accent : Zenon.accentMuted
       font.family: Zenon.face
       font.weight: Zenon.weight
       font.pixelSize: Zenon.px(12)
@@ -68,7 +68,7 @@ Item {
         elide: row.field && row.field.kind === "url" ? Text.ElideMiddle : Text.ElideRight
         wrapMode: row.open && row.field && row.field.value === "" && row.shown.indexOf("\n") >= 0 ? Text.WrapAnywhere : Text.NoWrap
         maximumLineCount: 12
-        color: row.isTotp ? Zenon.cyan
+        color: row.isTotp ? Zenon.accent
           : row.field && row.field.kind === "url" ? Zenon.blue
           : row.secret && !row.open ? Zenon.accentSoft : Zenon.ink
         font.family: row.secret || row.isTotp ? Zenon.faceMono : Zenon.face

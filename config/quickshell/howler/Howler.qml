@@ -92,7 +92,7 @@ Singleton {
       case "yellow":  return Zenon.yellow;
       case "blue":    return Zenon.blue;
       case "magenta": return Zenon.magenta;
-      case "cyan":    return Zenon.cyan;
+      case "cyan":    return Zenon.accent;
       case "pink":    return Zenon.pink;
       case "sand":    return Zenon.sand;
     }
@@ -400,12 +400,12 @@ Singleton {
       case "sand": return Zenon.sand;
       case "yellow": return Zenon.yellow;
       case "green": return Zenon.green;
-      case "cyan": return Zenon.cyan;
+      case "cyan": return Zenon.accent;
       case "blue": return Zenon.blue;
       case "magenta": return Zenon.magenta;
       case "pink": return Zenon.pink;
     }
-    return Zenon.cyan;
+    return Zenon.accent;
   }
   // "2026-10-28" → a Date (today when it does not read)
   function eventDayOf(iso) {
@@ -498,6 +498,21 @@ Singleton {
       notif.tracked = true;
       if (!Oracle.showNotifications) { notif.dismiss(); return; }
 
+      // MUTED AND BLOCKED APPS (2026-11-03), Oracle's notifSources: blocked
+      // is dropped here as Show notifications off is, never kept; muted is
+      // hushed as Do not disturb hushes, and kept in the bell without
+      // counting as unread. A critical one is held back too — unlike Do not
+      // disturb, this was asked of one app by name.
+      const held = String(Oracle.notifSourceMap[root.sourceOf(notif)] || "");
+      if (held === "block") { notif.dismiss(); return; }
+      const muted = held === "mute";
+      if (muted) {
+        const h = Object.assign({}, root.hushed);
+        h[notif.id] = true;
+        root.hushed = h;
+        Qt.callLater(() => notif.expire());
+      }
+
       // DO NOT DISTURB. Held back here, at the door, rather than hidden by
       // the stack: the stack is the server's own model, and filtering a copy
       // of it is what lost the toasts their animations once. Expired on the
@@ -511,8 +526,8 @@ Singleton {
         const up = root.live ? root.live.values : [];
         for (const n of up) if (n && n !== notif && n.appName === root.sampleApp) Qt.callLater(() => n.expire());
       }
-      if (root.quiet && !sample && notif.urgency !== NotificationUrgency.Critical) {
-        if (root.focusState.fullscreen) root.heldInFullscreen = root.heldInFullscreen + 1;
+      const quieted = root.quiet && !muted && !sample && notif.urgency !== NotificationUrgency.Critical;
+      if (quieted) {
         const h = Object.assign({}, root.hushed);
         h[notif.id] = true;
         root.hushed = h;
@@ -549,9 +564,37 @@ Singleton {
       h.unshift(row);
       while (h.length > Oracle.notifHistoryCap) h.pop();
       root.history = h;
-      root.unread = root.unread + 1;
+      if (!muted) root.unread = root.unread + 1;
+      // counted only once kept: the summary says "They are in the bell",
+      // and a track or an update count held back while full screen is not
+      // (audit 2026-11-04)
+      if (quieted && root.focusState.fullscreen) root.heldInFullscreen = root.heldInFullscreen + 1;
       saveTimer.restart();
     }
+  }
+
+  // ── WHO SENT IT ─────────────────────────────────────────────────────────
+  // What a mute or a block is kept under: the app name it gave, else its
+  // desktop entry, else its icon's name — the same for a live notification
+  // and for a history row, so a row's menu mutes what the door checks.
+  function sourceOf(n) {
+    if (!n) return "";
+    for (const v of [n.appName, n.desktopEntry, n.appIcon]) {
+      const s = String(v || "").replace(/[\t\n]/g, " ").trim();
+      if (s !== "") return s;
+    }
+    return "";
+  }
+  function sourceState(name) { return String(Oracle.notifSourceMap[name] || ""); }
+  // muted or blocked from the bell: its toasts still up go now, as they
+  // would have had it been set before they came; "" lets it through again
+  function setSource(name, state) {
+    if (name === "") return;
+    Oracle.setSource(name, state);
+    if (state === "") return;
+    const v = root.live ? root.live.values : [];
+    for (let i = v.length - 1; i >= 0; --i)
+      if (v[i] && root.sourceOf(v[i]) === name) v[i].expire();
   }
 
   // ── what the panels and the bar ask for ─────────────────────────────────
@@ -603,9 +646,16 @@ Singleton {
   // FULL SCREEN (2026-10-25): the focused workspace has a full-screen
   // window. What it held back is counted, and said in one toast on leaving.
   // (=== true: the workspace can be there a moment before its flags are)
+  // A bool whatever happens: a reload logged "Unable to assign [undefined]
+  // to bool" here ~250 ms after loading (audit 2026-11-04) — an evaluation
+  // that ends without an answer is false, not undefined
   readonly property bool fullscreenOn: {
-    const w = Hyprland.focusedWorkspace;
-    return !!w && w.hasFullscreen === true;
+    try {
+      const w = Hyprland.focusedWorkspace;
+      return !!w && w.hasFullscreen === true;
+    } catch (e) {
+      return false;
+    }
   }
   property int heldInFullscreen: 0
   onFullscreenOnChanged: {
@@ -749,6 +799,13 @@ Singleton {
       h.push(r);
     }
     root.history = h;
+    saveTimer.restart();
+  }
+
+  // every row from one app, as the bell's menu asks
+  function forgetSource(name) {
+    if (name === "") return;
+    root.history = root.history.filter((r) => root.sourceOf(r) !== name);
     saveTimer.restart();
   }
 

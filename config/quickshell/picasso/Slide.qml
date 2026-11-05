@@ -42,7 +42,7 @@ Item {
     width: 44
     horizontalAlignment: Text.AlignRight
     text: sl.valueText
-    color: slValMa.pressed ? Zenon.cyan : Zenon.accentSoft
+    color: slValMa.pressed ? Zenon.accent : Zenon.accentSoft
     font.family: Zenon.face
     font.weight: Zenon.weight
     font.pixelSize: Zenon.px(13)
@@ -77,7 +77,7 @@ Item {
       width: Math.abs(track.t - track.t0) * track.width
       height: 4
       radius: height / 2
-      color: Zenon.cyan
+      color: Zenon.accent
     }
     Rectangle {
       x: track.t * track.width - width / 2
@@ -85,7 +85,7 @@ Item {
       width: 14
       height: 14
       radius: height / 2
-      color: slMa.pressed ? Zenon.cyan : Zenon.white
+      color: slMa.pressed ? Zenon.accent : Zenon.white
     }
     MouseArea {
       id: slMa

@@ -431,7 +431,7 @@ Item {
         }
         ShapePath {
           strokeWidth: -1
-          fillColor: Zenon.alpha(Zenon.cyan, 0.35)
+          fillColor: Zenon.alpha(Zenon.accent, 0.35)
           scale: Qt.size(paper.pageScale, paper.pageScale)
           PathMultiline { paths: sel.geometry }
         }
@@ -450,7 +450,7 @@ Item {
         visible: image.status === Image.Ready && search.currentPage === paper.pageIx
         ShapePath {
           strokeWidth: 2
-          strokeColor: Zenon.cyan
+          strokeColor: Zenon.accent
           fillColor: "transparent"
           scale: Qt.size(paper.pageScale, paper.pageScale)
           PathMultiline { paths: search.currentResultBoundingPolygons }

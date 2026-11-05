@@ -30,6 +30,7 @@ import "../../oracle/oracle.js" as Ora
 
 PlatoSheet {
   id: sheet
+  footCentered: true
 
   property var settings: null
   required property font face
@@ -483,7 +484,7 @@ PlatoSheet {
         width: Math.round(bar.width * sl.frac)
         height: parent.height
         radius: 2
-        color: Zenon.cyan
+        color: Zenon.accent
         Behavior on width { NumberAnimation { duration: Zenon.brisk } }
       }
       Rectangle {
@@ -492,7 +493,7 @@ PlatoSheet {
         radius: height / 2
         y: -4
         x: Math.round(bar.width * sl.frac) - 6
-        color: drag.pressed ? Zenon.white : Zenon.cyan
+        color: drag.pressed ? Zenon.white : Zenon.accent
         border.width: 1
         border.color: Zenon.border
         Behavior on x { NumberAnimation { duration: Zenon.brisk } }
@@ -604,23 +605,27 @@ PlatoSheet {
   property var chips: ({})
   Component {
     id: colorChip
-    Rectangle {
+    // the menu's header while its card is out: one surface (DropFace)
+    DropFace {
       id: cc
       readonly property var spec: parent ? parent.spec : null
       readonly property var value: parent ? parent.value : null
       readonly property color ink: { const c = Zenon[String(cc.value)]; return c !== undefined ? c : Zenon.white; }
-      width: 190
       height: 26
-      radius: Zenon.radiusControl
-      color: Zenon.wash(0.06)
-      border.width: 1
-      border.color: drop.open && drop.spec === cc.spec ? Zenon.cyan : Zenon.border
+      joined: drop.attach === cc ? drop.joined : ""
+      // as wide as its choice; as its menu while that is out (DropFace),
+      // widening leftwards — its Loader is held by the right
+      menuWidth: drop.attach === cc ? drop.fitW : 0
+      growLeft: true
+      contentWidth: dot.width + 9 + ccLabel.implicitWidth
+      pressed: ccMa.pressed
       Component.onCompleted: if (cc.spec) sheet.chips[cc.spec.key] = cc
       Component.onDestruction: if (cc.spec && sheet.chips[cc.spec.key] === cc) delete sheet.chips[cc.spec.key]
       Rectangle {
         id: dot
         anchors.left: parent.left
-        anchors.leftMargin: 10
+        // open, centered in the rows' 16px glyph box, as theirs are
+        anchors.leftMargin: cc.inset + 2 * cc.openness
         anchors.verticalCenter: parent.verticalCenter
         width: 12
         height: 12
@@ -631,9 +636,11 @@ PlatoSheet {
         Behavior on color { ColorAnimation { duration: Zenon.fast } }
       }
       Text {
+        id: ccLabel
         anchors.left: dot.right
-        anchors.leftMargin: 9
-        anchors.right: chev.left
+        // open, where the rows' labels start (glyph box + menuIconGap)
+        anchors.leftMargin: 9 + (Zenon.menuIconGap + 2 - 9) * cc.openness
+        anchors.right: cc.chevron.left
         anchors.verticalCenter: parent.verticalCenter
         elide: Text.ElideRight
         font.family: Zenon.face
@@ -642,18 +649,8 @@ PlatoSheet {
         color: Zenon.white
         text: cc.spec ? Ora.display(cc.spec, cc.value) : ""
       }
-      Text {
-        id: chev
-        anchors.right: parent.right
-        anchors.rightMargin: 9
-        anchors.verticalCenter: parent.verticalCenter
-        font.family: Zenon.faceMono
-        font.weight: Zenon.weight
-        font.pixelSize: Zenon.px(13)
-        color: Zenon.accentMuted
-        text: "\u{F0140}"
-      }
       MouseArea {
+        id: ccMa
         anchors.fill: parent
         onClicked: { sheet.sel = parent.parent ? parent.parent.rowIndex : sheet.sel; sheet.openDrop(cc.spec); }
       }
@@ -663,9 +660,9 @@ PlatoSheet {
   function openDrop(spec) {
     const chip = sheet.chips[spec.key];
     if (!chip || !sheet.window) return;
-    const p = chip.mapToItem(sheet.window.contentItem, 0, chip.height + 4);
     drop.spec = spec;
-    drop.at = Qt.point(p.x, p.y);
+    // hung from the chip, one surface with it (CardPopup.attach)
+    drop.attach = chip;
     sheet.dropSel = Math.max(0, spec.options.findIndex((o) => o.value === sheet.settings.get(spec.key)));
     drop.open = true;
   }
@@ -755,6 +752,7 @@ PlatoSheet {
     visible: sheet.rows.length === 0
     anchors.centerIn: parent
     anchors.verticalCenterOffset: -sheet.helpH / 2
+    filtered: true
     text: "No setting matches “" + query.text + "”"
   }
 }

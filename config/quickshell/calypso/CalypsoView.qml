@@ -113,7 +113,6 @@ Item {
   readonly property int visibleRows: 8
 
 
-
   // ── what is listed ─────────────────────────────────────────────────────
   // everything open; with nothing typed, what you used last comes first
   readonly property var filtered: {
@@ -217,11 +216,6 @@ Item {
     target: popup.mgr
     function onAnyOpenChanged() { if (popup.shown && popup.mode !== "actions") popup.settleMode(); }
     function onCheckingChanged() { if (popup.shown && popup.mode !== "actions") popup.settleMode(); }
-  }
-  // the shell's screen lock: every account, and the daemon stopped
-  function lockVault() {
-    if (popup.shown) popup.closePopup();
-    if (popup.mgr) popup.mgr.lockAll();
   }
   function syncFocus() {
     Qt.callLater(() => {
@@ -344,7 +338,7 @@ Item {
   // the floor and the 1000 every layer shares as the ceiling
   FontMetrics { id: rowFm; font.family: Zenon.face; font.weight: 600; font.pixelSize: Zenon.px(16) }
   FontMetrics { id: userFm; font.family: Zenon.face; font.pixelSize: Zenon.px(14) }
-  FontMetrics { id: headFm; font.family: Zenon.face; font.weight: 700; font.pixelSize: Zenon.px(17) }
+  FontMetrics { id: headFm; font.family: Zenon.face; font.weight: Zenon.titleWeight; font.pixelSize: Zenon.px(17) }
   FontMetrics { id: noteFm; font.family: Zenon.face; font.pixelSize: Zenon.px(12) }
   function rowTextW(e) {
     if (!e) return 0;
@@ -402,7 +396,7 @@ Item {
         Behavior on x { NumberAnimation { duration: Zenon.normal; easing.type: Zenon.ease } }
 
         ScrollEdge { view: list; x: list.x; width: list.width; height: list.y }
-        ScrollEdge { view: list; below: true; x: list.x; y: list.y + list.height; width: list.width; height: listHints.height }
+        ScrollEdge { view: list; below: true; bar: listHints; x: list.x; y: list.y + list.height; width: list.width; height: listHints.height }
         // the suite's one scrollbar, as folio's grids wear it; placed by
         // the grid's own place in the column (the column fills this item)
         Scrollbar {
@@ -446,7 +440,7 @@ Item {
                 verticalAlignment: TextInput.AlignVCenter
                 color: popup.entryColor
                 selectionColor: popup.entryColor
-                selectedTextColor: Zenon.onAccent
+                selectedTextColor: Zenon.inkOnAccent
                 font.family: Zenon.face
                 font.weight: Font.Bold
                 font.pixelSize: Zenon.px(18)
@@ -471,14 +465,10 @@ Item {
           Item {
             width: parent.width
             height: popup.filtered.length === 0 ? popup.emptyH : 0
-            Text {
+            EmptyState {
               anchors.centerIn: parent
               visible: popup.filtered.length === 0
               text: popup.query === "" ? (popup.mgr && popup.mgr.loading ? "Reading the vaults…" : "Nothing in the open vaults") : "Nothing matches \u201C" + popup.query + "\u201D"
-              color: popup.dimColor
-              font.family: Zenon.face
-              font.weight: 600
-              font.pixelSize: Zenon.px(15)
             }
           }
 
@@ -519,7 +509,7 @@ Item {
                 anchors.verticalCenter: parent.verticalCenter
                 width: Math.min(implicitWidth, cell.width - x - 16 - (rowUser.visible ? 60 : 0))
                 text: !cell.entry ? "" : C.highlight(cell.entry.title, popup.query, Zenon.pink)
-                  + (cell.entry.totp === true ? "&nbsp;&nbsp;<span style=\"color:" + Zenon.cyan + ";font-size:12px;\">\u{F097F}</span>" : "")
+                  + (cell.entry.totp === true ? "&nbsp;&nbsp;<span style=\"color:" + Zenon.accent + ";font-size:12px;\">\u{F097F}</span>" : "")
                 color: cell.picked ? popup.entryColor : Zenon.ink
                 textFormat: Text.RichText
                 clip: true
@@ -612,7 +602,7 @@ Item {
                 color: Zenon.ink
                 elide: Text.ElideMiddle
                 font.family: Zenon.face
-                font.weight: 700
+                font.weight: Zenon.titleWeight
                 font.pixelSize: Zenon.px(17)
               }
               Text {
@@ -662,7 +652,7 @@ Item {
                       Text {
                         anchors.verticalCenter: parent.verticalCenter
                         text: group.modelData.glyph
-                        color: Zenon.cyan
+                        color: Zenon.accent
                         font.family: Zenon.glyphFace
                         font.pixelSize: Zenon.px(13)
                       }
@@ -670,7 +660,7 @@ Item {
                         textFormat: Text.PlainText
                         anchors.verticalCenter: parent.verticalCenter
                         text: group.modelData.title
-                        color: Zenon.cyan
+                        color: Zenon.accent
                         font.family: Zenon.face
                         font.weight: Zenon.titleWeight
                         font.pixelSize: Zenon.px(13)
@@ -836,7 +826,7 @@ Item {
               Text {
                 anchors.verticalCenter: parent.verticalCenter
                 text: popup.mode === "error" ? "" : ""
-                color: popup.mode === "error" ? Zenon.red : Zenon.cyan
+                color: popup.mode === "error" ? Zenon.red : Zenon.accent
                 font.family: Zenon.glyphFace
                 font.pixelSize: Zenon.px(16)
               }

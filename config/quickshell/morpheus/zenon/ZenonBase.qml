@@ -28,7 +28,7 @@ QtObject {
   // A theme is themes/<name>.json in this config:
   //
   //   { "name": "Shown in oracle", "mode": "dark" | "light",
-  //     "colors": { "ground": "#…", "ink": "#…", "cyan": "#…", … } }
+  //     "colors": { "ground": "#…", "ink": "#…", "accent": "#…", … } }
   //
   // The slots are the keys of `zenon` below. Two of them are named for what
   // they DO, not what they are, because in a light theme they swap places:
@@ -52,7 +52,7 @@ QtObject {
     yellow:    "#fab387",
     blue:      "#9fcbfc",
     magenta:   "#c8a4e0",
-    cyan:      "#9bbfbf",
+    accent:    "#9bbfbf",
     pink:      "#eebebe",
     sand:      "#dfc6a6",   // a warm tan (2026-10-28; was a lime khaki)
     dim:       "#506060",
@@ -100,7 +100,8 @@ QtObject {
 
   function pick(slot) {
     const c = theme.colors;
-    const v = c ? c[slot] : undefined;
+    // a theme from before the accent had its name kept the slot as "accent"
+    const v = c ? (slot === "accent" && c.accent === undefined ? c.cyan : c[slot]) : undefined;
     return typeof v === "string" && /^#([0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(v)
       ? v : zenon[slot];
   }
@@ -128,17 +129,19 @@ QtObject {
   // part see-through (a panel, a scrim). wash: a hover, a press, a rule.
   // shade: a shadow. Written out as Qt.rgba(0,0,0,a) and Qt.rgba(1,1,1,a)
   // across the shell, they were right for one theme only.
-  // the type set ON an accent fill — a selected row's cyan, a kill
+  // the type set ON an accent fill — a selected row's accent, a kill
   // button's red, the selection in a field. Black on Zenon's pastels; a
   // theme with deep accents wants it light.
   // Under an accent of your own (below) the theme's onAccent was chosen for
   // ITS accent, not yours: the type goes to the theme's darker or lighter
   // end, whichever stands out on the color picked.
-  readonly property color onAccent: {
+  // inkOnAccent, not onAccent: beside `accent` an onAccent would be its
+  // change handler (oracle/tests onprops guard). The theme slot stays "onAccent".
+  readonly property color inkOnAccent: {
     if (accentOwn === "") return pick("onAccent");
     const g = pick("ground"), k = pick("ink");
     const dk = lum(g) <= lum(k) ? g : k, lt = dk === g ? k : g;
-    return (lum(cyan) + 0.05) / (lum(dk) + 0.05) >= (lum(lt) + 0.05) / (lum(cyan) + 0.05) ? dk : lt;
+    return (lum(accent) + 0.05) / (lum(dk) + 0.05) >= (lum(lt) + 0.05) / (lum(accent) + 0.05) ? dk : lt;
   }
   // relative luminance (WCAG), for the choice above
   function lum(c) {
@@ -153,9 +156,12 @@ QtObject {
   function nvimTheme() {
     if (accentOwn === "" && (themeName === "zenon" || !theme.colors)) return null;
     const slots = ["ground", "surface", "ink", "muted", "soft", "red", "green", "yellow",
-                   "blue", "magenta", "cyan", "pink", "sand", "border"];
+                   "blue", "magenta", "accent", "pink", "sand", "border"];
     const colors = {};
     for (const s of slots) colors[s] = hex(root[s]);
+    // nvim's palette is a terminal's, where the accent sits in the cyan slot
+    colors.cyan = colors.accent;
+    delete colors.accent;
     return { mode: light ? "light" : "dark", colors: colors };
   }
 
@@ -217,7 +223,7 @@ QtObject {
   // and more accent than ink, and TRULY dark (user, 2026-10-17: a pressed
   // Cancel was a neutral gray barely deeper than its rest) — the button's
   // own accent gray (buttonRest), pushed well down toward the ink
-  readonly property color pressFill: light ? alpha(mix(ink, cyan, 0.35), 0.46) : shade(0.35)
+  readonly property color pressFill: light ? alpha(mix(ink, accent, 0.35), 0.46) : shade(0.35)
   readonly property real pressDim: light ? 0.9 : 0.55
   // a LIT button (vibrant, tinted) pressed: shadowRgb over it at this
   // opacity — its own color darkened, never a gray slab (DialogButton
@@ -284,7 +290,7 @@ QtObject {
   // is why the old one sat over it: an edge that faint is not blurred
   // behind, so it reads as a hairline of the desktop itself.
   // The color is spoot's highlight bar (its Theme.selectedBg, #45505c) —
-  // Buck's call, replacing the cyan it started as — at 30%.
+  // Buck's call, replacing the accent it started as — at 30%.
   // Hyprland's window borders (hypr/lua/base.lua) are this same value, copied
   // by hand: change one, change the other.
   readonly property color border: pick("border")
@@ -303,7 +309,7 @@ QtObject {
   // A WEB LINK's ink: the theme's ACCENT (user, 2026-10-19 — its blue was
   // not it), everywhere one is shown — Text's linkColor, a TextEdit's
   // palette.link (else the system's #0000ff)
-  readonly property color link: cyan
+  readonly property color link: accent
   readonly property color magenta: pick("magenta")
   // ACCENT COLOR (Oracle, user 2026-10-20): a color of your own over any
   // theme's accent — Follow Background's too. "" is the theme's own.
@@ -311,9 +317,15 @@ QtObject {
     const v = cfg.accentColor;
     return typeof v === "string" && /^#[0-9a-fA-F]{6}$/.test(v) ? v : "";
   }
-  readonly property color cyan:    accentOwn !== "" ? accentOwn : themeAccent
+  readonly property color accent:  accentOwn !== "" ? accentOwn : themeAccent
+  // THE OLD NAME, for saved data only (user, 2026-11-04: with ThemeSync
+  // the accent is the background's, seldom cyan, so the code says accent):
+  // notes, tags, journals, calendars and settings saved a hue named "cyan"
+  // and look it up as Zenon[name]. Never write Zenon.accent (guard:
+  // oracle/tests/accentname.js).
+  readonly property color cyan:    accent
   // the worn theme's accent, whatever Accent color says
-  readonly property color themeAccent: pick("cyan")
+  readonly property color themeAccent: pick("accent")
   readonly property color pink:    pick("pink")   // bright_red
   readonly property color sand:    pick("sand")   // bright_yellow
 
@@ -338,13 +350,13 @@ QtObject {
     cfg.barBlur ? Math.max(cfg.barOpacity, blurFloor) : cfg.barOpacity))
 
   readonly property color panelBgDeep: floor(0.7)
-  readonly property color dim:        pick("dim")   // muted cyan, inactive workspace
+  readonly property color dim:        pick("dim")   // muted accent, inactive workspace
   // dim AS TEXT (inactive workspaces, other months' days, quiet states). A
   // light theme's dim is a pale surface tone, and as ink on pale glass it was
   // all but unreadable (user, colors.png, 2026-10-08): there it is muted.
   readonly property color dimInk: light ? muted : dim
 
-  readonly property color sparkFill: accentOwn !== "" ? alpha(cyan, 0.2) : pick("sparkFill")
+  readonly property color sparkFill: accentOwn !== "" ? alpha(accent, 0.2) : pick("sparkFill")
 
   // ── a layer's own furniture ──────────────────────────────────────────
   // Every popup layer was carrying its own copy of these four hexes. They are
@@ -380,7 +392,11 @@ QtObject {
   // terminus does not import oracle and should not have to: a token is what
   // Zenon is for.
   readonly property int menuRadius:    Math.round(corner * 1.2)
-  readonly property int menuWidth:     cfg.menuWidth
+  // A FIXED WIDTH NOW, not a setting: every menu fits its rows (CardMenu.fit)
+  // and Oracle's Menu width reached none of them (user, 2026-11-03). Kept
+  // for the few boxes that are menu-wide (terminus' drop question, the
+  // corner picker's least, a fallback of icarus' Home card).
+  readonly property int menuWidth:     220
   readonly property int menuRowHeight: cfg.menuRowHeight
   // A WINDOW'S TOOLBAR — terminus' bar (its headH). 42 since the user's
   // 2026-10-17 call, room for back/forward and a rename ring.
@@ -443,6 +459,21 @@ QtObject {
   // The same ground as a menu, by definition — one setting, Menu opacity,
   // answers for all of them.
   readonly property color frostBg: menuBg
+
+  // ── A DROPDOWN'S FROST, AS A SHEET'S IS ───────────────────────────────
+  // A dropdown's list on its own surface (CardPopup) at menuBg showed next
+  // to nothing of the page behind it over a dark window — the blur was
+  // there and read as solid (user, 2026-11-05: "dropdowns need frost").
+  // So a dropdown is frosted as a sheet is: about half of what is behind it
+  // shows through, blurred by Hyprland (held above blurFloor, under which
+  // Hyprland would stop blurring and show it sharp). It does not follow Menu
+  // opacity. dropFrostSolid is the same glass laid over the window's own
+  // ground, for the parts no compositor can blur because they are drawn
+  // INSIDE a window: the open header (DropFace) and an in-window list
+  // (terminus BulkDrop). Same tone, no sharp text through it.
+  readonly property real  dropFrostAlpha: Math.max(blurFloor + 0.03, 0.55)
+  readonly property color dropFrost: floor(glass(dropFrostAlpha))
+  readonly property color dropFrostSolid: Qt.tint(menuBgSolid, dropFrost)
 
   // ── EVERY TOOLTIP'S GROUND ────────────────────────────────────────────
   // One answer for the two kinds there are: Tooltip (a layer, the bar's) and
@@ -512,6 +543,13 @@ QtObject {
   function menuScale(shade) {
     return menuScaleFrom + (1 - menuScaleFrom) * shade;
   }
+  // A DROPDOWN'S LIST is one surface with its button (morpheus/DropFace):
+  // it unrolls out of the button's edge, in height only, rather than growing
+  // out of a corner (2026-11-04). Same fade, same duration as every menu.
+  readonly property real menuUnfoldFrom: 0.55
+  function menuUnfold(shade) {
+    return menuUnfoldFrom + (1 - menuUnfoldFrom) * shade;
+  }
   readonly property color headBg:    pick("headBg")
   // AN INACTIVE TAB'S GLASS, given the window's alpha (plato's and terminus'
   // strips, which lay no window ground under their tabs): thinner than the
@@ -524,9 +562,12 @@ QtObject {
   // The navy lift is Zenon's (user's pick, 2026-10-09). Under Follow
   // Background it lifts by about as much in the PICTURE's tint — ground
   // towards surface, which carry its hue — so a black and white background
-  // gets gray glass, not blue (user, 2026-10-20).
+  // gets gray glass, not blue (user, 2026-10-20). ZENON'S ONLY (2026-11-04):
+  // every dark theme file wore the navy too, so Monochrome Dark's sidebars
+  // and inactive tabs came out blue on gray (user's capture: 19,22,28 beside
+  // a 16,16,16 body). A theme's lift is in its own hue, as Follow's is.
   readonly property color tabAwayInk: light ? layerBg
-    : themeName === "follow" ? mix(ground, surface, 0.55)
+    : theme.colors ? mix(ground, surface, 0.55)
     : Qt.rgba(Math.min(1, ground.r + 10 / 255), Math.min(1, ground.g + 18 / 255),
               Math.min(1, ground.b + 40 / 255), 1)
 
@@ -559,21 +600,21 @@ QtObject {
   // A window's chrome — section heads, the steps behind the current crumb,
   // a count, a glyph at rest — in its theme's accent rather than a neutral
   // gray, as the cursor is: the same three grays, each drawn part of the
-  // way to cyan (the accent; Follow Background's seed). Same lightness
+  // way to accent (the accent; Follow Background's seed). Same lightness
   // order, so a muted word stays quieter than a soft one.
   readonly property real accentGreyMix: 0.4
-  readonly property color accentMuted: mix(muted, cyan, accentGreyMix)
-  readonly property color accentSoft:  mix(soft, cyan, accentGreyMix)
-  readonly property color accentKey:   mix(keyInk, cyan, accentGreyMix)
+  readonly property color accentMuted: mix(muted, accent, accentGreyMix)
+  readonly property color accentSoft:  mix(soft, accent, accentGreyMix)
+  readonly property color accentKey:   mix(keyInk, accent, accentGreyMix)
   // and the ink itself, for the one fact a strip of accent grays leads with
   // (plato's cursor line): louder than them, still in the accent
-  readonly property color accentInk:   mix(white, cyan, accentGreyMix)
+  readonly property color accentInk:   mix(white, accent, accentGreyMix)
   // THE MENU CURSOR: the lit row of every menu — CardBody, icarus, folio,
   // terminus' right-click and drop menus — in the theme's accent, as the
-  // windows' rows already are (their hiFill, the same cyan at 0.12), not
+  // windows' rows already are (their hiFill, the same accent at 0.12), not
   // the border gray it was (user, 2026-10-17). A shade stronger than the
   // windows': a menu's ground is opaque and its band runs the whole card.
-  readonly property color menuHi:      alpha(cyan, 0.16)
+  readonly property color menuHi:      alpha(accent, 0.16)
   // ── spacing ──────────────────────────────────────────────────────────
   // Four values, and only four. padModule is a module's own breathing room,
   // gap is the space between two neighbors, padBar is the pill's end caps,
@@ -659,6 +700,12 @@ QtObject {
   // titleWeight: a section's name is a title.
   readonly property int  labelPx: 11
   readonly property real labelSpacing: 1.2
+  // ── BUTTONS SIDE BY SIDE ───────────────────────────────────────────────
+  // One DialogButton height (its own 28) and one gap between buttons in a
+  // row: they had drifted over 28/30/32 and gaps of 6/8/10/12 (user,
+  // 2026-11-04). `stepGap` is the tighter cluster of a ‹ Today › stepper.
+  readonly property int buttonGap: 8
+  readonly property int stepGap: 4
   // ── THE SHELL'S TEXT SIZE ──────────────────────────────────────────────
   // Oracle's Font size (the Font row's stepper), as a factor over the 16 px
   // every label was sized against. A label's size goes through px(): its own

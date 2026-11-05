@@ -145,7 +145,7 @@ Item {
               + " over " + n + what + "?",
           "",
           [{ label: folders ? "Merge" : "Overwrite",
-             ink: folders ? Zenon.cyan : Zenon.red,
+             ink: folders ? Zenon.accent : Zenon.red,
              act: () => term.commitPaste("overwrite") },
            { label: "Keep both", ink: Zenon.green,
              act: () => term.commitPaste("keep") },

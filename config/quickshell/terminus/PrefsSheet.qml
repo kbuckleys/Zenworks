@@ -339,6 +339,27 @@ Item {
           onTriggered: term.forgetDirViews()
         }
 
+        // ── WHAT THE BAR CARRIES (user, 2026-10-17) ─────────────────
+        // In the first column since the places joined the second (user,
+        // 2026-11-03: the second ran much taller): eighteen rows each side.
+        SideHead { term: prefs.term; label: "BAR BUTTONS" }
+
+        Repeater {
+          model: [["barNav", "Navigation"], ["barSideToggle", "Sidebar toggle"],
+                  ["barSort", "Sort"], ["barViews", "View switch"],
+                  ["barSplit", "Split view"], ["barZoom", "Zoom"]]
+          delegate: PrefRow {
+            required property var modelData
+            term: prefs.term
+            label: modelData[1]
+            on: term[modelData[0]]
+            onToggled: {
+              term[modelData[0]] = !term[modelData[0]];
+              term.viewSaveRef.restart();
+            }
+          }
+        }
+
         }
 
         Column {
@@ -440,25 +461,6 @@ Item {
           hint: "\\"
           on: term.dual
           onToggled: term.toggleDual()
-        }
-
-        // ── WHAT THE BAR CARRIES (user, 2026-10-17) ─────────────────
-        SideHead { term: prefs.term; label: "BAR BUTTONS" }
-
-        Repeater {
-          model: [["barNav", "Navigation"], ["barSideToggle", "Sidebar toggle"],
-                  ["barSort", "Sort"], ["barViews", "View switch"],
-                  ["barSplit", "Split view"], ["barZoom", "Zoom"]]
-          delegate: PrefRow {
-            required property var modelData
-            term: prefs.term
-            label: modelData[1]
-            on: term[modelData[0]]
-            onToggled: {
-              term[modelData[0]] = !term[modelData[0]];
-              term.viewSaveRef.restart();
-            }
-          }
         }
 
         // ── WHAT THE SIDEBAR'S PLACES LIST (user, 2026-11-02) ────────

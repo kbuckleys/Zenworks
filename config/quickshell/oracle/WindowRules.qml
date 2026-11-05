@@ -35,7 +35,7 @@ Item {
   property string face: Zenon.face
   property color fgColor: Zenon.white
   property color dimColor: Zenon.accentMuted
-  property color highlight: Zenon.cyan
+  property color highlight: Zenon.accent
 
   readonly property var rules: (Oracle.revision, Oracle.windowRules)
   readonly property var shipped: (Oracle.revision, Oracle.shippedRules)
@@ -97,13 +97,9 @@ Item {
     width: wr.width - 48
     spacing: 10
 
-    Text {
+    EmptyState {
       visible: wr.rows.length === 0 && !wr.picking
       text: "No rules yet. Add one from a window that is open now."
-      color: wr.dimColor
-      font.family: wr.face
-      font.weight: Zenon.weight
-      font.pixelSize: Zenon.px(14)
     }
 
     Row {
@@ -127,16 +123,12 @@ Item {
         x: 6
         y: 6
         width: parent.width - 12
-        Text {
+        EmptyState {
           visible: wr.apps.length === 0
-          leftPadding: 10
+          width: parent.width
           height: 28
           verticalAlignment: Text.AlignVCenter
-          text: clientsProc.running ? "Looking…" : "No windows are open."
-          color: wr.dimColor
-          font.family: wr.face
-          font.weight: Zenon.weight
-          font.pixelSize: Zenon.px(14)
+          text: clientsProc.running ? "Looking…" : "No windows are open"
         }
         Repeater {
           model: wr.apps
@@ -146,7 +138,7 @@ Item {
             width: pickList.width
             height: 28
             radius: Zenon.windowRadius
-            color: appTap.pressed ? Zenon.pressFill : appHover.hovered ? Zenon.wash(0.06) : "transparent"
+            color: appTap.pressed ? Zenon.pressFill : "transparent"
             Text {
               textFormat: Text.PlainText
               id: appName
@@ -173,7 +165,6 @@ Item {
               font.weight: Zenon.weight
               font.pixelSize: Zenon.px(14)
             }
-            HoverHandler { id: appHover }
             TapHandler { id: appTap; onTapped: wr.add(app.modelData.cls, app.modelData.name, app.modelData.pin) }
           }
         }

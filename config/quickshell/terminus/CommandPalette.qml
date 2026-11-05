@@ -312,6 +312,8 @@ Rectangle {
 
 
     // morpheus/HintBar, as every strip (ceres' height, ground and rule)
+    // the rows still to come run on under the keys' pill, which frosts them
+    ScrollEdge { view: paletteList; below: true; follow: true; bar: paletteFoot }
     HintBar {
       id: paletteFoot
       anchors.bottom: parent.bottom

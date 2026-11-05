@@ -44,12 +44,23 @@ Scope {
     }
   }
 
+  // ── HYPRCURSOR (oracle's Cursor) ───────────────────────────────────
+  // hyprcursor when it is missing, xcur2png for Make; Oracle carries on
+  // (or makes the version) once Ceres ends
+  Connections {
+    target: Oracle
+    function onCursorInstallAsked(pkgs, why) {
+      if (!Ceres.install(pkgs, why, (ok) => Oracle.cursorInstalled(ok))) Oracle.cursorInstalled(false);
+    }
+  }
+
   // ── THE TERMINAL SETUP (oracle/ZshSetup.qml) ───────────────────────
   // asked once at the first start; Default apps › Terminal setup after
   ZshSetup { id: zshSetup }
   Connections {
     target: Oracle
     function onZshAsked() { zshSetup.apply(); }
+    function onZshDeclined() { if (zshSetup.answer !== "yes") zshSetup.keep("no"); }
   }
   id: mgr
 

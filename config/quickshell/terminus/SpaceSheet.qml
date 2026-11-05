@@ -7,7 +7,7 @@
 // The directory you are in, as rectangles as big as what each entry takes
 // up (2026-10-21): the disk-usage mode's question — what in here is taking
 // the room — answered as a picture rather than a list of bars. Inks are the
-// listing's own (Terminus.inkOf: directories cyan, pictures green, media
+// listing's own (Terminus.inkOf: directories accent, pictures green, media
 // sand, archives orange…), so a big orange block is an archive at a glance.
 //
 // The measuring is the usage mode's: while the map is up the window counts
@@ -175,7 +175,7 @@ Rectangle {
           : Terminus.formatSize(space.total)
           + (space.unmeasured > 0 ? "  ·  measuring " + space.unmeasured
               + (space.unmeasured === 1 ? " directory…" : " directories…") : "")
-        color: space.unmeasured > 0 ? Zenon.cyan : Zenon.white
+        color: space.unmeasured > 0 ? Zenon.accent : Zenon.white
         font.family: Zenon.face
         font.weight: 600
         font.pixelSize: Zenon.px(14)
@@ -214,7 +214,7 @@ Rectangle {
         radius: Zenon.radiusControl
         color: "transparent"
         border.width: 2
-        border.color: Zenon.cyan
+        border.color: Zenon.accent
       }
 
       Repeater {

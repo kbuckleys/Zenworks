@@ -835,7 +835,7 @@ function recent(notes, seen, k) {
 
 function titleOf(n, untitled) {
   var t = n.d ? n.d.title : derive(n).title;
-  return t !== "" ? t : (untitled || (n.kind === "entry" ? "" : "New Note"));
+  return t !== "" ? t : (untitled || (n.kind === "entry" ? "" : "New note"));
 }
 
 // ── SEARCH ───────────────────────────────────────────────────────────────
@@ -1138,13 +1138,13 @@ function monthGrid(year, month) {
 // How it felt, as Apple's State of Mind: a place on a scale from very
 // unpleasant to very pleasant, and the words for it.
 var MOODS = [
-  { v: -3, label: "Very Unpleasant", ink: "magenta" },
+  { v: -3, label: "Very unpleasant", ink: "magenta" },
   { v: -2, label: "Unpleasant", ink: "blue" },
-  { v: -1, label: "Slightly Unpleasant", ink: "cyan" },
+  { v: -1, label: "Slightly unpleasant", ink: "cyan" },
   { v: 0, label: "Neutral", ink: "muted" },
-  { v: 1, label: "Slightly Pleasant", ink: "green" },
+  { v: 1, label: "Slightly pleasant", ink: "green" },
   { v: 2, label: "Pleasant", ink: "sand" },
-  { v: 3, label: "Very Pleasant", ink: "yellow" }
+  { v: 3, label: "Very pleasant", ink: "yellow" }
 ];
 var FEELINGS = {
   "-3": ["Angry", "Anxious", "Scared", "Overwhelmed", "Ashamed", "Disgusted", "Hopeless", "Jealous"],
@@ -1283,7 +1283,7 @@ function cleanMeta(m) {
   return { folders: folders, journals: journals, templates: templates, daily: daily, learned: learned };
 }
 
-// a name not yet taken among `names`: "New Container", "New Container 2"…
+// a name not yet taken among `names`: "New container", "New container 2"…
 function freeName(base, names) {
   var lower = names.map(function (n) { return String(n).toLowerCase(); });
   if (lower.indexOf(base.toLowerCase()) < 0) return base;

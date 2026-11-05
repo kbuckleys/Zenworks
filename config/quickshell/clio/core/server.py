@@ -65,6 +65,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(HERE)), "morpheus", "py"))
 
 import zenpaths  # noqa: E402
+import ocrlangs  # noqa: E402
 import lines  # noqa: E402
 import page  # noqa: E402
 import spell  # noqa: E402
@@ -218,6 +219,13 @@ class Index:
             if p == now or not os.path.exists(p) or self.owner(p) in (None, i) and read_id(p) in (None, i):
                 return p
         return os.path.join(d, i + ".html")
+
+
+def same_file(a, b):
+    try:
+        return os.path.samefile(a, b)
+    except OSError:
+        return False
 
 
 def read_id(p):
@@ -424,7 +432,10 @@ class Server(lines.Service):
             # changed (or it was still the JSON it was before)
             want = self.ix.place(note, now)
             write_note(want, note)
-            if now and now != want:
+            # a change of case only, on a drive that ignores case (exFAT,
+            # NTFS, a Windows share): `now` IS the file just written, and
+            # removing it lost the note (audit 11-04)
+            if now and now != want and not same_file(now, want):
                 try:
                     os.remove(now)
                 except OSError:
@@ -554,7 +565,7 @@ class Server(lines.Service):
         if not p or not os.path.isfile(p):
             raise ClioError("No such picture")
         try:
-            r = subprocess.run(["tesseract", p, "-", "--psm", "3"], capture_output=True, timeout=120)
+            r = subprocess.run(["tesseract", p, "-", "-l", ocrlangs.langs(), "--psm", "3"], capture_output=True, timeout=120)
         except FileNotFoundError:
             raise ClioError("tesseract is not installed", "missing")
         except subprocess.TimeoutExpired:
@@ -587,7 +598,7 @@ class Server(lines.Service):
         try:
             with open(lst, "w") as f:
                 f.write("\n".join(pages) + "\n")
-            r = subprocess.run(["tesseract", lst, out[:-4], "--dpi", dpi, "pdf"], capture_output=True, timeout=600)
+            r = subprocess.run(["tesseract", lst, out[:-4], "-l", ocrlangs.langs(), "--dpi", dpi, "pdf"], capture_output=True, timeout=600)
             ok = r.returncode == 0 and os.path.exists(out)
         except (FileNotFoundError, subprocess.TimeoutExpired):
             ok = False

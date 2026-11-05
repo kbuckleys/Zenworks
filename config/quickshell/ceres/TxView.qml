@@ -43,6 +43,16 @@ Item {
   // What a holder of this view needs to size itself for the result.
   readonly property int resultRows: view.failed ? 12 : Ceres.txEvents.length
 
+  // THE FOOT'S PILL STANDS IN THE LOG (user, 2026-11-04): the holder says
+  // how tall its foot is, the log's end clears it, and the pill frosts the
+  // log it covers (`log`, the one showing)
+  property real footRoom: 0
+  // the log's scrollbar, which hugs its right edge: a foot standing inside
+  // the log keeps this much further in, so the pill and its buttons clear
+  // it (user, 2026-11-05: they sat over it)
+  readonly property real railRoom: view.running ? liveLog.railRoom : failLog.railRoom
+  readonly property Item log: view.running ? liveLog : failLog
+
   // ── WHAT PARU COULD NOT ASK ──────────────────────────────────────────
   // Ceres.txSettle, when the failure was a question: the picks made so far
   // ({ menu: option }, each menu's first by default — paru's own default),
@@ -88,6 +98,7 @@ Item {
   component LogPane: Rectangle {
     id: pane
     property var lines: []
+    readonly property real railRoom: logRail.thickness
     // ── THE CURSOR GOES BACK FIRST ─────────────────────────────────────
     // The log is a selectable TextEdit, and its cursor and selection
     // outlived a log being swapped for a new, shorter one: setting the text
@@ -141,7 +152,7 @@ Item {
       if (/^(?:==>\s*)?warning:|^==> WARNING:/i.test(t))
         return "<span style='color:" + Zenon.yellow + "'>" + e + "</span>";
       if (/^(?:::|==>)\s/.test(t))
-        return "<span style='color:" + Zenon.cyan + "'><b>" + e + "</b></span>";
+        return "<span style='color:" + Zenon.accent + "'><b>" + e + "</b></span>";
       if (Cer.progressOf(t))
         return "<span style='color:" + Zenon.accentMuted + "'>" + e + "</span>";
       return e;
@@ -231,7 +242,7 @@ Item {
       clip: true
       boundsBehavior: Flickable.StopAtBounds
       contentWidth: width
-      contentHeight: logText.height + 16
+      contentHeight: logText.height + 16 + view.footRoom
 
       // Whether you are at the end is decided by where you LEFT it, not by
       // every step on the way: a programmatic move to the end must not read
@@ -271,6 +282,7 @@ Item {
     }
 
     ScrollRail {
+      id: logRail
       target: flick
       anchors.right: parent.right
       anchors.top: flick.top
@@ -319,7 +331,7 @@ Item {
         anchors.margins: 1
         radius: Zenon.rad(4)
         frac: track.frac
-        ink: Ceres.txCancelling ? Zenon.red : Zenon.cyan
+        ink: Ceres.txCancelling ? Zenon.red : Zenon.accent
       }
 
       Text {
@@ -478,16 +490,16 @@ Item {
               width: chipText.implicitWidth + 20
               height: chipText.implicitHeight + 8
               radius: Zenon.windowRadius
-              color: chip.on ? Zenon.alpha(Zenon.cyan, 0.16)
+              color: chip.on ? Zenon.alpha(Zenon.accent, 0.16)
                 : Zenon.wash(0)
               border.width: 1
-              border.color: chip.on ? Zenon.cyan : Zenon.border
+              border.color: chip.on ? Zenon.accent : Zenon.border
               Behavior on color { ColorAnimation { duration: Zenon.fast } }
               Text {
                 id: chipText
                 anchors.centerIn: parent
                 text: chip.modelData
-                color: chip.on ? Zenon.cyan : Zenon.ink
+                color: chip.on ? Zenon.accent : Zenon.ink
                 font.family: Zenon.face
                 font.weight: Zenon.weight
                 font.pixelSize: Zenon.px(14) + view.grow

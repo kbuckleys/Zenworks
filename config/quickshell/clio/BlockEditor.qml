@@ -133,7 +133,7 @@ Item {
     return ed.blocks.map((b) => { const o = {}; for (const k in b) if (k !== "_key") o[k] = b[k]; return o; });
   }
 
-  // a color by name painted for the screen, a link painted cyan; and back
+  // a color by name painted for the screen, a link painted accent; and back
   function inkHex(name) { return String(Zenon[name] || Zenon.ink).toLowerCase(); }
   function markHex(name) {
     const c = Zenon.mix(Zenon.ground, Zenon[name] || Zenon.sand, Zenon.light ? 0.35 : 0.4);
@@ -141,7 +141,7 @@ Item {
   }
   function display(h) {
     let s = N.paint(h || "", ed.inkHex, ed.markHex);
-    s = s.replace(/<a\b([^>]*)>([\s\S]*?)<\/a>/gi, (m, a, t) => "<a" + a + "><span style=\"color:" + String(Zenon.cyan) + "; text-decoration: underline;\">" + t + "</span></a>");
+    s = s.replace(/<a\b([^>]*)>([\s\S]*?)<\/a>/gi, (m, a, t) => "<a" + a + "><span style=\"color:" + String(Zenon.accent) + "; text-decoration: underline;\">" + t + "</span></a>");
     return s;
   }
   function keep(h) { return N.unpaint(N.tidy(h), ed.inkHex, ed.markHex); }
@@ -1548,7 +1548,7 @@ Item {
         width: 3
         height: target ? target.height : 0
         radius: 1.5
-        color: Zenon.cyan
+        color: Zenon.accent
       }
       // where a carried block would land: a line in the gap
       Rectangle {
@@ -1558,7 +1558,7 @@ Item {
         width: parent.width + 12
         height: 3
         radius: 1.5
-        color: Zenon.cyan
+        color: Zenon.accent
         y: !gapItem ? 0 : col.y + (ed.dropAt >= rep.count ? gapItem.y + gapItem.height : gapItem.y) - 1
       }
     }
@@ -1811,44 +1811,30 @@ Item {
   ElasticScroll { id: wheel; anchors.fill: view; view: view }
   Scrollbar { flick: view; anchors.right: view.right; anchors.top: view.top; anchors.bottom: view.bottom }
 
-  // the tags offered (tagCheck), under the caret
-  Rectangle {
+  // the tags offered (tagCheck), under the caret: the suite's menu card
+  // (morpheus/CardBody, 2026-11-04 — it was a hand-drawn inset copy with a
+  // hover tint), as wide as its longest row as every fitted menu is
+  FontMetrics { id: tagMetrics; font.family: Zenon.face; font.weight: Zenon.weight; font.pixelSize: Zenon.px(16) }
+  CardBody {
+    id: tagCard
+    readonly property int cardW: {
+      tagMetrics.height;
+      let most = 0;
+      for (const t of ed.tagHits) most = Math.max(most, tagMetrics.advanceWidth("#" + t) + 22);
+      return Math.max(Zenon.menuMinWidth, Math.ceil(most + Zenon.menuCardPad * 2 + 2 + Zenon.menuFitSlack));
+    }
     visible: ed.tagHits.length > 0
     z: 60
-    x: Math.min(ed.tagSpot.x, ed.width - width - 8)
-    y: ed.tagSpot.y
-    width: Math.max(160, tagCol.implicitWidth + 12)
-    height: tagCol.implicitHeight + 8
-    radius: Zenon.menuRadius
-    color: Zenon.menuBgSolid
-    border.width: 1
-    border.color: Zenon.border
-    Column {
-      id: tagCol
-      x: 4
-      y: 4
-      Repeater {
-        model: ed.tagHits
-        delegate: Rectangle {
-          required property string modelData
-          required property int index
-          width: Math.max(152, tagWord.implicitWidth + 24)
-          height: Zenon.menuRowHeight - 4
-          radius: Zenon.windowRadius
-          color: index === ed.tagAt || tagRowMouse.containsMouse ? Zenon.menuHi : "transparent"
-          Text {
-            id: tagWord
-            anchors.verticalCenter: parent.verticalCenter
-            x: 10
-            text: "#" + modelData
-            color: Zenon.ink
-            font.family: Zenon.face
-            font.weight: Font.DemiBold
-            font.pixelSize: Zenon.px(14)
-          }
-          MouseArea { id: tagRowMouse; anchors.fill: parent; hoverEnabled: true; onClicked: ed.tagTake(modelData) }
-        }
-      }
-    }
+    pad: 12
+    still: true
+    x: Math.min(ed.tagSpot.x, ed.width - cardW - 8) - pad
+    y: ed.tagSpot.y - pad
+    width: cardW + 2 * pad
+    height: ed.tagHits.length * Zenon.menuRowHeight + 2 + 2 * pad
+    model: ed.tagHits.map((t) => ({ text: "#" + t }))
+    activeIndex: ed.tagAt
+    onHovered: (i) => ed.tagAt = i
+    // after the flash: typing in it may have narrowed the list (audit 11-04)
+    onChosen: (i) => { if (i < ed.tagHits.length) ed.tagTake(ed.tagHits[i]); }
   }
 }

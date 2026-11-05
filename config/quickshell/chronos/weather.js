@@ -106,6 +106,16 @@ function label(code) { return entry(code)[2]; }
 
 function role(code) { return entry(code)[3]; }
 
+// The condition's Zenon color name: Chronos' days and Cynosure's weather
+// card wear it (Zenon[tone]). A clear night is the night's blue, not the
+// sun's sand.
+const TONES = { sun: "sand", cloud: "cyan", rain: "blue", snow: "white", sleet: "pink", storm: "magenta" };
+function tone(code, isDay) {
+  const r = role(code);
+  if (r === "sun" && isDay === false) return "blue";
+  return TONES[r] ?? "muted";
+}
+
 // ── units ──────────────────────────────────────────────────────────────
 // Fetched in celsius always and converted here, so flipping the unit is a
 // display decision and never costs a round trip.

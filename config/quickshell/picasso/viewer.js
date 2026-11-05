@@ -471,10 +471,12 @@ function parseClipboardLook(text) {
 
 // ── reading text ──────────────────────────────────────────────────────────
 // tesseract on a png, its text to the clipboard. A missing tesseract says so
-// with exit 127, which the caller turns into "install it".
+// with exit 127, which the caller turns into "install it". In every language
+// installed, English first (as morpheus/py/ocrlangs.py), not English alone.
 function ocrCommand(png) {
   return 'command -v tesseract >/dev/null || exit 127\n'
-    + 'out=$(tesseract "$1" - 2>/dev/null | sed -e \'s/[[:space:]]*$//\' | sed -e :a -e \'/^\\n*$/{$d;N;ba\' -e \'}\')\n'
+    + 'l=$({ echo eng; tesseract --list-langs 2>/dev/null | sed 1d | grep -vxE \'osd|equ|eng\' | sort; } | paste -sd+)\n'
+    + 'out=$(tesseract "$1" - -l "$l" 2>/dev/null | sed -e \'s/[[:space:]]*$//\' | sed -e :a -e \'/^\\n*$/{$d;N;ba\' -e \'}\')\n'
     + 'rm -f "$1"\n'
     + '[ -n "$out" ] || exit 3\n'
     + 'printf \'%s\' "$out" | wl-copy\n';
@@ -1084,11 +1086,43 @@ const ASCIIS = [
   { t: "In grays  ·  PNG", kind: "ascii", gray: true },
   { t: "As text  ·  TXT", kind: "text", gray: false }
 ];
+// and Bitgrain (user, 2026-11-03), a dot on or off, as the browser tool of
+// that name makes it: how fine the grain, how it is dithered, and in which
+// two colors — or 27, three levels a channel. Blown up to about 1600 px like pixel art. Accent is
+// the theme's: the window fills its colors in (grainOpts).
+const GRAIN_SIZES = [
+  { t: "Fine", blocks: 800, by: 2 },
+  { t: "Medium", blocks: 400, by: 4 },
+  { t: "Coarse", blocks: 200, by: 8 }
+];
+const GRAIN_METHODS = [
+  { t: "Diffuse", method: "diffuse", hint: "Floyd–Steinberg" },
+  { t: "Atkinson", method: "atkinson", hint: "lighter, high contrast" },
+  { t: "Bayer", method: "bayer", hint: "ordered 8×8" },
+  { t: "Halftone", method: "halftone", hint: "print dots" },
+  { t: "Noise", method: "grain", hint: "even noise" }
+];
+const GRAIN_INKS = [
+  { t: "Mono", dark: "black", light: "white" },
+  { t: "Paper", dark: "gray15", light: "oldlace" },
+  { t: "Accent", accent: true },
+  { t: "Color", dark: "", light: "" }
+];
+// one Bitgrain's settings from the three rows' choices
+function grainOpts(size, method, ink, accentDark, accentLight) {
+  const s = GRAIN_SIZES[size] || GRAIN_SIZES[1], m = GRAIN_METHODS[method] || GRAIN_METHODS[1];
+  const i = GRAIN_INKS[ink] || GRAIN_INKS[0];
+  return { blocks: s.blocks, by: s.by, method: m.method, ink: i.t.toLowerCase(),
+           dark: i.accent ? accentDark : i.dark, light: i.accent ? accentLight : i.light };
+}
+
 // which of those a made result is, to light its button: "pixel:96",
-// "ascii:gray"; "" for what is not art (enhance, cutout, upscale)
+// "ascii:gray", "grain:400:atkinson:mono"; "" for what is not art
+// (enhance, cutout, upscale)
 function artKey(kind, opts) {
   const o = opts || {};
   if (kind === "pixel") return "pixel:" + (o.blocks || 96);
   if (kind === "ascii") return "ascii:" + (o.gray ? "gray" : "color");
+  if (kind === "grain") return "grain:" + (o.blocks || 400) + ":" + (o.method || "atkinson") + ":" + (o.ink || "mono");
   return "";
 }

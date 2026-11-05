@@ -39,6 +39,11 @@ PanelWindow {
   property bool collapsing: false
   // the bar, for the pill's live size and position while morphed
   property var statusbar: null
+  // WHERE IT OPENS (morpheus/place.js): "" is out of the pill, as every
+  // layer opens; a layer that can be put elsewhere (Cynosure's Opens) says
+  // so here, with `steadyH` its usual full height
+  property string place: ""
+  property int steadyH: 0
 
   // Emitted once a close has finished and `shown` has gone false. Not
   // `closed`: every quickshell window already has that signal, for the

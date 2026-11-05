@@ -41,11 +41,11 @@ function renderKitty(c, light) {
     ["foreground", h("ink")], ["background", h("ground")],
     ["color0", light ? h("keyInk") : h("ground")], ["color1", h("red")],
     ["color2", h("green")], ["color3", h("yellow")], ["color4", h("blue")],
-    ["color5", h("magenta")], ["color6", h("cyan")],
+    ["color5", h("magenta")], ["color6", h("accent")],
     ["color7", light ? h("dim") : h("ink")],
     ["color8", light ? h("soft") : h("muted")], ["color9", h("pink")],
     ["color10", h("green")], ["color11", h("sand")], ["color12", h("blue")],
-    ["color13", h("magenta")], ["color14", h("cyan")],
+    ["color13", h("magenta")], ["color14", h("accent")],
     ["color15", light ? h("surface") : h("ink")],
     ["selection_foreground", h("onAccent")], ["selection_background", h("magenta")],
     ["url_color", h("blue")],
@@ -59,7 +59,7 @@ function renderKitty(c, light) {
     ["tab_bar_background", h("surface")],
     ["mark1_foreground", h("onAccent")], ["mark1_background", h("green")],
     ["mark2_foreground", h("onAccent")], ["mark2_background", h("yellow")],
-    ["mark3_foreground", h("onAccent")], ["mark3_background", h("cyan")],
+    ["mark3_foreground", h("onAccent")], ["mark3_background", h("accent")],
   ];
   const w = Math.max.apply(null, lines.map((l) => l[0].length));
   out.push("# " + (c.name || "theme"), "");
@@ -92,7 +92,7 @@ function renderHyprTheme(c) {
   // 2026-10-19). A tiled window keeps the hairline; the others take a hue,
   // full-ish on the focused window and faint on the rest, so which window
   // has the keys still reads at a glance whatever it is:
-  //   floating   the accent (cyan)      zoomed     blue (maximized)
+  //   floating   the accent            zoomed     blue (maximized)
   //   pinned     sand (on every desk)   grouped    pink, red once locked
   //   no-group   magenta (a window that will not join a group)
   // The per-state pairs are "<focused> <unfocused>": base.lua hands them to
@@ -101,7 +101,7 @@ function renderHyprTheme(c) {
   const t = [
     ["inactive_border", hypr(c.border, 0.3)],
     ["active_border", hypr(c.border, 0.65)],
-    ["float_border", hypr(c.cyan, 0.45) + " " + hypr(c.border, 0.3)],
+    ["float_border", hypr(c.accent, 0.45) + " " + hypr(c.border, 0.3)],
     ["zoom_border", pair(c.blue, 0.55, 0.3)],
     ["pin_border", pair(c.sand, 0.55, 0.3)],
     ["nogroup_border_active", hypr(c.magenta, 0.55)],
@@ -118,7 +118,7 @@ function renderHyprTheme(c) {
     // a window rule's Border (oracle's Window rules, Hyprland 0.57's
     // active_border / inactive_border rules): the hue, full-ish focused and
     // faint unfocused like the states above. No red: red is the urgent flash.
-    ["rule_accent", pair(c.cyan, 0.75, 0.35)],
+    ["rule_accent", pair(c.accent, 0.75, 0.35)],
     ["rule_blue", pair(c.blue, 0.75, 0.35)],
     ["rule_green", pair(c.green, 0.75, 0.35)],
     ["rule_yellow", pair(c.yellow, 0.75, 0.35)],
@@ -148,7 +148,7 @@ const PANGO_WEIGHT = { 100: "thin", 200: "ultralight", 300: "light", 400: "norma
                        900: "heavy" };
 const WEIGHT_WORD = { 300: "Light", 500: "Medium", 600: "SemiBold", 700: "Bold" };
 
-function luaStr(s) { return "\"" + String(s).replace(/[\\"]/g, "\\$&").replace(/\n/g, " ") + "\""; }
+function luaStr(s) { return "\"" + String(s).replace(/[\\"]/g, "\\$&").replace(/[\r\n]/g, " ") + "\""; }
 
 function renderHyprFont(face, weight, size) {
   const w = Math.max(100, Math.min(900, Math.round((Number(weight) || 500) / 100) * 100));
@@ -231,6 +231,24 @@ function renderFrostLua(style, accent, second) {
   return out.join("\n");
 }
 
+// ── cursor ─────────────────────────────────────────────────────────────
+// hypr/lua/cursor.lua: oracle's Cursor theme and size. base.lua hands them
+// to Hyprland as HYPRCURSOR_*/XCURSOR_* (apps started from then on), and
+// scripts/gtkscheme.sh reads `x` and `size` for GTK, gsettings and
+// ~/.icons/default. The running cursor changes with `hyprctl setcursor`.
+function renderCursorLua(hypr, x, size) {
+  const n = Math.max(8, Math.min(256, Math.round(Number(size) || 24)));
+  const out = HEAD.map((l) => "-- " + l);
+  out.push("", "-- CURSOR", "-- Written by the shell (morpheus/ThemeSync.qml) from oracle's Cursor",
+           "-- rows; base.lua and scripts/gtkscheme.sh read it. Edits here are overwritten.", "",
+           "return {",
+           "\thypr = " + luaStr(hypr || "") + ",",
+           "\tx    = " + luaStr(x || "") + ",",
+           "\tsize = " + n + ",",
+           "}", "");
+  return out.join("\n");
+}
+
 // ── hyprtoolkit ────────────────────────────────────────────────────────
 // hypr/hyprtoolkit.conf, read by every hyprtoolkit app — hyprshutdown's
 // "Shutting down" screen, hyprpolkitagent — as it starts, and again on any
@@ -254,7 +272,7 @@ function renderHyprtoolkit(c, light, f) {
   const t = [
     ["background", k("ground")], ["base", k("card")], ["alternate_base", k("surface")],
     ["text", k("ink")], ["bright_text", light ? k("ground") : k("ink")],
-    ["link_text", k("blue")], ["accent", k("cyan")], ["accent_secondary", k("magenta")],
+    ["link_text", k("blue")], ["accent", k("accent")], ["accent_secondary", k("magenta")],
     ["rounding_large", Math.max(0, Math.round(Number(f.large) || 0))],
     ["rounding_small", Math.max(0, Math.round(Number(f.small) || 0))],
     ["h1_size", n(pt(f.px.h1), 19)], ["h2_size", n(pt(f.px.h2), 15)],
@@ -349,7 +367,7 @@ function gtkColors(c, light) {
     ["overview_bg_color", h("card")], ["overview_fg_color", h("ink")],
     ["shade_color", shade(light ? 0.07 : 0.25)],
     ["scrollbar_outline_color", light ? "#ffffff" : shade(0.5)],
-    ["accent_bg_color", h("cyan")], ["accent_fg_color", h("onAccent")],
+    ["accent_bg_color", h("accent")], ["accent_fg_color", h("onAccent")],
     ["destructive_bg_color", h("red")], ["destructive_fg_color", h("onAccent")],
     ["success_bg_color", h("green")], ["success_fg_color", h("onAccent")],
     ["warning_bg_color", h("yellow")], ["warning_fg_color", h("onAccent")],
@@ -387,16 +405,16 @@ function renderGtk3(c, light) {
   }
   const h = (k) => "#" + rgb(c[k]);
   const t = gtkColors(c, light).filter((l) => !/^overview_/.test(l[0])).concat([
-    ["accent_color", h("cyan")],
+    ["accent_color", h("accent")],
     ["destructive_color", h("red")], ["success_color", h("green")],
     ["warning_color", h("yellow")], ["error_color", h("red")],
     // the names GTK 3's own themes (and old apps) look up
     ["theme_bg_color", h("ground")], ["theme_fg_color", h("ink")],
     ["theme_base_color", h("ground")], ["theme_text_color", h("ink")],
-    ["theme_selected_bg_color", h("cyan")], ["theme_selected_fg_color", h("onAccent")],
+    ["theme_selected_bg_color", h("accent")], ["theme_selected_fg_color", h("onAccent")],
     ["theme_unfocused_bg_color", h("ground")], ["theme_unfocused_fg_color", h("ink")],
     ["theme_unfocused_base_color", h("ground")], ["theme_unfocused_text_color", h("ink")],
-    ["theme_unfocused_selected_bg_color", h("cyan")],
+    ["theme_unfocused_selected_bg_color", h("accent")],
     ["theme_unfocused_selected_fg_color", h("onAccent")],
     ["borders", h("border")], ["unfocused_borders", h("border")],
   ]);
@@ -446,10 +464,10 @@ function qtPalette(c, light) {
     Mid: light ? mix(c.card, c.border, 0.5) : k("border"),
     Text: k("ink"), BrightText: k("red"), ButtonText: k("ink"),
     Base: k("card"), Window: k("ground"), Shadow: "000000",
-    Highlight: k("cyan"), HighlightedText: k("onAccent"),
+    Highlight: k("accent"), HighlightedText: k("onAccent"),
     Link: k("blue"), LinkVisited: k("magenta"), AlternateBase: k("surface"),
     NoRole: "000000", ToolTipBase: k("card"), ToolTipText: k("ink"),
-    PlaceholderText: k("muted"), Accent: k("cyan"),
+    PlaceholderText: k("muted"), Accent: k("accent"),
   };
   // disabled: the type goes muted and a selection loses its color
   const disabled = Object.assign({}, active, {
@@ -507,7 +525,7 @@ function renderQt6ct(schemePath) {
 // oracle's Font (renderFontconfig).
 function renderFcitxTheme(c) {
   const k = (s) => "#" + rgb(c[s]);
-  const hi = "#" + mix(c.card, c.cyan, 0.16);
+  const hi = "#" + mix(c.card, c.accent, 0.16);
   const margin = (n) => ["Left=" + n, "Right=" + n, "Top=" + n, "Bottom=" + n];
   const sec = (name, lines) => ["[" + name + "]"].concat(lines, [""]);
   return HEAD.map((l) => "# " + l).concat(

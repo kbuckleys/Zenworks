@@ -282,6 +282,33 @@ QtObject {
     if (!state._restyleOwed) state.stylesReset();
   }
 
+  // the rows a window holds, by line, for the rows a frame only names: null
+  // when the frame names none (most frames that are not a scroll)
+  function _held(rows, edges, w) {
+    let named = false;
+    const check = (list) => { if (list) for (let j = 0; j < list.length && !named; ++j) if (list[j].ref !== undefined) named = true; };
+    check(w.rows);
+    check(w.above);
+    check(w.below);
+    if (!named) return null;
+    const out = {};
+    const add = (r) => { if (r && r.n > 0) out[r.n + ":" + r.k] = r; };
+    if (rows) for (let i = 0; i < rows.length; ++i) add(rows[i]);
+    if (edges) { edges.above.forEach(add); edges.below.forEach(add); }
+    return out;
+  }
+  // nvim only names a line plato holds, so a miss is plato's state gone
+  // astray (a frame lost): the row is drawn empty and a whole frame asked for
+  signal redrawWanted()
+  function _unref(held, ref, row) {
+    if (ref === undefined) return row;
+    const r = held ? held[ref] : undefined;
+    if (r) return r;
+    state.redrawWanted();
+    const at = String(ref).split(":");
+    return { n: Number(at[0]), k: Number(at[1]), t: "", s: [], f: false };
+  }
+
   function applyView(ev) {
     // styles first: the rows below may use the ones this frame defines
     state._defineStyles(ev.styles);
@@ -298,13 +325,20 @@ QtObject {
       const w = ev.wins[k];
       live[w.id] = true;
       let rows = state._rows[w.id];
+      // A ROW THAT ONLY MOVED COMES AS { i, ref: "n:k" } (view.lua's
+      // holdRow): the line held already, on screen or past an edge, and
+      // still the very same object — so the window sees it as unchanged
+      const held = state._held(rows, state._edges[w.id], w);
       if (w.full || !rows || rows.length !== w.height) {
         const fresh = new Array(w.height);
         for (let i = 0; i < w.height; ++i)
           fresh[i] = (rows && rows[i]) || { n: 0, k: 0, t: "", s: [], f: false };
         rows = fresh;
       }
-      for (let j = 0; j < w.rows.length; ++j) rows[w.rows[j].i] = w.rows[j];
+      for (let j = 0; j < w.rows.length; ++j) {
+        const r = w.rows[j];
+        rows[r.i] = r.ref !== undefined ? state._unref(held, r.ref) : r;
+      }
       state._rows[w.id] = rows;
       // ordinals change with any row's n or k, so they are simply recounted
       const ord = new Array(rows.length);
@@ -324,8 +358,8 @@ QtObject {
       // them, which threw the edge rows away (the frost stayed empty after
       // every tab switch)
       if (w.above !== undefined || w.below !== undefined)
-        state._edges[w.id] = { above: w.above ? Array.from(w.above) : [],
-                               below: w.below ? Array.from(w.below) : [] };
+        state._edges[w.id] = { above: w.above ? Array.from(w.above, (r) => state._unref(held, r.ref, r)) : [],
+                               below: w.below ? Array.from(w.below, (r) => state._unref(held, r.ref, r)) : [] };
     }
     for (const id in state._rows) if (!live[id]) {
       delete state._rows[id]; delete state._ords[id]; delete state._cursors[id];
@@ -371,8 +405,13 @@ QtObject {
     state.search = ev.search || null;
     if (ev.marks !== undefined && ev.marks !== null) state.marks = state._list(ev.marks);
     if (ev.context !== undefined && ev.context !== null) state.context = state._list(ev.context);
-    state.para = ev.para ? state._list(ev.para) : null;
-    state.scope = ev.scope || null;
+    // EVERY ROW OF THE POOL BINDS THESE (its guide's light, zen's dim): a new
+    // object each frame, the same values, asked ~190 rows again on every
+    // frame of a scroll (2026-11-03). Replaced only when they say otherwise.
+    const para = ev.para ? state._list(ev.para) : null;
+    if (JSON.stringify(para) !== JSON.stringify(state.para)) state.para = para;
+    const scope = ev.scope || null;
+    if (JSON.stringify(scope) !== JSON.stringify(state.scope)) state.scope = scope;
     state.cursors = ev.cursors || 1;
     if (ev.status) state.status = ev.status;
     state._framePending = state.status.pending || "";

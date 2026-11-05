@@ -129,7 +129,7 @@ Item {
   function askLink() {
     const sel = notes.edit.selectedText;
     const href = "";
-    ed.page.win.ask({ title: href ? "Edit link" : "Add a link", glyph: "\uF0C1", ink: Zenon.cyan,
+    ed.page.win.ask({ title: href ? "Edit link" : "Add a link", glyph: "\uF0C1", ink: Zenon.accent,
       fields: [{ key: "url", label: "Address", value: href || (/^\S+\.\S+$/.test(sel) ? sel : ""), hint: "https://…" }]
         .concat(sel === "" ? [{ key: "label", label: "Words", value: "", optional: true }] : []),
       verb: href ? "Save" : "Add",
@@ -368,7 +368,7 @@ Item {
         glyph: "\u{F04C6}"
         tip: ed.spellMgr && ed.spellMgr.spellOn ? "Spelling is checked — click to stop" : "Check spelling"
         lit: !!ed.spellMgr && ed.spellMgr.spellOn
-        litInk: Zenon.cyan
+        litInk: Zenon.accent
         enabled: !!ed.spellMgr
         onPressed: ed.spellMgr.setSpellOn(!ed.spellMgr.spellOn)
       }
@@ -448,21 +448,21 @@ Item {
     z: 6
     visible: mediaDrop.over || mediaDrop.busy
     radius: Zenon.windowRadius
-    color: mediaDrop.over ? Zenon.alpha(Zenon.cyan, 0.06) : "transparent"
+    color: mediaDrop.over ? Zenon.alpha(Zenon.accent, 0.06) : "transparent"
     border.width: mediaDrop.over ? 2 : 0
-    border.color: Zenon.cyan
+    border.color: Zenon.accent
     Row {
       anchors.horizontalCenter: parent.horizontalCenter
       anchors.bottom: parent.bottom
       anchors.bottomMargin: 14
       spacing: 8
-      Working { running: mediaDrop.busy; anchors.verticalCenter: parent.verticalCenter; ink: Zenon.cyan }
+      Working { running: mediaDrop.busy; anchors.verticalCenter: parent.verticalCenter; ink: Zenon.accent }
       Text {
         anchors.verticalCenter: parent.verticalCenter
         // the dots alone say a fetch is out (morpheus/Working)
         visible: mediaDrop.over
         text: "Drop pictures or videos"
-        color: Zenon.cyan
+        color: Zenon.accent
         font.family: Zenon.face
         font.weight: Zenon.weight
         font.pixelSize: Zenon.px(14)

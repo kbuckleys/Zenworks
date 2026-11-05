@@ -21,7 +21,7 @@ Item {
   // a word's size and weight (the format bar's style names)
   property int wordPx: Zenon.px(15)
   property int wordWeight: Font.Bold
-  // what the lit state is drawn in: the lock's yellow, the format bar's cyan
+  // what the lit state is drawn in: the lock's yellow, the format bar's accent
   property color litInk: Zenon.yellow
   readonly property bool hovered: hov.hovered
   // `menu`: it opens the window's menu, and stays pressed while that is up

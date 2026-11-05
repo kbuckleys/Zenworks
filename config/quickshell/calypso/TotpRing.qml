@@ -24,7 +24,7 @@ Item {
   property bool showSeconds: true
   property real remain: ring.period
   readonly property bool late: ring.remain <= 5
-  readonly property color ink: ring.late ? Zenon.red : Zenon.cyan
+  readonly property color ink: ring.late ? Zenon.red : Zenon.accent
   // a new period began (the code it showed is spent)
   signal rolled()
 

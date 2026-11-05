@@ -21,7 +21,7 @@ import "../morpheus"
 Item {
   id: pf
   property real frac: 0            // 0..1
-  property color ink: Zenon.cyan
+  property color ink: Zenon.accent
   property real radius: 0
   Component.onCompleted: pf._at = Math.max(0, Math.min(1, pf.frac))
 

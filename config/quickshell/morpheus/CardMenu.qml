@@ -29,8 +29,9 @@
 // applications rather than from the font; `swatch` is a theme's three
 // colors (see Swatch), `weight` the row's own font weight; `mark` is a tick
 // on the right, for the rows that report a current choice rather than
-// perform an action; `danger` reddens a row that is armed and waiting to be
-// confirmed; `asks` means the row opens a question rather than acting, so
+// perform an action; `danger` is accepted but draws nothing (user,
+// 2026-11-04: menus have one ink; color only on rows that stand for one,
+// via `iconInk`); `asks` means the row opens a question rather than acting, so
 // it does not flash. A row with `children` (rows of
 // its own) is a branch: pointed at, they open in CardPopup's card beside it
 // (MenuCore's BRANCHES), and a row picked there comes out as subChosen.
@@ -81,37 +82,15 @@ PanelWindow {
   // and those are better elided than as wide as a path.
   property bool fit: false
 
-  FontMetrics {
-    id: rowMetrics
-    font.family: Zenon.face
-    font.weight: Zenon.weight
-    font.pixelSize: Zenon.px(16)
-  }
-
   // The label's width plus everything a row puts around it: the row's own
   // insets, an icon and its gap when there is one, the tail (tick or
   // chevron) and its gap when there is one, and the card's padding.
-  readonly property int fitWidth: {
-    if (!root.fit) return 0;
-    // measured again on every opening: icarus' root menu was seen live at the
-    // width of its rows from before the shell's own entries joined them
-    // (user, 2026-10-19 — "Set backg…", "Display se…"), and the card is only
-    // ever seen open
-    root.open;
-    rowMetrics.height;   // and when the face resolves (advanceWidth is a call)
-    let most = 0;
-    const rows = root.model || [];
-    for (let i = 0; i < rows.length; ++i) {
-      const r = rows[i];
-      if (!r || r.isSeparator) continue;
-      let w = rowMetrics.advanceWidth(String(r.text || "")) + 12 + 10;
-      if (r.swatch) w += 22 + Zenon.menuIconGap;
-      else if (r.icon || r.image) w += 16 + Zenon.menuIconGap;
-      if (r.hasChildren || r.children || r.mark !== undefined) w += 16 + 8;
-      most = Math.max(most, w);
-    }
-    return Math.ceil(most + Zenon.menuCardPad * 2 + 2 + Zenon.menuFitSlack);
-  }
+  readonly property int fitWidth: root.fit ? measure.rowsW : 0
+  // measured again on every opening: icarus' root menu was seen live at the
+  // width of its rows from before the shell's own entries joined them
+  // (user, 2026-10-19 — "Set backg…", "Display se…"), and the card is only
+  // ever seen open. One measure for every card (MenuFit).
+  MenuFit { id: measure; model: root.model; again: root.open }
 
   // The width everything below uses.
   readonly property int cardW: {

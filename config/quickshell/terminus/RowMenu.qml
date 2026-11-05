@@ -30,7 +30,6 @@ import "../morpheus"
 import "../picasso"
 import "terminus.js" as Terminus
 import "../stylus/stylus.js" as Stylus
-import "../morpheus/icons.js" as Icons
 import "menuglyphs.js" as MenuGlyphs
 import "tags.js" as Tags
 
@@ -337,7 +336,7 @@ PopupWindow {
         const id = apps[i].id;
         if (!id || !apps[i].file) continue;
         // the app's own glyph, from the map icarus and the launcher read
-        out.push({ label: apps[i].name, glyph: Icons.appGlyph([id, apps[i].name]),
+        out.push({ label: apps[i].name, glyph: Strings.appGlyph([id, apps[i].name]),
                    act: () => term.openWith(id, t.path) });
       }
       return out;
@@ -931,6 +930,13 @@ PopupWindow {
       out.push({ swatch: true });
       out.push({ label: "Manage tags" + many, key: "c t",
                  act: () => tagPick.ask() });
+      // the glyph it is drawn with, chosen by hand (terminus/GlyphSheet);
+      // the default back only where one was chosen
+      out.push({ label: "Change glyph" + many, glyph: "\u{F0832}",
+                 act: () => term.glyphPickRef.ask() });
+      if ((n === 1 ? [t.path] : Object.keys(term.marked)).some((p) => FileGlyphs.of(p) !== ""))
+        out.push({ label: "Default glyph" + many, glyph: "\u{F099B}",
+                   act: () => term.glyphPickRef.reset(term.acting()) });
       // No Permissions row. It is a tab inside Properties now, and two
       // menu entries opening the same card one tab apart is the menu
       // being longer to say the same thing. c m still goes straight to
@@ -1121,13 +1127,13 @@ PopupWindow {
                     // the chosen tag's ring, in its own color — a
                     // special case of the one-border rule, see Zenon.border
                     border.width: swatch.on ? 2 : 0
-                    border.color: Zenon[swatch.modelData.ink] || Zenon.cyan
+                    border.color: Zenon[swatch.modelData.ink] || Zenon.accent
                   }
 
                   Text {
                     anchors.centerIn: parent
                     text: "\uF02B"
-                    color: Zenon[swatch.modelData.ink] || Zenon.cyan
+                    color: Zenon[swatch.modelData.ink] || Zenon.accent
                     font.family: Zenon.face
                     font.weight: Zenon.weight
                     font.pixelSize: Math.round(Zenon.menuRowHeight * 0.50)
@@ -1215,7 +1221,8 @@ PopupWindow {
               elide: Text.ElideRight
               visible: !modelData.sep && !modelData.swatch
               text: modelData.label || ""
-              color: modelData.danger ? Zenon.red : Zenon.white
+              // one ink for every row (user, 2026-11-04): `danger` no longer reddens
+              color: Zenon.white
               font.family: Zenon.face
               font.weight: Zenon.weight
               font.pixelSize: Zenon.px(16)
@@ -1319,7 +1326,7 @@ PopupWindow {
             Rectangle {
               anchors.fill: parent
               visible: menuRow.chosen > 0
-              color: Qt.rgba(Zenon.cyan.r, Zenon.cyan.g, Zenon.cyan.b,
+              color: Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b,
                              0.55 * menuRow.chosen)
             }
 
@@ -1590,7 +1597,7 @@ PopupWindow {
               Rectangle {
                 anchors.fill: parent
                 visible: subRow.chosen > 0
-                color: Qt.rgba(Zenon.cyan.r, Zenon.cyan.g, Zenon.cyan.b,
+                color: Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b,
                                0.55 * subRow.chosen)
               }
 

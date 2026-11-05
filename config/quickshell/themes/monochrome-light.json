@@ -1,0 +1,29 @@
+{
+  "name": "Monochrome Light",
+  "mode": "light",
+  "colors": {
+    "ground": "#f4f4f4",
+    "surface": "#dedede",
+    "card": "#ebebeb",
+    "ink": "#161616",
+    "muted": "#6b6b6b",
+    "soft": "#444444",
+    "keyInk": "#333333",
+    "red": "#c4474e",
+    "green": "#4a8538",
+    "yellow": "#c25f22",
+    "blue": "#2f6fbe",
+    "magenta": "#8550b6",
+    "accent": "#2e2e2e",
+    "pink": "#bc5f72",
+    "sand": "#9d7d51",
+    "dim": "#c4c4c4",
+    "sparkFill": "#332e2e2e",
+    "border": "#669e9e9e",
+    "headBg": "#66dedede",
+    "selBg": "#4cc4c4c4",
+    "onAccent": "#f4f4f4",
+    "wash": "#000000",
+    "shadow": "#000000"
+  }
+}

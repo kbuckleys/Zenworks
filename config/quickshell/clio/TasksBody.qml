@@ -124,14 +124,14 @@ Item {
             width: parent.width
             height: Math.max(44, what.implicitHeight + where.implicitHeight + 18)
             radius: Zenon.windowRadius
-            color: press.pressed ? Zenon.pressWash(0.12) : press.containsMouse ? Zenon.wash(0.06) : Zenon.wash(0.03)
+            color: press.pressed ? Zenon.pressWash(0.12) : Zenon.wash(0.03)
             // the box: ticks it where it is
             Text {
               id: box
               x: 12
               anchors.verticalCenter: parent.verticalCenter
-              text: boxPress.containsMouse ? "\u{F0134}" : "\u{F0130}"
-              color: boxPress.containsMouse ? Zenon.green : Zenon.accentMuted
+              text: boxPress.pressed ? "\u{F0134}" : "\u{F0130}"
+              color: boxPress.pressed ? Zenon.green : Zenon.accentMuted
               font.family: Zenon.glyphFace
               font.pixelSize: Zenon.px(20)
               MouseArea {
@@ -179,7 +179,7 @@ Item {
               anchors.rightMargin: 14
               anchors.verticalCenter: parent.verticalCenter
               text: one.modelData.due ? N.dueText(one.modelData.due, tb.now) : ""
-              color: one.modelData.group === "overdue" ? Zenon.yellow : Zenon.cyan
+              color: one.modelData.group === "overdue" ? Zenon.yellow : Zenon.accent
               font.family: Zenon.face
               font.weight: Zenon.weight
               font.pixelSize: Zenon.px(13)

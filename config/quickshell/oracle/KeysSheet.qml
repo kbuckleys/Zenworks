@@ -181,7 +181,7 @@ PanelWindow {
         text: sheet.query !== "" ? sheet.query
           : sheet.welcome && sheet.ownChord !== "" ? sheet.ownChord + " brings these shortcuts back"
           : sheet.count + " shortcuts"
-        color: sheet.query !== "" ? Zenon.cyan : Zenon.muted
+        color: sheet.query !== "" ? Zenon.accent : Zenon.muted
         font.family: Zenon.face
         font.weight: Zenon.weight
         font.pixelSize: Zenon.px(15)
@@ -266,6 +266,8 @@ PanelWindow {
       text: sheet.query !== "" ? "No shortcut matches" : "No shortcuts"
     }
 
+    // the rows still to come run on under the keys' pill, which frosts them
+    ScrollEdge { view: scroller; below: true; follow: true; bar: foot }
     HintBar {
       id: foot
       anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
