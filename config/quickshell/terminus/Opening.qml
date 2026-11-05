@@ -175,6 +175,7 @@ Item {
         barViews: term.barViews,
         barSplit: term.barSplit,
         barZoom: term.barZoom,
+        barHidden: term.barHidden,
         placesOff: term.placesOff,
         defaultView: term.defaultView,
         confirmTrash: term.confirmTrash,
@@ -257,7 +258,7 @@ Item {
     if (typeof s.naturalSort === "boolean") term.naturalSort = s.naturalSort;
     if (typeof s.alwaysTabs === "boolean") term.alwaysTabs = s.alwaysTabs;
     if (typeof s.colHeadsOn === "boolean") term.colHeadsOn = s.colHeadsOn;
-    for (const k of ["barNav", "barSideToggle", "barSort", "barViews", "barSplit", "barZoom"])
+    for (const k of ["barNav", "barSideToggle", "barSort", "barViews", "barSplit", "barZoom", "barHidden"])
       if (typeof s[k] === "boolean") term[k] = s[k];
     if (Array.isArray(s.placesOff))
       term.placesOff = s.placesOff.filter((k) => typeof k === "string");

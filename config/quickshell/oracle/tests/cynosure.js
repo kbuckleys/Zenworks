@@ -344,6 +344,15 @@ module.exports = {
     const gr = C.glyphRows(gents, "", false, true, 2, ["c"]);
     t.eq("recent glyphs get their own strip first", gr.map((r) => r.section + ":" + r.cells.map((c) => c.char).join("")),
       ["Recently used:c", "Emoji:ab"]);
+    // "nf" alone lists every glyph, not the first twelve strips (2026-11-05)
+    const nfs = [];
+    for (let i = 0; i < 500; i++) nfs.push({ char: String.fromCharCode(0xE000 + i), cls: "nf-x-" + i, name: "x " + i });
+    const nfr = C.glyphRows(nfs, "", true, true, 11, []);
+    t.eq("the whole Nerd set is listed", nfr.reduce((s, r) => s + r.cells.length, 0), 500);
+    const nfRecent = nfs.slice(0, 30).map((e) => e.char);
+    const nfu = C.glyphRows(nfs, "", true, true, 11, nfRecent);
+    t.eq("recents past their strips are back in the set, none lost",
+      nfu.reduce((s, r) => s + r.cells.length, 0), 500);
     t.eq("recents survive a write", C.addGlyph(C.parseGlyphs(JSON.stringify({ emoji: ["x"] })), "y", false).emoji, ["y", "x"]);
     // hotkeys
     const app = { kind: "app", key: "Firefox", id: "firefox.desktop", label: "Firefox", glyph: "G", score: 3 };

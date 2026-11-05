@@ -120,6 +120,10 @@ function M.style(base, deco, over, under)
   return id
 end
 
+-- a style's merged attributes by its id (view.lua's corridor reads the
+-- underline and ink of a cell back)
+function M.def(id) return defs[id] end
+
 -- the styles made since last asked, as a list for the next frame
 function M.takeFresh()
   if #fresh == 0 then return nil end

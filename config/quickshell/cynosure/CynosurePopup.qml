@@ -298,8 +298,10 @@ LayerPopup {
   // and as tall as that — no list under it, no strip of keys
   readonly property bool confirmLine: popup.mode === "picker" && !popup.choices
     && !!popup.pending && !!popup.pending.confirm
-  // where the question's red ends: its glyph, its words, and room each side
-  readonly property int questionW: 20 + Zenon.px(22) + 14 + Math.ceil(question.implicitWidth) + 28
+  // where the question's red ends: its glyph, its words, and the same room
+  // after the words as before the glyph (user, 2026-11-05: the old sum
+  // reserved more than the glyph's real place, so the red ran long)
+  readonly property int questionW: Math.ceil(question.x + question.implicitWidth) + fieldGlyph.x + 4
   // the pill's own height: the strip is a line, not a panel
   readonly property int confirmH: Zenon.slot
   // COMPACT (Oracle, 2026-11-04, Raycast's): the field alone on an empty
@@ -4419,7 +4421,7 @@ LayerPopup {
               id: answer
               required property var modelData
               required property int index
-              width: answerFace.implicitWidth + 36
+              width: answerFace.implicitWidth + 28
               height: answers.height
               FlashOver { flash: rowFlash; index: answer.index }
               Row {

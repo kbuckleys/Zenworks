@@ -3885,7 +3885,7 @@ function chordTaken(chord, id, binds, values, live) {
 }
 
 // ── SETTINGS, CARRIED ELSEWHERE ───────────────────────────────────────────
-// Export / Import in About (2026-10-21): one JSON file holding oracle.json,
+// Export / Import in Configuration (2026-10-21; About until 11-05): one JSON file holding oracle.json,
 // the hypr files Oracle writes (keys, wake, effects, default apps, input, screens),
 // every app's own choices (APP_FILES, 2026-11-03) and the themes you saved — for a reinstall or another machine. Settings
 // only: no notes, no screen time, no passwords. A bundle names its files

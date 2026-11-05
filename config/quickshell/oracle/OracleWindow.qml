@@ -145,7 +145,7 @@ FloatingWindow {
   }
 
   // ── A HEALTH FINDING, DEALT WITH ──────────────────────────────────────
-  // Restart through Oracle's own Restart the shell; preflight and the log in
+  // Restart through Oracle's own Reload shell; preflight and the log in
   // a terminal (they are long, and worth reading as they go); a leftover
   // probe opened where it is.
   function healthFix(fix) {
@@ -153,7 +153,7 @@ FloatingWindow {
     const dir = Quickshell.shellDir;
     const term = (title, script, args) => Quickshell.execDetached(["xdg-terminal-exec", "--title=" + title, "--", "sh", "-c",
       script + '; printf "\\nPress RETURN to close."; read _', "sh"].concat(args || []));
-    if (fix.act === "restart") Oracle.run("actionRestart", "");
+    if (fix.act === "restart") Oracle.run("actionRestart");
     else if (fix.act === "preflight") term("Preflight", 'cd "$1" && bash scripts/preflight.sh', [dir]);
     else if (fix.act === "log") term("Shell log", 'qs log -p "$1/shell.qml" -f', [dir]);
     else if (fix.act === "open" && (fix.files || []).length) Quickshell.execDetached(["xdg-open", dir + "/" + String(fix.files[0]).replace(/^\.\//, "")]);
@@ -172,12 +172,6 @@ FloatingWindow {
     next[g] = !next[g];
     popup.openGroups = next;
   }
-  // The last section that actually HAS settings in it. "Reset one section"
-  // lives in the about section, so `section` at the moment it is clicked is
-  // always "about" — which holds nothing but actions, so the reset would be a
-  // button that reliably does nothing. This is what it means instead: the
-  // section you were in before you came here.
-  property string lastRealSection: "bar"
   property string query: ""
   // the key of the text setting currently being typed into, "" for none. Only
   // ever one: a text row takes the keyboard from the search field while it is
@@ -743,10 +737,6 @@ FloatingWindow {
       popup.syncFocus();
       return;
     }
-    // Neither About nor Health holds a setting, so neither is a section
-    // "Reset one section" could mean.
-    if (popup.section !== "about" && popup.section !== "health" && popup.section !== "changed")
-      popup.lastRealSection = popup.section;
     popup.section = id;
     // The checkup runs on arrival — a Health page showing "not run yet" is
     // a page that makes you press a button to learn anything. Not again
@@ -1799,16 +1789,7 @@ FloatingWindow {
         textFormat: Text.PlainText
         id: verb
         anchors.centerIn: parent
-        // A context action names the section it would act on. Generic rather
-        // than a special case for one key: any action may declare itself
-        // context-bound, and the button then stops being a promise you have to
-        // take on trust.
-        text: {
-          if (!ac.spec) return "";
-          const v = Oracle.actionVerb(ac.spec.key) || ac.spec.verb || "Run";
-          return ac.spec.context
-            ? v + " " + popup.sectionLabel(popup.lastRealSection) : v;
-        }
+        text: ac.spec ? Oracle.actionVerb(ac.spec.key) || ac.spec.verb || "Run" : ""
         color: popup.fgColor
         font.family: popup.face
         font.weight: Font.Medium
@@ -1819,7 +1800,7 @@ FloatingWindow {
         id: btnMa
         anchors.fill: parent
         enabled: !ac.busy && !Oracle.rowIdle(ac.spec.key)
-        onClicked: Oracle.run(ac.spec.key, popup.lastRealSection)
+        onClicked: Oracle.run(ac.spec.key)
       }
     }
   }
@@ -3397,7 +3378,7 @@ FloatingWindow {
     // Follow Background's Save asks for a name here first (Oracle's
     // nameFollowRequested), the picture's own name to start from. Return
     // keeps it, Escape or a click beside the card does not.
-    // About's Export settings / Import settings — oracle/SettingsMove.qml
+    // Configuration's Export settings / Import settings — oracle/SettingsMove.qml
     SettingsMove { z: 20; fileManager: popup.fileManager }
 
     // ── CHOOSING AN APP ───────────────────────────────────────────────

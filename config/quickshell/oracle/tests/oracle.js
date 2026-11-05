@@ -40,7 +40,7 @@ const OPEN = { key: "barMonitor", section: "bar", label: "Monitor", type: "enum"
 
 const TEXT = { key: "backgroundDir", section: "paper", label: "Folder", type: "text",
                fallback: "" };
-const ACT = { key: "actionResetAll", section: "about", label: "Reset everything",
+const ACT = { key: "actionResetAll", section: "config", label: "Reset everything",
               type: "action", verb: "Reset all" };
 // A READOUT. Holds nothing, is never written, never counts as changed —
 // exactly like an action, which is what Ora.stored exists to say once.

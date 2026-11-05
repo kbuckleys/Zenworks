@@ -77,6 +77,8 @@ const exact = {
   "Swap sides": "\u{F04E1}",                 // swap_horizontal
   "Sidebar": "\u{F10AA}",                    // dock_left
   "Hide sidebar": "\u{F10AA}",
+  "Show top bar": "\u{F1513}",               // dock_top
+  "Hide top bar": "\u{F1513}",
   "Group headings": "\u{F1860}",             // format_list_group
   "Hide group headings": "\u{F1860}",
   "Disk usage": "\u{F07AF}",                 // chart_donut

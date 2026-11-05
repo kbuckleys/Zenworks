@@ -609,7 +609,10 @@ Rectangle {
   Item {
     id: sideToggleIn
     z: 5
+    // and not while the top bar is put away (user, 2026-11-05): the switch
+    // is the bar's, so it goes with it — `|` still opens and shuts
     visible: !!term && term.barSideToggle && term.sidebar
+      && !(term.barHidden && !term.picking)
     anchors.top: parent.top
     anchors.right: parent.right
     anchors.rightMargin: 7

@@ -1123,6 +1123,10 @@ Singleton {
       blurb: "zeus and the update count — what is measured, how often" },
     { id: "defaults", group: "computer", label: "Default apps", icon: "\uF009",
       blurb: "what opens what \u2014 the terminal, the browser, every kind of file" },
+    // CONFIGURATION (user, 2026-11-05): the settings file itself and the
+    // shell under it, moved out of About into a page of their own, before Health
+    { id: "config", group: "computer", label: "Configuration", icon: "\uF1DE",
+      blurb: "these settings as a file \u2014 reload, export, import, reset \u2014 and reloading the shell" },
     { id: "health", group: "computer", label: "Health", icon: "\uF0F1",
       blurb: "a checkup of this shell \u2014 what an audit looks for" },
     { id: "about", group: "computer", label: "About", icon: "",
@@ -2134,32 +2138,27 @@ Singleton {
       help: "What the monitor pickers under Bar and Idle & lock offer, as Quickshell sees them right now." },
     { key: "infoLaunched", section: "about", label: "Running since", type: "info",
       help: "When this shell last started." },
-    { key: "actionReload", section: "about", label: "Reload from disk", type: "action",
+    { key: "actionReload", section: "config", label: "Reload from disk", type: "action",
       verb: "Reload",
       help: "Re-read oracle.json. Useful after editing it by hand." },
-    // `context: true` — this one acts on the section you came here FROM, and
-    // says which on its own button rather than making you remember. See
-    // ActionControl, which is where that name is appended.
     // the window does the files (Oracle cannot reach morpheus or terminus'
     // picker): exportAsked / importAsked, see OracleWindow
-    { key: "actionExport", section: "about", alias: "export backup save settings file move another machine",
+    { key: "actionExport", section: "config", alias: "export backup save settings file move another machine",
       label: "Export settings", type: "action", verb: "Export\u2026",
       help: "Every setting, your shortcuts, default apps, input and screen setup, and the themes you saved, in one file. No notes, screen time or passwords." },
-    { key: "actionImport", section: "about", alias: "import restore load settings file backup",
+    { key: "actionImport", section: "config", alias: "import restore load settings file backup",
       label: "Import settings", type: "action", verb: "Import\u2026",
       help: "Settings from an exported file, shown before anything changes. What is here now is kept first, so an import can be undone by importing that." },
-    { key: "actionResetSection", section: "about", label: "Reset one section",
-      type: "action", verb: "Reset", context: true,
-      help: "Put every setting in the section you were last in back to its default." },
-    { key: "actionResetAll", section: "about", label: "Reset everything", type: "action",
+    { key: "actionResetAll", section: "config", label: "Reset everything", type: "action",
       verb: "Reset all",
       help: "Every setting in every section back to its default." },
+    { key: "actionRestart", section: "config", alias: "restart the shell quickshell",
+      label: "Reload shell", type: "action",
+      verb: "Reload",
+      help: "For the few settings that only take effect on a fresh start." },
     { key: "actionUpdate", section: "about", alias: "update upgrade new version zenworks package aur",
       label: "Check for updates", type: "action", verb: "Open Ceres",
-      help: "Zenworks is a package now, so it updates with everything else: Ceres' Updates lists a new version beside the rest. Your settings live in ~/.config/zenworks and are never touched by an update." },
-    { key: "actionRestart", section: "about", label: "Restart the shell", type: "action",
-      verb: "Restart",
-      help: "For the few settings that only take effect on a fresh start." }
+      help: "Zenworks is a package now, so it updates with everything else: Ceres' Updates lists a new version beside the rest. Your settings live in ~/.config/zenworks and are never touched by an update." }
   ]
 
   // ── THE OUTPUTS, AS THEY ARE RIGHT NOW ───────────────────────────────
@@ -2653,21 +2652,6 @@ Singleton {
     if (key in root.defaults) root.set(key, root.defaults[key]);
   }
 
-  function resetSection(section) {
-    root._beginStep();
-    try { root._resetSection(section); } finally { root._endStep(); }
-  }
-  function _resetSection(section) {
-    for (let i = 0; i < root.schema.length; ++i) {
-      const s = root.schema[i];
-      // the monitors too: each goes through setDisplay, so the lot is one
-      // write and one "keep these settings?", and comes back by itself
-      // the time zone is the computer's, never a default to go back to
-      if (!Ora.stored(s) || (s.sysTime && !s.sysDefault) || s.section !== section) continue;
-      root.reset(s.key);
-    }
-  }
-
   // NOT the monitors, the default apps or the input devices. "Reset
   // everything" is oracle.json, and Reload from disk runs this before reading
   // the file back — neither should reach into hyprland and change a screen or
@@ -2772,7 +2756,7 @@ Singleton {
     if (key === "actionCursorMake") return root.cursorMakeVerb();
     return "";
   }
-  function run(key, context) {
+  function run(key) {
     if (key === "actionCheckup") { root.runCheckup(); return; }
     if (key === "actionDisplayScan") { root.scanDisplays(); return; }
     if (key === "actionAppsScan") { root.scanApps(); return; }
@@ -2781,7 +2765,6 @@ Singleton {
     if (key === "actionReload") { root.reloadFromDisk(); return; }
     if (key === "actionSaveFollow") { root.nameFollowRequested(); return; }
     if (key === "actionCursorMake") { root.cursorMake(); return; }
-    if (key === "actionResetSection") { root.resetSection(context); return; }
     if (key === "actionResetAll") { root.resetAll(); return; }
     // the shell's side opens Ceres' Updates (OracleManager: Oracle cannot
     // reach Ceres itself)

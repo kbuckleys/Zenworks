@@ -344,6 +344,16 @@ Item {
         // 2026-11-03: the second ran much taller): eighteen rows each side.
         SideHead { term: prefs.term; label: "BAR BUTTONS" }
 
+        // the bar itself (user, 2026-11-05) — `_` does the same
+        PrefRow { term: prefs.term
+          label: "Show top bar"
+          hint: "_"
+          on: !term.barHidden
+          // a file dialog always wears its bar
+          enabled: !term.picking
+          onToggled: term.toggleTopBar()
+        }
+
         Repeater {
           model: [["barNav", "Navigation"], ["barSideToggle", "Sidebar toggle"],
                   ["barSort", "Sort"], ["barViews", "View switch"],

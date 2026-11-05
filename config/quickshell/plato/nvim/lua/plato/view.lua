@@ -1135,6 +1135,7 @@ local function build(win, isCurrent, mode, margin)
   end
 
   run(top, height, rows, true)
+  if square then M.corridor(rows) end
   -- kept as plain data: the click arrives in a fast callback (bridge.lua),
   -- where nvim cannot be asked where a window is
   if clicks then
@@ -1243,12 +1244,121 @@ local function build(win, isCurrent, mode, margin)
   }
 end
 
+-- ── DIFFBANDIT'S CORRIDOR, AS LINES (user, 2026-11-05) ─────────────────
+-- The corridor between a diff's two sides draws its rails in cells: a run
+-- of underlined spaces along a row for a horizontal, a "│" a row for a
+-- vertical. As text they came out a hairline and square-cornered. A window
+-- that is nothing but that (spaces, rails and the plugin's wedges) is
+-- handed to EditorRow as strokes instead (`cr`): the "│" blanked, the
+-- underline left unpainted there, and each rail drawn thick in its kind's
+-- own theme color, its corners rounded where a vertical turns into the
+-- horizontal it meets. Per row, so a row knows its own share:
+--   { "h", a, b, color }        a horizontal along the row's foot, cells a..b-1
+--   { "v", c, up, down, color } the vertical in cell c; up/down: where it goes
+--                               past the cell's top/foot: "|" on, "<" / ">"
+--                               turning left / right, false stopping
+local CORRIDOR_OK = { [" "] = true, ["│"] = true, ["◢"] = true, ["◣"] = true, ["◤"] = true, ["◥"] = true }
+local function corridorInk(c)
+  local p = require("plato.theme").colors()
+  for kind, ink in pairs({ Add = p.green, Delete = p.red, Change = p.blue }) do
+    local a = hl.attrs("DiffBanditConnector" .. kind .. "Line")
+    if a and a.fg and c and a.fg:lower() == c:lower() then return ink end
+  end
+  return c
+end
+function M.corridor(rows)
+  if #rows == 0 then return end
+  -- every row only rails and wedges, and at least one rail somewhere
+  local any = false
+  for _, r in ipairs(rows) do
+    for ch in r.t:gmatch("[%z\1-\127\194-\244][\128-\191]*") do
+      if not CORRIDOR_OK[ch] then return end
+      if ch == "│" then any = true end
+    end
+    for _, sp in ipairs(r.s) do
+      local d = hl.def(sp[3])
+      if d and d.u then any = true end
+    end
+  end
+  if not any then return end
+  -- the grid: V[i][c] a vertical's ink, H[i][c] an underline's
+  local V, H, wedges = {}, {}, {}
+  for i, r in ipairs(rows) do
+    V[i], H[i] = {}, {}
+    local function styleAt(cell)
+      for _, sp in ipairs(r.s) do
+        if cell >= sp[1] and cell < sp[1] + sp[2] then return hl.def(sp[3]) end
+      end
+    end
+    local cell = 0
+    for ch in r.t:gmatch("[%z\1-\127\194-\244][\128-\191]*") do
+      if ch == "│" then
+        local d = styleAt(cell)
+        V[i][cell] = corridorInk(d and d.fg)
+      end
+      -- THE WEDGES GO (user, 2026-11-05: "are the notches necessary?"):
+      -- where a rail meets a band the plugin sets a ◢◣ on the band's foot
+      -- or a ◤◥ on its top; the line runs on into that cell instead
+      if ch == "◢" or ch == "◣" or ch == "◤" or ch == "◥" then
+        local d = styleAt(cell)
+        wedges[#wedges + 1] = { (ch == "◤" or ch == "◥") and i - 1 or i, cell, corridorInk(d and d.fg) }
+      end
+      cell = cell + 1
+    end
+    for _, sp in ipairs(r.s) do
+      local d = hl.def(sp[3])
+      if d and d.u then
+        for c = sp[1], sp[1] + sp[2] - 1 do H[i][c] = corridorInk(d.sp or d.fg) end
+      end
+    end
+  end
+  for _, w in ipairs(wedges) do
+    if H[w[1]] and not H[w[1]][w[2]] then H[w[1]][w[2]] = w[3] end
+  end
+  for i, r in ipairs(rows) do
+    local out = {}
+    -- verticals, and which way each end turns
+    for c, ink in pairs(V[i]) do
+      local function way(hrow)
+        if not hrow then return false end
+        if hrow[c - 1] then return "<" end
+        if hrow[c + 1] then return ">" end
+        return false
+      end
+      local up = (V[i - 1] and V[i - 1][c]) and "|" or way(H[i - 1])
+      local down = (V[i + 1] and V[i + 1][c]) and "|" or way(H[i])
+      out[#out + 1] = { "v", c, up, down, ink }
+    end
+    -- horizontals as runs of one ink
+    local cols = {}
+    for c in pairs(H[i]) do cols[#cols + 1] = c end
+    table.sort(cols)
+    local k = 1
+    while k <= #cols do
+      local a, ink = cols[k], H[i][cols[k]]
+      local b = a + 1
+      while k + 1 <= #cols and cols[k + 1] == b and H[i][b] == ink do k = k + 1; b = b + 1 end
+      -- a rail that runs on past this row meets the horizontal at its
+      -- middle, not its side (a T, no corner to round)
+      local function through(c) return V[i][c] and V[i + 1] and V[i + 1][c] end
+      out[#out + 1] = { "h", through(a - 1) and a - 0.5 or a, through(b) and b + 0.5 or b, ink }
+      k = k + 1
+    end
+    -- one character at a time: a Lua class [...] is bytes, not these
+    for _, g in ipairs({ "◢", "◣", "◤", "◥" }) do r.t = r.t:gsub(g, " ") end
+    if #out > 0 then
+      r.cr = out
+      r.t = r.t:gsub("│", " ")
+    end
+  end
+end
+
 local function signature(row)
   return row.n .. "\1" .. row.k .. "\1" .. row.t .. "\1" .. tostring(row.f)
     .. "\1" .. vim.json.encode(row.s) .. "\1" .. vim.json.encode(row.g or false)
     .. "\1" .. (row.v or "") .. "\1" .. (row.ig and table.concat(row.ig, ",") or "")
     .. "\1" .. vim.json.encode({ row.m or false, row.sl or false, row.vt or false, row.fc or false,
-      row.md or false, row.fo or false, row.dv or false, row.dx or false, row.sq or false })
+      row.md or false, row.fo or false, row.dv or false, row.dx or false, row.sq or false, row.cr or false })
 end
 
 -- ── the editor window ───────────────────────────────────────────────────

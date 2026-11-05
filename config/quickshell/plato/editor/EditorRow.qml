@@ -656,10 +656,50 @@ Item {
     }
   }
 
+  // ── diffbandit's corridor, as lines (user, 2026-11-05) ─────────────
+  // view.lua's M.corridor: the rails between a diff's two sides, thick and
+  // in their kind's color, a vertical's turn into its horizontal rounded.
+  // The horizontal runs along the row's foot; a vertical's top turn meets
+  // the row above's, so it starts half a stroke above this row.
+  readonly property real railW: Math.max(2, Math.round(row.cellW * 0.3))
+  function railPath(e) {
+    const W = row.cellW, t = row.railW, yb = row.cellH - t / 2, yt = -t / 2, x0 = row.textX;
+    if (e[0] === "h") return "M" + (x0 + e[1] * W) + " " + yb + " L" + (x0 + e[2] * W) + " " + yb;
+    const cx = x0 + (e[1] + 0.5) * W, r = W / 2;
+    let p;
+    if (e[2] === "<" || e[2] === ">") {
+      const sx = e[2] === "<" ? cx - r : cx + r;
+      p = "M" + sx + " " + yt + " Q" + cx + " " + yt + " " + cx + " " + (yt + r);
+    } else p = "M" + cx + " " + (e[2] === "|" ? 0 : t / 2);
+    if (e[3] === "<" || e[3] === ">") {
+      const ex = e[3] === "<" ? cx - r : cx + r;
+      p += " L" + cx + " " + (yb - r) + " Q" + cx + " " + yb + " " + ex + " " + yb;
+    } else p += " L" + cx + " " + (e[3] === "|" ? row.cellH : yb);
+    return p;
+  }
+  Repeater {
+    model: row.info.cr ? Array.from(row.info.cr) : []
+    Shape {
+      id: rail
+      required property var modelData
+      preferredRendererType: Shape.CurveRenderer
+      ShapePath {
+        strokeColor: rail.modelData[rail.modelData[0] === "h" ? 3 : 4] || row.ed.normalFg
+        strokeWidth: row.railW
+        fillColor: "transparent"
+        capStyle: ShapePath.RoundCap
+        joinStyle: ShapePath.RoundJoin
+        PathSvg { path: row.railPath(rail.modelData) }
+      }
+    }
+  }
+
   // ── underlines ─────────────────────────────────────────────────────
+  // (not in the corridor, whose rails are drawn above instead)
   readonly property var ulSpans: {
     row.info;
     const out = [];
+    if (row.info.cr) return out;
     const sp = row.info.s || [];
     for (let k = 0; k < sp.length; ++k) {
       const st = row.ed.styles[sp[k][2]];

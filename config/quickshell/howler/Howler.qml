@@ -647,15 +647,27 @@ Singleton {
   // window. What it held back is counted, and said in one toast on leaving.
   // (=== true: the workspace can be there a moment before its flags are)
   // A bool whatever happens: a reload logged "Unable to assign [undefined]
-  // to bool" here ~250 ms after loading (audit 2026-11-04) — an evaluation
-  // that ends without an answer is false, not undefined
-  readonly property bool fullscreenOn: {
+  // to bool" here ~250 ms after loading (audit 2026-11-04). A try/catch in
+  // the binding did not stop it (seen again 2026-11-05): a binding cut off
+  // while the old config is torn down hands back undefined whatever it says.
+  // So no binding: a plain bool, set from Hyprland's own change signals.
+  property bool fullscreenOn: false
+  function readFullscreen() {
+    let on = false;
     try {
       const w = Hyprland.focusedWorkspace;
-      return !!w && w.hasFullscreen === true;
-    } catch (e) {
-      return false;
-    }
+      on = !!w && w.hasFullscreen === true;
+    } catch (e) {}
+    if (root.fullscreenOn !== on) root.fullscreenOn = on;
+  }
+  Connections {
+    target: Hyprland
+    function onFocusedWorkspaceChanged() { root.readFullscreen(); }
+  }
+  Connections {
+    target: Hyprland.focusedWorkspace
+    ignoreUnknownSignals: true
+    function onHasFullscreenChanged() { root.readFullscreen(); }
   }
   property int heldInFullscreen: 0
   onFullscreenOnChanged: {
@@ -835,6 +847,7 @@ Singleton {
   // read would have found every frame unnamed.
   property bool historyRead: false
   Component.onCompleted: {
+    root.readFullscreen();
     root.history = Wolf.parse(stateFile.text());
     root.historyRead = true;
     root.pruneFrames();

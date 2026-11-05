@@ -2623,6 +2623,7 @@ FloatingWindow {
                ["tab  o", "Step into the other side"],
                ["alt \u2190 \u2192", "Resize the split"],
                ["|", "Sidebar on / off"],
+               ["_", "Top bar on / off"],
                ["alt shift \u2190 \u2192", "Resize the sidebar"],
                ["f5", "Copy to the other side"],
                ["f6", "Move to the other side"],
@@ -2758,6 +2759,7 @@ FloatingWindow {
       ["Split view",        "\\",      () => root.toggleDual()],
       ["Step to other pane", "o",      () => root.stepOver()],
       ["Sidebar",           "|",       () => root.toggleSidebar()],
+      ["Top bar",           "_",       () => root.toggleTopBar()],
       ["Cycle view",        "V",       () => root.cycleView()],
       ["Hidden files",      ".",       () => root.showHidden = !root.showHidden],
       ["Disk usage",        ", u",     () => root.toggleUsage()],
@@ -4337,6 +4339,22 @@ FloatingWindow {
   property bool barSplit: true
   property bool barZoom: true         // the zoom meter
 
+  // ── THE TOP BAR ITSELF, PUT AWAY (user, 2026-11-05) ───────────────
+  // `_` hides the path bar and the listing takes its room — the third of
+  // the window's divisions on a key, beside `\` (split) and `|` (sidebar).
+  // It comes back by itself only while something is typed into it (the
+  // filter, search as you type, F2's rename of the info sheet's name) —
+  // not for a sheet, whose title on it then goes unsaid — and a file
+  // dialog always wears it (see Chrome's crumbBar.wanted).
+  property bool barHidden: false
+  function toggleTopBar() {
+    // a dialog keeps its bar, so flipping the setting there would change
+    // nothing you can see and still be written for the window
+    if (root.picking) return;
+    root.barHidden = !root.barHidden;
+    opening.viewSave.restart();
+  }
+
   // ── WHICH PLACES THE SIDEBAR LISTS (user, 2026-11-02) ──────────────
   // The keys of terminus/Places.qml turned off in the settings; empty is
   // every one of them on.
@@ -5729,6 +5747,8 @@ FloatingWindow {
       // `|` puts the places column back beside it. onSidebarChanged writes
       // the new state to disk without being asked.
       case "|":  event.accepted = true; root.toggleSidebar(); break;
+      // and `_` the bar along the top — see barHidden
+      case "_":  event.accepted = true; root.toggleTopBar(); break;
 
       case "o":  event.accepted = true; root.stepOver(); break;
       case "q":

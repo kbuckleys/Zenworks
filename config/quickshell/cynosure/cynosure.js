@@ -2061,8 +2061,17 @@ function glyphRows(entries, query, nerd, scoped, per, recent, tone) {
   const order = {};
   (recent || []).forEach((c, i) => { order[c] = i; });
   const ch = (e) => nerd ? e.char : Ideo.toned(e, tone);
-  const used = all.filter((e) => ch(e) in order).sort((a, b) => order[ch(a)] - order[ch(b)]);
-  const rest = all.filter((e) => !(ch(e) in order)).slice(0, Math.max(0, (scoped ? n * 12 : n) - (scoped ? 0 : used.length)));
+  const used = all.filter((e) => ch(e) in order).sort((a, b) => order[ch(a)] - order[ch(b)])
+    .slice(0, scoped ? RECENT_GLYPHS : n);
+  // "em …" / "nf …" list the whole set, not its first twelve strips (user,
+  // 2026-11-05: "doesn't list all glyphs"); the list is a ListView with
+  // reused delegates, so only the strips in view are built. A recent one
+  // past the recents' strips is back in its place in the set. On a plain
+  // line the one strip of emoji stays.
+  const shown = {};
+  used.forEach((e) => { shown[ch(e)] = true; });
+  const others = all.filter((e) => !(ch(e) in shown));
+  const rest = scoped ? others : others.slice(0, Math.max(0, n - used.length));
   const out = [];
   const strips = (list, section, tag) => {
     for (let i = 0; i < list.length; i += n)
@@ -2070,7 +2079,7 @@ function glyphRows(entries, query, nerd, scoped, per, recent, tone) {
         cells: list.slice(i, i + n).map((e) => ({ char: ch(e), name: e.name || e.cls || "", cls: e.cls || "" })),
         text: "", label: "" });
   };
-  strips(used.slice(0, scoped ? RECENT_GLYPHS : n), "Recently used", "r");
+  strips(used, "Recently used", "r");
   strips(rest, nerd ? "Nerd glyphs" : "Emoji", "");
   return out;
 }

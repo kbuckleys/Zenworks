@@ -3,7 +3,7 @@
 // └─┘└─┘┘└┘└┴┘└─┘┴└─┴ ┴└─┘
 // https://github.com/kbuckleys/
 //
-// SETTINGSMOVE — About's Export settings and Import settings (2026-10-21),
+// SETTINGSMOVE — Configuration's Export settings and Import settings (2026-10-21),
 // the files half: Oracle only asks (exportAsked / importAsked), since it
 // cannot reach terminus' picker or morpheus' writer.
 //

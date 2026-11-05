@@ -270,6 +270,9 @@ PopupWindow {
         key: "\\", act: () => term.toggleDual() },
       { label: term.sidebar ? "Hide sidebar" : "Sidebar",
         key: "|", act: () => { term.toggleSidebar(); } },
+      // not in a dialog, which always wears its bar (see barHidden)
+      ...(term.picking ? [] : [{ label: term.barHidden ? "Show top bar" : "Hide top bar",
+        key: "_", act: () => term.toggleTopBar() }]),
       { sep: true },
       { label: "Bookmarks", key: "g b", act: () => marks.ask() },
       { label: "Tags", key: "c t", act: () => tagPick.ask() },
@@ -673,6 +676,12 @@ PopupWindow {
                    key: "\\", act: () => term.toggleDual() });
         out.push({ label: term.sidebar ? "Hide sidebar" : "Sidebar",
                    key: "|", act: () => { term.toggleSidebar(); } });
+        // the way back to a bar put away, by the mouse (see barHidden);
+        // not in a dialog, which always wears it. Glyph dock_top, by label
+        // in menuglyphs.js, beside the sidebar's dock_left
+        if (!term.picking)
+          out.push({ label: term.barHidden ? "Show top bar" : "Hide top bar",
+                     key: "_", act: () => term.toggleTopBar() });
         // Braced. Both of these are about the SECOND PANE and both were
         // meant to be behind `root.dual` — but only the first was, so a
         // one-pane window offered to swap sides with a pane that was not

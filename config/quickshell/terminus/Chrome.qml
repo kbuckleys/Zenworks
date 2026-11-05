@@ -210,7 +210,25 @@ Column {
   Rectangle {
     id: crumbBar
     width: parent.width
-    height: term.headH
+    // ── PUT AWAY (user, 2026-11-05) ─────────────────────────────────
+    // `_` / the settings' "Show top bar" fold the bar to nothing and the
+    // listing below takes its room. Back only while something is typed
+    // into it — the filter, the live search, and the info sheet's name
+    // while F2 renames it there — and always in a file dialog. NOT for
+    // a sheet (user, 2026-11-05: "not show up at all"):
+    // its title, written here, goes unsaid, and the sheet hangs from the
+    // top of the window instead (every sheet's fromTop reads this height).
+    readonly property bool wanted: !term.barHidden || term.picking
+      || term.query !== "" || filterField.activeFocus || liveInline.shown
+      || barName.editing
+    height: crumbBar.wanted ? term.headH : 0
+    Behavior on height { NumberAnimation { duration: Zenon.fast; easing.type: Zenon.ease } }
+    // the inside is laid out for the full height; while folding it must not
+    // spill over the listing. Clipped, NOT made invisible: `f` and `/`
+    // focus the filter field in here, and an invisible field cannot take
+    // the keyboard, so the bar would never come back for it. Its menu rows
+    // ("Show/Hide top bar") wear dock_top, from menuglyphs.js.
+    clip: crumbBar.height < term.headH
     // BLACK WHILE THE SHEET IS UP. The send-to header is drawn on this
     // same strip, and the bar's translucent gray let the column behind it
     // read straight through a header that is answering a question — so
@@ -2349,8 +2367,10 @@ Column {
             // facts column.
             anchors.bottom: term.previewKind === "text" && facts.visible
               ? facts.top : parent.bottom
-            anchors.bottomMargin: term.previewKind === "text" && facts.visible
-              ? 10 : 0
+            // FLUSH WITH THE FACTS' RULE (user, 2026-11-05): the 10px
+            // left a strip of nothing between the document and its footer;
+            // the text goes on under the footer frosted (factsUnder)
+            anchors.bottomMargin: 0
             anchors.leftMargin: 16
             anchors.rightMargin: 16
             // NO PADDING AT THE BOTTOM, and none at the top either when
