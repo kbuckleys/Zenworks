@@ -164,6 +164,13 @@ PopupWindow {
     // The right-clicked row while one is held (term.heldRow), else the cursor's.
     readonly property var target: menu.open || menu.shade > 0.01
       ? (term.heldRow || term.currentRow()) : null
+    // ── THE PARENT COLUMN'S ROW ──────────────────────────────────
+    // Held without leaving where you are, so what stands in the listing does
+    // not change. Left out: what walks the listing (Quick look), what gathers
+    // into it (New directory with selection), and on the row that IS where you
+    // stand, whatever would pull the floor away: back out first for those.
+    readonly property bool aside: !menu.customItems && !menu.here && term.isAside(term.heldRow)
+    readonly property bool asideHere: menu.aside && term.heldRow.path === term.cwd
     readonly property bool isImage:
       !!menu.target && !menu.target.isDir && Terminus.isImage(menu.target.name)
 
@@ -534,8 +541,11 @@ PopupWindow {
       // where it is (user, 2026-10-09): for this one call currentRow() and
       // acting() answer with the held row (term.heldBox, see Listing).
       const h = menu.customItems ? null : term.heldRow;
+      const aside = menu.aside;
       menu.close();
       if (!act) return;
+      // what it changes is in the parent's listing: see Listing.refresh
+      if (aside) term.parentWatchUntil = Date.now() + 30000;
       term.heldBox.row = h;
       try { act(); } finally { term.heldBox.row = null; }
     }
@@ -778,8 +788,9 @@ PopupWindow {
       // commitment it is, and the one that takes the file away is the one
       // you want to have to read past to reach.
       out.push({ sep: true });
+      if (!menu.asideHere)
+        out.push({ label: "Cut" + many, key: "x x", act: () => term.yank("move") });
       out.push(
-        { label: "Cut" + many, key: "x x", act: () => term.yank("move") },
         { label: "Copy" + many, key: "y y", act: () => term.yank("copy") },
         // The path is another thing you can take from the row, so it belongs
         // with the two above rather than down among the dialogs.
@@ -788,18 +799,20 @@ PopupWindow {
       // going and do not want to go there first — see sendTo.
       out.push(
         { label: "Copy to" + many + "…", key: "y t",
-          act: () => sendTo.ask("copy") },
-        { label: "Move to" + many + "…", key: "x t",
-          act: () => sendTo.ask("move") },
-        { label: "Duplicate" + many, key: "y d",
-          act: () => term.duplicate() },
-        // Among the verbs that make a new thing out of the selection
-        // rather than among the ones that move it: nothing leaves this
-        // directory, it just gains a level.
-        { label: "New directory with selection" + many, key: "c g",
-          act: () => term.gatherIntoFolder() },
-        { label: "Make symlink" + many, key: "y l",
-          act: () => term.linkHere() });
+          act: () => sendTo.ask("copy") });
+      if (!menu.asideHere)
+        out.push({ label: "Move to" + many + "…", key: "x t",
+                   act: () => sendTo.ask("move") });
+      out.push({ label: "Duplicate" + many, key: "y d",
+                 act: () => term.duplicate() });
+      // Among the verbs that make a new thing out of the selection
+      // rather than among the ones that move it: nothing leaves this
+      // directory, it just gains a level.
+      if (!menu.aside)
+        out.push({ label: "New directory with selection" + many, key: "c g",
+                   act: () => term.gatherIntoFolder() });
+      out.push({ label: "Make symlink" + many, key: "y l",
+                 act: () => term.linkHere() });
       out.push({ sep: true });
       // always — see the empty-space menu
       out.push({ label: "Paste here", key: "p", act: () => term.paste() });
@@ -896,7 +909,8 @@ PopupWindow {
       // works on everything was the one verb the menu only offered on
       // half of it. The key was bound for directories the whole time,
       // which made the omission a menu that disagreed with the keyboard.
-      out.push({ label: "Quick look", key: "space",
+      if (!menu.aside)
+        out.push({ label: "Quick look", key: "space",
                  act: () => {
                    // quick look walks the listing from the cursor, so the
                    // cursor goes to the held row first
@@ -918,7 +932,7 @@ PopupWindow {
       if (n > 1)
         out.push({ label: "Rename" + many, key: "r",
                    act: () => term.beginBulkRename() });
-      else
+      else if (!menu.asideHere)
         out.push({ label: "Rename", key: "r", act: () => term.beginRename() });
       if (t.isDir)
         out.push({ label: term.isBookmarked(t.path)
@@ -979,8 +993,10 @@ PopupWindow {
         out.push({ label: "Set as background",
                    act: () => term.setBackground() });
       }
-      out.push({ sep: true });
-      out.push({ label: "Trash" + many, key: "d", danger: true, act: () => term.trash() });
+      if (!menu.asideHere) {
+        out.push({ sep: true });
+        out.push({ label: "Trash" + many, key: "d", danger: true, act: () => term.trash() });
+      }
       return out;
     }
 

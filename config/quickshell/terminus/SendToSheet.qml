@@ -987,6 +987,8 @@ Rectangle {
       anchors.bottom: parent.bottom
       anchors.left: parent.left
       anchors.right: parent.right
+      // mid-foot, as the card's other pills (user, 2026-11-07)
+      centered: true
       rows: {
         if (sendTo.crawling) return [];
         if (sendTo.blocked && sendTo.current) return [];

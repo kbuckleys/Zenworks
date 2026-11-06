@@ -209,6 +209,13 @@ Item {
   // That is the list that flashes in the last column. Reading the pane
   // directly cannot be a frame behind it.
   function currentRow() { return term.heldBox.row || term.act.view[term.act.sel] || null; }
+  // A ROW OUTSIDE THE LISTING: the parent column's, held for its menu. On a
+  // plain listing every row lives in cwd; a results page and a tree's branches
+  // are in the view and are not this.
+  function isAside(r) {
+    return !!r && term.viewMode === "columns" && term.searchMode === ""
+      && Terminus.dirname(r.path) !== term.cwd;
+  }
   // The color and the glyph are worked out ONCE PER LISTING and stored on the
   // row, not asked for every time a delegate is drawn.
   //
@@ -429,6 +436,10 @@ Item {
     // about — and again after every job, because this is the one view in the
     // window that a `git commit` in another terminal can make wrong.
     term.scanGit();
+    // A verb on the parent column's row changed a listing nothing watches.
+    // Only for a while after one: a plain refresh must not re-read the parent
+    // for ever, since its listing changes whenever this directory does.
+    if (!full && term.cwd !== "/" && Date.now() < term.parentWatchUntil) term.startParent();
     if (full) {
       // THE ROOT HAS NO PARENT, and dirname("/") is "/" — so asking for it
       // listed the root twice, once in the column you are standing in and

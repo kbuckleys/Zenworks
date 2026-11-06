@@ -3,16 +3,16 @@
 // └─┘└─┘┘└┘└┴┘└─┘┴└─┴ ┴└─┘
 // https://github.com/kbuckleys/
 //
-// THE WHOLE OF A MESSAGE THE STATUS CHIP HAD TO CUT. The chip is capped at a
-// share of the bar and elides; this hangs under it while the pointer is on
-// it, the same text wrapped to a readable measure, in the chip's own tone. A
-// click on the chip copies it (the holder's job — see statusChipMa).
+// THE WHOLE OF A MESSAGE THE STATUS PILL HAD TO CUT. The pill is capped at a
+// share of the listing and elides; this stands over it while the pointer is
+// on it, the same text wrapped to a readable measure, in the pill's own tone.
+// A click on the words copies them (the holder's job — see StatusPill).
 //
 //     StatusNote { parent: window.contentItem; z: 60
-//       anchorItem: chip; text: …; bad: …; open: hovered && cut }
+//       anchorItem: words; text: …; bad: …; open: hovered && cut }
 //
-// Placed from the chip each time it opens, right edges aligned and kept
-// inside the window — the chip sits at the right of the bar.
+// Placed from the words each time it opens, centered over them and kept
+// inside the window — the pill sits at the window's foot, so it opens upward.
 
 import QtQuick
 import "../morpheus"
@@ -32,11 +32,12 @@ Item {
 
   function place() {
     if (!note.anchorItem || !note.parent) return;
-    const p = note.anchorItem.mapToItem(note.parent, note.anchorItem.width, note.anchorItem.height);
-    note.x = Math.max(12, Math.min(p.x - note.width, note.parent.width - note.width - 12));
-    note.y = p.y + 6;
+    const p = note.anchorItem.mapToItem(note.parent, note.anchorItem.width / 2, 0);
+    note.x = Math.round(Math.max(12, Math.min(p.x - note.width / 2, note.parent.width - note.width - 12)));
+    note.y = Math.round(p.y - note.height - 10);
   }
   onOpenChanged: if (note.open) note.place()
+  onHeightChanged: if (note.open) note.place()
 
   Rectangle {
     id: card
@@ -49,7 +50,7 @@ Item {
     opacity: note.open ? 1 : 0
     Behavior on opacity { NumberAnimation { duration: Zenon.fast; easing.type: Zenon.ease } }
     transform: Translate {
-      y: note.open ? 0 : -4
+      y: note.open ? 0 : 4
       Behavior on y { NumberAnimation { duration: Zenon.fast; easing.type: Zenon.ease } }
     }
 

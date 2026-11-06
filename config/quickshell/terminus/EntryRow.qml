@@ -58,7 +58,9 @@ Item {
   // every cursor move animated the parent column's highlighted row as well,
   // which is why the parent directory kept flashing at you.
   property bool live: false
-  readonly property bool editable: entryRow.live
+  // the parent column's row, renamed from its menu without walking out
+  property bool renameHere: false
+  readonly property bool editable: entryRow.live || entryRow.renameHere
   readonly property bool editing:
     host.renaming && entryRow.editable && !!entryRow.entry
     && entryRow.entry.path === host.renamePath

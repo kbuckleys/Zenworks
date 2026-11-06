@@ -45,7 +45,7 @@ Item {
   visible: width > 0.5
   height: Math.round(jobsToggle.size * 2.2)
   // Grows and collapses rather than appearing: it sits between the
-  // status chip and the hamburger, and a button that pops into
+  // count and the hamburger, and a button that pops into
   // existence shoves everything to its left across in one frame.
   Behavior on width {
     NumberAnimation { duration: Zenon.normal; easing.type: Zenon.ease }

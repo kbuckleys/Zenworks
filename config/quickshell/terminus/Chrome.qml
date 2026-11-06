@@ -51,8 +51,6 @@ Column {
   readonly property alias saveField: saveField
   readonly property alias sideGrip: sideGrip
   readonly property alias splitGrip: splitGrip
-  readonly property alias statusChip: statusChip
-  readonly property alias statusChipMa: statusChipMa
   readonly property alias tabStrip: tabStrip
   readonly property alias textScroll: textScroll
   anchors.fill: parent
@@ -679,6 +677,11 @@ Column {
     // an empty filter takes no room at all.
     Row {
       id: filterInline
+      // NOTHING WHILE IT IS NOT THERE. A positioner goes on measuring its
+      // children when only the positioner itself is hidden, so this and
+      // liveInline kept their whole width off the crumbs, which stopped a
+      // couple of hundred pixels short of the buttons (user, 2026-11-07).
+      width: visible ? implicitWidth : 0
       anchors.right: crumbStatus.left
       anchors.rightMargin: term.query !== "" || filterField.activeFocus ? 14 : 0
       anchors.verticalCenter: crumbInner.verticalCenter
@@ -787,6 +790,7 @@ Column {
         if (back && term.searchPage) term.clearSearch();
         term.contentRef.forceActiveFocus();
       }
+      width: visible ? implicitWidth : 0
       anchors.right: filterInline.left
       anchors.rightMargin: liveInline.shown ? 14 : 0
       anchors.verticalCenter: crumbInner.verticalCenter
@@ -998,8 +1002,9 @@ Column {
 
     // What used to be a bar of its own along the bottom. Two full-width
     // strips to carry one line of text each was a strip too many, and the
-    // right-hand end of the path bar was empty — so the count, the view
-    // and whatever the last action had to say live here now.
+    // right-hand end of the path bar was empty — so the count and the view
+    // live here now. What the last action had to say does not (user,
+    // 2026-11-07): it floats at the listing's foot, see StatusPill.
     Row {
       id: crumbStatus
       opacity: crumbBar.chromeInk
@@ -1010,141 +1015,6 @@ Column {
       // part of the inside, and centering across it sat everything low
       anchors.verticalCenter: crumbInner.verticalCenter
       spacing: 14
-
-      // ── the status, as a chip ──────────────────────────────────
-      // It was a bare line of red in a bar of grays: every note wore the
-      // color of an alarm, and none of them looked like they belonged to
-      // the bar they sat in. Same rounded shape as the search chip and the
-      // key caps, and the color says which KIND of news it is rather than
-      // only that there is some — red for refused or failed, sand for an
-      // ordinary note.
-      Rectangle {
-        id: statusChip
-        anchors.verticalCenter: parent.verticalCenter
-        // THE COLOR IS HELD THE SAME WAY THE WORDS ARE. Reading
-        // root.statusBad live meant a failure turned sand the instant the
-        // status cleared — because clearing resets the flag — and then
-        // faded out yellow. It has to keep the tone it was shown in for as
-        // long as it is still on screen.
-        property bool shownBad: false
-        readonly property color tone: statusChip.shownBad ? Zenon.red : Zenon.sand
-        // It ARRIVES and it LEAVES, rather than blinking in and out. The
-        // timeout above means the disappearance is something that happens
-        // on its own while you are looking elsewhere, and a thing that
-        // vanishes between frames reads as a glitch; a thing that fades
-        // reads as finished. The width goes with it so the bar beside it
-        // is not shoved sideways in one step.
-        // IT KEEPS THE WORDS WHILE IT GOES. Binding the text straight to
-        // root.status meant that clearing the status emptied the label in
-        // the same frame, the width collapsed with it, and the opacity
-        // animation then played out on something nought pixels wide — the
-        // fade was running the whole time and there was nothing left to
-        // see it on. `shown` holds the last message until the fade is
-        // over, so there is something to fade.
-        property string shown: ""
-        onOpacityChanged: if (statusChip.opacity === 0) statusChip.shown = "";
-
-        opacity: term.status !== "" ? 1 : 0
-        visible: opacity > 0.01
-        // ── NEVER WIDER THAN THE BAR CAN GIVE ────────────────────
-        // A message is as long as whatever failed made it, and an
-        // uncapped chip pushed the crumbs off and then ran out of the
-        // window. Capped at about two fifths of the bar, elided, and the
-        // whole of it is one hover away — see statusNote.
-        readonly property real cap: Math.max(160, crumbBar.width * 0.42)
-        readonly property bool cut: statusInk.implicitWidth + 18 > statusChip.cap
-        width: statusChip.shown !== "" ? Math.min(statusInk.implicitWidth + 18, statusChip.cap) : 0
-        height: 21
-        radius: Zenon.windowRadius
-        // Twice the slowest of the motion tokens, and deliberately outside
-        // them: every other transition in this window answers something
-        // you just did, so it should be over before you look for it. This
-        // one happens on its own three seconds later, while you are
-        // reading something else — the going IS the notice, and at 170ms
-        // it is finished before it has been seen.
-        Behavior on opacity {
-          NumberAnimation { duration: Zenon.slow * 2; easing.type: Zenon.ease }
-        }
-        Behavior on width {
-          NumberAnimation { duration: Zenon.fast; easing.type: Zenon.ease }
-        }
-        color: Qt.rgba(statusChip.tone.r, statusChip.tone.g,
-                       statusChip.tone.b, 0.10)
-        border.width: 1
-        // the tone is the message: a warning ringed like everything else
-        // reads as ordinary
-        border.color: Qt.rgba(statusChip.tone.r, statusChip.tone.g,
-                              statusChip.tone.b, 0.32)
-
-        Text {
-          id: statusInk
-          anchors.centerIn: parent
-          // ONLY the status. There used to be a fallback here that read
-          // "1 copied · p to paste" for as long as something was on the
-          // clipboard — which never emptied, so the chip could never fade
-          // out and every message after it was a silent text swap. It was
-          // also teaching a key on a permanent basis, which is what the
-          // hint bar and F1 are for.
-          text: statusChip.shown
-          color: statusChip.tone
-          font.family: Zenon.face
-          font.weight: Zenon.weight
-          font.pixelSize: Zenon.px(13)
-          width: Math.min(implicitWidth, statusChip.width - 18)
-          elide: Text.ElideRight
-        }
-        MouseArea {
-          id: statusChipMa
-          anchors.fill: parent
-          hoverEnabled: true
-          // Held while you read; let go and it counts down afresh.
-          onContainsMouseChanged: {
-            if (statusChipMa.containsMouse) term.statusClearRef.stop();
-            else term.armStatusClear();
-          }
-          onClicked: term.copyText(statusChip.shown, "message copied")
-        }
-      }
-
-      // ── the undo, offered ──────────────────────────────────────
-      // The status chip's shape in accent: a thing to press rather than a
-      // thing to read. See undoOffer.
-      Rectangle {
-        id: undoChip
-        anchors.verticalCenter: parent.verticalCenter
-        readonly property bool on: term.undoOffer && term.undoLabel !== ""
-        opacity: undoChip.on ? 1 : 0
-        visible: opacity > 0.01
-        width: undoChip.on ? undoInk.implicitWidth + 20 : 0
-        height: 21
-        radius: Zenon.windowRadius
-        Behavior on opacity { NumberAnimation { duration: Zenon.normal; easing.type: Zenon.ease } }
-        Behavior on width { NumberAnimation { duration: Zenon.fast; easing.type: Zenon.ease } }
-        color: Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b,
-                       undoMa.pressed ? 0.28 : (0.10))
-        border.width: 1
-        border.color: Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.40)
-        clip: true
-
-        Text {
-          id: undoInk
-          anchors.centerIn: parent
-          textFormat: Text.StyledText
-          text: "\uF0E2&#160;&#160;" + term.undoLabel
-            + "&#160;&#160;<font color=\"" + Zenon.hex(Zenon.accentMuted) + "\">u</font>"
-          color: Zenon.accent
-          font.family: Zenon.face
-          font.weight: Zenon.weight
-          font.pixelSize: Zenon.px(13)
-        }
-        MouseArea {
-          id: undoMa
-          anchors.fill: parent
-          hoverEnabled: true
-          enabled: undoChip.on
-          onClicked: term.undo()
-        }
-      }
 
       // ── A MODE HAS TO BE VISIBLE ──────────────────────────────
       // Everything else in this window is one keystroke that does one

@@ -448,6 +448,9 @@ Item {
                act: () => term.toggleBookmarkFor(path) });
     out.push({ label: "Open terminal here",
                act: () => term.run(Terminus.shellCommand(path, term.termCmd)) });
+    // last, as in every row's menu (user, 2026-11-07)
+    out.push({ sep: true });
+    out.push({ label: "Info", act: () => term.propsRef.askPath(path) });
     term.menuPopRef.menu.openCustom(item, { x: x, y: y }, out, false);
     term.sideMenuAt = item;
   }

@@ -18,7 +18,7 @@
 // which is cheap; a conditional `delegate` would rebuild the view, which is
 // the thing being removed.
 //
-//   slot 0  the parent directory   inert, click walks up
+//   slot 0  the parent directory   click walks up, right click is its menu
 //   slot 1  the one you are in     live: cursor, marks, rename, menu
 //   slot 2  the one under the cursor   inert, click walks in
 //
@@ -234,15 +234,14 @@ Item {
       current: col.drawnSlot === 0 ? (colRow.index === term.parentIndex)
              : (col.isLive ? (colRow.index === term.sel) : false)
       live: col.isLive
-      // ONLY THE LIVE COLUMN OPENS A MENU. EntryRow opens one itself on a
-      // right click when `actionable`, and that menu acts on
-      // root.currentRow() — never on a hit test. The live column gets away
-      // with it because its rows call clickRow() first, which moves the
-      // cursor to the row you clicked; the other two navigate instead, so
-      // the cursor never moves and the menu came up about whatever was
-      // under it in the middle column. Right-clicking a parent directory
-      // offered you actions on a completely different file.
-      actionable: col.isLive
+      // THE LIVE COLUMN AND THE PARENT OPEN A MENU. EntryRow opens one itself
+      // on a right click when `actionable`, and the menu is about the held
+      // row. The parent's row is held here, in onChosen, without walking out
+      // of where you are (user, 2026-11-07); see RowMenu's `aside` for what it
+      // leaves out. The preview's rows are not held, so a menu there would be
+      // about the cursor's row: it still walks in instead.
+      actionable: col.isLive || col.drawnSlot === 0
+      renameHere: col.drawnSlot === 0
       dim: col.isLive && !!term.cutSet[colRow.path]
       ticked: col.isLive && !!term.marked[colRow.path]
       // No metadata this narrow, where the name says everything there is
@@ -256,6 +255,7 @@ Item {
 
       onChosen: (right, shift, ctrl) => {
         if (col.isLive) { term.clickRow(colRow.index, right, shift, ctrl); return; }
+        if (right && col.drawnSlot === 0) { term.heldRow = colRow.row; return; }
         // The two inert columns are places you can SEE, and clicking a thing
         // you can see should get you there. Slot 2 enters the previewed
         // directory rather than the row clicked, so a click there can never

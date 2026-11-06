@@ -61,6 +61,8 @@ Item {
   // cwd to all of them, so nothing outside the tree changes.
   function cursorDir() {
     const r = term.currentRow();
+    // the parent column's row, held for its menu: its own place, not here
+    if (term.heldBox.row && term.isAside(r)) return r.isDir ? r.path : Terminus.dirname(r.path);
     if (!r || !term.act.treed) return term.cwd;
     // ── A DIRECTORY UNDER THE CURSOR IS A PLACE ──────────────────────
     // This asked for the directory to be OPEN, which left exactly one
@@ -80,6 +82,7 @@ Item {
   function rowsIn(dir) {
     const rows = (dir === term.cwd)
       ? term.rows
+      : dir === term.parentOf(term.cwd) ? term.parentRows
       : (term.act.kids["k:" + dir] || []);
     // Anything now really there no longer needs remembering.
     for (let i = 0; i < rows.length; ++i) {

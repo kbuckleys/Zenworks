@@ -348,29 +348,29 @@ FloatingWindow {
 
   onStatusChanged: {
     root.statusBad = false;
-    // the chip keeps the words while it fades out; see its own note
-    if (root.status !== "") chrome.statusChip.shown = root.status;
+    // the pill keeps the words while it fades out; see its own note
+    if (root.status !== "") statusPill.shown = root.status;
     root.armStatusClear();
   }
 
   // ── LONG ENOUGH TO READ IT ────────────────────────────────────────────
   // Three seconds is a "copied" — not an error with a reason in it. The
   // time grows with the length, a failure gets twice as long, and nothing
-  // goes while the pointer is on it (see statusChip's hover): the full text
+  // goes while the pointer is on it (see StatusPill's hover): the full text
   // is open in its card then, and taking it away mid-sentence is rude.
   function armStatusClear() {
     const t = root.status;
     if (t === "" || t.endsWith("\u2026")) { statusClear.stop(); return; }
     statusClear.interval = Math.min(12000, (root.statusBad ? 6000 : 3000) + t.length * 35);
-    if (!chrome.statusChipMa.containsMouse) statusClear.restart();
+    if (!statusPill.hovering) statusClear.restart();
   }
 
   function warn(t) { root.status = t; root.statusBad = true; root.armStatusClear(); }
 
   // Only while there is something on screen to be about. On the way out the
-  // flag is reset and this deliberately does not follow it, so the chip fades
-  // in the color it arrived in — see the chip's own note.
-  onStatusBadChanged: if (root.status !== "") chrome.statusChip.shownBad = root.statusBad;
+  // flag is reset and this deliberately does not follow it, so the pill fades
+  // in the color it arrived in — see the pill's own note.
+  onStatusBadChanged: if (root.status !== "") statusPill.shownBad = root.statusBad;
 
   // ── watching the directory ──────────────────────────────────────────────
   // the functions of this section live in terminus/DirWatch.qml; these
@@ -3194,6 +3194,9 @@ FloatingWindow {
   function acting() { return listing.acting(); }
 
   function currentRow() { return listing.currentRow(); }
+  function isAside(r) { return listing.isAside(r); }
+  // until when a plain refresh re-reads the parent column too (Listing.refresh)
+  property double parentWatchUntil: 0
 
   function inkFor(e) { return listing.inkFor(e); }
 
@@ -4265,6 +4268,8 @@ FloatingWindow {
       if (code === 0 && root.status !== "") root.status = "";
       if (!root.shown) return;
       root.refresh();
+      // a duplicate of the parent column's row lands in the parent's listing
+      if (root.viewMode === "columns" && root.cwd !== "/" && dest === root.parentOf(root.cwd)) root.startParent();
       // refresh() re-reads cwd alone, so a copy into an open branch never
       // showed, and a directory that was empty kept no chevron.
       root.rereadBranches(root.openBranches());
@@ -4720,8 +4725,8 @@ FloatingWindow {
   // ── AND IT IS OFFERED, NOT ONLY KEPT ──────────────────────────────────
   // Undo was a key (u) and a menu entry, which is to say it was something you
   // had to already know about at the moment you needed it most. For a few
-  // seconds after anything undoable, the bar offers it — the undoChip beside
-  // the status — and then gets out of the way. The stack is unchanged; this
+  // seconds after anything undoable, the StatusPill offers it beside the
+  // status, and then gets out of the way. The stack is unchanged; this
   // is only the door to it.
   property bool undoOffer: false
 
@@ -7234,15 +7239,29 @@ FloatingWindow {
 
 
 
-  // The status chip's message in full, while the pointer is on a chip that
-  // had to cut it — see statusChip.cap.
+  // ── WHAT THE LAST ACTION HAD TO SAY ───────────────────────────────────
+  // At the listing's foot, over everything in the window (user, 2026-11-07):
+  // the bar kept room it did not need, and a message on the bar went unseen
+  // with the bar put away or a sheet up. Centered on the listing, clear of
+  // the sidebar, above a dialog's strip and the which-key pill.
+  StatusPill {
+    id: statusPill
+    term: root
+    parent: root.contentItem
+    z: 59
+    x: side.width
+    y: parent.height - height - chrome.portalBar.height - which.height
+    width: parent.width - side.width
+  }
+
+  // The message in full, while the pointer is on words the pill had to cut.
   StatusNote {
     parent: root.contentItem
     z: 60
-    anchorItem: chrome.statusChip
-    text: chrome.statusChip.shown
-    bad: chrome.statusChip.shownBad
-    open: chrome.statusChipMa.containsMouse && chrome.statusChip.cut && root.status !== ""
+    anchorItem: statusPill.wordsItem
+    text: statusPill.shown
+    bad: statusPill.shownBad
+    open: statusPill.hovering && statusPill.cut && root.status !== ""
   }
 
   // dropAsk, in its own file — see terminus/DropAsk.qml

@@ -96,10 +96,11 @@ Item {
   // height left them 2 px from the rim. The caps keep their own rounding
   // (concentric squared them off, user same day). A word ends the row, and a
   // word needs more air than a box, so the right end has 6 more; a note
-  // (all words) keeps the 14 it always had.
+  // (all words) keeps the 14 it always had, and a word that STARTS the row
+  // (a holder's `leading`) gets the same 6 at the left.
   readonly property int capH: Zenon.px(13) + 8
   readonly property int pad: Math.max(2, Math.floor((Zenon.hintBarH - 2 * bar.pillInset - bar.capH) / 2))
-  readonly property int padL: bar.note !== "" ? 14 : bar.pad
+  readonly property int padL: bar.note !== "" ? 14 : lead.width > 0 ? bar.pad + 6 : bar.pad
   readonly property int padR: bar.note !== "" ? 14 : bar.pad + 6
   // the pill in the middle of the foot rather than at its right end (a
   // settings sheet's, Argus')
