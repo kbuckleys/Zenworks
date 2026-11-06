@@ -121,7 +121,7 @@ Item {
   // how wide the keys want to be, all of them shown (a panel sizing itself
   // to its strip reads this)
   readonly property real needW: hints.implicitWidth + 32 + (bar.floating ? 2 * bar.pad + 6 : 0)
-    + (lead.width > 0 ? lead.width + 16 : 0) + (trail.width > 0 ? trail.width + 36 : 0)
+    + (lead.width > 0 ? lead.width + bar.leadGap : 0) + (trail.width > 0 ? trail.width + 36 : 0)
 
   implicitHeight: bar.wrap && bar.floating
     ? Math.max(Zenon.hintBarH, wrapCol.implicitHeight + 2 * bar.pad + 2 * bar.pillInset) : Zenon.hintBarH
@@ -143,7 +143,10 @@ Item {
   // so the two ends read as one strip (user, 2026-10-19: center the hints
   // in terminus' sheets and plato's settings, which put a word first)
   readonly property bool flanked: trail.width > 0
-  readonly property real groupW: (lead.width > 0 ? lead.width + 16 : 0) + hints.width
+  // the gap is between the word and the keys: with no keys there is nothing
+  // to stand apart from, and it read as uneven padding (user, 2026-11-07)
+  readonly property int leadGap: hints.width > 0 ? 16 : 0
+  readonly property real groupW: (lead.width > 0 ? lead.width + bar.leadGap : 0) + hints.width
 
   // ── THE PILL'S PLACE, floating ─────────────────────────────────────────
   // its right edge leaves the buttons their room; the keys stand `pad` in
