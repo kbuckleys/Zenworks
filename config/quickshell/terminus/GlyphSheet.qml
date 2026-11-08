@@ -105,8 +105,7 @@ Rectangle {
     cells.query = "";
     glyphPick.open = true;
     glyphPick.seat();
-    glyphClaim.tries = 0;
-    glyphClaim.restart();
+    glyphClaim.begin();
   }
   function dismiss() {
     glyphPick.open = false;
@@ -152,33 +151,23 @@ Rectangle {
 
   // ask until it has it: the card is still fading in when the first
   // request goes out, and focus on an item not placed yet is dropped
-  Timer {
+  FocusRetry {
     id: glyphClaim
     interval: 40
-    repeat: true
-    property int tries: 0
-    onTriggered: {
-      if (!glyphPick.open || cells.field.activeFocus || glyphClaim.tries++ > 12) {
-        glyphClaim.stop();
-        return;
-      }
+    checkFirst: true
+    live: glyphPick.open
+    took: cells.field.activeFocus
+    onPlace: {
       cells.field.forceActiveFocus();
     }
   }
 
   InputShield { keepTop: term.tabStripRef.height + term.crumbBarRef.height; onClicked: glyphPick.dismiss() }
 
-  Sheet {
+  TermSheet {
     id: glyphSheet
-    ground: "transparent"
-    backdrop: term.sheetBackdrop
-    seamFrost: term.sheetSeam
-    splice: true
-    onCardInkChanged: term.noteSheet("s14", cardInk, drawnX, drawnW, drawnY, drawnH)
-    onDrawnXChanged: term.noteSheet("s14", cardInk, drawnX, drawnW, drawnY, drawnH)
-    onDrawnWChanged: term.noteSheet("s14", cardInk, drawnX, drawnW, drawnY, drawnH)
-    onDrawnYChanged: term.noteSheet("s14", cardInk, drawnX, drawnW, drawnY, drawnH)
-    onDrawnHChanged: term.noteSheet("s14", cardInk, drawnX, drawnW, drawnY, drawnH)
+    host: term
+    note: "s14"
     leftInset: term.sideRef.width
     floating: false
     title: term.sheetTitle

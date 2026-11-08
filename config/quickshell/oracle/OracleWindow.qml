@@ -38,7 +38,6 @@
 
 import QtQuick
 import Quickshell
-import Quickshell.Io
 import Quickshell.Hyprland
 import "."
 import "oracle.js" as Ora
@@ -222,21 +221,18 @@ FloatingWindow {
                 : (t.indexOf("-right") >= 0 ? 2 : 1) };
   }
 
-  // A theme's swatch, [ground, ink, accent] (CardBody draws it): the file's
-  // own (Ora.themeSwatch) with Zenon's for what it leaves out, Zenon's
-  // itself, the background's while Follow Background has made one. Follow
-  // Daytime is two themes, and keeps only its glyph. null for any other row.
-  function swatchOf(sp, opt) {
-    if (!sp || !opt || (sp.optionsFrom !== "themes" && sp.optionsFrom !== "themesNoSun")) return null;
-    const z = Zenon.zenon;
-    const fill = (sw) => [sw[0] || z.ground, sw[1] || z.ink, sw[2] || z.accent];
-    if (opt.value === "zenon") return [z.ground, z.ink, z.accent];
-    if (opt.value === "follow") {
-      const sw = Ora.themeSwatch(Zenon.followTheme && Zenon.followTheme.colors);
-      return sw ? fill(sw) : null;
-    }
-    return opt.swatch ? fill(opt.swatch) : null;
+
+
+  // a theme row: Theme, or Day and Night under Follow Daytime
+  // a page picture loaded by URL, dressed in this window's face and inks
+  // (four Loaders did it line by line, audit 2026-11-08)
+  function dress(item) {
+    item.face = Qt.binding(() => popup.face);
+    item.fgColor = Qt.binding(() => popup.fgColor);
+    item.dimColor = Qt.binding(() => popup.dimColor);
+    item.highlight = Qt.binding(() => popup.highlight);
   }
+  function isThemeSpec(sp) { return !!sp && (sp.optionsFrom === "themes" || sp.optionsFrom === "themesNoSun"); }
 
   // the font weight rows (Font's, Monospace's): drawn in what they say
   function isWeight(sp) { return !!sp && (sp.key === "fontWeight" || sp.key === "monoWeight"); }
@@ -287,7 +283,12 @@ FloatingWindow {
     for (let i = 0; i < opts.length; ++i) {
       out.push({ text: opts[i].label,
                  mark: opts[i].value === now,
-                 swatch: popup.swatchOf(sp, opts[i]),
+                 // a theme: its name on the left, its inks on the right
+                 // (user, 2026-11-07); the chip keeps the small swatch
+                 // and the worn one dimmed, not ticked (as Cynosure's)
+                 markDim: popup.isThemeSpec(sp),
+                 inks: popup.isThemeSpec(sp) ? Ora.themeInksFor(opts[i], Zenon.zenon,
+                   Zenon.followTheme && Zenon.followTheme.colors) : null,
                  // a font weight's options, each in its own weight
                  weight: popup.isWeight(sp) ? parseInt(opts[i].value, 10) || 0 : 0,
                  cell: sp.pictogram === "corner"
@@ -344,25 +345,11 @@ FloatingWindow {
   }
   // the key being chosen for, "" for none
   property string pickingKey: ""
-  // the font setting a face is being picked for (only the shell's, since
-  // plato's moved into plato's own settings sheet)
-  property string fontKey: "fontFamily"
 
   function pickFor(spec, current) {
     if (!spec || !popup.fileManager || popup.pickingKey !== "") return;
     popup.closeEnumMenu();
     popup.editingKey = "";
-    if (spec.pick === "font") {
-      // Where the current face actually lives, so the picker opens beside
-      // it rather than at home. fontconfig knows; nothing here has to guess
-      // which of the three font directories it was installed into.
-      popup.pickingKey = spec.key;
-      popup.fontKey = spec.key;
-      fontDirProc.command = ["fc-match", "-f", "%{file}",
-        String(current || spec.placeholder || "")];
-      fontDirProc.running = true;
-      return;
-    }
     popup.beginPick(spec.key, true,
       current !== "" ? current : UserDirs.pictures,
       (p) => Oracle.set(spec.key, p));
@@ -377,60 +364,6 @@ FloatingWindow {
     });
     if (!ok) { popup.pickingKey = ""; return; }
     popup.closePopup();
-  }
-
-  Process {
-    id: fontDirProc
-    stdout: StdioCollector {
-      id: fontDirOut
-      waitForEnd: true
-      onStreamFinished: {
-        const f = String(fontDirOut.text || "").trim();
-        const dir = f.indexOf("/") >= 0 ? f.replace(/\/[^\/]*$/, "") : "";
-        popup.beginPick(popup.fontKey, false,
-          dir !== "" ? dir : Paths.dataDir() + "/fonts",
-          (p) => {
-            // the family, and for the shell's own face the file's weight too
-            fontFamilyProc.command = ["fc-query", "-f", "%{family[0]}\n", p];
-            fontWeightProc.command = ["fc-query", "-f", "%{weight}\n", p];
-            fontFamilyProc.running = true;
-          });
-      }
-    }
-  }
-
-  // A FILE, TURNED BACK INTO A FAMILY. What is stored is the family without
-  // its cut — the shell adds " Propo" and " Mono" itself — so whichever of
-  // the three files you picked, the answer is the same. The short "NF"
-  // spellings Nerd Fonts also registers are read as the long one.
-  Process {
-    id: fontFamilyProc
-    stdout: StdioCollector {
-      id: fontFamilyOut
-      waitForEnd: true
-      onStreamFinished: {
-        // A face other than the shell's is kept exactly as picked: " Mono"
-        // is part of the name of most monospaced families.
-        const fam = Oracle.weightKeyOf[popup.fontKey] ? Ora.familyOf(fontFamilyOut.text)
-          : (String(fontFamilyOut.text || "").split("\n").map((l) => l.trim())
-              .filter((l) => l !== "")[0] || "");
-        if (fam === "") return;
-        Oracle.set(popup.fontKey, fam);
-        // the cut picked is the weight wanted (Zenon.weight)
-        if (Oracle.weightKeyOf[popup.fontKey]) fontWeightProc.running = true;
-      }
-    }
-  }
-  Process {
-    id: fontWeightProc
-    stdout: StdioCollector {
-      id: fontWeightOut
-      waitForEnd: true
-      onStreamFinished: {
-        const w = Ora.cssWeightOf(fontWeightOut.text);
-        if (w !== "" && Oracle.weightKeyOf[popup.fontKey]) Oracle.set(Oracle.weightKeyOf[popup.fontKey], w);
-      }
-    }
   }
 
   // With a query, every match in the panel; without one, the section's rows.
@@ -805,7 +738,7 @@ FloatingWindow {
       text: sw.sample
       color: popup.dimColor
       font.family: popup.face
-      font.weight: Font.Medium
+      font.weight: Zenon.weight
       font.features: { "tnum": 1 }
       font.pixelSize: Zenon.px(15)
     }
@@ -915,7 +848,7 @@ FloatingWindow {
       text: sl.spec ? Ora.display(sl.spec, sl.value) : ""
       color: popup.fgColor
       font.family: popup.face
-      font.weight: Font.Medium
+      font.weight: Zenon.weight
       font.pixelSize: Zenon.px(16)
       elide: Text.ElideRight
     }
@@ -976,8 +909,11 @@ FloatingWindow {
       joined: popup.enumChip === chip ? enumMenu.joined : ""
       menuWidth: popup.enumChip === chip ? enumMenu.fitW : 0
       growLeft: true
-      contentWidth: (en.hasPicto ? picto.width + 8 : chipSwatch.visible ? chipSwatch.width + 8 : 0)
-                    + enLabel.implicitWidth
+      // what the anchors below take, to the pixel: DropFace adds 6 before
+      // the chevron, and the inks stand 8 from it — the 2 left out cut
+      // "Follow Background" to an ellipsis (user, 2026-11-08)
+      contentWidth: (en.hasPicto ? picto.width + 8 : 0) + enLabel.implicitWidth
+                    + (chipInks.active ? chipInks.width + 12 + (chipInks.anchors.rightMargin - 6) : 0)
       pressed: chipMa.pressed
       pressColor: Qt.rgba(popup.highlight.r, popup.highlight.g, popup.highlight.b, 0.18)
       chevronInk: popup.dimColor
@@ -1028,31 +964,40 @@ FloatingWindow {
         }
       }
 
-      // the worn theme's swatch, as its row in the card has it
-      Swatch {
-        id: chipSwatch
-        colors: en.spec
-          ? popup.swatchOf(en.spec, (en.spec.options || []).find((o) => o.value === String(en.value)))
-          : null
-        visible: !en.hasPicto && chipSwatch.colors !== null
-        anchors.left: parent.left
-        anchors.leftMargin: chip.inset
+      // the worn theme's inks at the right, as its row in the card has
+      // them (user, 2026-11-07: the name on the left)
+      readonly property var inks: popup.isThemeSpec(en.spec)
+        ? Ora.themeInksFor((en.spec.options || []).find((o) => o.value === String(en.value)),
+            Zenon.zenon, Zenon.followTheme && Zenon.followTheme.colors)
+        : null
+      Loader {
+        id: chipInks
+        active: !en.hasPicto && !!chip.inks
+        anchors.right: chip.chevron.left
+        anchors.rightMargin: 8
         anchors.verticalCenter: parent.verticalCenter
+        source: Qt.resolvedUrl("../morpheus/ThemeInks.qml")
+      }
+      Binding {
+        target: chipInks.item
+        when: chipInks.status === Loader.Ready
+        property: "colors"
+        value: chip.inks
       }
 
       Text {
         id: enLabel
-        anchors.left: en.hasPicto ? picto.right : chipSwatch.visible ? chipSwatch.right : parent.left
-        anchors.leftMargin: en.hasPicto || chipSwatch.visible ? 8 + (Zenon.menuIconGap - 8) * chip.openness : chip.inset
-        anchors.right: chip.chevron.left
-        anchors.rightMargin: 6
+        anchors.left: en.hasPicto ? picto.right : parent.left
+        anchors.leftMargin: en.hasPicto ? 8 + (Zenon.menuIconGap - 8) * chip.openness : chip.inset
+        anchors.right: chipInks.active ? chipInks.left : chip.chevron.left
+        anchors.rightMargin: chipInks.active ? 12 : 6
         anchors.verticalCenter: parent.verticalCenter
         horizontalAlignment: Text.AlignLeft
         elide: Text.ElideRight
         text: en.spec ? Ora.display(en.spec, en.value) : ""
         color: popup.fgColor
         font.family: popup.face
-        font.weight: popup.isWeight(en.spec) ? (parseInt(en.value, 10) || Font.Medium) : Font.Medium
+        font.weight: popup.isWeight(en.spec) ? (parseInt(en.value, 10) || Zenon.weight) : Zenon.weight
         font.pixelSize: Zenon.px(en.hasPicto ? 14 : 15)
       }
 
@@ -1324,7 +1269,7 @@ FloatingWindow {
           : ""
         color: popup.fgColor
         font.family: popup.face
-        font.weight: Font.Medium
+        font.weight: Zenon.weight
         font.pixelSize: Zenon.px(15)
       }
 
@@ -1481,17 +1426,17 @@ FloatingWindow {
           : ((pk.spec && pk.spec.placeholder) ? pk.spec.placeholder : "—")
         color: pk.value === "" ? popup.dimColor : popup.fgColor
         font.family: popup.face
-        font.weight: Font.Medium
+        font.weight: Zenon.weight
         font.pixelSize: Zenon.px(15)
       }
 
-      // what it opens: a directory, or a typeface
+      // what it opens: a directory
       Text {
         id: pkGlyph
         anchors.right: parent.right
         anchors.rightMargin: 9
         anchors.verticalCenter: parent.verticalCenter
-        text: (pk.spec && pk.spec.pick === "font") ? "" : ""
+        text: ""
         color: pk.busy ? popup.highlight : popup.dimColor
         font.family: popup.face
         font.weight: Zenon.weight
@@ -1517,9 +1462,6 @@ FloatingWindow {
         onContainsMouseChanged: {
           if (!pkMa.containsMouse || pkMa.whole === "") { popup.hideTip(); return; }
           popup.showTip(pkMa.whole, pkMa);
-        }
-        onPositionChanged: (m) => {
-          if (pkMa.containsMouse && pkMa.whole !== "") popup.moveTip(pkMa.mapToItem(panel, m.x, m.y));
         }
       }
     }
@@ -1636,7 +1578,7 @@ FloatingWindow {
           text: "---"
           color: popup.dimColor
           font.family: popup.face
-          font.weight: Font.Medium
+          font.weight: Zenon.weight
           font.pixelSize: Zenon.px(14)
         }
       }
@@ -1647,7 +1589,7 @@ FloatingWindow {
         text: "press a chord"
         color: popup.highlight
         font.family: popup.face
-        font.weight: Font.Medium
+        font.weight: Zenon.weight
         font.pixelSize: Zenon.px(14)
       }
 
@@ -1655,7 +1597,10 @@ FloatingWindow {
         id: chordMa
         anchors.fill: parent
         acceptedButtons: Qt.AllButtons
+        // the press that ended a wait: its click must not start another
+        property bool ended: false
         onPressed: (m) => {
+          chordMa.ended = ch.waiting;
           if (!ch.waiting) return;
           // a modifier held: a mouse bind; a plain click calls the wait off
           const c = Ora.chordFromButton(m.button, m.modifiers);
@@ -1663,6 +1608,7 @@ FloatingWindow {
           popup.syncFocus();
         }
         onClicked: (m) => {
+          if (chordMa.ended) { chordMa.ended = false; return; }
           if (ch.waiting || m.button !== Qt.LeftButton) return;
           Oracle.beginCapture(ch.spec.key);
           catcher.forceActiveFocus();
@@ -1747,7 +1693,7 @@ FloatingWindow {
         text: cc.value !== "" ? cc.value : Ora.display(cc.spec, "")
         color: cc.value === "" ? popup.dimColor : popup.fgColor
         font.family: popup.face
-        font.weight: Font.Medium
+        font.weight: Zenon.weight
         font.pixelSize: Zenon.px(15)
       }
       MouseArea {
@@ -1792,7 +1738,7 @@ FloatingWindow {
         text: ac.spec ? Oracle.actionVerb(ac.spec.key) || ac.spec.verb || "Run" : ""
         color: popup.fgColor
         font.family: popup.face
-        font.weight: Font.Medium
+        font.weight: Zenon.weight
         font.pixelSize: Zenon.px(15)
       }
 
@@ -1812,8 +1758,6 @@ FloatingWindow {
   // a rectangle drawn in this window, which nothing can frost.
   WindowTip { id: tips; window: popup }
   function showTip(text, item) { tips.show(item, text); }
-  // it hangs under its item and does not follow the pointer
-  function moveTip(at) {}
   function hideTip() { tips.hide(null); }
 
   // ── DELETING A THEME YOU SAVED ───────────────────────────────────────
@@ -1975,84 +1919,18 @@ FloatingWindow {
         // what you type still goes to it wherever the pointer is — a
         // click anywhere hands it the keyboard back (panel, above).
         // Ceres' search field's look.
-        Rectangle {
-          id: searchBox
+        SearchBox {
+          id: filterInput
           anchors.left: parent.left
           anchors.right: parent.right
           anchors.top: parent.top
           anchors.margins: 12
-          height: 32
-          radius: Zenon.windowRadius
-          color: Zenon.wash(filterInput.activeFocus ? 0.08 : 0.04)
-          border.width: 1
-          border.color: Zenon.border
-          // the suite's focus ring while it has the keys (user, 2026-10-27),
-          // as Clio's search wears it
-          HeldRing { anchors.fill: parent; radius: parent.radius; z: 10; on: filterInput.activeFocus }
-          Text {
-            id: searchGlyph
-            anchors.left: parent.left
-            anchors.leftMargin: 10
-            anchors.verticalCenter: parent.verticalCenter
-            text: ""
-            color: popup.searching ? popup.headColor : popup.dimColor
-            font.family: popup.face
-            font.weight: Zenon.weight
-            font.pixelSize: Zenon.px(13)
-          }
-          Item {
-            anchors.left: searchGlyph.right
-            anchors.leftMargin: 9
-            anchors.right: searchClear.visible ? searchClear.left : parent.right
-            anchors.rightMargin: 8
-            anchors.top: parent.top
-            anchors.bottom: parent.bottom
-            clip: true
-            TextInput {
-              id: filterInput
-              anchors.left: parent.left
-              anchors.right: parent.right
-              anchors.verticalCenter: parent.verticalCenter
-              cursorDelegate: Caret { field: filterInput }
-              activeFocusOnTab: false
-              color: popup.fgColor
-              selectionColor: popup.highlight
-              selectedTextColor: Zenon.inkOnAccent
-              font.family: popup.face
-              font.weight: Zenon.weight
-              font.pixelSize: Zenon.px(15)
-              // so escape reaches the one handler that decides what it means
-              Keys.forwardTo: bgRoot
-
-              onTextChanged: {
-                popup.query = filterInput.text;
-                Qt.callLater(popup.toTop);
-              }
-
-              function clear() {
-                filterInput.text = "";
-                popup.query = "";
-              }
-            }
-            Text {
-              visible: filterInput.text === ""
-              anchors.left: parent.left
-              anchors.leftMargin: 3
-              anchors.verticalCenter: parent.verticalCenter
-              text: "Search"
-              color: popup.dimColor
-              font.family: popup.face
-              font.weight: Zenon.weight
-              font.pixelSize: Zenon.px(15)
-            }
-          }
-          ClearChip {
-            id: searchClear
-            anchors.right: parent.right
-            anchors.rightMargin: 8
-            anchors.verticalCenter: parent.verticalCenter
-            shown: popup.searching
-            onClicked: filterInput.clear()
+          ghost: "Search"
+          // so escape reaches the one handler that decides what it means
+          keysTo: [bgRoot]
+          onTextChanged: {
+            popup.query = filterInput.text;
+            Qt.callLater(popup.toTop);
           }
         }
 
@@ -2062,7 +1940,7 @@ FloatingWindow {
         // toolbar's ways, kept.
         Flickable {
           id: sideFlick
-          anchors.top: searchBox.bottom
+          anchors.top: filterInput.bottom
           anchors.topMargin: 4
           anchors.left: parent.left
           anchors.right: parent.right
@@ -2297,7 +2175,7 @@ FloatingWindow {
                   text: Oracle.zenworksVersion
                   color: popup.headColor
                   font.family: popup.face
-                  font.weight: Font.Bold
+                  font.weight: Zenon.titleWeight
                   font.pixelSize: Zenon.px(14)
                 }
 
@@ -2356,171 +2234,51 @@ FloatingWindow {
               // a rule under the credits, the toolbar's own (user,
               // 2026-10-18): the mark and its byline are the panel's
               // heading, and the rows under it were reading as part of it
-              Rectangle {
+              Hairline {
                 anchors.left: parent.left
                 anchors.right: parent.right
                 anchors.bottom: parent.bottom
-                height: 1
-                color: Zenon.border
               }
             }
 
             // ── KEEP THESE DISPLAY SETTINGS? ──────────────────────────
             // Over every section, not only Display: the question stands until
             // it is answered, wherever you went after asking it.
-            Rectangle {
+            QuestionBar {
               id: confirmBar
               anchors.top: markBox.bottom
               anchors.left: parent.left
               anchors.right: parent.right
-              height: Oracle.displayPending ? 52 : 0
-              visible: height > 0
-              clip: true
-              color: Qt.rgba(popup.changedColor.r, popup.changedColor.g,
-                             popup.changedColor.b, 0.10)
-              Behavior on height { NumberAnimation { duration: Zenon.fast; easing.type: Zenon.ease } }
-
-              Rectangle {
-                anchors.bottom: parent.bottom
-                width: parent.width
-                height: 1
-                color: Zenon.border
-              }
-
-              Text {
-                anchors.left: parent.left
-                anchors.leftMargin: 24
-                anchors.right: confirmBtns.left
-                anchors.rightMargin: 16
-                anchors.verticalCenter: parent.verticalCenter
-                elide: Text.ElideRight
-                text: "Keep these display settings? Going back in "
-                  + Oracle.displayCountdown + "s"
-                color: popup.changedColor
-                font.family: popup.face
-                font.weight: Font.Medium
-                font.pixelSize: Zenon.px(15)
-              }
-
-              Row {
-                id: confirmBtns
-                anchors.right: parent.right
-                anchors.rightMargin: 20
-                anchors.verticalCenter: parent.verticalCenter
-                spacing: 8
-
-                Repeater {
-                  model: [ { text: "Revert", keep: false }, { text: "Keep", keep: true } ]
-                  Rectangle {
-                    id: cb
-                    required property var modelData
-                    width: cbText.implicitWidth + 28
-                    height: 28
-                    radius: Zenon.radiusControl
-                    color: cbMa.pressed
-                      ? Qt.rgba(popup.highlight.r, popup.highlight.g, popup.highlight.b, 0.25)
-                      : cb.modelData.keep ? Qt.rgba(popup.highlight.r, popup.highlight.g, popup.highlight.b, 0.14)
-                      : Zenon.wash(0.06)
-                    border.width: 1
-                    border.color: cb.modelData.keep ? popup.highlight : Zenon.border
-
-                    Text {
-                      textFormat: Text.PlainText
-                      id: cbText
-                      anchors.centerIn: parent
-                      text: cb.modelData.text
-                      color: popup.fgColor
-                      font.family: popup.face
-                      font.weight: Font.Medium
-                      font.pixelSize: Zenon.px(14)
-                    }
-
-                    MouseArea {
-                      id: cbMa
-                      anchors.fill: parent
-                      onClicked: cb.modelData.keep ? Oracle.keepDisplays() : Oracle.revertDisplays()
-                    }
-                  }
-                }
-              }
+              asked: Oracle.displayPending
+              text: "Keep these display settings? Going back in " + Oracle.displayCountdown + "s"
+              choices: ["Revert", "Keep"]
+              ink: popup.changedColor
+              highlight: popup.highlight
+              fg: popup.fgColor
+              face: popup.face
+              onChose: (i) => i === 1 ? Oracle.keepDisplays() : Oracle.revertDisplays()
             }
 
             // ── TURN HYPER OFF? (2026-11-03) ──────────────────────────
             // asked when binds are on it; they are gathered in one frame,
             // "Using Hyper", opened under it (Oracle.hyperOffAsked)
-            Rectangle {
+            QuestionBar {
               id: hyperBar
               anchors.top: confirmBar.bottom
               anchors.left: parent.left
               anchors.right: parent.right
-              height: Oracle.hyperOffAsked ? 52 : 0
-              visible: height > 0
-              clip: true
-              color: Qt.rgba(popup.changedColor.r, popup.changedColor.g, popup.changedColor.b, 0.10)
-              Behavior on height { NumberAnimation { duration: Zenon.fast; easing.type: Zenon.ease } }
-
-              Rectangle {
-                anchors.bottom: parent.bottom
-                width: parent.width
-                height: 1
-                color: Zenon.border
+              asked: Oracle.hyperOffAsked
+              text: {
+                Oracle.revision;
+                const n = Oracle.hyperBinds().length;
+                return (n === 1 ? "1 shortcut uses" : n + " shortcuts use") + " Hyper and will do nothing without it";
               }
-              Text {
-                anchors.left: parent.left
-                anchors.leftMargin: 24
-                anchors.right: hyperBtns.left
-                anchors.rightMargin: 16
-                anchors.verticalCenter: parent.verticalCenter
-                elide: Text.ElideRight
-                textFormat: Text.PlainText
-                text: {
-                  Oracle.revision;
-                  const n = Oracle.hyperBinds().length;
-                  return (n === 1 ? "1 shortcut uses" : n + " shortcuts use") + " Hyper and will do nothing without it";
-                }
-                color: popup.changedColor
-                font.family: popup.face
-                font.weight: Font.Medium
-                font.pixelSize: Zenon.px(15)
-              }
-              Row {
-                id: hyperBtns
-                anchors.right: parent.right
-                anchors.rightMargin: 20
-                anchors.verticalCenter: parent.verticalCenter
-                spacing: 8
-                Repeater {
-                  model: [ { text: "Turn off anyway", keep: false }, { text: "Keep Hyper", keep: true } ]
-                  Rectangle {
-                    id: hb
-                    required property var modelData
-                    width: hbText.implicitWidth + 28
-                    height: 28
-                    radius: Zenon.radiusControl
-                    color: hbMa.pressed
-                      ? Qt.rgba(popup.highlight.r, popup.highlight.g, popup.highlight.b, 0.25)
-                      : hb.modelData.keep ? Qt.rgba(popup.highlight.r, popup.highlight.g, popup.highlight.b, 0.14)
-                      : Zenon.wash(0.06)
-                    border.width: 1
-                    border.color: hb.modelData.keep ? popup.highlight : Zenon.border
-                    Text {
-                      id: hbText
-                      textFormat: Text.PlainText
-                      anchors.centerIn: parent
-                      text: hb.modelData.text
-                      color: popup.fgColor
-                      font.family: popup.face
-                      font.weight: Font.Medium
-                      font.pixelSize: Zenon.px(14)
-                    }
-                    MouseArea {
-                      id: hbMa
-                      anchors.fill: parent
-                      onClicked: hb.modelData.keep ? Oracle.hyperOffKeep() : Oracle.hyperOffConfirm()
-                    }
-                  }
-                }
-              }
+              choices: ["Turn off anyway", "Keep Hyper"]
+              ink: popup.changedColor
+              highlight: popup.highlight
+              fg: popup.fgColor
+              face: popup.face
+              onChose: (i) => i === 1 ? Oracle.hyperOffKeep() : Oracle.hyperOffConfirm()
             }
             // the frame of binds on Hyper opens when the question is asked,
             // on Shortcuts wherever it was asked from
@@ -2560,10 +2318,7 @@ FloatingWindow {
                 active: popup.pinned !== null
                 source: popup.pinned && popup.pictures[popup.pinned.sample] ? popup.pictures[popup.pinned.sample].file : ""
                 onLoaded: {
-                  item.face = Qt.binding(() => popup.face);
-                  item.fgColor = Qt.binding(() => popup.fgColor);
-                  item.dimColor = Qt.binding(() => popup.dimColor);
-                  item.highlight = Qt.binding(() => popup.highlight);
+                  popup.dress(item);
                   // a picture with dropdowns of its own (Hot corners) opens
                   // this window's card for them
                   if (item.hasOwnProperty("openEnum")) {
@@ -2813,10 +2568,7 @@ FloatingWindow {
                              cyhidden: "CynosureHidden.qml", cyfallbacks: "CynosureFallbacks.qml" })[settingRow.spec.fold] || ""
                   onLoaded: {
                     if (settingRow.spec.fold === "color") item.key = settingRow.spec.key;
-                    item.face = Qt.binding(() => popup.face);
-                    item.fgColor = Qt.binding(() => popup.fgColor);
-                    item.dimColor = Qt.binding(() => popup.dimColor);
-                    item.highlight = Qt.binding(() => popup.highlight);
+                    popup.dress(item);
                   }
                 }
 
@@ -2864,10 +2616,7 @@ FloatingWindow {
                   height: popup.mapH
                   source: "WorldMap.qml"
                   onLoaded: {
-                    item.face = Qt.binding(() => popup.face);
-                    item.fgColor = Qt.binding(() => popup.fgColor);
-                    item.dimColor = Qt.binding(() => popup.dimColor);
-                    item.highlight = Qt.binding(() => popup.highlight);
+                    popup.dress(item);
                   }
                 }
                 // the Windows page's desk and the Bar page's pill, by URL too
@@ -2878,10 +2627,7 @@ FloatingWindow {
                   height: settingRow.wideH
                   source: settingRow.picture ? settingRow.picture.file : ""
                   onLoaded: {
-                    item.face = Qt.binding(() => popup.face);
-                    item.fgColor = Qt.binding(() => popup.fgColor);
-                    item.dimColor = Qt.binding(() => popup.dimColor);
-                    item.highlight = Qt.binding(() => popup.highlight);
+                    popup.dress(item);
                   }
                 }
                 ArrangeView {
@@ -2964,7 +2710,7 @@ FloatingWindow {
                       color: settingRow.monitorHead ? settingRow.accent : popup.titleColor
                       font.family: popup.face
                       // bolder (user, 2026-10-28): DemiBold, a monitor's head Bold
-                      font.weight: settingRow.monitorHead ? Font.Bold : Font.DemiBold
+                      font.weight: settingRow.monitorHead ? Zenon.titleWeight : Zenon.titleWeight
                       font.pixelSize: Zenon.px(17)   // 19 on 2026-10-27; back to 17 (user, 2026-10-28)
                     }
 
@@ -2983,7 +2729,7 @@ FloatingWindow {
                     }
 
                     // RESTORE DEFAULT, said with a glyph beside the name
-                    // (U+E612, the user's pick), in the changed ink: the one
+                    // (morpheus/RestoreChip), in the changed ink: the one
                     // mark of a moved setting, and its way back. Only while moved.
                     // clear of a fold's chevron, so the two read as two
                     Item {
@@ -2991,45 +2737,23 @@ FloatingWindow {
                       width: 6
                       height: 1
                     }
-                    Item {
+                    RestoreChip {
+                      id: restoreChip
                       visible: settingRow.moved
-                      width: restoreGlyph.implicitWidth + 8
                       height: rowLabel.height
                       anchors.verticalCenter: rowLabel.verticalCenter
-                      Rectangle {
-                        anchors.centerIn: parent
-                        width: parent.width + 4
-                        height: parent.width + 4
-                        radius: Zenon.windowRadius
-                        color: restoreMa.pressed ? Zenon.pressWash(0.14) : "transparent"
+                      ink: popup.changedColor
+                      onClicked: {
+                        popup.hideTip();
+                        Oracle.reset(settingRow.spec.key);
+                        for (const k of Ora.alsoKeys(Oracle.spec(settingRow.spec.key) || settingRow.spec)) Oracle.reset(k);
                       }
-                      Text {
-                        id: restoreGlyph
-                        anchors.centerIn: parent
-                        text: "\uE612"
-                        color: restoreMa.pressed ? Zenon.ink : popup.changedColor
-                        font.family: Zenon.faceMono
-                        font.weight: Zenon.weight
-                        font.pixelSize: Zenon.px(15)
-                      }
-                      MouseArea {
-                        id: restoreMa
-                        anchors.fill: parent
-                        anchors.margins: -3
-                        hoverEnabled: true
-                        onClicked: {
-                          popup.hideTip();
-                          Oracle.reset(settingRow.spec.key);
-                          for (const k of Ora.alsoKeys(Oracle.spec(settingRow.spec.key) || settingRow.spec)) Oracle.reset(k);
-                        }
-                        onContainsMouseChanged: {
-                          if (!restoreMa.containsMouse) { popup.hideTip(); return; }
+                      Connections {
+                        target: restoreChip.area
+                        function onContainsMouseChanged() {
+                          if (!restoreChip.area.containsMouse) { popup.hideTip(); return; }
                           popup.showTip("Restore default \u00b7 " +
-                            Ora.display(settingRow.spec, Oracle.defaults[settingRow.spec.key]), restoreMa);
-                        }
-                        onPositionChanged: (m) => {
-                          if (restoreMa.containsMouse)
-                            popup.moveTip(restoreMa.mapToItem(panel, m.x, m.y));
+                            Ora.display(settingRow.spec, Oracle.defaults[settingRow.spec.key]), restoreChip.area);
                         }
                       }
                     }
@@ -3101,7 +2825,7 @@ FloatingWindow {
                     lineHeight: 1.1
                     color: popup.errColor
                     font.family: popup.face
-                    font.weight: Font.Medium
+                    font.weight: Zenon.weight
                     font.pixelSize: Zenon.px(14)
                   }
                 }
@@ -3207,6 +2931,7 @@ FloatingWindow {
                           text: "\uF031"
                           color: bookMa.pressed ? popup.highlight : popup.fgColor
                           font.family: Zenon.glyphFace
+                          font.weight: Zenon.weight
                           font.pixelSize: Zenon.px(14)
                         }
                         MouseArea {
@@ -3272,7 +2997,7 @@ FloatingWindow {
                                 color: !stepEnd.can ? popup.dimColor
                                   : stepMa.pressed ? popup.highlight : popup.fgColor
                                 font.family: popup.face
-                                font.weight: Font.Medium
+                                font.weight: Zenon.weight
                                 font.pixelSize: Zenon.px(15)
                               }
                               MouseArea {
@@ -3289,7 +3014,7 @@ FloatingWindow {
                             text: Ora.display(stepChip.sp, stepChip.val)
                             color: popup.fgColor
                             font.family: popup.face
-                            font.weight: Font.Medium
+                            font.weight: Zenon.weight
                             font.features: { "tnum": 1 }
                             font.pixelSize: Zenon.px(15)
                           }
@@ -3426,7 +3151,7 @@ FloatingWindow {
         text: "Keep this palette as a theme"
         color: popup.fgColor
         font.family: popup.face
-        font.weight: Font.Bold
+        font.weight: Zenon.titleWeight
         font.pixelSize: Zenon.px(14)
       }
       Rectangle {
@@ -3445,7 +3170,7 @@ FloatingWindow {
           verticalAlignment: TextInput.AlignVCenter
           color: popup.fgColor
           selectionColor: popup.highlight
-          selectedTextColor: Zenon.inkOnAccent
+          selectedTextColor: Zenon.white
           font.family: popup.face
           font.weight: Zenon.weight
           font.pixelSize: Zenon.px(15)

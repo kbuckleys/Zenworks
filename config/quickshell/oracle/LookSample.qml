@@ -60,6 +60,7 @@ Item {
     text: "Your background and the theme's colors, as the desktop wears them."
     color: sample.dimColor
     font.family: sample.face
+    font.weight: Zenon.weight
     font.pixelSize: Zenon.px(12)
   }
 
@@ -226,7 +227,7 @@ Item {
         text: Zenon.theme && Zenon.theme.name ? Zenon.theme.name : "Zenon"
         color: sample.fgColor
         font.family: sample.face
-        font.weight: Font.DemiBold
+        font.weight: Zenon.titleWeight
         font.pixelSize: Zenon.px(15)
       }
       Text {
@@ -234,6 +235,7 @@ Item {
         text: Zenon.light ? "Light" : "Dark"
         color: sample.dimColor
         font.family: sample.face
+        font.weight: Zenon.weight
         font.pixelSize: Zenon.px(12)
         bottomPadding: 4
       }

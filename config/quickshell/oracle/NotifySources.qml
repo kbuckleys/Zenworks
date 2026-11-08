@@ -72,6 +72,7 @@ Item {
             text: src.modelData.name
             color: src.modelData.state === "block" ? ns.dimColor : ns.fgColor
             font.family: ns.face
+            font.weight: Zenon.weight
             font.pixelSize: Zenon.px(16)
           }
           T.Segments {

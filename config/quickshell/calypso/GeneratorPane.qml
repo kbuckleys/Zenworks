@@ -100,6 +100,7 @@ Item {
         text: "\u{F076E}"
         color: Zenon.accent
         font.family: Zenon.glyphFace
+        font.weight: Zenon.weight
         font.pixelSize: Zenon.px(18)
       }
       Text {
@@ -107,7 +108,7 @@ Item {
         text: "Password generator"
         color: Zenon.ink
         font.family: Zenon.face
-        font.weight: Font.Bold
+        font.weight: Zenon.titleWeight
         font.pixelSize: Zenon.px(19)
       }
     }
@@ -131,7 +132,7 @@ Item {
         text: {
           let out = "";
           for (const ch of Array.from(gen.value)) {
-            const e = ch.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+            const e = Strings.escapeHtml(ch);
             out += /[0-9]/.test(ch) ? "<font color='" + Zenon.blue + "'>" + e + "</font>"
               : /[A-Za-z]/.test(ch) ? e : "<font color='" + Zenon.pink + "'>" + e + "</font>";
           }
@@ -139,7 +140,7 @@ Item {
         }
         color: Zenon.ink
         font.family: Zenon.faceMono
-        font.weight: Font.DemiBold
+        font.weight: Zenon.titleWeight
         font.pixelSize: Zenon.px(gen.value.length > 40 ? 16 : 21)
       }
       Column {

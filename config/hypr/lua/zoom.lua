@@ -64,9 +64,17 @@ if not okFilter or type(filter) ~= "string" then filter = "" end
 -- recording, because a capture damages the whole monitor.
 local function idleDamage() return filter ~= "" and DAMAGE_MONITOR or DAMAGE_FULL end
 
+-- A config reload runs this file again, and writing MIN_ZOOM here dropped a
+-- zoom that was on (audit 2026-11-07): the level it had is read first and
+-- kept, the shader and damage put back for it below. On a fresh start (or
+-- if a reload resets the value first) it reads 1.0, as before.
+local okLive, live = pcall(hl.get_config, "cursor.zoom_factor")
+if not okLive or type(live) ~= "number" or live < MIN_ZOOM then live = MIN_ZOOM end
+if live > MAX_ZOOM then live = MAX_ZOOM end
+
 hl.config({
 	cursor = {
-		zoom_factor = MIN_ZOOM,        -- InitialZoom; 1.0 is Hyprland's "off", not 0
+		zoom_factor = live,            -- InitialZoom (1.0, Hyprland's "off"), or the level a reload found
 		zoom_rigid = false,            -- == MouseTrackingProportional, KWin's default
 		zoom_detached_camera = false,
 		zoom_disable_aa = false,       -- the shader does the filtering, keep GL_LINEAR
@@ -82,8 +90,7 @@ hl.config({
 
 -- KWin keeps m_targetZoom apart from the animating m_zoom; so do we, since the
 -- compositor animates cursor:zoom_factor out from under us.
-local target = hl.get_config("cursor.zoom_factor") or MIN_ZOOM
-if target < MIN_ZOOM then target = MIN_ZOOM end
+local target = live
 
 local zoomed = false
 local settle = nil
@@ -116,6 +123,9 @@ local function applyZoomState(zoom)
 		end, { timeout = SETTLE_MS, type = "oneshot" })
 	end
 end
+
+-- a reload that found a zoom on: its shader and damage, as zooming in sets
+if target > MIN_ZOOM then applyZoomState(target) end
 
 local function setTargetZoom(value)
 	value = math.min(MAX_ZOOM, math.max(MIN_ZOOM, value))

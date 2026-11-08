@@ -46,6 +46,7 @@ module.exports = {
     t.eq("arguments: each name once, with its default", F.snippetArgs(asks), [{ name: "who", def: "" }, { name: "what", def: "the plan" }, { name: "Value", def: "" }]);
     t.eq("arguments: filled, the same name twice", F.fillArgs(asks, { who: "Ada", what: "x", Value: "y" }), "Dear Ada, re x. Ada \u2014 y");
     t.eq("arguments: a default when nothing is given", F.fillArgs("{argument name=\"a\" default=\"d\"}", {}), "d");
+    t.eq("arguments: an escaped one stays as written", F.fillArgs("{{argument}} {argument}", { Value: "v" }), "{{argument}} v");
     t.eq("arguments: braces typed stay braces", F.expandSnippet(F.fillArgs("{argument name=\"a\"}", { a: "{date}" }), now), "{date}");
     t.eq("arguments: doubled braces are not one", F.snippetArgs("{{argument}}"), []);
     t.eq("no arguments", F.snippetArgs("plain {date}"), []);

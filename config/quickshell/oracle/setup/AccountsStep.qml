@@ -53,6 +53,7 @@ Item {
           text: row.modelData.glyph
           color: Zenon.soft
           font.family: Zenon.face
+          font.weight: Zenon.weight
           font.pixelSize: Zenon.px(18)
         }
         Column {
@@ -68,7 +69,7 @@ Item {
             textFormat: Text.PlainText
             color: Zenon.white
             font.family: Zenon.face
-            font.weight: Font.Bold
+            font.weight: Zenon.titleWeight
             font.pixelSize: Zenon.px(15)
           }
           Text {
@@ -77,7 +78,7 @@ Item {
             wrapMode: Text.Wrap
             text: row.modelData.words
             textFormat: Text.PlainText
-            color: Zenon.muted
+            color: Zenon.accentMuted
             font.family: Zenon.face
             font.weight: Zenon.weight
             font.pixelSize: Zenon.px(13)

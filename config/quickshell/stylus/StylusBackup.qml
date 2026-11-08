@@ -161,19 +161,7 @@ FocusScope {
         font.weight: Zenon.weight
         font.pixelSize: Zenon.px(12)
       }
-      Rectangle {
-        id: band
-        width: parent.width
-        height: 8
-        radius: Zenon.rad(4)
-        color: Zenon.wash(0.06)
-        ProgressFill {
-          anchors.fill: parent
-          radius: band.radius
-          frac: S.phaseFrac(body.job)
-          ink: body.job && body.job.result && !body.job.result.ok ? Zenon.red : Zenon.accent
-        }
-      }
+      JobBand { width: parent.width; job: body.job }
       Text {
         textFormat: Text.PlainText
         width: parent.width

@@ -83,6 +83,7 @@ Column {
     width: spec.width
     spacing: 2
     Text {
+      textFormat: Text.PlainText
       width: parent.width
       elide: Text.ElideRight
       text: spec.ready ? spec.face : spec.failed ? "Could not read this font" : "…"
@@ -104,11 +105,9 @@ Column {
     }
   }
 
-  Rectangle {
+  Hairline {
     visible: spec.ready
     width: spec.width
-    height: 1
-    color: Zenon.border
   }
 
   // ── set in it ──────────────────────────────────────────────────────────
@@ -127,6 +126,7 @@ Column {
       ["\u{F0024}     \u{F0335}  \u{F057E}    \u{F0E09}", 22],
     ]
     delegate: Text {
+      textFormat: Text.PlainText
       required property var modelData
       width: spec.width
       text: modelData[0]

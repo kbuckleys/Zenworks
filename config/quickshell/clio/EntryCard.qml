@@ -98,7 +98,7 @@ Rectangle {
       text: card.note ? (card.note.sealed ? "  Locked entry" : card.d.title) : ""
       color: Zenon.ink
       font.family: card.note && !card.note.sealed && card.win ? card.win.mgr.faceFor(true) : Zenon.face
-      font.weight: Font.Bold
+      font.weight: Zenon.titleWeight
       font.pixelSize: Zenon.px(16)
     }
     Text {
@@ -114,7 +114,7 @@ Rectangle {
       color: Zenon.accentSoft
       font.family: card.win ? card.win.mgr.faceFor(true) : Zenon.face
       // the second row bold, as in the notes list (user, 2026-10-17)
-      font.weight: Font.Bold
+      font.weight: Zenon.titleWeight
       font.pixelSize: Zenon.px(14)
       lineHeight: 1.08
     }
@@ -157,7 +157,7 @@ Rectangle {
           + N.MONTHS[new Date(card.note.date).getMonth()].slice(0, 3) : ""
         color: Zenon.accentMuted
         font.family: Zenon.face
-        font.weight: Font.DemiBold
+        font.weight: Zenon.titleWeight
         font.pixelSize: Zenon.px(12)
       }
       Row {
@@ -178,7 +178,7 @@ Rectangle {
             text: card.mood ? card.mood.label : ""
             color: card.mood ? Zenon[card.mood.ink] || Zenon.accentMuted : Zenon.accentMuted
             font.family: Zenon.face
-            font.weight: Font.DemiBold
+            font.weight: Zenon.titleWeight
             font.pixelSize: Zenon.px(11)
           }
         }
@@ -188,6 +188,7 @@ Rectangle {
           text: "\uF47A"
           color: Zenon.accent
           font.family: Zenon.glyphFace
+          font.weight: Zenon.weight
           font.pixelSize: Zenon.px(13)
         }
       }

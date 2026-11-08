@@ -738,10 +738,20 @@ def event_lines(e, start, end, tzname, keep_rrule):
 
 
 def write_atomic(path, text):
+    # beside the real file, so a linked config (stow, dotfiles) keeps its
+    # link; no .part left behind when the write fails (audit 11-08)
+    path = os.path.realpath(path)
     tmp = path + ".part"
-    with open(tmp, "w", newline="") as f:
-        f.write(text)
-    os.replace(tmp, path)
+    try:
+        with open(tmp, "w", newline="") as f:
+            f.write(text)
+        os.replace(tmp, path)
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
 
 
 def moved_value(value, minutes, all_day):

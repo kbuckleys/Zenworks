@@ -21,7 +21,7 @@ Text {
   text: key.glyph
   color: key.ink
   font.family: Zenon.face
-  font.weight: Font.Bold
+  font.weight: Zenon.titleWeight
   font.pixelSize: key.size
   // dim until pointed at, so a row of three reads as three targets rather
   // than three decorations

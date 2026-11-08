@@ -120,7 +120,7 @@ Item {
   function listing(text) {
     const names = String(text).split("\n").filter((n) => n !== "");
     if (names.length === 0) return "";
-    const esc = (t) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const esc = Strings.escapeHtml;
     const rows = Terminus.enrich(names.map((n) => {
       const dir = n.endsWith("/");
       const name = dir ? n.slice(0, -1) : n;
@@ -206,7 +206,7 @@ Item {
     y: textBox.y + fp.hitRect.y
     height: fp.hitRect.height
     radius: Zenon.rad(3)
-    color: Qt.rgba(Zenon.sand.r, Zenon.sand.g, Zenon.sand.b, 0.14)
+    color: Zenon.alpha(Zenon.sand, 0.14)
     Behavior on y { NumberAnimation { duration: Zenon.brisk; easing.type: Zenon.travelEase } }
   }
   // a TextEdit only for positionToRectangle (the band above); nothing in it

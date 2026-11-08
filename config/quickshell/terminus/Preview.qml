@@ -130,7 +130,9 @@ Item {
     // something still on screen answers — which is the branch it lived in.
     let want = term.currentRow() ? term.currentRow().path : "";
     term.act.writeOpen(({}));
-    while (want !== "" && want !== term.cwd) {
+    // to the root at the most: a collection's rows can have no ancestor on
+    // screen, and dirname("/") is "/" for ever
+    while (want !== "" && want !== "/" && want !== term.cwd) {
       term.wantSel = want;
       if (term.landWanted()) break;
       want = Terminus.dirname(want);
@@ -269,7 +271,9 @@ Item {
     term.prefRows = a;
   }
   function prefOrder() {
-    const rows = term.prefRows.slice();
+    // a Repeater rebuilt behind the panel (Places, on a new user-dirs) leaves
+    // rows that no longer exist
+    const rows = term.prefRows.filter((r) => r && r.mapToItem);
     rows.sort((a, b) => {
       const pa = a.mapToItem(term.prefsRef.prefsCol, 0, 0);
       const pb = b.mapToItem(term.prefsRef.prefsCol, 0, 0);

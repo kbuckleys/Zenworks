@@ -8,6 +8,7 @@
 // one-line forwarder for each function here, so callers are unchanged.
 
 import QtQuick
+import Quickshell.Io
 import "../morpheus"
 import "terminus.js" as Terminus
 
@@ -156,8 +157,9 @@ Item {
     if (term.viewMode === "grid") {
       const g = term.actGrid;
       const cols = Math.max(1, Math.floor(g.width / g.cellWidth));
-      const r1 = Math.floor((y1 + g.contentY) / g.cellHeight);
-      const r2 = Math.floor((y2 + g.contentY) / g.cellHeight);
+      // the band is in body coordinates; a split's grid sits under its head
+      const r1 = Math.floor((y1 - g.y + g.contentY) / g.cellHeight);
+      const r2 = Math.floor((y2 - g.y + g.contentY) / g.cellHeight);
       const c1 = Math.floor(bx1 / g.cellWidth);
       const c2 = Math.floor(bx2 / g.cellWidth);
       for (let r = Math.max(0, r1); r <= r2; ++r) {
@@ -187,11 +189,12 @@ Item {
     // the rest and the arithmetic drifts by a heading's height for every
     // band the drag has crossed. indexAt asks the view, which knows.
     if (term.grouped && term.viewMode === "list") {
-      lo = term.bandIndexAt(view, y1);
-      hi = term.bandIndexAt(view, y2);
+      lo = term.bandIndexAt(view, y1 - view.y);
+      hi = term.bandIndexAt(view, y2 - view.y);
     } else {
-      lo = Math.floor((y1 + view.contentY) / term.rowH);
-      hi = Math.floor((y2 + view.contentY) / term.rowH);
+      // the band is in body coordinates; a split's list sits under its head
+      lo = Math.floor((y1 - view.y + view.contentY) / term.rowH);
+      hi = Math.floor((y2 - view.y + view.contentY) / term.rowH);
     }
     // a drag that has not crossed a row boundary selects the same rows it
     // already did, and rebuilding the map for that is work with no result
@@ -226,19 +229,29 @@ Item {
     const rows = term.dragRows(entry);
     const first = rows[0] || entry;
     term.dragCardRef.count = rows.length;
-    term.dragCardRef.label = rows.length === 1
-      ? (first ? first.name : "") : rows.length + " items";
+    // the front of the pile is the first of them; the badge says how many
+    term.dragCardRef.label = first ? first.name : "";
     term.dragCardRef.glyph = (first && first.glyph) ? first.glyph : "";
     term.dragCardRef.ink = (first && first.ink !== undefined) ? first.ink : Zenon.white;
     term.dragCardRef.picture(then);
   }
   // Starts a drag of `entry` (or the marked set) from a row or tile. (hx, hy)
   // is where the pointer sits on the picture.
-  function beginDrag(entry, hx, hy) {
+  function beginDrag(entry, hx, hy, at) {
     term.draggingRow = true;
     term.dragProxyRef.uris = term.dragUris(entry);
     term.dragPaths = term.dragRows(entry).filter((r) => !!r).map((r) => r.path);
     term.dragProxyRef.Drag.hotSpot = Qt.point(hx, hy);
+    // several: each flies from its row or tile to the pointer (DragCard)
+    if (term.dragPaths.length > 1) {
+      const chosen = {};
+      for (const p of term.dragPaths) chosen[p] = true;
+      term.dragCardRef.flock((it) => !!it.entry && chosen[it.entry.path] === true
+        && typeof it.tabbed === "function", at,
+        // a row travels as its mark and name; a tile is that already
+        (it) => it.objectName === "entryRow"
+          ? { glyph: it.entry.glyph || "", ink: it.entry.ink, label: it.entry.name } : null);
+    }
     // The picture first, then the drag: Drag.imageSource has to be set
     // before active goes true, or the platform has already taken the
     // gesture and started carrying nothing.
@@ -482,16 +495,30 @@ Item {
     }
     return "";
   }
-  // One curl per URL, through the ordinary action queue so they arrive in the
-  // order they were dropped and the listing refreshes when each one lands.
+  // One curl per URL, each its own process: a download can take two minutes,
+  // and in the action queue every rename and trash waited behind it (audit
+  // 11-07). The directory watch sees each one land.
   //
   // The LAST one is the one landed on, which is the one you were looking at
   // when you let go of a single drop and a reasonable answer for several.
+  Component {
+    id: fetcher
+    Process {
+      id: fp
+      property string name: ""
+      onExited: (code) => {
+        if (code !== 0) term.warn("Could not fetch " + fp.name);
+        else if (term.status.startsWith("fetching")) term.status = "";
+        fp.destroy();
+      }
+    }
+  }
   function fetchInto(urls, dest) {
     for (const u of urls) {
       const name = Terminus.urlFallbackName(u);
       term.wantSel = Terminus.joinPath(dest, name);
-      term.run(Terminus.fetchUrlCommand(u, dest, name));
+      fetcher.createObject(renameDrag, { name: name,
+        command: ["sh", "-c", Terminus.fetchUrlCommand(u, dest, name)], running: true });
     }
     term.status = urls.length === 1 ? "fetching\u2026"
       : "fetching " + urls.length + "\u2026";
@@ -561,7 +588,8 @@ Item {
     const names = paths.map((p) => Terminus.basename(p));
     const drop = (op) => {
       term.setPending({ op: op, paths: paths, names: names });
-      term.pasteDest = into === term.cwd ? "" : into;
+      // always: empty means "the cursor's directory", and a drop was aimed
+      term.pasteDest = into;
       term.pastePending();
       // the branches a drag opened stay a moment longer — see springGrace
       springGrace.restart();

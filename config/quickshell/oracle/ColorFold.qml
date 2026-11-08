@@ -147,7 +147,7 @@ Item {
             selectionColor: Zenon.alpha(big.type, 0.25)
             selectedTextColor: big.type
             font.family: Zenon.faceMono
-            font.weight: Font.DemiBold
+            font.weight: Zenon.titleWeight
             font.pixelSize: Zenon.px(18)
             maximumLength: 7
             selectByMouse: true
@@ -225,7 +225,7 @@ Item {
         // (user, 2026-10-21) — a custom hex that happens to match counts too
         DialogButton {
           width: tools.width - tools.spacing - pickBtn.width
-          label: "\u{F0450}  Reset"
+          label: "\u{F17B1}  Reset"
           ready: !cf.isTheme
           onClicked: if (!cf.isTheme) cf.useTheme()
         }

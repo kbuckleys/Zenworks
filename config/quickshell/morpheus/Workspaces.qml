@@ -43,8 +43,14 @@ Item {
     return null;
   }
 
-  // monitor-agnostic: any special focused on any monitor counts
-  property string _activeSpecialName: ""
+  // the special shown on each monitor (activespecial>>name,monitor), and
+  // the one on the focused monitor: a special open on the other screen
+  // lit this one's mark too (audit 2026-11-07)
+  property var _activeSpecials: ({})
+  readonly property string _activeSpecialName: {
+    const m = Hyprland.focusedMonitor;
+    return m ? (root._activeSpecials[m.name] || "") : "";
+  }
   // THE SYSTEM BELL (a terminal's BEL; Hyprland 0.57's socket2 `bell>>addr`):
   // howler plays the sound, and the ringing window's workspace blinks once
   // in the accent — never red, red is urgent — when it is not the one you
@@ -65,7 +71,10 @@ Item {
     function onRawEvent(event) {
       if (event.name === "activespecial") {
         const parts = String(event.data).split(",");
-        root._activeSpecialName = parts[0] ? parts[0].trim() : "";
+        const mon = parts.length > 1 ? parts[parts.length - 1].trim() : "";
+        const next = Object.assign({}, root._activeSpecials);
+        next[mon] = parts[0] ? parts[0].trim() : "";
+        root._activeSpecials = next;
       } else if (event.name === "bell") {
         root._ring(event.data);
       }
@@ -184,7 +193,7 @@ Item {
   }
   function clickNumber(ws, isActive) {
     if (root.specialWorkspace !== null && (root.specialFocused || isActive)) root.toggleSpecial();
-    if (!isActive) Hyprland.dispatch(Hypr.focusWorkspace(ws.name));
+    if (!isActive) Hyprland.dispatch(Hypr.focusNamedWorkspace(ws.name));
   }
   MouseArea {
     anchors.fill: parent
@@ -219,6 +228,7 @@ Item {
       text: "\uEAAE"
       color: Zenon.inkOnAccent
       font.family: Zenon.glyphFace
+      font.weight: Zenon.weight
       font.pixelSize: Zenon.clockSize
       opacity: wsLayer.glyphShow
       visible: opacity > 0.01
@@ -373,7 +383,7 @@ Item {
               // pixel at bar size, Light read too thin and a 1px outline far
               // too heavy (user, 2026-10-22), so the active number is Bold
               // with a copy one pixel right (wsThick) widening its uprights.
-              font.weight: btn.isActive ? Font.Bold : Font.Normal
+              font.weight: btn.isActive ? Zenon.titleWeight : Font.Normal
             }
             // the active number's second pass; urgent is never active, so it
             // never needs the black copy's treatment

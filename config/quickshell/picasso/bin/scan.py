@@ -23,6 +23,7 @@
 import hashlib
 import os
 import subprocess
+import threading
 import sys
 from concurrent.futures import ThreadPoolExecutor
 
@@ -55,6 +56,12 @@ def thumb_of(thumbdir, p, size, mt):
     return os.path.join(thumbdir, key + ".jpg")
 
 
+def none_of(path):
+    # "this one gets no thumbnail": beside the key, swept by age as the
+    # thumbnails are (morpheus/thumbs.js sweep)
+    return os.path.splitext(path)[0] + ".none"
+
+
 def has(path):
     try:
         return os.path.getsize(path) > 0
@@ -76,13 +83,39 @@ def orphaned():
     return os.getppid() != PARENT
 
 
+JPEG_EXTS = (".jpg", ".jpeg", ".jpe")
+
+
 def make(src, out, px):
     if orphaned():
         return
+    # as morpheus/thumbs.js generate (audit 11-08): a picture that uses
+    # transparency gets no JPEG in the shared pool, or Terminus and the
+    # shelf would show it flattened where they draw the picture itself
+    if not src.lower().endswith(JPEG_EXTS):
+        r = subprocess.run(["magick", "identify", "-format", "%[opaque]", src],
+                           stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        if r.stdout.strip() == b"False":
+            # remembered, so the decode is paid once per version of a file
+            open(none_of(out), "w").close()
+            return
+    # beside, then moved in: a half-written file under the key is trusted
+    # by every reader for good
+    root, ext = os.path.splitext(out)
+    tmp = "%s.part%d-%d%s" % (root, os.getpid(), threading.get_ident(), ext)
     subprocess.run(["magick", "-define", "jpeg:size=%dx%d" % (2 * px, 2 * px),
                     src + "[0]", "-auto-orient", "-thumbnail", "%dx%d" % (px, px),
-                    "-strip", "-quality", "85", out],
+                    "-strip", "-quality", "85", tmp],
                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    try:
+        if os.path.getsize(tmp) > 0:
+            os.replace(tmp, out)
+    except OSError:
+        pass
+    try:
+        os.unlink(tmp)
+    except OSError:
+        pass
 
 
 def main():
@@ -94,7 +127,17 @@ def main():
     thumbs = [thumb_of(thumbdir, p, sz, mt) for p, sz, mt, _ in rows]
     there = [has(t) for t in thumbs]
     if mode == "make":
-        missing = [(r[0], t) for r, t, h in zip(rows, thumbs, there) if not h]
+        missing = []
+        for r, t, h in zip(rows, thumbs, there):
+            if h:
+                continue
+            if os.path.exists(none_of(t)):
+                try:
+                    os.utime(none_of(t))
+                except OSError:
+                    pass
+                continue
+            missing.append((r[0], t))
         if missing:
             with ThreadPoolExecutor(max_workers=os.cpu_count() or 4) as pool:
                 list(pool.map(lambda m: make(m[0], m[1], px), missing))

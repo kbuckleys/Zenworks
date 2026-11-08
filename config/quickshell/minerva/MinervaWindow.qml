@@ -79,7 +79,7 @@ FloatingWindow {
   }
 
   // lower (user, 2026-10-21): the tools sit in it now, not under it
-  readonly property int headH: 48
+  readonly property int headH: Zenon.toolbarH
   readonly property int sideW: 300
   readonly property var settings: mw.mgr ? mw.mgr.settings : M.defaults()
 
@@ -708,8 +708,7 @@ FloatingWindow {
       height: mw.focusMode ? 0 : mw.headH
       visible: !mw.focusMode
       z: 3
-      Rectangle { anchors.fill: parent; color: Zenon.headBg }
-      Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Zenon.border }
+      HeadGround {}
       Text {
         id: owl
         x: 20
@@ -719,6 +718,7 @@ FloatingWindow {
         color: mw.mode === "reading" ? Zenon.white : Zenon.accent
         opacity: owlPress.pressed ? Zenon.pressDim : 1
         font.family: Zenon.glyphFace
+        font.weight: Zenon.weight
         font.pixelSize: Zenon.px(mw.mode === "reading" ? 26 : 20)
         // the suite's press: a pressFill tile under the chevron
         Rectangle {
@@ -745,9 +745,10 @@ FloatingWindow {
         color: Zenon.ink
         font.family: Zenon.face
         font.weight: Zenon.titleWeight
-        font.pixelSize: Zenon.px(18)
+        font.pixelSize: Zenon.px(17)
       }
       Text {
+        textFormat: Text.PlainText
         anchors.left: headTitle.right
         anchors.leftMargin: 12
         anchors.baseline: headTitle.baseline
@@ -790,70 +791,27 @@ FloatingWindow {
         anchors.verticalCenter: parent.verticalCenter
         spacing: 8
         // find, a field that is always there while reading; the buttons
-        // beside it stand as tall (30)
-        Rectangle {
+        // beside it stand as tall (28)
+        SearchBox {
+          id: findField
+          compact: true
           visible: mw.mode === "reading" && mw.kind !== "comic"
           width: 200
-          height: 30
-          radius: Zenon.windowRadius
-          color: Zenon.wash(0.06)
-          border.width: 1
-          border.color: Zenon.border
-          HeldRing { anchors.fill: parent; on: findField.activeFocus }
-          Text {
-            id: findGlyph
-            x: 10
-            anchors.verticalCenter: parent.verticalCenter
-            text: "\u{F0349}"
-            color: Zenon.accentMuted
-            font.family: Zenon.glyphFace
-            font.pixelSize: Zenon.px(14)
-          }
-          TextInput {
-            id: findField
-            anchors.left: findGlyph.right
-            anchors.leftMargin: 8
-            anchors.right: findClear.left
-            anchors.rightMargin: 6
-            anchors.verticalCenter: parent.verticalCenter
-            clip: true
-            color: Zenon.ink
-            selectionColor: Zenon.accent
-            selectedTextColor: Zenon.inkOnAccent
-            font.family: Zenon.face
-            font.pixelSize: Zenon.px(14)
-            cursorDelegate: Caret { field: findField }
-            Text {
-              anchors.fill: parent
-              verticalAlignment: Text.AlignVCenter
-              visible: findField.text === "" && !findField.activeFocus
-              text: "Find"
-              color: Zenon.accentMuted
-              font: findField.font
+          ghost: "Find"
+          // the words and the find both go, and the field keeps the keys
+          onCleared: mw.find("")
+          keyHook: (e) => {
+            if (e.key === Qt.Key_Return || e.key === Qt.Key_Enter) {
+              if (findField.text !== mw.findText) mw.find(findField.text);
+              else if (mw.page) (e.modifiers & Qt.ShiftModifier) ? mw.page.findPrev() : mw.page.findNext();
+              e.accepted = true;
+            } else if (e.key === Qt.Key_Escape) {
+              findField.text = "";
+              mw.find("");
+              keys.forceActiveFocus();
+              e.accepted = true;
             }
-            Keys.onPressed: (e) => {
-              if (e.key === Qt.Key_Return || e.key === Qt.Key_Enter) {
-                if (findField.text !== mw.findText) mw.find(findField.text);
-                else if (mw.page) (e.modifiers & Qt.ShiftModifier) ? mw.page.findPrev() : mw.page.findNext();
-                e.accepted = true;
-              } else if (e.key === Qt.Key_Escape) {
-                findField.text = "";
-                mw.find("");
-                keys.forceActiveFocus();
-                e.accepted = true;
-              }
-            }
-          }
-          // terminus' clear chip, as every search field wears it: the words
-          // and the find both go, and the field keeps the keys
-          ClearChip {
-            id: findClear
-            size: Zenon.px(14)
-            shown: findField.text !== ""
-            anchors.right: parent.right
-            anchors.rightMargin: 8
-            anchors.verticalCenter: parent.verticalCenter
-            onClicked: { findField.text = ""; mw.find(""); findField.forceActiveFocus(); }
+
           }
         }
         // the five reading buttons stand here while the sidebar is shut,
@@ -862,7 +820,7 @@ FloatingWindow {
           id: headSlot
           visible: mw.mode === "reading"
           width: tools5.parent === headSlot ? tools5.implicitWidth : 0
-          height: 30
+          height: 28
         }
         // the library's own
         DialogButton {
@@ -1036,6 +994,7 @@ FloatingWindow {
           text: "\u{F0226}"
           color: Zenon.accent
           font.family: Zenon.glyphFace
+          font.weight: Zenon.weight
           font.pixelSize: Zenon.px(40)
         }
         Text {
@@ -1149,7 +1108,7 @@ FloatingWindow {
             text: voice.paused ? "Paused" : "Reading aloud"
             color: Zenon.accent
             font.family: Zenon.face
-            font.weight: Font.DemiBold
+            font.weight: Zenon.titleWeight
             font.pixelSize: Zenon.px(14)
             rightPadding: 6
           }
@@ -1170,6 +1129,7 @@ FloatingWindow {
           : M.percentWords(mw.book ? mw.book.progress : 0)
         color: Zenon.alpha(Qt.lighter(mw.look.ink, 1), 0.45)
         font.family: Zenon.face
+        font.weight: Zenon.weight
         font.pixelSize: Zenon.px(12)
       }
     }
@@ -1290,6 +1250,7 @@ FloatingWindow {
           visible: text !== ""
           color: Zenon.accentMuted
           font.family: Zenon.face
+          font.weight: Zenon.weight
           font.pixelSize: Zenon.px(12)
         }
         Item { width: 1; height: 4; visible: mw.paged }
@@ -1469,6 +1430,7 @@ FloatingWindow {
       spacing: 14
       Keys.onEscapePressed: { mw.noteSheetOpen = false; keys.forceActiveFocus(); }
       Text {
+        textFormat: Text.PlainText
         text: !mw.noteFor ? "A note on " + (mw.page && mw.page.ready ? mw.placeWords(mw.page.where).replace(/ · \d+%$/, "") : "this page")
           : mw.noteFor.list === "marks" ? "A note on the bookmark" : "A note on the highlight"
         color: Zenon.ink
@@ -1486,6 +1448,7 @@ FloatingWindow {
         text: { const m = mw.noteFor ? mw.markOf(mw.noteFor.id, mw.noteFor.list) : null; return m ? "“" + m.text + "”" : ""; }
         color: Zenon.accentMuted
         font.family: mw.mgr ? mw.mgr.serifFace : Zenon.face
+        font.weight: Zenon.weight
         font.pixelSize: Zenon.px(14)
       }
       Rectangle {
@@ -1503,9 +1466,10 @@ FloatingWindow {
           width: parent.width - 20
           wrapMode: TextEdit.Wrap
           color: Zenon.ink
-          selectionColor: Zenon.accent
-          selectedTextColor: Zenon.inkOnAccent
+          selectionColor: Zenon.selBg
+          selectedTextColor: Zenon.white
           font.family: Zenon.face
+          font.weight: Zenon.weight
           font.pixelSize: Zenon.px(15)
           cursorDelegate: Caret { field: noteEdit }
           Keys.onPressed: (e) => {
@@ -1534,6 +1498,7 @@ FloatingWindow {
           text: "ctrl return"
           color: Zenon.accentMuted
           font.family: Zenon.face
+          font.weight: Zenon.weight
           font.pixelSize: Zenon.px(12)
         }
       }

@@ -204,9 +204,17 @@ module.exports = {
     t.eq("drop: a link alone is words", D.dropSorted(["https://x/page"], "", false).words, "https://x/page");
     t.eq("drop: text is words", D.dropSorted([], "hello", false).words, "hello");
     t.eq("base64", D.base64Of(new Uint8Array([77, 97, 110, 77, 97]).buffer), "TWFuTWE=");
+    t.eq("media on github's own host loads", D.mediaOwnHost("https://user-images.githubusercontent.com/1/a.png", []), true);
+    t.eq("media on codeberg loads", D.mediaOwnHost("https://codeberg.org/o/n/attachments/x", []), true);
+    t.eq("media elsewhere waits", D.mediaOwnHost("https://tracker.example/p.gif", []), false);
+    t.eq("a look-alike host waits", D.mediaOwnHost("https://evilgithub.com/p.gif", []), false);
+    t.eq("a user@ before the host is not the host", D.mediaOwnHost("https://github.com@evil.example/p.gif", []), false);
+    t.eq("the repository's own host loads", D.mediaOwnHost("https://git.home.lan/o/n/a.png", ["git.home.lan"]), true);
+    t.eq("a file here is not web media", D.mediaOwnHost("file:///tmp/a.png", []), false);
     t.eq("md comments", D.mdOf("a\r\n<!-- template -->\n\n\n\nb"), "a\n\nb");
     t.eq("md picture", D.mdOf("see ![shot](https://x/y.png \"t\")"), "see [shot](https://x/y.png)");
     t.eq("md img tag", D.mdOf('<img width="5" src="https://x/z.png">'), "[picture](https://x/z.png)");
+    t.eq("md: no attribute names a picture", D.mdOf("<td style=\"background-image:url(https://x)\" background=\"https://y\">hi</td> <a href=\"https://ok\">l</a>"), "<td>hi</td> <a href=\"https://ok\">l</a>");
     // a stranger's notes never make the view fetch a picture
     t.eq("md img, other quotes", [D.mdOf("<img src='https://x/a.png'>"), D.mdOf("<img src=https://x/a.png>"), D.mdOf("<img alt=x>")],
       ["[picture](https://x/a.png)", "[picture](https://x/a.png)", ""]);

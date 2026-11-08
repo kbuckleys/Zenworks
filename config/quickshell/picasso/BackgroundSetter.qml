@@ -415,14 +415,6 @@ Item {
 
   onPathChanged: if (card.shown) card.askDims()
 
-  function fillOf(fit) {
-    if (fit === "fit") return Image.PreserveAspectFit;
-    if (fit === "stretch") return Image.Stretch;
-    if (fit === "pad") return Image.Pad;
-    if (fit === "tile") return Image.Tile;
-    return Image.PreserveAspectCrop;
-  }
-
   function sizeText(bytes) {
     if (!(bytes > 0)) return "";
     if (bytes >= 1048576) return (bytes / 1048576).toFixed(1) + " MB";
@@ -802,6 +794,9 @@ Item {
         anchors.fill: parent
         visible: !card.isColor
         source: preview.thumbSrc
+        // no row thumbnail falls back to the original: decoded at a
+        // thumbnail's size, not a 40 MP photograph's (audit 11-08)
+        sourceSize: Qt.size(480, 480)
         fillMode: Image.PreserveAspectFit
         asynchronous: true
         retainWhileLoading: true
@@ -870,7 +865,7 @@ Item {
       color: Art.hexToHsv(card.colorHex).v > 0.6 && Art.hexToHsv(card.colorHex).s < 0.5
         ? Qt.rgba(0, 0, 0, 0.45) : Qt.rgba(1, 1, 1, 0.45)
       font.family: Zenon.face
-      font.weight: 600
+      font.weight: Zenon.titleWeight
       font.pixelSize: Zenon.px(32)
     }
 
@@ -927,7 +922,7 @@ Item {
             ? "On every display" : "On " + card.shownOn.join(", "))
         color: Zenon.inkOnAccent
         font.family: Zenon.face
-        font.weight: 600
+        font.weight: Zenon.titleWeight
         font.pixelSize: card.tsSmall
       }
     }
@@ -965,7 +960,7 @@ Item {
         text: card.isColor ? Art.colorName(card.colorHex) : Art.label(card.path)
         color: card.fgColor
         font.family: Zenon.face
-        font.weight: 600
+        font.weight: Zenon.titleWeight
         font.pixelSize: card.tsName
         elide: Text.ElideRight
       }
@@ -1051,7 +1046,7 @@ Item {
         text: card.allStaged ? "None" : "All"
         color: allMa.pressed ? card.highlight : card.dimColor
         font.family: Zenon.face
-        font.weight: 600
+        font.weight: Zenon.titleWeight
         font.pixelSize: card.ts
         MouseArea {
           id: allMa
@@ -1153,7 +1148,7 @@ Item {
                   readonly property string thumb: card.thumbOf[mon.shownPath] || ""
                   source: mon.shownPath === "" || monScene.solid !== "" ? ""
                     : (monImg.thumb !== "" ? "file://" + monImg.thumb : Strings.fileUrl(mon.shownPath))
-                  fillMode: card.fillOf(mon.fit)
+                  fillMode: Picasso.fillOf(mon.fit)
                   horizontalAlignment: monScene.hAlign
                   verticalAlignment: monScene.vAlign
                   sourceSize: monImg.natural
@@ -1185,7 +1180,7 @@ Item {
                 text: (card.multi ? (mon.index + 1) + "  " : "") + mon.name
                 color: mon.staged ? card.highlight : Zenon.white
                 font.family: Zenon.face
-                font.weight: 600
+                font.weight: Zenon.titleWeight
                 font.pixelSize: Zenon.px(12)
               }
             }
@@ -1326,7 +1321,7 @@ Item {
               height: 14
               radius: Zenon.rad(3)
               color: cell.on ? card.highlight
-                : (cellMa.pressed ? Zenon.wash(0.22) : Zenon.wash(0.07))
+                : (cellMa.pressed ? Zenon.pressWash(0.22) : Zenon.wash(0.07))
               border.width: 1
               border.color: cell.on ? card.highlight : Zenon.border
               MouseArea {
@@ -1436,7 +1431,6 @@ Item {
         path: card.path
         showBackdrop: !card.isColor
         // cropped or stretched, the picture covers the screen
-        fills: card.effFit === "crop" || card.effFit === "stretch"
         kbRow: card.kbShown ? card.kbRow : ""
         customTint: card.customTint
         tips: cardTips

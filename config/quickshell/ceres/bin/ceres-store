@@ -281,8 +281,11 @@ def refresh_flathub_own():
 def fetch_icons(apps):
     """Fill in the icons of Ceres' own copy that these apps wear; one that
     cannot be had leaves the app on its stock icon."""
-    own = FLATHUB_OWN + os.sep
-    want = [a for a in apps if a.get("icon", "").startswith(own) and not os.path.exists(a["icon"])]
+    own = os.path.realpath(FLATHUB_OWN) + os.sep
+    # the name is the catalog's: a "../" in it wrote outside our own copy
+    # (audit 11-08), so the resolved path is what must stay inside
+    want = [a for a in apps if a.get("icon", "")
+            and os.path.realpath(a["icon"]).startswith(own) and not os.path.exists(a["icon"])]
 
     def one(a):
         url = FLATHUB_URL + os.path.relpath(a["icon"], FLATHUB_OWN)
@@ -757,6 +760,10 @@ def shot_path(url):
 
 
 def fetch_shot(url):
+    # a catalog's URL: the web only (urllib also opens file:// and ftp://),
+    # and one line of the url\tpath answer (audit 11-08)
+    if not url.startswith(("https://", "http://")) or any(c in url for c in "\t\r\n"):
+        return url, ""
     path = shot_path(url)
     if os.path.exists(path) and os.path.getsize(path) > 0:
         os.utime(path)
@@ -803,6 +810,8 @@ def cmd_shots(urls):
     os.makedirs(SHOTS, exist_ok=True)
     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as ex:
         for url, path in ex.map(fetch_shot, urls):
+            if any(c in url for c in "\t\r\n"):
+                continue
             sys.stdout.write(url + "\t" + path + "\n")
             sys.stdout.flush()
     prune_shots()

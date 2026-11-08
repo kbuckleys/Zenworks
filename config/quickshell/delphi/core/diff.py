@@ -71,6 +71,16 @@ def _git_line_paths(rest):
     return _strip_ab(rest[:n]), _strip_ab(rest[n + 1:])
 
 
+def token(f):
+    """The file's `index <old>..<new>` line: both blob ids, so it changes
+    whenever either side does. "" when git printed none (a mode-only
+    change, a new empty file)."""
+    for raw in f.get("header", []):
+        if raw.startswith("index "):
+            return raw
+    return ""
+
+
 def parse(text):
     """A whole `git diff` (any number of files) → list of file dicts:
        {old, new, status, binary, header:[raw lines], hunks:[...]}

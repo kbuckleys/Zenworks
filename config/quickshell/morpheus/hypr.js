@@ -46,6 +46,13 @@ function byAddress(address) {
 function focusWindow(selector) { return "hl.dsp.focus({ window = " + lua(selector) + " })"; }
 function focusTitle(title) { return focusWindow(byTitle(title)); }
 function focusWorkspace(name) { return "hl.dsp.focus({ workspace = " + lua(name) + " })"; }
+// one of Hyprland's own workspaces, by the name it reports: a named one has to
+// be asked for as name:x (layout.lua, apprestore.py), a bare word is no selector
+function workspaceSelector(name) {
+  const n = String(name ?? "");
+  return n === "" || /^\d+$/.test(n) || n.indexOf("special:") === 0 ? n : "name:" + n;
+}
+function focusNamedWorkspace(name) { return focusWorkspace(workspaceSelector(name)); }
 // a tag on or off a window, for a rule that matches it (rules.lua's zen-peek)
 function tagWindow(selector, tag, on) {
   return "hl.dsp.window.tag({ tag = " + lua((on ? "+" : "-") + tag) + ", window = " + lua(selector) + " })";

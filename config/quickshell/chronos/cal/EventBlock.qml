@@ -70,7 +70,7 @@ Rectangle {
       text: blk.ev ? blk.ev.title + (blk.ev.repeats ? "  \u{F0456}" : "") : ""
       color: Zenon.ink
       font.family: Zenon.face
-      font.weight: Font.DemiBold
+      font.weight: Zenon.titleWeight
       font.pixelSize: Zenon.px(12)
     }
     Text {

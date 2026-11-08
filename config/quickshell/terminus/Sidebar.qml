@@ -97,7 +97,7 @@ Rectangle {
     // stops at the trash foot, which takes its own drops
     anchors.bottomMargin: sideFoot.height
     visible: sideDrop.containsDrag
-    color: Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.07)
+    color: Zenon.alpha(Zenon.accent, 0.07)
     border.width: 1
     border.color: Zenon.border
 

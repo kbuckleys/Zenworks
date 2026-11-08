@@ -17,7 +17,6 @@
 // Not tied to a repository: it is on the "Everywhere" side, like Accounts.
 
 import QtQuick
-import Quickshell
 import "../morpheus"
 import "../terminus"
 import "delphi.js" as D
@@ -33,7 +32,7 @@ Item {
       + (pg.st.agent ? "  ·  the agent keeps passphrases" : "")
   readonly property var hints: [["n", "new"], ["t", "test"], ["u", "use for a host"], ["a", "add to a forge"], ["m", "remember"], ["c", "copy"], ["d", "delete"]]
   readonly property var buttons: [
-    { label: "Delete", ink: Zenon.red, visible: !!pg.key_ && !!pg.st && pg.st.ssh, run: () => pg.remove(pg.key_) },
+    { label: "\u{F0A7A}", glyph: true, ink: Zenon.red, visible: !!pg.key_ && !!pg.st && pg.st.ssh, run: () => pg.remove(pg.key_) },
     { label: "Test", visible: !!pg.key_ && pg.key_.hosts.length > 0, run: () => pg.test(pg.key_) },
     pg.st && !pg.st.ssh ? { label: "Install openssh", ink: Zenon.accent, primary: true, run: () => pg.needOpenssh(null) }
                         : { label: "New key", ink: Zenon.accent, primary: true, run: () => pg.newKey([]) },
@@ -195,7 +194,7 @@ Item {
           + (h.where || "your account's SSH keys") + ". Then test it.",
         items: [k.public.slice(0, 64) + "…"],
         choices: [{ label: "Copy the key", keep: true, run: () => pg.win.copy(k.public, "the public key") },
-                  { label: "Open the " + h.name, keep: true, run: () => Quickshell.execDetached(["xdg-open", h.page]) },
+                  { label: "Open the " + h.name, keep: true, run: () => Strings.openLink(h.page) },
                   { label: "Test it now", ink: Zenon.accent, run: () => { pages.shift(); paste(); } },
                   { label: "Later", ink: Zenon.accentMuted, run: () => { pg.win.say("Test it from this page (t) once it is pasted"); } }] });
     };
@@ -381,6 +380,7 @@ Item {
         text: ""
         color: krow.k.passphrase === false ? Zenon.yellow : krow.index === pg.sel ? Zenon.ink : Zenon.accentSoft
         font.family: Zenon.glyphFace
+        font.weight: Zenon.weight
         font.pixelSize: Zenon.px(16)
       }
       Column {
@@ -401,6 +401,7 @@ Item {
           font.pixelSize: Zenon.px(15)
         }
         Text {
+          textFormat: Text.PlainText
           width: parent.width
           elide: Text.ElideRight
           text: [krow.k.type,

@@ -25,7 +25,7 @@ Item {
   property string text: ""
   property color color: Zenon.white
   property real pixelSize: Zenon.px(16)
-  property int weight: Font.Bold
+  property int weight: Zenon.titleWeight
   // the most it may take before the name elides (the field scrolls instead)
   property real maxWidth: 400
   property bool editable: false
@@ -93,7 +93,7 @@ Item {
     // `field: field` bound it to itself (a binding loop, 2026-10-15)
     cursorDelegate: Caret { field: tn.input }
     color: Zenon.white
-    selectionColor: Zenon.alpha(Zenon.accent, 0.22)
+    selectionColor: Zenon.selBg
     selectedTextColor: Zenon.white
     selectByMouse: true
     clip: true

@@ -49,7 +49,7 @@ Item {
                                 ["f", "find on disk"], ["r", "fetch all"]].concat(pg.hubOfRow(pg.row) ? [["a", "archive"]] : []).concat([ ["d", pg.row && pg.missing[pg.row.root] ? "remove" : pg.row && pg.row.kind === "forgotten" ? "remember" : "forget"], ["shift d", "delete"], ["/", "filter"]])
   readonly property var buttons: [
     { label: "Remove " + pg.lost.length + " missing", ink: Zenon.yellow, visible: pg.lost.length > 1, run: () => pg.dropMissing() },
-    { label: "Delete", ink: Zenon.red, visible: !!pg.row && pg.missing[pg.row.root] !== "gone", run: () => pg.trash(pg.row) },
+    { label: "\u{F0A7A}", glyph: true, ink: Zenon.red, visible: !!pg.row && pg.missing[pg.row.root] !== "gone", run: () => pg.trash(pg.row) },
     { label: pg.row && pg.missing[pg.row.root] ? "Remove" : pg.row && pg.row.kind === "forgotten" ? "Remember" : "Forget",
       visible: !!pg.row, run: () => pg.forget(pg.row) },
     { label: "Find on disk", visible: !pg.scanning, run: () => pg.scan() },
@@ -275,6 +275,9 @@ Item {
           + (remote ? "The copy on " + remote.host + " (" + remote.full + ") is not touched." : "It has no remote: this is the only copy."),
         items: [D.tilde(r.root, pg.win.home)], verb: "Move to trash",
         then: () => {
+          // one at a time: a second one queued under the first's root and
+          // name, and the first was never forgotten (audit 11-07)
+          if (trasher.running) { pg.win.say("Still moving " + trasher.name + " to the trash — delete " + r.name + " after"); return; }
           if (pg.win.root === r.root) { pg.win.unwatch(); pg.win.closeRepo(); }
           trasher.root = r.root;
           trasher.name = r.name;
@@ -345,16 +348,13 @@ Item {
     return false;
   }
 
-  BulkField {
+  SearchBox {
     id: filter
     anchors.left: parent.left
     anchors.right: parent.right
     anchors.top: parent.top
     anchors.margins: 12
-    height: 32
-    textSize: Zenon.px(15)
-    ghost: "  Filter  ( / )"
-    clearable: true
+    ghost: "Filter  ( / )"
     onTextChanged: pg.query = filter.text.trim()
     onAccepted: pg.win.focusKeys()
     Keys.onEscapePressed: { filter.text = ""; pg.win.focusKeys(); }
@@ -398,6 +398,7 @@ Item {
           text: ""
           color: parent.lostAs !== "" ? Zenon.yellow : parent.here ? Zenon.accent : Zenon.accentMuted
           font.family: Zenon.glyphFace
+          font.weight: Zenon.weight
           font.pixelSize: Zenon.px(17)
         }
         // its forge and what its checks said of its head, on the right
@@ -410,11 +411,13 @@ Item {
           readonly property var hub: pg.hubOfRow(rrow.r)
           CiDot { anchors.verticalCenter: parent.verticalCenter; c: pg.ciOfRow(rrow.r) }
           Text {
+            textFormat: Text.PlainText
             visible: !!tail.hub
             anchors.verticalCenter: parent.verticalCenter
             text: tail.hub && D.FORGES[tail.hub.forge] ? D.FORGES[tail.hub.forge].glyph : ""
             color: Zenon.accentMuted
             font.family: Zenon.glyphFace
+            font.weight: Zenon.weight
             font.pixelSize: Zenon.px(15)
           }
         }

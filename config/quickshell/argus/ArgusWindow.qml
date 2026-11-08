@@ -35,6 +35,7 @@ import "../morpheus/controls" as Ctl
 import "../terminus"
 import "../picasso" as Pic
 import "argus.js" as A
+import "../morpheus/runjob.js" as RunJob
 
 FloatingWindow {
   id: aw
@@ -46,7 +47,16 @@ FloatingWindow {
 
   property var mgr: null
 
-  onVisibleChanged: if (!aw.visible) Qt.callLater(() => { stopSave(); if (aw.mgr) aw.mgr.retire(aw); aw.destroy(); })
+  // a save stopped by the close is not left half-written under its real
+  // name: the window is gone before the save's onExited could remove it
+  // (audit 11-08); an unlinked file ffmpeg still holds goes with it
+  onVisibleChanged: if (!aw.visible) Qt.callLater(() => {
+    const half = saveProc.running && aw.savingTo !== "" ? aw.savingTo : "";
+    stopSave();
+    if (half !== "") Quickshell.execDetached(["rm", "-f", "--", half]);
+    if (aw.mgr) aw.mgr.retire(aw);
+    aw.destroy();
+  })
   onClosed: aw.visible = false
 
   readonly property int sideW: 300
@@ -82,9 +92,11 @@ FloatingWindow {
     const again = String(player.source) === Strings.fileUrl(p) && player.duration > 0;
     player.source = Strings.fileUrl(p);
     if (again) { aw.outMs = player.duration; aw.makeStrip(); }
-    factsProc.command = ["ffprobe", "-v", "error", "-select_streams", "v:0",
-      "-show_entries", "stream=width,height,r_frame_rate:format=size,duration,start_time", "-of", "json", p];
-    factsProc.running = true;
+    // each run its own job (RunJob, audit 11-08): a second file opened
+    // while the first's probe or strip ran got the old one's facts and a
+    // blank strip
+    RunJob.latest(factsProc, { path: p, command: ["ffprobe", "-v", "error", "-select_streams", "v:0",
+      "-show_entries", "stream=width,height,r_frame_rate:format=size,duration,start_time", "-of", "json", p] });
   }
   // the length arrives with the media: the cut starts as all of it
   Connections {
@@ -115,10 +127,14 @@ FloatingWindow {
   // ── WHAT IT IS ─────────────────────────────────────────────────────────
   Process {
     id: factsProc
+    property var job: null
+    property var want: null
+    onExited: RunJob.next(factsProc)
     stdout: StdioCollector {
       id: factsOut
       waitForEnd: true
       onStreamFinished: {
+        if (!RunJob.current(factsProc) || factsProc.job.path !== aw.path) return;
         try {
           const j = JSON.parse(factsOut.text);
           const st = (j.streams || [])[0] || {};
@@ -143,21 +159,24 @@ FloatingWindow {
   function makeStrip() {
     if (aw.path === "" || aw.dur <= 0) return;
     const dir = aw.stripDir + "/" + Qt.md5(aw.path + ":" + aw.dur);
-    stripProc.dir = dir;
     // made once per file: kept in the cache and reused while the last frame
     // is there; the directory is $1, the ffmpeg line the rest
-    stripProc.command = ["sh", "-c", "d=$1; shift; mkdir -p \"$d\" || exit 1; "
+    RunJob.latest(stripProc, { dir: dir, command: ["sh", "-c", "d=$1; shift; mkdir -p \"$d\" || exit 1; "
       + "[ -s \"$d/f" + (aw.stripCount < 10 ? "0" : "") + aw.stripCount + ".jpg\" ] && exit 0; "
-      + "rm -f \"$d\"/f*.jpg; exec \"$@\"", "sh", dir].concat(A.stripArgs(aw.path, dir, aw.dur, aw.stripCount));
-    stripProc.running = true;
+      + "rm -f \"$d\"/f*.jpg; exec \"$@\"", "sh", dir].concat(A.stripArgs(aw.path, dir, aw.dur, aw.stripCount)) });
   }
   Process {
     id: stripProc
-    property string dir: ""
+    property var job: null
+    property var want: null
     onExited: {
-      const out = [];
-      for (let i = 1; i <= aw.stripCount; ++i) out.push("file://" + stripProc.dir + "/f" + (i < 10 ? "0" : "") + i + ".jpg");
-      aw.frames = out;
+      // a strip stopped for the next file's is not shown as this one's
+      if (RunJob.current(stripProc)) {
+        const out = [];
+        for (let i = 1; i <= aw.stripCount; ++i) out.push("file://" + stripProc.job.dir + "/f" + (i < 10 ? "0" : "") + i + ".jpg");
+        aw.frames = out;
+      }
+      RunJob.next(stripProc);
     }
   }
 
@@ -632,6 +651,7 @@ FloatingWindow {
         style: Text.Outline
         styleColor: Zenon.shade(0.6)
         font.family: Zenon.glyphFace
+        font.weight: Zenon.weight
         font.pixelSize: Zenon.px(44)
       }
       EmptyState {
@@ -655,6 +675,7 @@ FloatingWindow {
         text: player.going ? "" : ""
         color: playPress.pressed ? Zenon.accent : Zenon.white
         font.family: Zenon.glyphFace
+        font.weight: Zenon.weight
         font.pixelSize: Zenon.px(16)
         MouseArea { id: playPress; anchors.fill: parent; anchors.margins: -8; onClicked: aw.toggle() }
       }
@@ -675,7 +696,7 @@ FloatingWindow {
         font.features: { "tnum": 1 }
         color: Zenon.yellow
         font.family: Zenon.face
-        font.weight: 600
+        font.weight: Zenon.titleWeight
         font.pixelSize: Zenon.px(14)
       }
       Text {
@@ -685,6 +706,7 @@ FloatingWindow {
         text: aw.muted ? "" : ""
         color: aw.muted ? Zenon.red : mutePress.pressed ? Zenon.accent : Zenon.white
         font.family: Zenon.glyphFace
+        font.weight: Zenon.weight
         font.pixelSize: Zenon.px(15)
         MouseArea { id: mutePress; anchors.fill: parent; anchors.margins: -8; onClicked: aw.muted = !aw.muted }
       }
@@ -737,8 +759,7 @@ FloatingWindow {
         z: 2
         width: parent.width
         height: barCol.implicitHeight + 24
-        Rectangle { anchors.fill: parent; color: Zenon.headBg }
-        Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Zenon.border }
+        HeadGround {}
         Column {
           id: barCol
           x: 20

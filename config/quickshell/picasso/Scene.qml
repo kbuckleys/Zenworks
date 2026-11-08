@@ -138,7 +138,7 @@ Item {
       anchors.fill: parent
       visible: false
       source: scene.look.backdrop === "blur" && scene.solid === "" && scene.thumb !== ""
-        ? "file://" + scene.thumb : ""
+        ? Strings.fileUrl(scene.thumb) : ""
       fillMode: Image.PreserveAspectCrop
       asynchronous: true
       // a new picture keeps the last one's light until its own is decoded

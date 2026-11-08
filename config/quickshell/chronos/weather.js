@@ -155,14 +155,25 @@ function forecastUrl(lat, lon) {
     + "&timezone=auto&forecast_days=7";
 }
 
-// ip-api over plain http: the free tier has no https, and this asks for a
-// city and a coordinate pair and nothing else.
+// ipwho.is, over https: no key, and asked for a city and a coordinate pair
+// and nothing else. Not ip-api, whose free tier is plain http — anyone on
+// the path could name the place and move the forecast (audit 11-08).
 //
 // A function rather than an exported const, like everything else reachable
 // from QML here: a .js library hands the importer its top-level FUNCTIONS, and
 // a `const` is not reliably one of them.
 function locateUrl() {
-  return "http://ip-api.com/json/?fields=status,lat,lon,city,country";
+  return "https://ipwho.is/?fields=success,latitude,longitude,city";
+}
+
+// its answer → { lat, lon, place }, or null when it declined (an address it
+// cannot place, its rate limit)
+function parseLocate(text) {
+  const j = JSON.parse(text);
+  if (!j || j.success !== true) return null;
+  const lat = Number(j.latitude), lon = Number(j.longitude);
+  if (!isFinite(lat) || !isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return null;
+  return { lat: lat, lon: lon, place: typeof j.city === "string" && j.city !== "" ? j.city : "here" };
 }
 
 // ── parsing ────────────────────────────────────────────────────────────

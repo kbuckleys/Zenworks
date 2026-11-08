@@ -23,6 +23,11 @@ Column {
   // where a relative picture's address starts (a Markdown file's own
   // directory, in plato's preview); "" for none — a release's notes
   property string base: ""
+  // pictures and videos from other servers than the forge's wait for a
+  // click (D.mediaOwnHost); loadAll for words of your own — the release
+  // editor's preview, plato's Markdown preview
+  property bool loadAll: false
+  property var ownHosts: []
 
   readonly property var parts: D.notesParts(view.body)
   spacing: 10
@@ -47,7 +52,8 @@ Column {
       }
       Component {
         id: mediaComp
-        NotesMedia { width: part.width; kind: part.modelData.kind; url: part.modelData.url; alt: part.modelData.alt; base: view.base }
+        NotesMedia { width: part.width; kind: part.modelData.kind; url: part.modelData.url; alt: part.modelData.alt; base: view.base
+                     held: !view.loadAll && !D.mediaOwnHost(part.modelData.url, view.ownHosts) }
       }
     }
   }

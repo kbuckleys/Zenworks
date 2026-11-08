@@ -52,7 +52,7 @@ Column {
       text: "\u{F0336}  " + (nh.entry ? nh.n.prompt : "")
       color: Zenon.accentSoft
       font.family: Zenon.face
-      font.weight: Font.DemiBold
+      font.weight: Zenon.titleWeight
       font.italic: true
       font.pixelSize: Zenon.px(15)
     }
@@ -75,14 +75,14 @@ Column {
         text: nh.entry ? "  " + N.dateLong(nh.n.date) : ""
         color: Zenon.ink
         font.family: Zenon.face
-        font.weight: Font.DemiBold
+        font.weight: Zenon.titleWeight
         font.pixelSize: Zenon.px(13)
       }
       MouseArea { id: datePress; anchors.fill: parent; enabled: !nh.n || !nh.n.deleted; onClicked: nh.pane.win.dateOpen = true }
     }
     // how it felt
     Rectangle {
-      height: 30
+      height: 28
       width: moodText.implicitWidth + 24
       radius: Zenon.windowRadius
       readonly property var mood: nh.entry && nh.n.mood ? N.moodOf(nh.n.mood.v) : null
@@ -97,28 +97,18 @@ Column {
           : "\u{F01F5}  How did it feel?"
         color: parent.mood ? Zenon.ink : Zenon.accentMuted
         font.family: Zenon.face
-        font.weight: Font.DemiBold
+        font.weight: Zenon.titleWeight
         font.pixelSize: Zenon.px(13)
       }
       MouseArea { id: moodPress; anchors.fill: parent; enabled: !nh.n || !nh.n.deleted; onClicked: nh.pane.win.moodOpen = true }
     }
     // kept
-    Rectangle {
-      height: 30
-      width: 34
-      radius: Zenon.windowRadius
+    DialogButton {
       readonly property bool on: nh.entry && !!nh.n.bookmark
-      color: on ? Zenon.alpha(Zenon.accent, 0.16) : Zenon.wash(0.05)
-      border.width: 1
-      border.color: on ? Zenon.alpha(Zenon.accent, 0.6) : Zenon.border
-      Text {
-        anchors.centerIn: parent
-        text: parent.on ? "\uF47A" : "\uF461"
-        color: parent.on ? Zenon.accent : Zenon.accentMuted
-        font.family: Zenon.glyphFace
-        font.pixelSize: Zenon.px(14)
-      }
-      MouseArea { anchors.fill: parent; onClicked: nh.pane.mgr.setField(nh.n.id, "bookmark", !nh.n.bookmark, false) }
+      glyph: true
+      label: on ? "\uF47A" : "\uF461"
+      ink: on ? Zenon.accent : Zenon.muted
+      onClicked: nh.pane.mgr.setField(nh.n.id, "bookmark", !nh.n.bookmark, false)
     }
   }
 }

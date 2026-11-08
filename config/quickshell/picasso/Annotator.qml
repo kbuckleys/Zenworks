@@ -433,7 +433,7 @@ Item {
     anchors.right: parent.right
     height: 52
     color: Zenon.headBg
-    Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Zenon.border }
+    Hairline { anchors.bottom: parent.bottom; width: parent.width }
 
     // ── A NARROW WINDOW ────────────────────────────────────────────
     // The tools from the left and the verbs from the right met in the
@@ -468,7 +468,7 @@ Item {
       Rectangle {
         anchors.verticalCenter: parent.verticalCenter
         width: 34; height: 34; radius: Zenon.windowRadius
-        color: backMa.pressed ? Zenon.wash(0.06) : "transparent"
+        color: backMa.pressed ? Zenon.pressWash(0.12) : "transparent"
         Text {
           anchors.centerIn: parent
           text: ""
@@ -500,8 +500,8 @@ Item {
             required property var modelData
             readonly property bool on: ann.tool === modelData[0]
             width: 34; height: 34; radius: Zenon.windowRadius
-            color: on ? Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.20)
-              : (toolMa.pressed ? Zenon.wash(0.06) : "transparent")
+            color: on ? Zenon.alpha(Zenon.accent, 0.20)
+              : (toolMa.pressed ? Zenon.pressWash(0.12) : "transparent")
             border.width: on ? 1 : 0
             border.color: Zenon.accent
             Text {
@@ -548,7 +548,7 @@ Item {
               hoverEnabled: true
               onClicked: ann.ink = modelData
               onContainsMouseChanged: containsMouse
-                ? tips.show(parent, ["Red", "Peach", "Green", "Cyan", "Blue", "Violet",
+                ? tips.show(parent, ["Red", "Yellow", "Green", "Accent", "Blue", "Violet",
                                      "White", "Black"][index], String(index + 1))
                 : tips.hide(parent)
             }
@@ -590,7 +590,7 @@ Item {
         id: roundBtn
         anchors.verticalCenter: parent.verticalCenter
         width: 30; height: 30; radius: Zenon.windowRadius
-        color: ann.rounded ? Zenon.wash(0.10) : (roundMa.pressed ? Zenon.wash(0.06) : "transparent")
+        color: ann.rounded ? Zenon.wash(0.10) : (roundMa.pressed ? Zenon.pressWash(0.12) : "transparent")
         Rectangle {
           anchors.centerIn: parent
           width: 14; height: 11
@@ -661,6 +661,7 @@ Item {
       enabled: !bar.tight
       Text {
         anchors.verticalCenter: parent.verticalCenter
+        textFormat: Text.PlainText
         text: ann.note
         color: Zenon.sand
         font.family: Zenon.face
@@ -853,7 +854,7 @@ Item {
             text: ann.nextNumber
             color: Cap.inkOn(ann.rgbOf(ann.ink)[0], ann.rgbOf(ann.ink)[1], ann.rgbOf(ann.ink)[2])
             font.family: Zenon.face
-            font.weight: Font.Bold
+            font.weight: Zenon.titleWeight
             font.pixelSize: parent.r * 1.1
           }
         }
@@ -941,7 +942,7 @@ Item {
         width: Math.max(40, contentWidth + 4)
         color: ann.ink
         font.family: Zenon.face
-        font.weight: Font.Bold
+        font.weight: Zenon.titleWeight
         font.pixelSize: ann.textPx
         selectionColor: Zenon.selBg
         Rectangle {

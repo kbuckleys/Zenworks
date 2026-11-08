@@ -63,7 +63,7 @@ PanelWindow {
   FontMetrics {
     id: nameMetrics
     font.family: Zenon.face
-    font.weight: Font.Medium
+    font.weight: Zenon.weight
     font.pixelSize: Zenon.px(16)
   }
   FontMetrics {
@@ -75,7 +75,7 @@ PanelWindow {
   FontMetrics {
     id: headMetrics
     font.family: Zenon.face
-    font.weight: Font.Medium
+    font.weight: Zenon.weight
     font.pixelSize: Zenon.px(15)
   }
   readonly property int fitWidth: {
@@ -436,7 +436,7 @@ PanelWindow {
         FontMetrics {
           id: crumbMetrics
           font.family: Zenon.face
-          font.weight: Font.Medium
+          font.weight: Zenon.weight
           font.pixelSize: Zenon.px(15)
         }
 
@@ -480,7 +480,7 @@ PanelWindow {
                 width: header.sepW
                 height: Zenon.menuRowHeight
                 text: ""
-                color: Zenon.muted
+                color: Zenon.accentMuted
                 font.family: Zenon.face
                 font.weight: Zenon.weight
                 font.pixelSize: Zenon.px(12)
@@ -497,7 +497,7 @@ PanelWindow {
                 text: crumb.modelData.label
                 color: crumb.last || crumbHover.pressed ? Zenon.white : Zenon.muted
                 font.family: Zenon.face
-                font.weight: Font.Medium
+                font.weight: Zenon.weight
                 font.pixelSize: Zenon.px(15)
                 verticalAlignment: Text.AlignVCenter
 
@@ -554,14 +554,12 @@ PanelWindow {
         visible: card.level === 0
         width: parent.width
         height: card.level === 0 ? Zenon.menuSepHeight : 0
-        Rectangle {
+        Hairline {
           anchors.verticalCenter: parent.verticalCenter
           anchors.left: parent.left
           anchors.right: parent.right
           anchors.leftMargin: -Zenon.menuCardPad
           anchors.rightMargin: -Zenon.menuCardPad
-          height: 1
-          color: Zenon.border
         }
       }
 
@@ -638,15 +636,13 @@ PanelWindow {
                   color: entry.lit ? Zenon.menuHi : "transparent"
                 }
 
-                Rectangle {
+                Hairline {
                   visible: entry.isSep
                   anchors.verticalCenter: parent.verticalCenter
                   anchors.left: parent.left
                   anchors.right: parent.right
                   anchors.leftMargin: -Zenon.menuCardPad
                   anchors.rightMargin: -Zenon.menuCardPad
-                  height: 1
-                  color: Zenon.border
                 }
 
                 Item {
@@ -683,7 +679,7 @@ PanelWindow {
                     color: entry.isNote || (entry.modelData.isHidden || false)
                       ? Zenon.muted : Zenon.white
                     font.family: Zenon.face
-                    font.weight: Font.Medium
+                    font.weight: Zenon.weight
                     font.italic: entry.isNote
                     font.pixelSize: Zenon.px(16)
                   }
@@ -705,7 +701,7 @@ PanelWindow {
                       }
                       return m.broken ? "" : Icarus.shortSize(m.size);
                     }
-                    color: Zenon.muted
+                    color: Zenon.accentMuted
                     font.family: Zenon.face
                     font.weight: Zenon.weight
                     font.pixelSize: Zenon.px(12)
@@ -749,6 +745,7 @@ PanelWindow {
                 Term.HeldRing {
                   anchors.fill: parent
                   on: !entry.isSep && card.owner.isCtxRow(card.level, entry.index)
+                  middleOf: hover
                 }
 
                 MouseArea {

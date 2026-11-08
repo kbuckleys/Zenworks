@@ -82,30 +82,54 @@ function M.list(buf)
   return out
 end
 
+-- ── a buffer's diff, in blocks ────────────────────────────────────────
+-- (one change staged, undone or shown, below, all read it this way)
+local function data(buf)
+  if not diff then return nil end
+  local ok, d = pcall(diff.get_buf_data, buf)
+  if not ok or not d or not d.hunks then return nil end
+  return d
+end
+
+local function refLines(d)
+  if d._lines then return d._lines end
+  local t = vim.split(d.ref_text or "", "\n", { plain = true })
+  if t[#t] == "" then t[#t] = nil end
+  return t
+end
+
+-- the hunks of the block line l is in, joined as the gutter shows them
+local function blockAt(d, line)
+  local spans = {}
+  for _, h in ipairs(d.hunks) do
+    local s = math.max(1, h.buf_start)
+    spans[#spans + 1] = { s, h.type == "delete" and s or h.buf_start + h.buf_count - 1, h }
+  end
+  table.sort(spans, function(x, y) return x[1] < y[1] end)
+  local groups, cur = {}, nil
+  for _, sp in ipairs(spans) do
+    if cur and sp[1] <= cur.b + 1 then
+      cur.b = math.max(cur.b, sp[2]); table.insert(cur.hs, sp[3])
+    else
+      cur = { a = sp[1], b = sp[2], hs = { sp[3] } }
+      groups[#groups + 1] = cur
+    end
+  end
+  for _, g in ipairs(groups) do
+    if line >= g.a and line <= g.b then return g end
+  end
+  return nil
+end
+
 -- ── one change: staged or undone ───────────────────────────────────────
 -- The whole change the cursor is in, not just its line: do_hunks takes the
 -- part of a hunk inside the region it is given, and mini.diff splits one
 -- edited block into a hunk per line it can pair up — so the hunks that
 -- touch are joined first, the block you see as one bar in the gutter.
 local function hunkAt(buf, line)
-  local ok, data = pcall(diff.get_buf_data, buf)
-  if not ok or not data or not data.hunks then return nil end
-  local spans = {}
-  for _, h in ipairs(data.hunks) do
-    local a = math.max(1, h.buf_start)
-    spans[#spans + 1] = { a, h.type == "delete" and a or h.buf_start + h.buf_count - 1 }
-  end
-  table.sort(spans, function(x, y) return x[1] < y[1] end)
-  local cur = nil
-  for _, sp in ipairs(spans) do
-    if cur and sp[1] <= cur[2] + 1 then
-      cur[2] = math.max(cur[2], sp[2])
-    else
-      if cur and line >= cur[1] and line <= cur[2] then return cur[1], cur[2] end
-      cur = { sp[1], sp[2] }
-    end
-  end
-  if cur and line >= cur[1] and line <= cur[2] then return cur[1], cur[2] end
+  local d = data(buf)
+  local g = d and blockAt(d, line)
+  if g then return g.a, g.b end
   return nil
 end
 
@@ -133,44 +157,6 @@ function M.hunkSelected(action)
 end
 
 -- ── one change, shown ─────────────────────────────────────────────────
-local function data(buf)
-  if not diff then return nil end
-  local ok, d = pcall(diff.get_buf_data, buf)
-  if not ok or not d or not d.hunks then return nil end
-  return d
-end
-
-local function refLines(d)
-  if d._lines then return d._lines end
-  local t = vim.split(d.ref_text or "", "\n", { plain = true })
-  if t[#t] == "" then t[#t] = nil end
-  return t
-end
-
--- the hunks of the block line l is in (the same joining as hunkAt)
-local function blockAt(d, line)
-  local a, b = nil, nil
-  local spans = {}
-  for _, h in ipairs(d.hunks) do
-    local s = math.max(1, h.buf_start)
-    spans[#spans + 1] = { s, h.type == "delete" and s or h.buf_start + h.buf_count - 1, h }
-  end
-  table.sort(spans, function(x, y) return x[1] < y[1] end)
-  local groups, cur = {}, nil
-  for _, sp in ipairs(spans) do
-    if cur and sp[1] <= cur.b + 1 then
-      cur.b = math.max(cur.b, sp[2]); table.insert(cur.hs, sp[3])
-    else
-      cur = { a = sp[1], b = sp[2], hs = { sp[3] } }
-      groups[#groups + 1] = cur
-    end
-  end
-  for _, g in ipairs(groups) do
-    if line >= g.a and line <= g.b then return g end
-  end
-  return nil
-end
-
 function M.info(buf, line)
   local d = data(buf)
   if not d then return nil end

@@ -75,6 +75,11 @@ module.exports = {
     // ── a face for a run ──
     const serif = N.face("x <b>y</b>", "Noto Serif");
     t.eq("a face kept through Qt's spacing", N.tidy(serif.replace("style=\"", "style=\" ")), "<span style=\" font-family:'Noto Serif','clio-face';\">x <b>y</b></span>");
+    t.eq("a picture from the web is dropped", N.localOnly('a<img src="https://t.co/x.png" />b'), "ab");
+    t.eq("an unquoted or protocol-relative one too", N.localOnly('<img src=http://x/y><img src="//cdn/x">'), "");
+    t.eq("a picture that is a file stays", N.localOnly('<img src="/home/u/a.png" />'), '<img src="/home/u/a.png" />');
+    t.eq("a style's url() goes", N.localOnly('<span style="background-image: url(https://x)">t</span>'), '<span style="background-image: none">t</span>');
+    t.eq("tidy keeps nothing from the web", N.tidy('<img src="https://x/p.png">w'), "w");
     t.eq("a paste's own font goes", N.tidy("<span style=\" font-family:'Arial';\">p</span>"), "p");
     t.eq("which face", N.faceOf(serif), "Noto Serif");
     t.eq("a face, and off again", N.face(serif, ""), "x <b>y</b>");

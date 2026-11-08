@@ -15,7 +15,6 @@
 
 import QtQuick
 import "../morpheus"
-import "../terminus"
 import "../terminus/terminus.js" as Terminus
 import "stylus.js" as S
 
@@ -124,7 +123,7 @@ FocusScope {
         anchors.verticalCenter: parent.verticalCenter
         visible: body.list.length === 0
         text: body.loading ? "Finding the current releases…" : "None of them could be reached — is the network up?"
-        color: Zenon.muted
+        color: Zenon.accentMuted
         font.family: Zenon.face
         font.weight: Zenon.weight
         font.pixelSize: Zenon.px(13)
@@ -136,19 +135,7 @@ FocusScope {
       visible: body.face !== "choosing"
       width: parent.width
       spacing: 8
-      Rectangle {
-        id: band
-        width: parent.width
-        height: 8
-        radius: Zenon.rad(4)
-        color: Zenon.wash(0.06)
-        ProgressFill {
-          anchors.fill: parent
-          radius: band.radius
-          frac: S.phaseFrac(body.job)
-          ink: body.job && body.job.result && !body.job.result.ok ? Zenon.red : Zenon.accent
-        }
-      }
+      JobBand { width: parent.width; job: body.job }
       Text {
         textFormat: Text.PlainText
         width: parent.width

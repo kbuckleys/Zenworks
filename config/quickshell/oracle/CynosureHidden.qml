@@ -69,6 +69,7 @@ Item {
             text: one.modelData.name
             color: ch.fgColor
             font.family: ch.face
+            font.weight: Zenon.weight
             font.pixelSize: Zenon.px(16)
           }
           Text {
@@ -80,6 +81,7 @@ Item {
             text: ch.kinds[one.modelData.id.split(":")[0]] || ""
             color: ch.dimColor
             font.family: ch.face
+            font.weight: Zenon.weight
             font.pixelSize: Zenon.px(13)
           }
           ClearChip {

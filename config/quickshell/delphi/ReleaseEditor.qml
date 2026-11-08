@@ -228,6 +228,7 @@ Item {
 
     // what it will be made from, said where it matters
     Text {
+      textFormat: Text.PlainText
       width: parent.width
       visible: text !== ""
       wrapMode: Text.Wrap
@@ -268,6 +269,7 @@ Item {
       visible: !!ed.page && ed.page.others.length > 0
       spacing: 28
       Text {
+        textFormat: Text.PlainText
         height: 26
         verticalAlignment: Text.AlignVCenter
         text: ed.e && ed.e.mode === "edit" ? "Save it on" : "Also on"
@@ -301,7 +303,7 @@ Item {
         text: "Notes"
         color: Zenon.ink
         font.family: Zenon.face
-        font.weight: Font.Bold
+        font.weight: Zenon.titleWeight
         font.pixelSize: Zenon.px(15)
       }
       Segments {
@@ -317,6 +319,7 @@ Item {
         anchors.verticalCenter: parent.verticalCenter
         spacing: 10
         Text {
+          textFormat: Text.PlainText
           anchors.verticalCenter: parent.verticalCenter
           visible: !!ed.e && ed.e.by !== ""
           text: ed.e && ed.e.by === "changelog" ? "From " + ed.e.file
@@ -495,6 +498,8 @@ Item {
         body: ed.e ? ed.e.body : ""
         empty: "Nothing to preview yet"
         textSize: ed.notesPx
+        // your own words: everything they name loads
+        loadAll: true
       }
     }
     ElasticScroll { anchors.fill: previewFlick; view: previewFlick }

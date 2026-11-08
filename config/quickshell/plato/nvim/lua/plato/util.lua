@@ -10,6 +10,9 @@
 --                             directory, for a file in no project
 --   readJson(path)            a JSON file as a table ({} when missing or bad)
 --   writeJson(path, t)        written whole or not at all (see below)
+--   fail(err)                 an error said in the status line, without
+--                             the Lua file:line before it (and from the
+--                             E-number on when vim gave one)
 --   ago(t, short)             "3 days ago" — or "3 min ago" with short, and
 --                             a date once it is older than a day
 
@@ -19,6 +22,12 @@ M.markers = { ".git", ".qmlls.ini", "shell.qml" }
 
 function M.rootOf(file)
   return vim.fs.root(file, M.markers) or vim.fs.dirname(file)
+end
+
+function M.fail(err)
+  local s = (tostring(err):gsub("^.-:%d+: ", ""))
+  s = (s:gsub("^.-(E%d+:)", "%1"))
+  vim.notify(s, vim.log.levels.ERROR)
 end
 
 function M.readJson(path)

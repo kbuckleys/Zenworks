@@ -82,6 +82,7 @@ Item {
     text: "Where the toasts stack, and how many, to your screen's scale."
     color: sample.dimColor
     font.family: sample.face
+    font.weight: Zenon.weight
     font.pixelSize: Zenon.px(12)
   }
 

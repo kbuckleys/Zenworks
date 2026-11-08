@@ -166,8 +166,9 @@ Singleton {
   // Named rather than numbered on the way in, and numbered on the way out —
   // Image.PreserveAspectCrop is a number that happens to be 2, and nothing
   // outside this function should have to know that.
-  function fillModeFor(screenName) {
-    const m = root.fitFor(screenName);
+  function fillModeFor(screenName) { return root.fillOf(root.fitFor(screenName)); }
+  // a fit by name, as Image has it (the setter's cards use it too)
+  function fillOf(m) {
     if (m === "fit") return Image.PreserveAspectFit;
     if (m === "stretch") return Image.Stretch;
     if (m === "pad") return Image.Pad;
@@ -416,7 +417,8 @@ Singleton {
       args.push(p, t !== "" ? t : p);
     }
     accentProc.command = ["sh", "-c",
-      'while [ $# -gt 1 ]; do printf \'%s\\t%s\\n\' "$1" "$(magick "$2[0]" -resize 1x1\\! -format \'%[hex:u.p{0,0}]\' info: 2>/dev/null)"; shift 2; done',
+      // a thumbnail swept from the pool since: the picture itself (11-08)
+      'while [ $# -gt 1 ]; do [ -s "$2" ] || { a=$1; shift 2; set -- "$a" "$a" "$@"; }; printf \'%s\\t%s\\n\' "$1" "$(magick "$2[0]" -resize 1x1\\! -format \'%[hex:u.p{0,0}]\' info: 2>/dev/null)"; shift 2; done',
       "sh"].concat(args);
     accentProc.running = true;
   }

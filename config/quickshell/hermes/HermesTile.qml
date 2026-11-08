@@ -72,6 +72,7 @@ Item {
     text: t.tile ? t.tile.glyph : ""
     color: t.ink
     font.family: Zenon.glyphFace
+    font.weight: Zenon.weight
     font.pixelSize: Zenon.px(18)
   }
 
@@ -101,6 +102,7 @@ Item {
       anchors.verticalCenter: parent.verticalCenter
       width: Math.max(0, parent.width - tileTitle.width - parent.spacing)
       elide: Text.ElideRight
+      textFormat: Text.PlainText
       text: t.tile ? t.tile.sub : ""
       color: t.subInk
       font.family: Zenon.face
@@ -140,6 +142,7 @@ Item {
       color: t.on ? (listPress.pressed ? Zenon.inkOnAccent : t.subInk)
         : listPress.pressed ? Zenon.ink : Zenon.accentMuted
       font.family: Zenon.glyphFace
+      font.weight: Zenon.weight
       font.pixelSize: Zenon.px(12)
     }
     MouseArea { id: listPress; anchors.fill: parent; onClicked: t.listed() }

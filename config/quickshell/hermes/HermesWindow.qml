@@ -204,31 +204,13 @@ FloatingWindow {
       anchors.right: parent.right
       anchors.top: parent.top
       height: hw.headH
-      Rectangle { anchors.fill: parent; color: Zenon.headBg }
-      Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Zenon.border }
-      Column {
+      HeadGround {}
+      // the window's own name (user, 2026-10-20); the app is still hermes
+      HeadWords {
         id: brandWords
-        x: 20
-        anchors.verticalCenter: parent.verticalCenter
-        width: Math.max(0, sections.x - x - 16)
-        spacing: 1
-        Text {
-          // the window's own name (user, 2026-10-20); the app is still hermes
-          text: "Control Hub"
-          color: Zenon.ink
-          font.family: Zenon.face
-          font.weight: Zenon.titleWeight
-          font.pixelSize: Zenon.px(17)
-        }
-        Text {
-          width: parent.width
-          elide: Text.ElideRight
-          text: Hermes.probe.known ? "Network by " + H.stacksShort(Hermes.probe) : "Looking…"
-          color: Zenon.accentMuted
-          font.family: Zenon.face
-          font.weight: Zenon.weight
-          font.pixelSize: Zenon.px(12)
-        }
+        room: Math.max(0, sections.x - x - 16)
+        title: "Control Hub"
+        status: Hermes.probe.known ? "Network by " + H.stacksShort(Hermes.probe) : "Looking…"
       }
       // on the right, before the page's own buttons (user, 2026-10-22)
       Segments {
@@ -356,6 +338,7 @@ FloatingWindow {
           text: H.G.wifiLock
           color: Zenon.accent
           font.family: Zenon.glyphFace
+          font.weight: Zenon.weight
           font.pixelSize: Zenon.px(18)
         }
         Text {

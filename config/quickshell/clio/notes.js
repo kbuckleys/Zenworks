@@ -91,13 +91,21 @@ function blankEntry(journal, date, prompt) {
 // reads them unguarded.
 var ALIGNS = ["center", "right", "justify"];
 
+// A block's src is a name in Attachments, never a way out of it (audit
+// 11-08: a synced page's "../../x" opened and showed files elsewhere —
+// the backend's in_att already refused them)
+function safeSrc(s) {
+  s = String(s || "");
+  return s !== "" && s.charAt(0) !== "/" && !/(^|\/)\.\.(\/|$)/.test(s) && s.indexOf("\0") < 0 ? s : "";
+}
+
 function cleanBlock(b) {
   if (!b || typeof b !== "object") return null;
   var out = block(String(b.k || "body"), String(b.h || ""));
   if (out.k === "check") out.c = !!b.c;
   var l = Math.round(Number(b.l) || 0);
   if (l > 0) out.l = Math.min(MAX_LEVEL, l);
-  if (b.src) out.src = String(b.src);
+  if (b.src && safeSrc(b.src)) out.src = safeSrc(b.src);
   if (b.name) out.name = String(b.name);
   if (b.size) out.size = Number(b.size) || 0;
   if (b.w) out.w = Math.max(0.15, Math.min(1, Number(b.w) || 1));
@@ -229,6 +237,24 @@ function inline(html) {
   return plain(s).replace(/\s/g, "") === "" && s.indexOf("<img") < 0 ? "" : s;
 }
 
+// NOTHING FROM THE WEB (audit 11-08). Qt's rich text fetches a picture's
+// src, and a style's url(), the moment it is drawn: a paste from a web page
+// or a page synced in with <img src="https://…"> was a request out (and Qt's
+// HTTP/2 crash). Pictures that are files stay; the rest are dropped.
+function localOnly(s) {
+  s = String(s || "");
+  if (!/<img\b|url\s*\(|\sbackground\s*=/i.test(s)) return s;
+  s = s.replace(/<img\b[^>]*>/gi, function (m) {
+    var a = m.match(/\ssrc\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i);
+    var v = unescape(a ? (a[1] !== undefined ? a[1] : a[2] !== undefined ? a[2] : a[3]) : "").trim();
+    var local = /^(file:\/\/\/|\/(?!\/)|data:image\/)/i.test(v)
+      || (v !== "" && !/^[a-z][a-z0-9+.-]*:/i.test(v) && v.indexOf("//") !== 0);
+    return local ? m : "";
+  });
+  s = s.replace(/url\s*\([^)]*\)/gi, "none");
+  return s.replace(/\sbackground\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "");
+}
+
 // What is not ours to keep from a run: a face and a size (a block's kind
 // says those), the blue Qt paints a link in (the window paints its own),
 // empty spans, and the color sentinels decoded back (see paint).
@@ -246,7 +272,7 @@ function tidy(s) {
     return kept.length === 0 ? "style=\"\"" : "style=\" " + kept.join("; ") + ";\"";
   });
   for (var i = 0; i < 3; i++) s = s.replace(/<span style="">([\s\S]*?)<\/span>/gi, "$1").replace(/<span>([\s\S]*?)<\/span>/gi, "$1");
-  return s;
+  return localOnly(s);
 }
 
 // ── COLORS, BY NAME ─────────────────────────────────────────────────────
@@ -386,7 +412,7 @@ function blocksOf(html) {
       // a paragraph that is one picture is a picture; one that is wholly
       // large and bold is the heading stickyOf wrote
       var img = cur.h.match(/^\s*<img\b[^>]*src="([^"]*)"[^>]*\/?>\s*$/i);
-      if (img) { out.push(block("image", "", { src: unescape(img[1]).replace(/^file:\/\//, "") })); cur = null; return; }
+      if (img && safeSrc(unescape(img[1]).replace(/^file:\/\//, ""))) { out.push(block("image", "", { src: unescape(img[1]).replace(/^file:\/\//, "") })); cur = null; return; }
       var big = cur.h.match(/^\s*<span style="([^"]*font-size:\s*(x-large|large)[^"]*)">([\s\S]*)<\/span>\s*$/i);
       if (big && big[3].indexOf("<span") < 0) cur = block(big[2].toLowerCase() === "x-large" ? "title" : "heading", big[3]);
     }
@@ -459,7 +485,7 @@ function blocksOf(html) {
     }
     if (tag === "img" && !cur) {
       var src = (attrs.match(/src="([^"]*)"/i) || [])[1];
-      if (src) { out.push(block("image", "", { src: unescape(src).replace(/^file:\/\//, "") })); continue; }
+      if (src && safeSrc(unescape(src).replace(/^file:\/\//, ""))) { out.push(block("image", "", { src: unescape(src).replace(/^file:\/\//, "") })); continue; }
     }
     if (tag === "body" || tag === "html" || tag === "head" || tag === "meta" || tag === "style" || tag === "title") continue;
     // anything inline: kept as written
@@ -536,7 +562,7 @@ function htmlOf(blocks, base, opts) {
     }
   }
   closeTo(0);
-  return out.join("\n");
+  return localOnly(out.join("\n"));
 }
 
 // A sticky's text: what it can draw. The board's TextEdit has no lists or

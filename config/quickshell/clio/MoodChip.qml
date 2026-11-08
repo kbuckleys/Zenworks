@@ -27,7 +27,7 @@ Rectangle {
     text: chip.word
     color: chip.on ? Zenon.ink : Zenon.accentSoft
     font.family: Zenon.face
-    font.weight: chip.on ? Font.DemiBold : Zenon.weight
+    font.weight: chip.on ? Zenon.titleWeight : Zenon.weight
     font.pixelSize: Zenon.px(13)
   }
   MouseArea { anchors.fill: parent; onClicked: chip.clicked() }

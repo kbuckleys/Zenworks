@@ -48,7 +48,7 @@ Item {
     anchors.left: parent.left
     anchors.bottom: parent.bottom
     text: root.progress ? root.progress.from : ""
-    color: Zenon.muted
+    color: Zenon.accentMuted
     font.family: Zenon.face
     font.weight: Zenon.weight
     font.pixelSize: Zenon.px(11)
@@ -60,7 +60,7 @@ Item {
     text: root.progress ? Math.round(root.progress.frac * 100) + "% of the way" : ""
     color: Zenon.keyInk
     font.family: Zenon.face
-    font.weight: Font.Bold
+    font.weight: Zenon.titleWeight
     font.pixelSize: Zenon.px(11)
     font.features: { "tnum": 1 }
   }
@@ -69,7 +69,7 @@ Item {
     anchors.right: parent.right
     anchors.bottom: parent.bottom
     text: root.progress ? root.progress.to : ""
-    color: Zenon.muted
+    color: Zenon.accentMuted
     font.family: Zenon.face
     font.weight: Zenon.weight
     font.pixelSize: Zenon.px(11)

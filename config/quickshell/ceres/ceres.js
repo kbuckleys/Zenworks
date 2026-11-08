@@ -12,15 +12,14 @@
 // another. Reading the status out of the stream makes them one event.
 
 .pragma library
+.import "../morpheus/quote.js" as Quote
 // ONE COPY FOR THE WHOLE SHELL. Without the pragma every component instance
 // that imports this file evaluated all of it again (qmlprofiler, 2026-10-09;
 // see morpheus/icons.js and terminus/terminus.js for what that cost).
 
 const EXIT_MARK = "@@exit ";
 
-function q(s) {
-  return "'" + String(s ?? "").replace(/'/g, "'\\''") + "'";
-}
+function q(s) { return Quote.shellQuote(s); }
 
 // ── the commands ──────────────────────────────────────────────────────────
 
@@ -216,10 +215,7 @@ function age(ms) {
 
 // ── the tooltip, which is also the toast ──────────────────────────────────
 
-function esc(s) {
-  return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-}
+function esc(s) { return Quote.escapeHtml(s); }
 
 // `ink` is { muted, arrow, repo, aur, warn } as hex strings; `limit` rows per
 // group before the rest fold into an ellipsis. `notes` are lines set above
@@ -1981,9 +1977,10 @@ function aurHealthCommand() {
   return "names=$(pacman -Qmq 2>/dev/null | grep -v -- '-debug$')\n"
     + "echo '@@names'; printf '%s\\n' $names\n"
     + "echo '@@json'\n"
-    + "[ -n \"$names\" ] && curl -fsS --max-time 20 https://aur.archlinux.org/rpc/v5/info "
-    + "$(for n in $names; do printf -- \"--data-urlencode arg[]=%s \" \"$n\"; done) 2>/dev/null\n"
-    + "s=$?; echo; echo \"" + EXIT_MARK + "$s\"";
+    // no AUR packages is a clean answer, not curl's exit 1 (audit 11-08)
+    + "s=0; if [ -n \"$names\" ]; then curl -fsS --max-time 20 https://aur.archlinux.org/rpc/v5/info "
+    + "$(for n in $names; do printf -- \"--data-urlencode arg[]=%s \" \"$n\"; done) 2>/dev/null; s=$?; fi\n"
+    + "echo; echo \"" + EXIT_MARK + "$s\"";
 }
 
 // → { ok, checked, problems: [{ name, flagged (ms, 0 if not), orphaned, gone }] }

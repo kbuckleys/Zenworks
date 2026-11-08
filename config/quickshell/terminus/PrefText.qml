@@ -68,7 +68,7 @@ Item {
     anchors.verticalCenter: parent.verticalCenter
     height: 24
     radius: Zenon.radiusControl
-    color: Qt.rgba(Zenon.white.r, Zenon.white.g, Zenon.white.b, 0.05)
+    color: Zenon.alpha(Zenon.white, 0.05)
     border.width: 1
     border.color: Zenon.border
     Behavior on border.color { ColorAnimation { duration: Zenon.fast } }

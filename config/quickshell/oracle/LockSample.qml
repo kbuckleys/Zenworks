@@ -128,6 +128,7 @@ Item {
         text: ""
         color: sample.clockFg
         font.family: Zenon.glyphFace
+        font.weight: Zenon.weight
         font.pixelSize: field.height * 0.24
       }
       // the pointer, where you left it
@@ -139,6 +140,7 @@ Item {
         text: "\u{F01BF}"
         color: Zenon.white
         font.family: Zenon.glyphFace
+        font.weight: Zenon.weight
         font.pixelSize: Zenon.px(18)
         style: Text.Outline
         styleColor: Zenon.shade(0.6)
@@ -160,7 +162,7 @@ Item {
         text: "88:88"
         color: Zenon.alpha(Zenon.accent, 0.13)
         font.family: Zenon.clockFamily
-        font.weight: Font.Bold
+        font.weight: Zenon.titleWeight
         font.pointSize: Oracle.lockClockSize
       }
       Text {
@@ -170,7 +172,7 @@ Item {
         text: Qt.formatDateTime(clock.date, "HH:mm")
         color: sample.clockFg
         font.family: Zenon.clockFamily
-        font.weight: Font.Bold
+        font.weight: Zenon.titleWeight
         font.pointSize: Oracle.lockClockSize
       }
     }
@@ -183,7 +185,7 @@ Item {
       text: Qt.formatDateTime(clock.date, "dddd, dd MMMM yyyy")
       color: sample.dateFg
       font.family: Zenon.faceMono
-      font.weight: Font.Medium
+      font.weight: Zenon.weight
       font.pointSize: Oracle.lockDateSize
     }
 
@@ -204,6 +206,7 @@ Item {
         text: "On " + sample.mon.name
         color: sample.dimColor
         font.family: sample.face
+        font.weight: Zenon.weight
         font.pixelSize: Zenon.px(11)
       }
     }

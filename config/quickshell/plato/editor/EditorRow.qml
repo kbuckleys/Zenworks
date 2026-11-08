@@ -145,7 +145,7 @@ Item {
     verticalAlignment: Text.AlignVCenter
     font.family: row.face.family
     font.pixelSize: row.face.pixelSize
-    font.weight: number.rel === 0 ? Font.Bold : row.face.weight
+    font.weight: number.rel === 0 ? Zenon.titleWeight : row.face.weight
     textFormat: Text.PlainText
     color: number.rel === 0 ? row.ed.numberHere : row.ed.lineNrFg
     // QUIETER FURTHER OUT: the numbers near the cursor are the ones a
@@ -242,6 +242,7 @@ Item {
         visible: g !== ""
         text: g
         font.family: row.face.family
+        font.weight: Zenon.weight
         font.pixelSize: Math.round(row.face.pixelSize * 0.85)
         color: Zenon.accentMuted
         anchors.verticalCenter: parent.verticalCenter
@@ -249,6 +250,7 @@ Item {
       Text {
         text: parent.visible ? row.md.lang : ""
         font.family: row.face.family
+        font.weight: Zenon.weight
         font.pixelSize: Math.round(row.face.pixelSize * 0.8)
         color: Zenon.accentMuted
         anchors.verticalCenter: parent.verticalCenter
@@ -344,9 +346,9 @@ Item {
     height: 1
     gradient: Gradient {
       orientation: Gradient.Horizontal
-      GradientStop { position: 0; color: Qt.rgba(Zenon.accentMuted.r, Zenon.accentMuted.g, Zenon.accentMuted.b, 0) }
+      GradientStop { position: 0; color: Zenon.alpha(Zenon.accentMuted, 0) }
       GradientStop { position: 0.5; color: Zenon.accentMuted }
-      GradientStop { position: 1; color: Qt.rgba(Zenon.accentMuted.r, Zenon.accentMuted.g, Zenon.accentMuted.b, 0) }
+      GradientStop { position: 1; color: Zenon.alpha(Zenon.accentMuted, 0) }
     }
   }
 
@@ -401,9 +403,9 @@ Item {
       y: 1
       height: row.cellH - 2
       radius: Zenon.windowRadius
-      color: Qt.rgba(Zenon.blue.r, Zenon.blue.g, Zenon.blue.b, 0.10)
+      color: Zenon.alpha(Zenon.blue, 0.10)
       border.width: 1
-      border.color: Qt.rgba(Zenon.blue.r, Zenon.blue.g, Zenon.blue.b, 0.40)
+      border.color: Zenon.alpha(Zenon.blue, 0.40)
     }
   }
 
@@ -650,9 +652,9 @@ Item {
       width: row.cellW
       height: row.cellH
       radius: Zenon.rad(2)
-      color: Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.12)
+      color: Zenon.alpha(Zenon.accent, 0.12)
       border.width: 1
-      border.color: Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.8)
+      border.color: Zenon.alpha(Zenon.accent, 0.8)
     }
   }
 

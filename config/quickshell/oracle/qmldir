@@ -7,3 +7,4 @@ SettingsMove 1.0 SettingsMove.qml
 ZshSetup 1.0 ZshSetup.qml
 SetupAssistant 1.0 SetupAssistant.qml
 WorldMap 1.0 WorldMap.qml
+QuestionBar 1.0 QuestionBar.qml

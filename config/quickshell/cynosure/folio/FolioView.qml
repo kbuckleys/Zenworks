@@ -269,7 +269,7 @@ Item {
     id: textMetrics
     font.family: Zenon.face
     font.pixelSize: Zenon.px(16)
-    font.weight: 600
+    font.weight: Zenon.titleWeight
   }
 
 
@@ -624,7 +624,10 @@ function onThumbsDone() {
   function onActionDone() {
     const kind = popup.actionKinds.length > 0 ? popup.actionKinds[0] : "";
     popup.actionKinds = popup.actionKinds.slice(1);
+    // a copy leaves the panel open for the next one (user, 2026-11-08); the
+    // list read again, since the copied clip is now the newest
     if (kind === "delete") popup.reload();
+    else if (kind === "copy") { popup.flash("Copied"); popup.reload(); }
     else popup.closePopup();
   }
 
@@ -648,7 +651,7 @@ function onThumbsDone() {
     if (len === 0) return;
     if (popup.mode === "snip") {
       // filled in now, onto the clipboard as any copy is (and into its
-      // history), and the panel goes as a copy closes it
+      // history); the panel stays, as it does for every copy
       const snip = String(popup.rows[popup.sel].content || "");
       const put = (clip) => {
         const text = Folio.expandSnippet(snip, new Date(), clip);
@@ -666,7 +669,7 @@ function onThumbsDone() {
 
   // ── WHAT CYNOSURE'S ROWS DO ───────────────────────────────────────────
   // The same actions as this panel's own rows, by id rather than by cursor.
-  // A copy closes the panel as one always has (onActionDone).
+  // A copy leaves the panel open (onActionDone).
   function takeClip(id) {
     popup.carryStamp = popup.stamps[id] !== undefined ? popup.stamps[id] : null;
     popup.runAction(Folio.copyCommand(id), "copy");
@@ -1104,7 +1107,7 @@ function onThumbsDone() {
                   color: popup.fgColor
                   textFormat: Text.RichText
                   font.family: Zenon.face
-                  font.weight: 600
+                  font.weight: Zenon.titleWeight
                   font.pixelSize: Zenon.px(16)
                   clip: true
                   wrapMode: Text.NoWrap
@@ -1114,6 +1117,7 @@ function onThumbsDone() {
                   width: parent.width
                   // a snippet's own text under its name; a clip's time
                   text: modelData.snip ? modelData.sub : popup.stampOf(modelData.id)
+                  textFormat: Text.PlainText
                   color: popup.hintColor
                   font.family: Zenon.face
                   font.weight: Zenon.weight
@@ -1360,11 +1364,11 @@ function onThumbsDone() {
             verticalAlignment: TextInput.AlignVCenter
             enabled: popup.editing
             color: popup.fgColor
-            selectionColor: Zenon.wash(0.25)
+            selectionColor: Zenon.selBg
             selectByMouse: true
             clip: true
             font.family: Zenon.face
-            font.weight: 600
+            font.weight: Zenon.titleWeight
             font.pixelSize: Zenon.px(16)
             cursorDelegate: Caret { field: snipName }
             Keys.onPressed: (e) => {
@@ -1432,7 +1436,7 @@ function onThumbsDone() {
             anchors.verticalCenter: editButtons.verticalCenter
             word: "\u{F04C6}  Spelling"
             wordPx: Zenon.px(13)
-            wordWeight: Font.DemiBold
+            wordWeight: Zenon.titleWeight
             pad: 16
             lit: !!Clio.app && Clio.app.spellOn
             litInk: Zenon.accent

@@ -329,6 +329,7 @@ Item {
     }
     // why a held answer was refused (a secret's reason is under its field)
     Text {
+      textFormat: Text.PlainText
       visible: fb.fault !== "" && !fb.secret
       width: body.width - 36
       wrapMode: Text.Wrap

@@ -35,6 +35,7 @@ import "../oracle"
 import "../morpheus"
 import "ceres.js" as Cer
 import "pacconf.js" as Pac
+import "../morpheus/runjob.js" as RunJob
 
 Singleton {
   id: root
@@ -206,17 +207,18 @@ Singleton {
   function askAges() {
     root.ageNow = Date.now();
     if (!(root.ageRule.secs > 0) || root.aur.length === 0) { root.aurAges = null; return; }
-    agesProc.running = false;
-    agesProc.command = ["sh", "-c", Cer.aurAgesCommand(root.aur.map(u => u.name))];
-    agesProc.running = true;
+    RunJob.latest(agesProc, { command: ["sh", "-c", Cer.aurAgesCommand(root.aur.map(u => u.name))] });
   }
   Process {
     id: agesProc
+    property var job: null
+    property var want: null
+    onExited: RunJob.next(agesProc)
     stdout: StdioCollector {
       id: agesOut
       // the AUR not answering keeps what it said last: an update it marked
       // still too new is not let through for a dropped request
-      onStreamFinished: { const a = Cer.readAurAges(agesOut.text); if (a) root.aurAges = a; root.ageNow = Date.now(); }
+      onStreamFinished: { if (!RunJob.current(agesProc)) return; const a = Cer.readAurAges(agesOut.text); if (a) root.aurAges = a; root.ageNow = Date.now(); }
     }
   }
   Process {
@@ -711,17 +713,19 @@ Singleton {
       for (const r of c.replaces) if (names.indexOf(r) < 0) names.push(r);
     root._needsFor = names;
     if (names.length === 0) return;
-    needsProc.running = false;
-    needsProc.command = ["sh", "-c", Cer.requiredByCommand(names)];
-    needsProc.running = true;
+    RunJob.latest(needsProc, { command: ["sh", "-c", Cer.requiredByCommand(names)] });
   }
   Process {
     id: needsProc
+    property var job: null
+    property var want: null
+    onExited: RunJob.next(needsProc)
     stdout: StdioCollector {
       id: needsOut
       // a killed run still reports its partial text after a restart (see
       // terminus' previewProc): only names this settle asked about count
       onStreamFinished: {
+        if (!RunJob.current(needsProc)) return;
         const r = Cer.requiredByOf(needsOut.text), out = {};
         for (const n of root._needsFor) if (r[n]) out[n] = r[n];
         root.txNeeds = out;
@@ -769,8 +773,12 @@ Singleton {
   // remembered, in which case the steps simply run.
   // `flat`: how many Flatpak updates the steps take, for the result line —
   // pacman.log never hears of them
+  // an install waiting on its password card (audit 11-08): Update all in
+  // the meantime overwrote nextSteps, the password ran the upgrade, and the
+  // install was reported done
+  property bool _asking: false
   function request(steps, label, expected, flat) {
-    if (root.txBusy) return false;
+    if (root.txBusy || (root.installing && root._asking)) return false;
     // Anything paru is asked to do, with no paru to ask: setup comes first.
     if (root.deps.paru && steps.some(a => a[0] !== "@sudo" && a[0] !== "@user")) {
       root.setupRequested();
@@ -794,7 +802,7 @@ Singleton {
     // nothing of root's — a Flatpak just for you — asks for no password
     if (!Cer.needsRoot(steps)) root.upgradeAll("", true);
     else if (root._pw !== "") root.upgradeAll(root._pw);
-    else root.authRequested();
+    else { root._asking = true; root.authRequested(); }
     return true;
   }
 
@@ -873,6 +881,7 @@ Singleton {
   // Back to a full upgrade: for leaving the password field, closing the
   // panel, or sudo having taken the password.
   function forgetNext() {
+    root._asking = false;
     root.nextSteps = Cer.upgradeSteps();
     root.nextExpected = -1;
     root.nextLabel = "";
@@ -895,6 +904,7 @@ Singleton {
 
   function upgradeAll(password, noAuth) {
     if (root.txBusy || (!password && !noAuth)) return;
+    root._asking = false;
     // a full upgrade leaves out what paru's minimum age would refuse it for
     root.txSteps = Cer.withHeld(root.nextSteps, root.heldNames);
     const heldOut = root.txSteps !== root.nextSteps ? root.heldNames.length : 0;

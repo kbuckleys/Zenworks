@@ -36,16 +36,18 @@ Row {
     font.pixelSize: Zenon.px(12)
   }
   Text {
+    textFormat: Text.PlainText
     visible: head.count >= 0
     text: head.count >= 0 ? String(head.count) : ""
     color: head.ink
     opacity: 0.6
     font.family: Zenon.face
-    font.weight: Font.Bold
+    font.weight: Zenon.titleWeight
     font.features: { "tnum": 1 }
     font.pixelSize: Zenon.px(12)
   }
   Text {
+    textFormat: Text.PlainText
     visible: head.note !== ""
     text: head.note
     color: Zenon.accentMuted

@@ -116,15 +116,13 @@ Item {
     ScrollEdge { view: list; below: true; follow: true; bar: pg.win ? pg.win.footItem : null; z: 1 }
     Rectangle { id: listChrome; z: 2; width: parent.width - 1; height: list.y; color: Zenon.headBg }
 
-    BulkField {
+    SearchBox {
       id: filterBox
       z: 3
       x: 14
       y: 14
       width: parent.width - 28
-      height: 32
       ghost: "Filter " + (pg.scope === "user" ? "your services" : "services")
-      clearable: true
       onTextChanged: { pg.query = filterBox.text; pg.sel = 0; }
       onAccepted: if (pg.win) pg.win.refocus()
     }
@@ -195,7 +193,7 @@ Item {
             text: urow.u ? H.shortName(urow.u.unit) : ""
             color: urow.u && urow.u.unit === pg.current ? Zenon.ink : Zenon.white
             font.family: Zenon.face
-            font.weight: 600
+            font.weight: Zenon.titleWeight
             font.pixelSize: Zenon.px(14)
           }
           Text {
@@ -218,7 +216,7 @@ Item {
           text: !urow.u ? "" : H.looping(urow.u) ? "\u{F0709} " + urow.u.restarts : urow.role === "bad" ? "Failed" : ""
           color: Zenon.red
           font.family: Zenon.face
-          font.weight: 600
+          font.weight: Zenon.titleWeight
           font.pixelSize: Zenon.px(12)
         }
         MouseArea { anchors.fill: parent; onClicked: { pg.sel = urow.index; pg.listFocus = true; if (urow.u) pg.choose(urow.u.unit); if (pg.win) pg.win.refocus(); } }
@@ -274,7 +272,7 @@ Item {
             color: !pg.unit ? Zenon.accentMuted : H.stateRole(pg.unit) === "bad" ? Zenon.red
               : H.stateRole(pg.unit) === "ok" ? Zenon.green : Zenon.accentMuted
             font.family: Zenon.face
-            font.weight: 600
+            font.weight: Zenon.titleWeight
             font.pixelSize: Zenon.px(13)
           }
         }

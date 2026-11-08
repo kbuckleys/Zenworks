@@ -38,6 +38,7 @@ import Quickshell.Wayland
 import "../morpheus"
 import "../terminus"
 import "clio.js" as Scribe
+import "notes.js" as N
 
 Variants {
   id: layerOf
@@ -335,7 +336,7 @@ Variants {
           y: Math.round(modelData.y - board.originY)
           width: Math.max(1, modelData.w)
           height: Math.max(1, modelData.h)
-          color: Qt.rgba(Zenon.white.r, Zenon.white.g, Zenon.white.b, 0.55)
+          color: Zenon.alpha(Zenon.white, 0.55)
         }
       }
 
@@ -377,7 +378,11 @@ Variants {
           // have the keyboard follows the model — the one that does is the
           // model's source, and resetting it is exactly the caret jump the
           // line above avoids.
-          readonly property string modelText: slot.note ? slot.note.text : ""
+          // nothing from the web drawn on the desktop (N.localOnly, 11-08)
+          // read through a string first, so a note moved (not retyped) does
+          // not filter its text again: a string says it changed only when it did
+          readonly property string rawText: slot.note ? String(slot.note.text || "") : ""
+          readonly property string modelText: N.localOnly(slot.rawText)
           property bool syncing: false
           onModelTextChanged: {
             if (slot.body.activeFocus) return;
@@ -664,7 +669,7 @@ Variants {
             const fix = (w) => {
               if (slot.body.getText(sp.a, sp.b).replace(/\u2019/g, "'") !== sp.w) return;
               slot.body.remove(sp.a, sp.b);
-              slot.body.insert(sp.a, w.replace(/&/g, "&amp;").replace(/</g, "&lt;"));
+              slot.body.insert(sp.a, Strings.escapeHtml(w));
               slot.body.cursorPosition = sp.a + w.length;
             };
             return sp.sugs.slice(0, 5).map((w) => ({ text: w, icon: "\uF00C", run: () => fix(w) }))
@@ -822,8 +827,7 @@ Variants {
             panel: hull
             cornerRadius: card.radius
             ink: slot.raised ? Zenon.menuShadowInk
-              : Qt.rgba(Zenon.menuShadowInk.r, Zenon.menuShadowInk.g,
-                        Zenon.menuShadowInk.b, Zenon.menuShadowInk.a * 0.45)
+              : Zenon.alpha(Zenon.menuShadowInk, Zenon.menuShadowInk.a * 0.45)
             softness: slot.raised
               ? Zenon.menuShadowBlur : Zenon.menuShadowBlur * 0.45
             grow: slot.raised ? Zenon.menuShadowGrow : 0
@@ -915,7 +919,7 @@ Variants {
                 height: 24
                 verticalAlignment: TextInput.AlignVCenter
                 color: Zenon.white
-                selectionColor: Zenon.wash(0.25)
+                selectionColor: Zenon.selBg
                 font.family: Zenon.face
                 font.weight: Zenon.weight
                 font.pixelSize: Zenon.px(14)
@@ -1368,7 +1372,7 @@ Variants {
                   height: 22
                   radius: Zenon.radiusControl
                   // lit while pressed, not under the pointer (the suite's rule)
-                  color: fmtPress.pressed ? Zenon.wash(0.16) : "transparent"
+                  color: fmtPress.pressed ? Zenon.pressWash(0.12) : "transparent"
 
                   Text {
                     textFormat: Text.PlainText
@@ -1420,7 +1424,7 @@ Variants {
                   width: 26
                   height: 22
                   radius: Zenon.radiusControl
-                  color: stepPress.pressed ? Zenon.wash(0.16) : "transparent"
+                  color: stepPress.pressed ? Zenon.pressWash(0.12) : "transparent"
 
                   // ── A NUDGE WHEN IT TOOK ───────────────────────────
                   // The text resizing is the answer, but on a long note

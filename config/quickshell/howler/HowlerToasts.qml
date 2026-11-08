@@ -504,7 +504,7 @@ PanelWindow {
           text: toast.titleless || !toast.modelData ? "" : (toast.modelData.summary || "")
           wrapMode: Text.NoWrap
           font.family: Zenon.face
-          font.weight: Font.Bold
+          font.weight: Zenon.titleWeight
           font.pixelSize: Howler.fontSize
         }
 
@@ -515,7 +515,7 @@ PanelWindow {
           textFormat: Howler.markup ? Text.StyledText : Text.PlainText
           wrapMode: Text.NoWrap
           font.family: Zenon.face
-          font.weight: Font.Bold
+          font.weight: Zenon.titleWeight
           font.pixelSize: toast.titleless
             ? Howler.fontSize : Howler.fontSize - 2
         }
@@ -775,6 +775,7 @@ PanelWindow {
               style: Text.Outline
               styleColor: Howler.bg
               font.family: Zenon.glyphFace
+              font.weight: Zenon.weight
               font.pixelSize: Zenon.px(40)
             }
 
@@ -867,7 +868,7 @@ PanelWindow {
                   text: Qt.locale().dayName(toast.eventDay.getDay(), Locale.ShortFormat).toUpperCase()
                   color: toast.eventInk
                   font.family: Zenon.face
-                  font.weight: Font.Bold
+                  font.weight: Zenon.titleWeight
                   font.pixelSize: Math.round(Howler.fontSize * 0.72)
                 }
                 Text {
@@ -875,7 +876,7 @@ PanelWindow {
                   text: toast.eventDay.getDate()
                   color: Howler.titleInk
                   font.family: Zenon.face
-                  font.weight: Font.Bold
+                  font.weight: Zenon.titleWeight
                   font.pixelSize: Math.round(Howler.fontSize * 1.75)
                 }
               }
@@ -917,6 +918,7 @@ PanelWindow {
                 text: Howler.missingGlyph
                 color: Zenon.accentMuted
                 font.family: Zenon.glyphFace
+                font.weight: Zenon.weight
                 font.pixelSize: Math.round(Howler.iconSize * 0.6)
               }
             }
@@ -945,7 +947,7 @@ PanelWindow {
                 text: toast.modelData ? (toast.modelData.summary || "") : ""
                 color: toast.event ? Howler.titleInk : toast.critical ? Howler.accent : Howler.titleInk
                 font.family: Zenon.face
-                font.weight: Font.Bold
+                font.weight: Zenon.titleWeight
                 font.pixelSize: Howler.fontSize
               }
 
@@ -979,7 +981,7 @@ PanelWindow {
                 textFormat: Howler.markup ? Text.StyledText : Text.PlainText
                 color: toast.event ? toast.eventInk : toast.titleless ? Howler.titleInk : Howler.bodyInk
                 font.family: Zenon.face
-                font.weight: Font.Bold
+                font.weight: Zenon.titleWeight
                 font.pixelSize: toast.titleless
                   ? Howler.fontSize : Howler.fontSize - 2
               }

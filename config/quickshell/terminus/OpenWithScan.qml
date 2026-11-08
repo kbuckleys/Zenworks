@@ -56,7 +56,7 @@ Item {
   }
   function remove(id) {
     if (!id || scan.mime === "" || !scan.run) return;
-    scan.run(Terminus.removeAppCommand(id, scan.mime));
+    scan.run(Terminus.removeHandlerCommand(id, scan.mime, scan.defaultId, scan.apps));
   }
 
   Process {

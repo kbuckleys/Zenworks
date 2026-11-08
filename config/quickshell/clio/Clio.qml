@@ -168,10 +168,18 @@ Singleton {
     }
   }
 
-  function indexOf(id) {
+  // id → index, made once per change of the list: every note on every
+  // screen looks itself up on each change (a drag is one a frame), and a
+  // search of the whole list each time was n² of it (audit 11-07)
+  readonly property var _at: {
+    const m = Object.create(null);
     for (let i = 0; i < root.notes.length; i++)
-      if (root.notes[i].id === id) return i;
-    return -1;
+      if (!(root.notes[i].id in m)) m[root.notes[i].id] = i;
+    return m;
+  }
+  function indexOf(id) {
+    const i = root._at[String(id)];
+    return i === undefined ? -1 : i;
   }
 
   // ── MAKING ONE ─────────────────────────────────────────────────────────

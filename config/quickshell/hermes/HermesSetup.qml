@@ -21,6 +21,10 @@ Column {
   // a second, plain answer beside the first ("Turn off Bluetooth")
   property string action2: ""
   property bool busy: false
+  // the second action under way: it says so, not the first (audit 11-08:
+  // "Look again" read "Setting up…" while Bluetooth was being turned off)
+  property bool busy2: false
+  property string busyText2: "Working…"
   property color ink: Zenon.accent
   signal go()
   signal go2()
@@ -32,6 +36,7 @@ Column {
     text: s.glyph
     color: s.action !== "" ? s.ink : Zenon.accentMuted
     font.family: Zenon.glyphFace
+    font.weight: Zenon.weight
     font.pixelSize: Zenon.px(40)
   }
   Text {
@@ -56,14 +61,15 @@ Column {
     visible: s.action !== ""
     DialogButton {
       visible: s.action2 !== ""
-      label: s.action2
-      ready: !s.busy
+      label: s.busy2 ? s.busyText2 : s.action2
+      ready: !s.busy && !s.busy2
       onClicked: s.go2()
     }
     BusyButton {
       label: s.action
       primary: true
       busy: s.busy
+      ready: !s.busy2
       busyText: "Setting up…"
       onClicked: s.go()
     }

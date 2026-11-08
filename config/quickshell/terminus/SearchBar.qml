@@ -145,12 +145,7 @@ Rectangle {
     const d = Coll.blank(Date.now());
     d.name = name;
     d.root = String(s.root || "").trim() === "" ? term.cwd : s.root;
-    d.rules = [];
-    if (s.query !== "") d.rules.push(s.kind === "grep"
-      ? { kind: "content", op: "text", value: s.query }
-      : { kind: "name", op: "contains", value: s.query });
-    for (const r of (s.rules || []))
-      if (String(r.value || "").trim() !== "") d.rules.push({ kind: r.kind, op: r.op, value: r.value });
+    d.rules = Coll.searchRules(s.kind, s.query, s.rules);
     bar.naming = false;
     term.saveCollection(d);
     term.goToCollection(d.id);
@@ -322,10 +317,8 @@ Rectangle {
   }
 
   // the bar's edge, as the path bar's
-  Rectangle {
+  Hairline {
     anchors.bottom: parent.bottom
     width: parent.width
-    height: 1
-    color: Zenon.border
   }
 }

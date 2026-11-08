@@ -113,7 +113,8 @@ function parseTagDump(text) {
   var path = "";
   for (var i = 0; i < lines.length; ++i) {
     var line = lines[i];
-    if (line.indexOf("# file: ") === 0) { path = line.slice(8); continue; }
+    // the path is escaped the same way (\134 for a backslash)
+    if (line.indexOf("# file: ") === 0) { path = unescapeAttr(line.slice(8)); continue; }
     if (path === "" || line.indexOf(ATTR + "=") !== 0) continue;
 
     var raw = line.slice(ATTR.length + 1);
@@ -388,4 +389,12 @@ function pathsWith(index, tag) {
   for (var path in index)
     if (hasTag(index[path], tag)) out.push(path);
   return out.sort();
+}
+
+// Every path wearing `tag`, with its names less that one: what clearing or
+// dropping a tag writes back. [{ path, names }]
+function withoutPairs(index, tag) {
+  return pathsWith(index, tag).map(function (p) {
+    return { path: p, names: (index[p] || []).filter(function (t) { return t !== tag; }) };
+  });
 }

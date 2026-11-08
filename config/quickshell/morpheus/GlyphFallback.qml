@@ -23,7 +23,7 @@ import Quickshell
 
 Item {
   readonly property string file:
-    (Quickshell.env("XDG_CONFIG_HOME") || (Quickshell.env("HOME") + "/.config"))
+    Paths.configDir()
     + "/fontconfig/conf.d/60-quickshell-glyphs.conf"
   readonly property string text: [
     "<?xml version=\"1.0\"?>",

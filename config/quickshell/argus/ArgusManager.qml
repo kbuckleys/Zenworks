@@ -143,6 +143,20 @@ Scope {
     mgr.pointerBig = on;
     Quickshell.execDetached(["hyprctl", "setcursor", mgr.cursorTheme, String(on ? mgr.cursorSize * 2 : mgr.cursorSize)]);
   }
+  // A RECORDER THAT DIED ON ITS OWN (disk full, an output gone) never says
+  // "recording false": asked every few seconds while recording, so the
+  // camera and the big pointer do not stay on for good (audit 11-08)
+  Timer {
+    interval: 4000
+    repeat: true
+    running: mgr.recording
+    onTriggered: if (!stillProc.running) stillProc.running = true
+  }
+  Process {
+    id: stillProc
+    command: ["pgrep", "-x", "wf-recorder"]
+    onExited: (code) => { if (code === 1 && mgr.recording) mgr.recording = false; }
+  }
   // a reload mid-recording: still recording, as far as the overlay goes
   Process {
     running: true

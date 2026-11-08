@@ -184,7 +184,7 @@ Rectangle {
     color: btn.ready ? btn.word : Zenon.muted
     opacity: btn.down && !btn.primary ? Zenon.pressDim : 1
     font.family: btn.glyph ? Zenon.glyphFace : Zenon.face
-    font.weight: Font.Bold
+    font.weight: Zenon.titleWeight
     font.pixelSize: Zenon.px(15)
   }
 

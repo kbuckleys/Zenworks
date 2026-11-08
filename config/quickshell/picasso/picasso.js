@@ -381,7 +381,10 @@ function parseState(text) {
   if (j.v === 2 || j.v === 3) {
     const span = isMap(j.span) && typeof j.span.path === "string"
       && Array.isArray(j.span.screens) ? j.span : null;
-    const ss = isMap(j.slideshow) && j.slideshow.minutes > 0 ? j.slideshow : null;
+    // its screens always a list: a hand-edited file without them threw on
+    // every tick (audit 11-08)
+    const ss = isMap(j.slideshow) && j.slideshow.minutes > 0
+      ? Object.assign({}, j.slideshow, { screens: Array.isArray(j.slideshow.screens) ? j.slideshow.screens : [] }) : null;
     return {
       assignment: isMap(j.assignment) ? j.assignment : {},
       fits: isMap(j.fits) ? j.fits : {},

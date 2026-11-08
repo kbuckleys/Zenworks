@@ -123,6 +123,11 @@ try:
     eq("what another note uses stays", (os.path.exists(p1), att(keep["src"])), (False, True))
     s.remove({"id": "n4"})
     eq("and goes with the last", att(keep["src"]), False)
+    # one the window still holds, not written yet, is kept too
+    held = s.attach({"id": "n6", "path": pic})
+    s.save({"note": {"id": "n6", "blocks": [held]}})
+    s.remove({"id": "n6", "keep": [held["src"], 7]})
+    eq("what an unsaved note uses stays", att(held["src"]), True)
 
     # the sync guard: a file changed since it was read is not written over
     s.save({"note": {"id": "n5", "blocks": [{"k": "title", "h": "A"}]}})

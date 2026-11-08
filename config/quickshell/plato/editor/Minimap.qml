@@ -125,9 +125,9 @@ Item {
       : map.scroll ? (map.scroll.top - map.first) * map.lineH : 0
     height: Math.max(8, map.viewRows * map.lineH)
     // the shell's cursor color, as every "you are here" in it
-    color: Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, drag.pressed ? 0.32 : 0.20)
+    color: Zenon.alpha(Zenon.accent, drag.pressed ? 0.32 : 0.20)
     border.width: 1
-    border.color: Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, drag.pressed ? 0.85 : 0.60)
+    border.color: Zenon.alpha(Zenon.accent, drag.pressed ? 0.85 : 0.60)
     Behavior on y { enabled: !drag.pressed; NumberAnimation { duration: Zenon.brisk; easing.type: Zenon.travelEase } }
   }
   HoverHandler { id: hover }

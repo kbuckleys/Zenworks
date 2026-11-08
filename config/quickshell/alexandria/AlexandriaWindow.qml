@@ -45,6 +45,7 @@ import "../morpheus"
 import "../morpheus/controls" as Ctl
 import "../terminus"
 import "alexandria.js" as A
+import "../morpheus/runjob.js" as RunJob
 
 FloatingWindow {
   id: win
@@ -275,12 +276,16 @@ FloatingWindow {
       return;
     }
     win.looseAsked = fonts.length;
-    looseProc.command = ["sh", "-c", "for f in \"$@\"; do fc-query -f '"
-      + A.LIST_FORMAT + "' \"$f\" 2>/dev/null; done", "sh"].concat(fonts);
-    looseProc.running = true;
+    // batches in turn (RunJob, audit 11-08): files handed in while a batch
+    // was read were dropped
+    RunJob.queued(looseProc, { command: ["sh", "-c", "for f in \"$@\"; do fc-query -f '"
+      + A.LIST_FORMAT + "' \"$f\" 2>/dev/null; done", "sh"].concat(fonts) });
   }
   Process {
     id: looseProc
+    property var job: null
+    property var queue: []
+    onExited: RunJob.next(looseProc)
     stdout: StdioCollector {
       id: looseOut
       waitForEnd: true
@@ -474,16 +479,22 @@ FloatingWindow {
     const key = win.style.file + "#" + win.style.index;
     if (key === win.charsetFor) return;
     win.charsetFor = key;
-    csProc.running = false;
-    csProc.command = ["fc-query", "-i", String(win.style.index), "-f", "%{charset}", win.style.file];
-    csProc.running = true;
+    // each run its own job (RunJob, audit 11-08): stop-then-start on a busy
+    // Process dropped the start, and the old face's set was shown as this one's
+    RunJob.latest(csProc, { key: key, command: ["fc-query", "-i", String(win.style.index), "-f", "%{charset}", win.style.file] });
   }
   Process {
     id: csProc
+    property var job: null
+    property var want: null
+    onExited: RunJob.next(csProc)
     stdout: StdioCollector {
       id: csOut
       waitForEnd: true
-      onStreamFinished: { win.charset = A.parseCharset(csOut.text); win.group = -1; win.gsel = 0; }
+      onStreamFinished: {
+        if (!RunJob.current(csProc) || csProc.job.key !== win.charsetFor) return;
+        win.charset = A.parseCharset(csOut.text); win.group = -1; win.gsel = 0;
+      }
     }
   }
   // only while the glyph page shows — a face of 45,000 characters (CJK)
@@ -529,19 +540,21 @@ FloatingWindow {
   function loadFacts() {
     win.facts = ({});
     if (!win.style) return;
-    factProc.running = false;
-    factProc.command = ["sh", "-c",
+    RunJob.latest(factProc, { command: ["sh", "-c",
       "fc-query -i \"$2\" -f '%{fontversion}\\t%{foundry}\\t%{postscriptname}\\t%{lang}\\t%{capability}\\n' \"$1\" 2>/dev/null | head -n1;"
       + " pacman -Qqo \"$1\" 2>/dev/null | head -n1; du -h \"$1\" 2>/dev/null | cut -f1",
-      "sh", win.style.file, String(win.style.index)];
-    factProc.running = true;
+      "sh", win.style.file, String(win.style.index)] });
   }
   Process {
     id: factProc
+    property var job: null
+    property var want: null
+    onExited: RunJob.next(factProc)
     stdout: StdioCollector {
       id: factOut
       waitForEnd: true
       onStreamFinished: {
+        if (!RunJob.current(factProc)) return;
         const l = String(factOut.text).split("\n");
         const f = (l[0] || "").split("\t");
         const v = Number(f[0]);
@@ -742,67 +755,21 @@ FloatingWindow {
       SideGlass { edge: "right" }
 
       // the search
-      Rectangle {
-        id: famSearch
+      SearchBox {
+        id: famField
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
         anchors.margins: 12
-        height: 34
-        radius: Zenon.windowRadius
-        color: Zenon.wash(0.06)
-        border.width: 1
-        border.color: Zenon.border
-        Behavior on border.color { ColorAnimation { duration: Zenon.fast } }
-        Text {
-          id: famLens
-          anchors.left: parent.left
-          anchors.leftMargin: 13
-          anchors.verticalCenter: parent.verticalCenter
-          text: ""
-          color: Zenon.accentMuted
-          font.family: Zenon.glyphFace
-          font.pixelSize: Zenon.px(13)
+        Component.onCompleted: famField.text = win.query
+        // set, not bound: the × and the text would each have broken a binding
+        Connections {
+          target: win
+          function onQueryChanged() { if (famField.text !== win.query) famField.text = win.query; }
         }
-        TextInput {
-          id: famField
-          // the shell's breathing caret, as every field wears
-          cursorDelegate: Caret { field: famField }
-          anchors.left: famLens.right
-          anchors.leftMargin: 9
-          anchors.right: famClear.visible ? famClear.left : parent.right
-          anchors.rightMargin: famClear.visible ? 8 : 13
-          anchors.verticalCenter: parent.verticalCenter
-          text: win.query
-          onTextChanged: if (win.query !== text) { win.toTop = true; win.query = text; }
-          color: Zenon.ink
-          selectionColor: Zenon.alpha(Zenon.accent, 0.4)
-          font.family: Zenon.face
-          font.weight: Zenon.weight
-          font.pixelSize: Zenon.px(15)
-          clip: true
-          Keys.onPressed: (e) => { if (win.navKey(e)) e.accepted = true; }
-          Text {
-            visible: famField.text === ""
-            anchors.verticalCenter: parent.verticalCenter
-            text: win.mgr && win.mgr.families.length > 0
-              ? "Search " + win.mgr.families.length + " families" : "Reading the fonts…"
-            color: Zenon.accentMuted
-            font: famField.font
-          }
-        }
-        // focused for typing: terminus' held ring (user, 2026-10-11 — every
-        // text field wears it, its own border staying neutral)
-        ClearChip {
-          id: famClear
-          size: Zenon.px(15)
-          shown: famField.text !== ""
-          anchors.right: parent.right
-          anchors.rightMargin: 9
-          anchors.verticalCenter: parent.verticalCenter
-          onClicked: { famField.text = ""; famField.forceActiveFocus(); }
-        }
-        HeldRing { anchors.fill: parent; radius: parent.radius; z: 10; on: famField.activeFocus }
+        ghost: win.mgr && win.mgr.families.length > 0 ? "Search " + win.mgr.families.length + " families" : "Reading the fonts…"
+        onTextChanged: if (win.query !== text) { win.toTop = true; win.query = text; }
+        keyHook: (e) => { if (win.navKey(e)) e.accepted = true; }
       }
 
       // the shelves — scrolled in a box of at most two fifths of the
@@ -810,7 +777,7 @@ FloatingWindow {
       // under them keep room (user, 2026-10-25: very low screens)
       Flickable {
         id: shelfFlick
-        anchors.top: famSearch.bottom
+        anchors.top: famField.bottom
         anchors.topMargin: 10
         anchors.left: parent.left
         anchors.right: parent.right
@@ -1063,6 +1030,7 @@ FloatingWindow {
           font.pixelSize: 24
         }
         Text {
+          textFormat: Text.PlainText
           width: parent.width
           elide: Text.ElideRight
           text: win.fam && win.style
@@ -1095,30 +1063,15 @@ FloatingWindow {
         spacing: 12
         move: Transition { NumberAnimation { properties: "x"; duration: Zenon.fast; easing.type: Zenon.ease } }
 
-        Rectangle {
+        DialogButton {
           id: favBtn
           anchors.verticalCenter: parent.verticalCenter
-          width: 32
-          height: 32
-          radius: Zenon.windowRadius
           visible: !!win.fam && !win.fam.loose
-          color: favMa.pressed ? Zenon.wash(0.08) : Zenon.wash(0.03)
-          border.width: 1
-          border.color: Zenon.border
-          Text {
-            anchors.centerIn: parent
-            text: win.fav ? "\uF47A" : "\uF461"
-            color: win.fav ? Zenon.accent : Zenon.accentMuted
-            font.family: Zenon.glyphFace
-            font.pixelSize: Zenon.px(15)
-          }
-          MouseArea {
-            id: favMa
-            anchors.fill: parent
-            hoverEnabled: true
-            onClicked: win.toggleFav()
-            onContainsMouseChanged: containsMouse ? tips.show(favBtn, win.fav ? "Remove bookmark" : "Bookmark", "ctrl s") : tips.hide(favBtn)
-          }
+          glyph: true
+          label: win.fav ? "\uF47A" : "\uF461"
+          ink: win.fav ? Zenon.accent : Zenon.muted
+          onClicked: win.toggleFav()
+          HoverHandler { onHoveredChanged: hovered ? tips.show(favBtn, win.fav ? "Remove bookmark" : "Bookmark", "ctrl s") : tips.hide(favBtn) }
         }
 
         // the pages: ONE control, three halves — terminus/Segments (the
@@ -1168,7 +1121,7 @@ FloatingWindow {
         }
       }
 
-      Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Zenon.border }
+      Hairline { anchors.bottom: parent.bottom; width: parent.width }
     }
 
     // ── the pages ────────────────────────────────────────────────────────
@@ -1340,6 +1293,7 @@ FloatingWindow {
                 color: styleRow.here ? win.hiFill : styleMa.pressed ? Zenon.wash(0.05) : Zenon.alpha(Zenon.accent, 0)
                 Behavior on color { ColorAnimation { duration: Zenon.fast } }
                 Text {
+                  textFormat: Text.PlainText
                   id: styleName
                   x: 12
                   width: 170
@@ -1352,6 +1306,7 @@ FloatingWindow {
                   font.pixelSize: Zenon.px(12)
                 }
                 Text {
+                  textFormat: Text.PlainText
                   id: styleText
                   anchors.left: styleName.right
                   anchors.leftMargin: 14
@@ -1406,6 +1361,7 @@ FloatingWindow {
                   font.pixelSize: Zenon.px(11)
                 }
                 Text {
+                  textFormat: Text.PlainText
                   id: fallLine
                   width: parent.width - 44
                   elide: Text.ElideRight

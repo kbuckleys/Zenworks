@@ -81,7 +81,7 @@ Rectangle {
     text: chip.ev ? chip.ev.title + (chip.ev.repeats ? "  \u{F0456}" : "") : ""
     color: chip.task ? Zenon.accentMuted : Zenon.ink
     font.family: Zenon.face
-    font.weight: chip.task ? Zenon.weight : Font.DemiBold
+    font.weight: chip.task ? Zenon.weight : Zenon.titleWeight
     font.pixelSize: Zenon.px(12)
   }
 

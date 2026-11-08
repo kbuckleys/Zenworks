@@ -31,6 +31,9 @@ Item {
   property bool ruled: false
   // a field of your own may be marked hidden (a secret) or not
   property bool hideToggle: false
+  // a secret the platform's tool will not take (Proton Pass, see
+  // core/proton.py save): shown, not typed into, its own note below
+  property bool fixed: false
   property alias text: box.text
   property alias labelText: labelBox.text
   property bool showing: !row.secret
@@ -60,12 +63,10 @@ Item {
 
   implicitHeight: col.implicitHeight + 20
 
-  Rectangle {
+  Hairline {
     visible: row.ruled
     x: 16
     width: parent.width - 32
-    height: 1
-    color: Zenon.border
   }
 
   Column {
@@ -99,12 +100,22 @@ Item {
       id: box
       width: parent.width
       textSize: Zenon.px(15)
-      ghost: !row.known ? "Kept as it is — type to replace it" : row.hint
+      ghost: row.fixed ? "" : !row.known ? "Kept as it is — type to replace it" : row.hint
+      enabled: !row.fixed
       masked: row.secret && !row.showing
       mono: row.secret || row.totp
       copyHook: row.secret && row.win ? (t) => row.win.copyText(t, true) : null
       onTextChanged: { row.edited(text); if (row.gen) rate.restart(); }
       onTabbed: row.tabbed()
+    }
+    Text {
+      textFormat: Text.PlainText
+      visible: row.fixed
+      text: "Changed in Proton Pass itself"
+      color: Zenon.accentMuted
+      font.family: Zenon.face
+      font.weight: Zenon.weight
+      font.pixelSize: Zenon.px(12)
     }
     // how strong the password typed is
     Row {
@@ -152,7 +163,7 @@ Item {
       onClicked: row.scanWanted()
     }
     FieldAct {
-      visible: row.gen
+      visible: row.gen && !row.fixed
       glyph: "\u{F076E}"
       tip: "Generate a password"
       tips: row.win ? row.win.tipsItem : null
@@ -167,7 +178,7 @@ Item {
       onClicked: { if (!row.known) row.revealWanted(); else row.showing = !row.showing; }
     }
     FieldAct {
-      visible: row.hideToggle
+      visible: row.hideToggle && !row.fixed
       glyph: row.secret ? "" : ""
       tip: row.secret ? "Hidden — click to make it plain" : "Plain — click to hide it"
       on: row.secret
@@ -175,7 +186,7 @@ Item {
       onClicked: row.hiddenToggled()
     }
     FieldAct {
-      visible: row.removable
+      visible: row.removable && !row.fixed
       glyph: "\u{F0A7A}"
       ink: Zenon.red
       tip: "Remove"

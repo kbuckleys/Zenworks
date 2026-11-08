@@ -139,9 +139,9 @@ Item {
     visible: sideRow.lift > 0.01
     opacity: sideRow.lift
     radius: Zenon.radiusControl
-    color: Qt.rgba(Zenon.layerBg.r, Zenon.layerBg.g, Zenon.layerBg.b, 1)
+    color: Zenon.alpha(Zenon.layerBg, 1)
     border.width: 1
-    border.color: Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.55)
+    border.color: Zenon.alpha(Zenon.accent, 0.55)
   }
 
   // The color a gauge is drawn in. Nearly full is worth saying in color
@@ -272,6 +272,7 @@ Item {
     anchors.leftMargin: 4
     anchors.rightMargin: 4
     on: term.sideMenuAt === sideRow && sideRow.swell <= 0.01
+    middleOf: sideMouse
   }
 
   // ── WHERE IT WOULD LAND ─────────────────────────────────────────────
@@ -347,6 +348,7 @@ Item {
   }
 
   MouseArea {
+    id: sideMouse
     anchors.fill: parent
     // BELOW the drag handler, which claims the press first once it decides
     // the pointer is traveling. A click that never traveled still lands

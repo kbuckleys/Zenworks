@@ -50,7 +50,7 @@ Item {
   }
   function readBookmarks() {
     return String(bookmarkFile.text() || "").split("\n")
-      .map((l) => l.trim()).filter((l) => l !== "");
+      .filter((l) => l !== "");
   }
   function loadBookmarks() { term.setBookmarks(term.readBookmarks()); }
   // ONLY WHEN IT IS DIFFERENT. The sidebar's Repeater takes a plain array, and
@@ -86,6 +86,8 @@ Item {
     // and again for the result.
     const next = term.readBookmarks();
     mutate(next);
+    // one path a line: a name with a newline in it cannot be kept
+    for (let i = next.length - 1; i >= 0; --i) if (next[i].indexOf("\n") >= 0) next.splice(i, 1);
     // In memory first, so the sidebar changes on this frame. The write comes
     // back round through onTextChanged and re-derives the same array, which
     // setBookmarks sees is the same and leaves alone.

@@ -46,7 +46,7 @@ Item {
     let v = {};
     try { v = JSON.parse(text || "{}") || {}; } catch (e) { v = {}; }
     return {
-      view: ["month", "week", "day"].indexOf(v.view) >= 0 ? v.view : "month",
+      view: ["year", "month", "week", "day"].indexOf(v.view) >= 0 ? v.view : "month",
       hidden: Array.isArray(v.hidden) ? v.hidden.filter((h) => typeof h === "string") : [],
       side: v.side !== false
     };

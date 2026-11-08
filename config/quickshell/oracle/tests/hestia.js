@@ -44,9 +44,9 @@ module.exports = {
     t.eq("a failed one clears", H.actions(bad).map((a) => a.verb), ["start", "disable", "reset-failed"]);
     t.eq("static has no boot switch", H.actions(oneshot).map((a) => a.verb), ["stop", "restart"]);
     t.eq("masked only unmasks", H.actions({ file: "masked", active: "inactive" }).map((a) => a.verb), ["unmask"]);
-    t.eq("system line", H.actionArgs("system", "restart", "x.service"), ["systemctl", "restart", "x.service"]);
-    t.eq("user line", H.actionArgs("user", "stop", "x.service"), ["systemctl", "--user", "stop", "x.service"]);
-    t.eq("enable starts it too", H.actionArgs("system", "enable", "x.service"), ["systemctl", "enable", "--now", "x.service"]);
+    t.eq("system line", H.actionArgs("system", "restart", "x.service"), ["systemctl", "restart", "--", "x.service"]);
+    t.eq("user line", H.actionArgs("user", "stop", "x.service"), ["systemctl", "--user", "stop", "--", "x.service"]);
+    t.eq("enable starts it too", H.actionArgs("system", "enable", "x.service"), ["systemctl", "enable", "--now", "--", "x.service"]);
     t.eq("said", H.verbWords("disable", "x.service"), "x no longer starts at boot");
 
     // the journal

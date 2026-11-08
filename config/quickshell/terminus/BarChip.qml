@@ -98,7 +98,6 @@ Item {
           style: part.modelData.heavy ? Text.Outline : Text.Normal
           styleColor: color
         }
-        HoverHandler { id: hov; enabled: part.ok }
         MouseArea {
           id: press
           anchors.fill: parent

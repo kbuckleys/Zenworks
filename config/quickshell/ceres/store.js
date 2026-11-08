@@ -9,6 +9,7 @@
 // file or runs anything, so every rule is pinned in oracle/tests/ceresstore.js.
 
 .pragma library
+.import "../morpheus/quote.js" as Quote
 
 // ── the sections, in the sidebar's order ───────────────────────────────────
 // [key, label, glyph, AppStream main categories]. An app is in every section
@@ -392,7 +393,7 @@ function overrideFlag(row, on) {
 // the steps that set it — yours as you, the system's as root
 // (the user's is a shell line: the flag carries a path from the app's own
 // metadata, quoted so a space or a ; in it is the path's — audit 2026-10-28d)
-function shq(s) { return "'" + String(s).replace(/'/g, "'\\''") + "'"; }
+function shq(s) { return Quote.shellQuote(s); }
 function overrideSteps(id, scope, flag) {
   if (scope === "user") return [["@user", "flatpak override --user " + shq(flag) + " " + shq(id)]];
   return [["@sudo", "flatpak", "override", "--system", flag, id]];

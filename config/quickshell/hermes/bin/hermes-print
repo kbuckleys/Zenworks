@@ -134,17 +134,22 @@ def queue_name(name):
 
 def nearby():
     code, o, err = run(["lpinfo", "--include-schemes", "dnssd,usb,ipp,ipps", "-v"], 20.0)
-    devs, seen = [], set()
+    # one row a printer, by the way IPP Everywhere (lpadmin -m everywhere)
+    # can reach it: the first seen was often its usb:// one, which that
+    # driver cannot use (audit 11-08)
+    rank = {"dnssd": 0, "ipps": 1, "ipp": 2, "usb": 3}
+    best = {}
     for line in o.splitlines():
         kind, _, uri = line.strip().partition(" ")
         if not uri or uri in ("usb", "dnssd", "ipp", "ipps") or "://" not in uri:
             continue
         name = nice_name(uri)
-        if name in seen:
-            continue
-        seen.add(name)
-        devs.append({"uri": uri, "name": name, "queue": queue_name(name),
-                     "kind": "usb" if uri.startswith("usb:") else "network"})
+        r = rank.get(uri.split(":", 1)[0], 9)
+        if name not in best or r < best[name][0]:
+            best[name] = (r, uri)
+    devs = [{"uri": uri, "name": name, "queue": queue_name(name),
+             "kind": "usb" if uri.startswith("usb:") else "network"}
+            for name, (r, uri) in best.items()]
     out({"ok": code == 0 or bool(devs), "error": "" if code == 0 else err, "devices": devs})
 
 

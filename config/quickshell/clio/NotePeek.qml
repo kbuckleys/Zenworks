@@ -37,6 +37,7 @@ Bubble {
       text: peek.closed ? "" : peek.note && peek.note.kind === "entry" ? "\u{F0B64}" : "\u{F09ED}"
       color: peek.closed ? Zenon.yellow : Zenon.accent
       font.family: Zenon.glyphFace
+      font.weight: Zenon.weight
       font.pixelSize: Zenon.px(14)
     }
     Text {
@@ -47,11 +48,12 @@ Bubble {
       text: !peek.note ? "" : peek.note.kind === "entry" ? N.titleOf(peek.note, N.dateLong(peek.note.date)) : N.titleOf(peek.note)
       color: Zenon.ink
       font.family: Zenon.face
-      font.weight: Font.Bold
+      font.weight: Zenon.titleWeight
       font.pixelSize: Zenon.px(15)
     }
   }
   Text {
+    textFormat: Text.PlainText
     text: !peek.note || !peek.win ? ""
       : (peek.note.kind === "entry" ? (peek.mgr.journalOf(peek.note.journal) || {}).name || "Journal" : peek.win.folderName(peek.note.folder))
         + "  ·  " + (peek.note.kind === "entry" ? N.dateLong(peek.note.date) : "Edited " + N.dateShort(peek.note.modified, Date.now()))

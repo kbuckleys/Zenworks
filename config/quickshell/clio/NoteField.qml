@@ -73,7 +73,7 @@ Item {
       selectByMouse: true
       persistentSelection: true
       color: Zenon.white
-      selectionColor: Zenon.wash(0.25)
+      selectionColor: Zenon.selBg
       selectedTextColor: Zenon.white
       font.family: nf.face
       font.weight: nf.weight
@@ -114,7 +114,7 @@ Item {
     plainCatch.text = "";
     if (t === "") return;
     if (body.selectionEnd > body.selectionStart) body.remove(body.selectionStart, body.selectionEnd);
-    const html = t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    const html = Strings.escapeHtml(t)
       .replace(/\r\n?/g, "\n").replace(/\n/g, "<br>");
     body.insert(body.cursorPosition, html);
   }

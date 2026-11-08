@@ -44,6 +44,7 @@ Row {
         text: modelData.g
         color: modelData.ink
         font.family: Zenon.glyphFace
+        font.weight: Zenon.weight
         font.pixelSize: marks.textSize + 1
       }
       Text {
@@ -51,7 +52,7 @@ Row {
         text: modelData.t
         color: Zenon.accentMuted
         font.family: Zenon.face
-        font.weight: Font.DemiBold
+        font.weight: Zenon.titleWeight
         font.pixelSize: marks.textSize
         font.features: { "tnum": 1 }
       }

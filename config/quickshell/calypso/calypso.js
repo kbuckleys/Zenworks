@@ -1,4 +1,5 @@
 .pragma library
+.import "../morpheus/quote.js" as Quote
 // ┌─┐┌─┐┌┐┌┬ ┬┌─┐┬─┐┬┌─┌─┐
 // ┌─┘├┤ │││││││ │├┬┘├┴┐└─┐
 // └─┘└─┘┘└┘└┴┘└─┘┴└─┴ ┴└─┘
@@ -119,7 +120,10 @@ function editState(d, kind, acct, folder) {
   for (const s of (d && d.sections) || [])
     for (const f of s.fields) {
       if (f.ref.indexOf("h:") === 0) continue;
-      if (f.kind === "url") { urls.push(f.value); continue; }
+      // the item's websites; a link that is a custom field (1Password's
+      // section links, ref c:…) stays a custom field (audit 11-08: every
+      // save moved them into the website list)
+      if (f.kind === "url" && f.ref.indexOf("c:") !== 0) { urls.push(f.value); continue; }
       byRef[f.ref] = f;
     }
   const std = {};
@@ -487,9 +491,7 @@ function actionEnabled(kind, it) {
 }
 
 // query matches drawn in `ink`, bold, across a line of rich text
-function esc(s) {
-  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
+function esc(s) { return Quote.escapeHtml(s); }
 function highlight(text, query, ink) {
   text = String(text);
   if (!query) return esc(text);

@@ -60,6 +60,7 @@ Item {
   function stop() {
     vo.on = false;
     vo.paused = false;
+    vo.again = false;
     voice.running = false;
     if (vo.page && vo.page.light) vo.page.light(0, 0);
   }
@@ -98,6 +99,10 @@ Item {
   function next() {
     if (!vo.on || vo.paused) return;
     if (vo.at >= vo.queue.length) { vo.onward(); return; }
+    // the last one still on its way out (a stop, a pause, a moment ago):
+    // its exit starts this one, rather than counting it said (audit 11-08:
+    // a quick resume skipped the sentence)
+    if (voice.running) { vo.again = true; voice.running = false; return; }
     const s = vo.queue[vo.at];
     if (!vo.page.paged) vo.page.light(s.start, s.end);
     voice.command = ["espeak-ng", "-s", String(Math.round(175 * (vo.win.settings.speakRate || 1))), "--",

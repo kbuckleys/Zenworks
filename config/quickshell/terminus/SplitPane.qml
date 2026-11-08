@@ -140,6 +140,7 @@ Item {
   // decode nobody uses.
   Process {
     id: warmProc
+    property int seq: 0
     stdout: StdioCollector {
       id: warmOut
       waitForEnd: true
@@ -161,7 +162,10 @@ Item {
     if (p === term.warmDir) return;
     term.warmDir = p;
     warmProc.running = false;
-    warmProc.command = ["sh", "-c", Terminus.peekCommand(p)];
+    // tagged: the killed peek of the last directory still streams, and was
+    // taken for this one's listing (audit 11-07)
+    warmProc.seq++;
+    warmProc.command = ["sh", "-c", "echo '@@" + warmProc.seq + "'; " + Terminus.peekCommand(p)];
     warmProc.running = true;
   }
   // Every warm image has either finished or has nothing to finish. An
@@ -196,7 +200,11 @@ Item {
   function warmLanded() {
     const dir = term.warmDir;
     if (dir === "") return;
-    const rows = term.rowsFromListing(warmOut.text, dir);
+    const all = String(warmOut.text || "");
+    const tag = "@@" + warmProc.seq + "\n";
+    if (!all.startsWith(tag)) return;
+    const text = all.slice(tag.length);
+    const rows = term.rowsFromListing(text, dir);
     const out = [];
     for (let i = 0; i < rows.length && out.length < term.warmCap; ++i) {
       const r = rows[i];
@@ -221,7 +229,7 @@ Item {
     // rememberListing refuses anything over 64KB, and the peek only
     // truncates at 200KB — so any text it accepts is a COMPLETE listing,
     // never a cut one. The size guard is the truncation guard.
-    term.rememberListing(dir, warmOut.text);
+    term.rememberListing(dir, text);
     term.primeThumbs(out);
     term.warmRows = out;
     // Only now are the rows on screen ABOUT this directory. warmDir is set
@@ -291,7 +299,7 @@ Item {
   }
   Process {
     id: fitProc
-    command: ["sh", "-c", "hyprctl -j activewindow; echo '@@mons'; hyprctl -j monitors"]
+    command: Room.PROBE
     stdout: StdioCollector {
       id: fitOut
       onStreamFinished: {
@@ -299,12 +307,11 @@ Item {
         // asked for a state we have since toggled out of — see fitFor
         if (term.fitFor !== (term.dual || term.otherTabSplit())) { term.fitPending = false; return; }
         const grow = term.fitFor;
-        const parts = fitOut.text.split("@@mons");
-        let win = null, mons = null;
-        try { win = JSON.parse(parts[0]); mons = JSON.parse(parts[1]); } catch (e) { return; }
         // The window the key was pressed in is the focused one; anything
-        // else answering here is not ours to resize.
-        if (!win || win.class !== "org.quickshell" || win.title !== term.title) return;
+        // else answering here is not ours to resize (Room.parseProbe).
+        const got = Room.parseProbe(fitOut.text, term.title);
+        if (!got) return;
+        const win = got.win, mons = got.mons;
         term.fitPending = false;
         const room = Room.make(win, mons, term.splitWant, 16, 560, "right");
         if (room) Room.dispatches(win.address, room).forEach((d) => Hyprland.dispatch(d));
@@ -399,6 +406,9 @@ Item {
     a.lastListing = b.lastListing;
     b.cwd = cwd; b.sel = sel; b.raw = raw; b.viewMode = vm;
     b.zoom = zoom; b.query = q; b.marked = mk; b.lastListing = ll;
+    // the results moved with the rows
+    if (term.searchPane === a) term.searchPane = b;
+    else if (term.searchPane === b) term.searchPane = a;
     // The order goes with the listing it was chosen for.
     const sk = a.sortKey, sd = a.sortDesc;
     a.sortKey = b.sortKey; a.sortDesc = b.sortDesc;

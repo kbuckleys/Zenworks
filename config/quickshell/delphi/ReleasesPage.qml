@@ -82,7 +82,7 @@ Item {
     // another of Delphi's windows, without waiting (user, 2026-10-25) —
     // the refresh glyph, no words, as Hestia's
     { label: "\u{F0450}", glyph: true, visible: !!pg.hub, ready: !pg.loading, run: () => pg.reload() },
-    { label: "Delete", ink: Zenon.red, visible: !!pg.rel, run: () => pg.remove() },
+    { label: "\u{F0A7A}", glyph: true, ink: Zenon.red, visible: !!pg.rel, run: () => pg.remove() },
     { label: "Edit", visible: !!pg.rel, run: () => pg.editRel(pg.rel) },
     { label: "On the web", visible: !!pg.rel, run: () => pg.web() },
     { label: "New release", ink: Zenon.accent, primary: true, visible: !!pg.hub, run: () => pg.create() },
@@ -170,9 +170,12 @@ Item {
   function writeNotes() {
     const e = pg.edit;
     if (!e || e.tag.trim() === "") return;
-    const tag = e.tag.trim(), target = e.target, prev = e.prev;
-    const put = (body, by, file) => { if (!pg || !pg.edit || pg.edit.tag.trim() !== tag) return;
+    const tag = e.tag.trim(), target = e.target, prev = e.prev, typed = e.body;
+    // done either way (audit 11-07: a tag edited meanwhile left "Write them
+    // for me" off); notes typed meanwhile are kept, not written over
+    const put = (body, by, file) => { if (!pg) return;
       pg.writing = false;
+      if (!pg.edit || pg.edit.tag.trim() !== tag || pg.edit.body !== typed) return;
       const n = Object.assign({}, pg.edit, { body: body, by: by, file: file || "" });
       pg.edit = n;
       editor.reset();
@@ -354,6 +357,7 @@ Item {
           text: ""
           color: rrow.r.draft ? Zenon.accentMuted : rrow.r.prerelease ? Zenon.yellow : rrow.index === 0 ? Zenon.green : Zenon.accent
           font.family: Zenon.glyphFace
+          font.weight: Zenon.weight
           font.pixelSize: Zenon.px(17)
         }
         Column {
@@ -374,6 +378,7 @@ Item {
             font.pixelSize: Zenon.px(15)
           }
           Text {
+            textFormat: Text.PlainText
             width: parent.width
             elide: Text.ElideRight
             text: [rrow.r.draft ? "Draft" : rrow.r.prerelease ? "Pre-release" : rrow.index === 0 ? "Latest" : "",
@@ -403,6 +408,7 @@ Item {
     Scrollbar { flick: list; anchors.right: list.right; anchors.top: list.top; anchors.bottom: list.bottom }
     Working { anchors.centerIn: list; z: 5; running: pg.loading; visible: pg.loading }
     Text {
+      textFormat: Text.PlainText
       anchors.centerIn: parent
       width: parent.width - 48
       visible: !pg.hub || (pg.listError !== "" && !pg.loading)
@@ -442,7 +448,7 @@ Item {
         text: pg.rel ? pg.rel.name : ""
         color: Zenon.ink
         font.family: Zenon.face
-        font.weight: Font.Bold
+        font.weight: Zenon.titleWeight
         font.pixelSize: Zenon.px(20)
       }
       Text {
@@ -457,7 +463,7 @@ Item {
         font.weight: Zenon.weight
         font.pixelSize: Zenon.px(14)
       }
-      Rectangle { width: parent.width; height: 1; color: Zenon.border }
+      Hairline { width: parent.width }
       // the notes, as the forge shows them — code chips, heading lines
       // and all (NotesView, the editor's Preview too)
       NotesView {
@@ -465,6 +471,7 @@ Item {
         width: parent.width
         body: pg.rel ? pg.rel.body : ""
         textSize: editor.notesPx
+        ownHosts: pg.win && pg.win.hub && pg.win.hub.host ? [pg.win.hub.host] : []
       }
       // the files attached
       Text {
@@ -472,7 +479,7 @@ Item {
         text: "Files"
         color: Zenon.accentKey
         font.family: Zenon.face
-        font.weight: Font.Bold
+        font.weight: Zenon.titleWeight
         font.pixelSize: Zenon.px(14)
       }
       // in the box a list stands in (morpheus' ListFrame), as Oracle's
@@ -507,7 +514,11 @@ Item {
                 font.pixelSize: Zenon.px(15)
                 // a GitLab release's links are whatever its author typed:
                 // web addresses only (Strings.openLink)
-                MouseArea { anchors.fill: parent; onClicked: Strings.openLink(arow.modelData.url) }
+                MouseArea {
+                  anchors.fill: parent
+                  cursorShape: arow.modelData.url ? Qt.PointingHandCursor : Qt.ArrowCursor
+                  onClicked: Strings.openLink(arow.modelData.url)
+                }
               }
               Text {
                 textFormat: Text.PlainText

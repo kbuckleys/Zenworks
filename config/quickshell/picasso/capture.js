@@ -12,6 +12,7 @@
 // "2026-09-26-134642" — the same stamp hyprshot.lua wrote, so the directory
 // keeps sorting the way it always has.
 .pragma library
+.import "../morpheus/quote.js" as Quote
 // ONE COPY FOR THE WHOLE SHELL. Without the pragma every component instance
 // that imports this file — every row, tile, card and sheet — evaluated all of
 // it again; a profile caught terminus.js and icons.js costing hundreds of ms
@@ -249,8 +250,8 @@ function shadowCommand(spec, w, h) {
     + "mpr:win -geometry " + at(L.wx, L.wy) + " -compose Over -composite \"$2\"";
 }
 
-// morpheus Strings.shellQuote's body — this file cannot reach the singleton
-function quote(s) { return "'" + String(s == null ? "" : s).replace(/'/g, "'\\''") + "'"; }
+// morpheus/quote.js: this file cannot reach the Strings singleton
+function quote(s) { return Quote.shellQuote(s); }
 
 // The whole window shot as one shell line. The window's own buffer through
 // grim -T, its identifier found by `helper` (bin/toplevel.py) from hyprctl's

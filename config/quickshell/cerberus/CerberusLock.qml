@@ -36,7 +36,7 @@ Scope {
   // ── hyprlock.conf, ported ────────────────────────────────────────────
   //   $font = JetBrainsMono Nerd Font Mono Medium
   readonly property string fontFamily: Zenon.faceMono
-  readonly property int fontWeight: Font.Medium
+  readonly property int fontWeight: Zenon.weight
   //   $monitor = DP-1 — the input field and both labels named this monitor;
   //   every other output gets background only. Named rather than fixed: which
   //   output you actually look at first is a fact about the desk, not about
@@ -183,7 +183,7 @@ Scope {
   //   ...and two pixels larger than hyprlock had it, now that it is drawn
   //   as segments rather than as type.
   readonly property int clockSize: Oracle.lockClockSize
-  readonly property color clockFg: Qt.rgba(Zenon.white.r, Zenon.white.g, Zenon.white.b, 0.85)
+  readonly property color clockFg: Zenon.alpha(Zenon.white, 0.85)
   // The bar's clock face, worn here too. Named from Zenon rather than restated,
   // so there is one answer to "what does a clock look like in this shell".
   // Only the time takes it — DSEG has no month names in it.
@@ -315,6 +315,17 @@ Scope {
   function openCurtain() {
     secureWait.stop();
     if (root.stage !== "up") return;
+    // NEVER OPENED OVER A LOCK THE COMPOSITOR REFUSED (audit 11-08): the
+    // curtain stays shut, the lock is asked for again, and nothing outside
+    // (socordia's suspend) is told it is locked until it is
+    if (!sessionLock.locked) {
+      root.note("lock:refused, asking again");
+      root.locked = false;
+      sessionLock.locked = true;
+      secureWait.restart();
+      return;
+    }
+    root.locked = true;
     // gone while the curtain still hides it: with xray on, the veil is drawn
     // under the lock too, and a black veil there is a black frost
     root.jump("veil", 0);
@@ -480,7 +491,13 @@ Scope {
     root.pw = "";
   }
 
+  // ONCE PER LOCK (audit 11-08): with no limit, a stranger had three
+  // guesses, super+r, three more, for as long as they liked — pam's
+  // lockout never got to bite. After the one reset it is pam's unlock_time.
+  property bool resetSpent: false
   function resetFaillock() {
+    if (root.resetSpent) return;
+    root.resetSpent = true;
     resetProc.running = true;
   }
 
@@ -514,6 +531,7 @@ Scope {
     root.stage = "up";
     root.locked = true;
     root.keysSeen = 0;
+    root.resetSpent = false;
     CapsLock.read();
     root.note("lock:engage screens=" + Quickshell.screens.length);
     secureWait.restart();
@@ -1212,7 +1230,8 @@ Scope {
           anchors.horizontalCenter: parent.horizontalCenter
           anchors.top: field.bottom
           anchors.topMargin: 8
-          text: "Too many attempts  \u00b7  super + r  clears the counter"
+          text: root.resetSpent ? "Too many attempts  \u00b7  wait a few minutes, then try again"
+                                : "Too many attempts  \u00b7  super + r  clears the counter"
           color: Zenon.yellow
           font.family: root.fontFamily
           font.weight: root.fontWeight
@@ -1244,7 +1263,7 @@ Scope {
             text: root.uptimeText
             color: root.clockFg
             font.family: Zenon.clockFamily
-            font.weight: Font.Bold
+            font.weight: Zenon.titleWeight
             font.pointSize: root.clockSize
           }
 
@@ -1263,6 +1282,7 @@ Scope {
             // between two readings.
             color: root.clockFg
             font.family: root.fontFamily
+            font.weight: Zenon.weight
             font.pixelSize: root.sepSize
           }
 
@@ -1277,7 +1297,7 @@ Scope {
               text: "88:88"
               color: root.ghostFg
               font.family: Zenon.clockFamily
-              font.weight: Font.Bold
+              font.weight: Zenon.titleWeight
               font.pointSize: root.clockSize
             }
 
@@ -1287,7 +1307,7 @@ Scope {
               text: Qt.formatDateTime(clock.date, "HH:mm")
               color: root.clockFg
               font.family: Zenon.clockFamily
-              font.weight: Font.Bold
+              font.weight: Zenon.titleWeight
               font.pointSize: root.clockSize
             }
           }
@@ -1359,6 +1379,7 @@ Scope {
                 text: ""
                 color: Zenon.muted
                 font.family: root.fontFamily
+                font.weight: Zenon.weight
                 font.pixelSize: Zenon.px(28)
               }
             }
@@ -1404,7 +1425,7 @@ Scope {
                   text: NowPlaying.title
                   color: root.clockFg
                   font.family: root.fontFamily
-                  font.weight: Font.Bold
+                  font.weight: Zenon.titleWeight
                   font.pixelSize: Zenon.px(19)
                   elide: Text.ElideRight
                   horizontalAlignment: Text.AlignLeft
@@ -1422,6 +1443,7 @@ Scope {
                 // a gray. The same ink the date is set in — see dateFg.
                 color: root.dateFg
                 font.family: root.fontFamily
+                font.weight: Zenon.weight
                 font.pixelSize: Zenon.px(16)
                 elide: Text.ElideRight
                 horizontalAlignment: Text.AlignLeft
@@ -1435,6 +1457,7 @@ Scope {
                 // there it is a step past the artist's ink, not the full gray.
                 color: Zenon.light ? Zenon.mix(Zenon.ink, Zenon.accentMuted, 0.6) : Zenon.accentMuted
                 font.family: root.fontFamily
+                font.weight: Zenon.weight
                 font.pixelSize: Zenon.px(14)
                 elide: Text.ElideRight
                 horizontalAlignment: Text.AlignLeft
@@ -1473,7 +1496,7 @@ Scope {
                 text: root.uptimeText
                 color: root.clockFg
                 font.family: Zenon.clockFamily
-                font.weight: Font.Bold
+                font.weight: Zenon.titleWeight
                 font.pointSize: root.clockSize
               }
 
@@ -1483,6 +1506,7 @@ Scope {
                 text: root.uptimeSep
                 color: root.clockFg
                 font.family: root.fontFamily
+                font.weight: Zenon.weight
                 font.pixelSize: root.sepSize
               }
 
@@ -1497,7 +1521,7 @@ Scope {
                 text: "88:88"
                 color: root.ghostFg
                 font.family: Zenon.clockFamily
-                font.weight: Font.Bold
+                font.weight: Zenon.titleWeight
                 font.pointSize: root.clockSize
                 horizontalAlignment: Text.AlignRight
               }
@@ -1508,7 +1532,7 @@ Scope {
                 text: Qt.formatDateTime(clock.date, "HH:mm")
                 color: root.clockFg
                 font.family: Zenon.clockFamily
-                font.weight: Font.Bold
+                font.weight: Zenon.titleWeight
                 font.pointSize: root.clockSize
                 horizontalAlignment: Text.AlignRight
               }

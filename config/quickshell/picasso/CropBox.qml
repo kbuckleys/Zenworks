@@ -150,11 +150,19 @@ Item {
           : grip.modelData.indexOf("r") >= 0 ? cropBox.width : cropBox.width / 2
         readonly property real gy: grip.modelData.indexOf("t") >= 0 ? 0
           : grip.modelData.indexOf("b") >= 0 ? cropBox.height : cropBox.height / 2
-        x: grip.body ? 0 : grip.gx - 9
-        y: grip.body ? 0 : grip.gy - 9
-        width: grip.body ? cropBox.width : 18
-        height: grip.body ? cropBox.height : 18
+        // a side answers along its whole length between the corners, not
+        // only at its middle square (user, 2026-11-08); its square stays
+        // drawn in the middle
+        readonly property bool side: grip.modelData.length === 1 && !grip.body
+        readonly property bool across: grip.modelData === "t" || grip.modelData === "b"
+        x: grip.body ? 0 : grip.side && grip.across ? 9 : grip.gx - 9
+        y: grip.body ? 0 : grip.side && !grip.across ? 9 : grip.gy - 9
+        width: grip.body ? cropBox.width : grip.side && grip.across ? Math.max(0, cropBox.width - 18) : 18
+        height: grip.body ? cropBox.height : grip.side && !grip.across ? Math.max(0, cropBox.height - 18) : 18
         z: grip.body ? 0 : 1
+        // hover, or the shape never showed until a press (user, 2026-11-08:
+        // the corners kept the crosshair) — SeamGrip's resize cursor works so
+        hoverEnabled: true
         cursorShape: grip.body ? Qt.SizeAllCursor
           : (grip.modelData === "tl" || grip.modelData === "br") ? Qt.SizeFDiagCursor
           : (grip.modelData === "tr" || grip.modelData === "bl") ? Qt.SizeBDiagCursor

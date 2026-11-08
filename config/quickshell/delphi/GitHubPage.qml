@@ -33,7 +33,6 @@
 //   / filter · n new repository · a archive
 
 import QtQuick
-import Quickshell
 import "../morpheus"
 import "../terminus"
 import "delphi.js" as D
@@ -149,7 +148,7 @@ Item {
       items.push({ isSeparator: true },
                  { text: "Clone and connect over SSH", icon: ssh ? "\uF00C" : "", run: () => pg.useSsh(id, !ssh) },
                  { isSeparator: true },
-                 { text: "Open " + s.host, icon: "", run: () => Quickshell.execDetached(["xdg-open", "https://" + s.host + "/" + me]) },
+                 { text: "Open " + s.host, icon: "", run: () => Strings.openLink("https://" + s.host + "/" + me) },
                  { text: "Sign out of " + me, icon: "", danger: true, run: () => pg.signOut(id) });
     } else if (was !== "") {
       items.push({ text: "Install " + s.pkg + " to sign in again", icon: "", enabled: !pg.win.mgr.installing, run: () => pg.installThenSignIn(id) },
@@ -490,7 +489,7 @@ Item {
     if (!pg.alive(r.forge)) return;
     pg.put(r.forge, { repos: (pg.stOf(r.forge).repos || []).map((x) => x.full === r.full ? Object.assign({}, x, { archived: on }) : x) });
   }
-  function web(r) { if (r) Quickshell.execDetached(["xdg-open", "https://" + pg.siteOf(r.forge).host + "/" + r.full]); }
+  function web(r) { if (r) Strings.openLink("https://" + pg.siteOf(r.forge).host + "/" + r.full); }
 
   // Upload: files and directories chosen in terminus (many at once; a
   // directory brings everything under it, under its own name), where they
@@ -755,17 +754,20 @@ Item {
       Repeater {
         model: D.FORGE_ORDER.slice(0, 3)
         delegate: Text {
+          textFormat: Text.PlainText
           required property var modelData
           text: D.FORGES[modelData].glyph
           color: Zenon.accentMuted
           opacity: 0.5
           font.family: Zenon.glyphFace
+          font.weight: Zenon.weight
           font.pixelSize: Zenon.px(48)
         }
       }
     }
     Working { anchors.horizontalCenter: parent.horizontalCenter; running: pg.checking }
     Text {
+      textFormat: Text.PlainText
       visible: !pg.checking
       width: parent.width
       horizontalAlignment: Text.AlignHCenter
@@ -819,10 +821,12 @@ Item {
           anchors.centerIn: parent
           spacing: 8
           Text {
+            textFormat: Text.PlainText
             anchors.verticalCenter: parent.verticalCenter
             text: chip.s.glyph
             color: chip.bad ? Zenon.yellow : Zenon.ink
             font.family: Zenon.glyphFace
+            font.weight: Zenon.weight
             font.pixelSize: Zenon.px(14)
           }
           Text {
@@ -831,7 +835,7 @@ Item {
             text: chip.inside ? chip.x_.account.login : pg.wasOf(chip.fid) !== "" ? pg.wasOf(chip.fid) : chip.s.name
             color: Zenon.ink
             font.family: Zenon.face
-            font.weight: Font.Bold
+            font.weight: Zenon.titleWeight
             font.pixelSize: Zenon.px(14)
           }
           Text {
@@ -855,6 +859,7 @@ Item {
             text: ""
             color: Zenon.accentMuted
             font.family: Zenon.glyphFace
+            font.weight: Zenon.weight
             font.pixelSize: Zenon.px(10)
           }
         }
@@ -876,17 +881,14 @@ Item {
       }
     }
   }
-  BulkField {
+  SearchBox {
     id: filter
     visible: pg.signedIn
     anchors.left: parent.left
     anchors.right: parent.right
     anchors.top: strip.bottom
     anchors.margins: 12
-    height: 32
-    textSize: Zenon.px(15)
-    ghost: "  Filter " + pg.repos.length + " repositories  ( / )"
-    clearable: true
+    ghost: "Filter " + pg.repos.length + " repositories  ( / )"
     onTextChanged: { pg.query = filter.text.trim(); pg.selKey = ""; }
     onAccepted: pg.win.focusKeys()
     Keys.onEscapePressed: { filter.text = ""; pg.win.focusKeys(); }
@@ -948,6 +950,7 @@ Item {
       height: list.rowH
       // its forge
       Text {
+        textFormat: Text.PlainText
         id: rf
         x: 24
         width: Zenon.px(20)
@@ -956,10 +959,12 @@ Item {
         text: rrow.s.glyph
         color: rrow.index === pg.sel ? Zenon.ink : Zenon.accentSoft
         font.family: Zenon.glyphFace
+        font.weight: Zenon.weight
         font.pixelSize: Zenon.px(18)
       }
       // its kind: private, a fork, public
       Text {
+        textFormat: Text.PlainText
         id: rg
         anchors.left: rf.right
         anchors.leftMargin: 10
@@ -969,6 +974,7 @@ Item {
         text: rrow.r.private ? "" : rrow.r.fork ? "" : ""
         color: rrow.r.private ? Zenon.yellow : Zenon.accentMuted
         font.family: Zenon.glyphFace
+        font.weight: Zenon.weight
         font.pixelSize: Zenon.px(14)
       }
       Column {
@@ -1008,6 +1014,7 @@ Item {
         anchors.verticalCenter: parent.verticalCenter
         spacing: 3
         Text {
+          textFormat: Text.PlainText
           anchors.right: parent.right
           text: rrow.r.pushed ? D.ago(Date.parse(rrow.r.pushed) / 1000, Date.now()) : ""
           color: Zenon.accentMuted
@@ -1019,6 +1026,7 @@ Item {
         // where it is here: its clone, or the one of its name (another
         // forge's copy, most likely — a click away from kept in sync)
         Text {
+          textFormat: Text.PlainText
           anchors.right: parent.right
           visible: text !== ""
           width: Math.min(implicitWidth, rrow.width * 0.38)

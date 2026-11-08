@@ -38,7 +38,19 @@ FloatingWindow {
   // the day the window is on: the day itself, or the last of its week
   property var at: new Date()
   readonly property string atKey: K.dayKey(kw.at)
-  readonly property bool atToday: kw.atKey === K.dayKey(new Date())
+  // the day as it turns (audit 11-07): a window left open on today goes on
+  // with it past midnight, and "Today" / the limit sheet's count follow
+  readonly property WallClock clock: WallClock {}
+  readonly property string todayKey: K.dayKey(kw.clock.date)
+  // set, not bound: a binding could take the new day before the handler
+  // below reads the old one
+  property string _lastToday: ""
+  Component.onCompleted: kw._lastToday = kw.todayKey
+  onTodayKeyChanged: {
+    if (kw.atKey === kw._lastToday) kw.at = new Date();
+    kw._lastToday = kw.todayKey;
+  }
+  readonly property bool atToday: kw.atKey === kw.todayKey
 
   function go(v) {
     if (v === "day" || v === "week") kw.view = v;
@@ -71,7 +83,7 @@ FloatingWindow {
       return Qt.locale().toString(from, "d MMM") + " – " + Qt.locale().toString(kw.at, "d MMM");
     }
     if (kw.atToday) return "Today";
-    if (K.dayKey(K.addDays(new Date(), -1)) === kw.atKey) return "Yesterday";
+    if (K.dayKey(K.addDays(kw.clock.date, -1)) === kw.atKey) return "Yesterday";
     return Qt.locale().toString(kw.at, "dddd, d MMMM");
   }
 
@@ -113,27 +125,12 @@ FloatingWindow {
       anchors.left: parent.left
       anchors.right: parent.right
       height: kw.headH
-      Rectangle { anchors.fill: parent; color: Zenon.headBg }
-      Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Zenon.border }
-      Column {
-        x: 20
-        anchors.verticalCenter: parent.verticalCenter
-        spacing: 1
-        Text {
-          text: "Screen Time"
-          color: Zenon.ink
-          font.family: Zenon.face
-          font.weight: Zenon.titleWeight
-          font.pixelSize: Zenon.px(17)
-        }
-        Text {
-          text: !Kairos.enabled ? "Not counting — turned off in Settings"
+      HeadGround {}
+      HeadWords {
+        title: "Screen Time"
+        status: !Kairos.enabled ? "Not counting — turned off in Settings"
             : Kairos.locked || Kairos.idle ? "Paused while you are away" : "Counting on this machine only"
-          color: Kairos.enabled ? Zenon.accentMuted : Zenon.yellow
-          font.family: Zenon.face
-          font.weight: Zenon.weight
-          font.pixelSize: Zenon.px(12)
-        }
+        statusInk: Kairos.enabled ? Zenon.accentMuted : Zenon.yellow
       }
       Segments {
         anchors.centerIn: parent
@@ -209,8 +206,8 @@ FloatingWindow {
           readonly property real barW: (chart.width - chart.gap * (kw.bars.length - 1)) / Math.max(1, kw.bars.length)
 
           // a faint rule at the top and at the floor
-          Rectangle { width: parent.width; height: 1; color: Zenon.border; opacity: 0.6 }
-          Rectangle { y: chart.height - chart.labelH; width: parent.width; height: 1; color: Zenon.border }
+          Hairline { width: parent.width;  opacity: 0.6 }
+          Hairline { y: chart.height - chart.labelH; width: parent.width }
           Text {
             anchors.right: parent.right
             y: 4
@@ -307,6 +304,7 @@ FloatingWindow {
                 text: Kairos.glyphOf(row.modelData.key)
                 color: Zenon.accent
                 font.family: Zenon.face
+                font.weight: Zenon.weight
                 font.pixelSize: Zenon.px(18)
               }
               Text {
@@ -397,7 +395,7 @@ FloatingWindow {
       // what it has had of you today, against the limit
       readonly property real todaySecs: {
         Kairos.revision;
-        const d = Kairos.day(K.dayKey(new Date()));
+        const d = Kairos.day(kw.todayKey);
         return d && d.apps[limitSheet.key] ? d.apps[limitSheet.key] : 0;
       }
       readonly property int limit: { Kairos.revision; return Kairos.limitOf(limitSheet.key); }
@@ -419,6 +417,7 @@ FloatingWindow {
             text: limitSheet.key !== "" ? Kairos.glyphOf(limitSheet.key) : ""
             color: Zenon.accent
             font.family: Zenon.face
+            font.weight: Zenon.weight
             font.pixelSize: Zenon.px(36)
           }
           Column {
@@ -469,7 +468,7 @@ FloatingWindow {
         }
 
         // the foot: a rule, and the way out
-        Rectangle { width: parent.width; height: 1; color: Zenon.border }
+        Hairline { width: parent.width }
         Item {
           width: parent.width
           height: limCancel.height

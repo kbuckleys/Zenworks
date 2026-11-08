@@ -32,9 +32,9 @@ Item {
     anchors.left: parent.left
     anchors.verticalCenter: parent.verticalCenter
     text: strip.sum ? strip.sum.weeks + " wk" : ""
-    color: Zenon.muted
+    color: Zenon.accentMuted
     font.family: Zenon.face
-    font.weight: Font.Bold
+    font.weight: Zenon.titleWeight
     font.pixelSize: Zenon.px(11)
   }
 
@@ -119,7 +119,7 @@ Item {
     text: strip.sum ? strip.sum.pctText : ""
     color: Zenon.keyInk
     font.family: Zenon.face
-    font.weight: Font.Bold
+    font.weight: Zenon.titleWeight
     font.pixelSize: Zenon.px(12)
     font.features: { "tnum": 1 }
   }

@@ -1076,6 +1076,7 @@ FloatingWindow {
           text: ""
           color: Zenon.accent
           font.family: Zenon.glyphFace
+          font.weight: Zenon.weight
           font.pixelSize: Zenon.px(20)
         }
         Column {
@@ -1086,15 +1087,17 @@ FloatingWindow {
           anchors.verticalCenter: parent.verticalCenter
           spacing: 2
           Text {
+            textFormat: Text.PlainText
             width: parent.width
             elide: Text.ElideRight
             text: win.root === "" ? "No repository" : win.repoName
             color: Zenon.ink
             font.family: Zenon.face
-            font.weight: Font.Bold
+            font.weight: Zenon.titleWeight
             font.pixelSize: Zenon.px(17)
           }
           Text {
+            textFormat: Text.PlainText
             width: parent.width
             elide: Text.ElideRight
             text: win.root === "" ? "Open or clone one" : "  " + win.branchName
@@ -1115,6 +1118,7 @@ FloatingWindow {
           rotation: repoPop.isOpen ? 180 : 0
           Behavior on rotation { NumberAnimation { duration: Zenon.normal; easing.type: Zenon.travelEase } }
           font.family: Zenon.glyphFace
+          font.weight: Zenon.weight
           font.pixelSize: Zenon.px(11)
         }
         MouseArea {
@@ -1208,6 +1212,7 @@ FloatingWindow {
           width: parent.width - 24
           spacing: 8
           Text {
+            textFormat: Text.PlainText
             width: parent.width
             wrapMode: Text.Wrap
             text: !win.state ? "" : (win.state.op === "rebase" ? "Rebasing" + (win.state.steps ? "  " + win.state.step + " / " + win.state.steps : "")
@@ -1216,10 +1221,11 @@ FloatingWindow {
               : win.bisectNow && win.bisectNow.culprit ? "Found it" : "Bisecting")
             color: Zenon.yellow
             font.family: Zenon.face
-            font.weight: Font.Bold
+            font.weight: Zenon.titleWeight
             font.pixelSize: Zenon.px(15)
           }
           Text {
+            textFormat: Text.PlainText
             width: parent.width
             wrapMode: Text.Wrap
             visible: !!win.st && win.st.conflicts.length > 0
@@ -1231,6 +1237,7 @@ FloatingWindow {
           }
           // bisecting: what is being tried, and the answers to it
           Text {
+            textFormat: Text.PlainText
             width: parent.width
             wrapMode: Text.Wrap
             visible: !!win.state && win.state.op === "bisect" && !!win.bisectNow
@@ -1315,7 +1322,7 @@ FloatingWindow {
             text: "Missing"
             color: Zenon.yellow
             font.family: Zenon.face
-            font.weight: Font.Bold
+            font.weight: Zenon.titleWeight
             font.pixelSize: Zenon.px(14)
           }
           Repeater {
@@ -1325,6 +1332,7 @@ FloatingWindow {
               width: needCol.width
               spacing: 6
               Text {
+                textFormat: Text.PlainText
                 width: parent.width
                 wrapMode: Text.Wrap
                 text: modelData.why
@@ -1349,6 +1357,7 @@ FloatingWindow {
 
       // who commits: the first thing to set, said until it is
       Text {
+        textFormat: Text.PlainText
         id: whoLine
         anchors.left: parent.left
         anchors.right: parent.right
@@ -1414,7 +1423,7 @@ FloatingWindow {
       anchors.top: parent.top
       // one row, the title and what it is about beside it (user, 2026-10-11:
       // two rows were taller than a head needs to be)
-      height: 46
+      height: Zenon.toolbarH
       // a header's translucent ground: the rows that go up under it (the
       // ScrollEdges below) show through it frosted, as in terminus and ceres
       Rectangle { anchors.fill: parent; color: Zenon.headBg }
@@ -1436,10 +1445,11 @@ FloatingWindow {
           text: win.pageItem && win.pageItem.title ? win.pageItem.title : (win.pages.find((p) => p.id === win.page) || {}).label || ""
           color: Zenon.ink
           font.family: Zenon.face
-          font.weight: Font.Bold
-          font.pixelSize: Zenon.px(19)
+          font.weight: Zenon.titleWeight
+          font.pixelSize: Zenon.px(17)
         }
         Text {
+          textFormat: Text.PlainText
           id: headSub
           anchors.left: headTitle.right
           anchors.leftMargin: 12
@@ -1480,6 +1490,7 @@ FloatingWindow {
               text: "\uF062"
               color: Zenon.accentMuted
               font.family: Zenon.glyphFace
+              font.weight: Zenon.weight
               font.pixelSize: Zenon.px(11)
             }
             Repeater {
@@ -1497,17 +1508,21 @@ FloatingWindow {
                   text: "+"
                   color: Zenon.accentMuted
                   font.family: Zenon.face
+                  font.weight: Zenon.weight
                   font.pixelSize: Zenon.px(13)
                 }
                 Text {
+                  textFormat: Text.PlainText
                   visible: !!parent.w
                   anchors.verticalCenter: parent.verticalCenter
                   text: parent.w ? parent.w.glyph : ""
                   color: Zenon.accent
                   font.family: Zenon.glyphFace
+                  font.weight: Zenon.weight
                   font.pixelSize: Zenon.px(13)
                 }
                 Text {
+                  textFormat: Text.PlainText
                   anchors.verticalCenter: parent.verticalCenter
                   // the forge's name where it is one delphi knows, else the remote's
                   text: !parent.r ? "Not published"
@@ -1533,6 +1548,7 @@ FloatingWindow {
               rotation: pushPop.isOpen ? 180 : 0
               Behavior on rotation { NumberAnimation { duration: Zenon.normal; easing.type: Zenon.travelEase } }
               font.family: Zenon.glyphFace
+              font.weight: Zenon.weight
               font.pixelSize: Zenon.px(10)
             }
           }
@@ -1649,6 +1665,7 @@ FloatingWindow {
               }
             }
             Text {
+              textFormat: Text.PlainText
               anchors.verticalCenter: parent.verticalCenter
               text: upPill.phase === "done" ? "Uploaded " + upPill.total
                 : upPill.phase === "failed" ? "Upload stopped"
@@ -1657,7 +1674,7 @@ FloatingWindow {
                 : "Uploading " + Math.min(upPill.sent + 1, upPill.total) + " of " + upPill.total
               color: upPill.ink
               font.family: Zenon.face
-              font.weight: Font.Bold
+              font.weight: Zenon.titleWeight
               font.features: { "tnum": 1 }
               font.pixelSize: Zenon.px(14)
             }
@@ -1686,18 +1703,21 @@ FloatingWindow {
             Row {
               spacing: 8
               Text {
+                textFormat: Text.PlainText
                 anchors.verticalCenter: parent.verticalCenter
                 text: upPill.site.glyph
                 color: Zenon.ink
                 font.family: Zenon.glyphFace
+                font.weight: Zenon.weight
                 font.pixelSize: Zenon.px(14)
               }
               Text {
+                textFormat: Text.PlainText
                 anchors.verticalCenter: parent.verticalCenter
                 text: win.mgr.upload ? win.mgr.upload.full + "  \u00b7  " + win.mgr.upload.branch + (win.mgr.upload.fresh ? "  (new branch)" : "") : ""
                 color: Zenon.ink
                 font.family: Zenon.face
-                font.weight: Font.Bold
+                font.weight: Zenon.titleWeight
                 font.pixelSize: Zenon.px(14)
               }
             }
@@ -1709,6 +1729,7 @@ FloatingWindow {
               maxRows: 10
             }
             Text {
+              textFormat: Text.PlainText
               text: upPill.phase === "failed" ? "Stopped \u2014 nothing was committed"
                 : upPill.phase === "done" ? "Committed \u2014 all " + upPill.total + " are there"
                 : upPill.waiting > 0 ? upPill.site.name + " asked for a pause of " + upPill.waiting + " s \u2014 carrying on after it"
@@ -1744,7 +1765,7 @@ FloatingWindow {
                 + (win.netJob.progress >= 0 ? "  ·  " + win.netJob.phase.toLowerCase() + " " + win.netJob.progress + "%" : "…")
               color: Zenon.accent
               font.family: Zenon.face
-              font.weight: Font.Bold
+              font.weight: Zenon.titleWeight
               font.features: { "tnum": 1 }
               font.pixelSize: Zenon.px(15)
             }
@@ -1830,7 +1851,7 @@ FloatingWindow {
              repos: "ReposPage.qml" })[win.page] || "ChangesPage.qml"
       onLoaded: { item.win = win; Qt.callLater(win.refocus); }
     }
-    Rectangle { anchors.left: side.right; anchors.right: parent.right; y: head.height; height: 1; color: Zenon.border }
+    Hairline { anchors.left: side.right; anchors.right: parent.right; y: head.height }
 
     // ── what was just done, said once ────────────────────────────────────
     Ctl.Said {
@@ -1951,6 +1972,7 @@ FloatingWindow {
           color: /(^##\[error\]|\berror\b|ERROR|FAILED|failed with exit code)/.test(modelData) ? Zenon.red
             : /^##\[(group|endgroup)\]/.test(modelData) ? Zenon.accentMuted : Zenon.ink
           font.family: Zenon.faceCode
+          font.weight: Zenon.weight
           font.pixelSize: Zenon.px(12)
           textFormat: Text.PlainText
         }

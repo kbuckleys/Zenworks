@@ -259,7 +259,7 @@ Item {
           text: osd.bright ? "\u{F00DF}" : Volume.muted ? "\uF466" : "\uF028"
           color: osd.bright ? Zenon.yellow : Volume.muted ? Zenon.red : Zenon.green
           font.family: Zenon.face
-          font.weight: Font.Bold
+          font.weight: Zenon.titleWeight
           font.pixelSize: Zenon.px(18)
         }
 
@@ -291,7 +291,7 @@ Item {
           font.features: { "tnum": 1 }
           color: Zenon.white
           font.family: Zenon.face
-          font.weight: Font.Bold
+          font.weight: Zenon.titleWeight
           font.pixelSize: Zenon.px(17)
         }
         // which screen, when there is more than one to tell apart

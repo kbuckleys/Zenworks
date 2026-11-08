@@ -62,6 +62,11 @@ module.exports = {
       [{ dev: "wlan0", addr: "192.168.1.4" }]);
     t.eq("the battery read", A.parseBattery("84 Charging"), { big: "84%", small: "Charging", level: 0.84 });
     t.eq("uptime in words", A.uptimeText(93784), "1 day, 2 hours");
+    // the uptime's card (2026-11-07)
+    const up = A.uptimeCard("93784.5\n0.42 0.38 0.30 2/1234\n16", new Date(2026, 10, 7, 12, 0), true);
+    t.eq("uptime card: words, start, facts", [up.big, up.small, up.facts.map((f) => f.label + " " + f.value)],
+      ["1 day, 2 hours", "Up since yesterday at 09:56", ["Load 0.42  0.38  0.30", "Processes 1234", "Cores 16"]]);
+    t.eq("uptime card: nothing read is no card", A.uptimeCard("", new Date(), true), null);
     t.eq("a place found", A.parseGeocode('{"results":[{"latitude":30,"longitude":31,"name":"Cairo","country":"Egypt"}]}'),
       { lat: 30, lon: 31, name: "Cairo, Egypt" });
     t.eq("a place not found", A.parseGeocode('{}'), null);
@@ -188,13 +193,18 @@ module.exports = {
     t.eq("speed read", A.parseSpeed("12500000 0.050 0.010 2500000"), { big: "100 Mbps down", small: "20 Mbps up \u00B7 40 ms ping" });
     t.eq("no speed is null", A.parseSpeed("0 0 0 0"), null);
     const at10 = new Date(2026, 10, 3, 10, 0);
-    const iso = (h, m) => new Date(2026, 10, 3, h, m).toISOString();
+    // cal.py's own shape: a date, and the times as HH:MM
+    const ev = (title, s, e, more) => Object.assign({ title, date: "2026-11-03", start: s, endDate: "2026-11-03", end: e, allDay: false }, more);
     t.eq("the next call's link, its full stop left off", A.nextMeeting([
-      { title: "Done", start: iso(8, 0), end: iso(9, 0), location: "https://zoom.us/j/1" },
-      { title: "Lunch", start: iso(10, 30), end: iso(11, 0), location: "Cafe" },
-      { title: "Standup", start: iso(11, 0), end: iso(11, 15), description: "Join: https://meet.google.com/abc-defg-hij." }], at10),
+      ev("Done", "08:00", "09:00", { location: "https://zoom.us/j/1" }),
+      ev("Lunch", "10:30", "11:00", { location: "Cafe" }),
+      ev("Standup", "11:00", "11:15", { description: "Join: https://meet.google.com/abc-defg-hij." })], at10),
       { title: "Standup", url: "https://meet.google.com/abc-defg-hij" });
-    t.eq("no call, no meeting", A.nextMeeting([{ title: "Lunch", start: iso(12, 0), end: iso(13, 0), location: "Cafe" }], at10), null);
+    t.eq("a call under way still counts", A.nextMeeting([ev("Sync", "09:30", "10:30", { url: "https://zoom.us/j/9" })], at10),
+      { title: "Sync", url: "https://zoom.us/j/9" });
+    t.eq("one past midnight runs to its end date", A.nextMeeting([
+      Object.assign(ev("Late", "23:00", "01:00", { location: "https://zoom.us/j/2" }), { date: "2026-11-02" })], at10), null);
+    t.eq("no call, no meeting", A.nextMeeting([ev("Lunch", "12:00", "13:00", { location: "Cafe" })], at10), null);
     // contacts, confetti, the clear words, light and dark (2026-11-03)
     t.eq("a contact as typed", c("new contact Ada Lovelace ada@Example.org +44 20 7946 0958"),
       { kind: "newContact", name: "Ada Lovelace", email: "ada@Example.org", phone: "+44 20 7946 0958" });

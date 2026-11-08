@@ -39,7 +39,7 @@ Item {
   readonly property real needH: setupCol.implicitHeight
   // the names' column, as wide as the longest (archlinux-appstream-data ran
   // into its reason at a fixed 190)
-  FontMetrics { id: mfName; font.family: Zenon.face; font.weight: Font.Bold; font.pixelSize: Zenon.px(17) }
+  FontMetrics { id: mfName; font.family: Zenon.face; font.weight: Zenon.titleWeight; font.pixelSize: Zenon.px(17) }
   readonly property real nameW: {
     let w = 190;
     for (const m of Ceres.setupMissing)
@@ -59,7 +59,7 @@ Item {
         : Ceres.setupMissing.length ? "Ceres needs a few things first" : "One question for the Store"
       color: Zenon.white
       font.family: Zenon.face
-      font.weight: Font.Bold
+      font.weight: Zenon.titleWeight
       font.pixelSize: Zenon.px(22)
     }
 
@@ -78,7 +78,7 @@ Item {
             text: modelData.pkg + (modelData.aur ? "  <font color='" + Zenon.magenta + "'>AUR</font>" : "")
             color: Zenon.white
             font.family: Zenon.face
-            font.weight: Font.Bold
+            font.weight: Zenon.titleWeight
             font.pixelSize: Zenon.px(17)
           }
           Text {
@@ -109,7 +109,7 @@ Item {
                 + "  <font color='" + Zenon.red + "'>removed</font>").join("<br/>")
         color: Zenon.white
         font.family: Zenon.face
-        font.weight: Font.Bold
+        font.weight: Zenon.titleWeight
         font.pixelSize: Zenon.px(17)
       }
       Text {
@@ -137,7 +137,7 @@ Item {
         text: "Build paru from"
         color: Zenon.accentMuted
         font.family: Zenon.face
-        font.weight: Font.Bold
+        font.weight: Zenon.titleWeight
         font.pixelSize: Zenon.px(15)
       }
 
@@ -171,7 +171,7 @@ Item {
         text: "Apps in the Store"
         color: Zenon.accentMuted
         font.family: Zenon.face
-        font.weight: Font.Bold
+        font.weight: Zenon.titleWeight
         font.pixelSize: Zenon.px(15)
       }
 
@@ -182,7 +182,7 @@ Item {
         width: parent.width
         height: fpCol.implicitHeight + 24
         radius: Zenon.windowRadius
-        color: view.flatpak ? Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.2) : "transparent"
+        color: view.flatpak ? Zenon.alpha(Zenon.accent, 0.2) : "transparent"
         border.width: 1
         border.color: view.flatpak ? Zenon.accent : Zenon.border
         Controls.Check {
@@ -206,7 +206,7 @@ Item {
             text: "Also add Flatpak apps"
             color: view.flatpak ? Zenon.accent : Zenon.white
             font.family: Zenon.face
-            font.weight: Font.Bold
+            font.weight: Zenon.titleWeight
             font.pixelSize: Zenon.px(18)
           }
           Text {

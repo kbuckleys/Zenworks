@@ -254,6 +254,7 @@ Item {
             text: !lib.hero ? "" : ({ pdf: "\u{F0226}", epub: "\u{F05DA}", comic: "\u{F02F9}", text: "\u{F09ED}" })[lib.hero.kind] || "\u{F05DA}"
             color: Zenon.accentMuted
             font.family: Zenon.glyphFace
+            font.weight: Zenon.weight
             font.pixelSize: Zenon.px(34)
           }
         }
@@ -273,7 +274,7 @@ Item {
             color: Zenon.ink
             font.family: lib.mgr ? lib.mgr.serifFace : Zenon.face
             font.pixelSize: Zenon.px(26)
-            font.weight: Font.DemiBold
+            font.weight: Zenon.titleWeight
           }
           Text {
             textFormat: Text.PlainText
@@ -397,6 +398,7 @@ Item {
             text: !cell.book ? "" : ({ pdf: "\u{F0226}", epub: "\u{F05DA}", comic: "\u{F02F9}", text: "\u{F09ED}" })[cell.book.kind] || "\u{F05DA}"
             color: Zenon.accentMuted
             font.family: Zenon.glyphFace
+            font.weight: Zenon.weight
             font.pixelSize: Zenon.px(30)
           }
           Text {
@@ -409,6 +411,7 @@ Item {
             text: cell.book ? cell.book.title : ""
             color: Zenon.ink
             font.family: lib.mgr ? lib.mgr.serifFace : Zenon.face
+            font.weight: Zenon.weight
             font.pixelSize: Zenon.px(15)
           }
         }
@@ -436,7 +439,7 @@ Item {
             text: cell.state_ === "finished" ? "\u{F012C}" : "New"
             color: Zenon.inkOnAccent
             font.family: cell.state_ === "finished" ? Zenon.glyphFace : Zenon.face
-            font.weight: Font.Bold
+            font.weight: Zenon.titleWeight
             font.pixelSize: Zenon.px(cell.state_ === "finished" ? 14 : 11)
           }
         }

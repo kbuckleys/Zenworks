@@ -19,6 +19,7 @@ import Quickshell.Widgets
 import "../morpheus"
 import "notes.js" as N
 import "../morpheus/thumbs.js" as Thumbs
+import "../morpheus/runjob.js" as RunJob
 
 Item {
   id: mo
@@ -36,18 +37,8 @@ Item {
   // transparency, which the pool will not hold as JPEG; or one nothing came
   // of). A path not in it yet is waiting.
   property var thumbs: ({})
-  property var thumbIndex: ({})
-  FileView {
-    id: indexFile
-    path: Thumbs.indexPath()
-    blockLoading: true
-    printErrors: false
-    onTextChanged: {
-      let o = null;
-      try { o = JSON.parse(String(indexFile.text() || "{}")); } catch (e) { o = null; }
-      mo.thumbIndex = (o && typeof o === "object" && !Array.isArray(o)) ? o : ({});
-    }
-  }
+  ThumbIndex { id: indexFile }
+  readonly property var thumbIndex: indexFile.map
   function thumbOf(p) {
     const t = mo.thumbs[p];
     return t === undefined ? "" : "file://" + (t !== "" ? t : p);
@@ -61,16 +52,16 @@ Item {
       else t[r.path] = Thumbs.isNone(hit) ? "" : hit;
     }
     mo.thumbs = t;
-    maker.running = false;
-    maker.batch = miss;
-    if (miss.length === 0) return;
-    maker.command = ["sh", "-c", Thumbs.generate(miss.map((p) => ({ kind: "i", src: p })), false)];
-    maker.running = true;
+    if (miss.length === 0) { RunJob.drop(maker); return; }
+    // each batch its own job (RunJob, audit 11-08): a stopped one's late
+    // end marked the next batch's pictures as having none
+    RunJob.latest(maker, { batch: miss, command: ["sh", "-c", Thumbs.generate(miss.map((p) => ({ kind: "i", src: p })), false)] });
   }
   property var landed: ({})
   Process {
     id: maker
-    property var batch: []
+    property var job: null
+    property var want: null
     stdout: SplitParser {
       splitMarker: "\n"
       onRead: (line) => {
@@ -80,11 +71,13 @@ Item {
         if (!flush.running) flush.start();
       }
     }
-    onRunningChanged: {
-      if (running) return;
-      // not reported is not made: the original, then
-      for (const p of maker.batch) if (!(p in mo.landed) && !(p in mo.thumbs)) mo.landed[p] = "";
+    onExited: {
+      // not reported is not made: the original, then (a batch run to its
+      // end only, not one stopped for the next)
+      if (maker.job && !maker.want)
+        for (const p of maker.job.batch) if (!(p in mo.landed) && !(p in mo.thumbs)) mo.landed[p] = "";
       mo.take();
+      RunJob.next(maker);
     }
   }
   // handed over every few frames, not per line
@@ -101,18 +94,21 @@ Item {
   function scan() {
     mo.scanning = true;
     indexFile.reload();
-    finder.running = false;
-    finder.running = true;
+    RunJob.latest(finder, { command: finder.findCmd });
   }
   Process {
     id: finder
-    command: ["sh", "-c", "d=$(xdg-user-dir PICTURES 2>/dev/null); [ -d \"$d\" ] || d=\"$HOME/Pictures\"; "
+    property var job: null
+    property var want: null
+    onExited: RunJob.next(finder)
+    readonly property var findCmd: ["sh", "-c", "d=$(xdg-user-dir PICTURES 2>/dev/null); [ -d \"$d\" ] || d=\"$HOME/Pictures\"; "
       + "find \"$d\" -maxdepth 4 -type f \\( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' -o -iname '*.webp' -o -iname '*.heic' -o -iname '*.gif' \\) "
       + "-newermt '-30 days' -not -path '*/.*' -printf '%T@\\t%s\\t%p\\n' 2>/dev/null | sort -rn | head -n 400"]
     stdout: StdioCollector {
       id: found
       waitForEnd: true
       onStreamFinished: {
+        if (!RunJob.current(finder)) return;
         const by = {};
         const order = [];
         const rows = [];
@@ -148,7 +144,7 @@ Item {
     // the Close button's height, so what is left of the row sits level with it
     height: 28
     // its glyph and name are on the window's bar while it is up (ClioWindow sheetBar)
-    Text { anchors.verticalCenter: parent.verticalCenter; text: "pictures from the last 30 days, and things to write about"; color: Zenon.accentMuted; font.family: Zenon.face; font.weight: Zenon.weight; font.pixelSize: Zenon.px(13) }
+    Text { anchors.verticalCenter: parent.verticalCenter; text: "Pictures from the last 30 days, and things to write about"; color: Zenon.accentMuted; font.family: Zenon.face; font.weight: Zenon.weight; font.pixelSize: Zenon.px(13) }
   }
   DialogButton { anchors.right: parent.right; anchors.rightMargin: 20; y: 16; label: "Close"; onClicked: mo.closed() }
 
@@ -192,7 +188,7 @@ Item {
               text: modelData
               color: Zenon.ink
               font.family: Zenon.face
-              font.weight: Font.DemiBold
+              font.weight: Zenon.titleWeight
               font.pixelSize: Zenon.px(14)
             }
             MouseArea { id: chipPress; anchors.fill: parent; hoverEnabled: true; onClicked: { mo.closed(); mo.win.newEntry(Date.now(), modelData); } }
@@ -223,7 +219,7 @@ Item {
               text: N.dateLong(dayCol.modelData.ms)
               color: Zenon.ink
               font.family: Zenon.face
-              font.weight: Font.Bold
+              font.weight: Zenon.titleWeight
               font.pixelSize: Zenon.px(15)
             }
             DialogButton {
@@ -271,7 +267,7 @@ Item {
                   height: 20
                   radius: height / 2
                   color: Zenon.magenta
-                  Text { anchors.centerIn: parent; text: ""; color: Zenon.inkOnAccent; font.family: Zenon.glyphFace; font.pixelSize: Zenon.px(11) }
+                  Text { anchors.centerIn: parent; text: ""; color: Zenon.inkOnAccent; font.family: Zenon.glyphFace; font.weight: Zenon.weight; font.pixelSize: Zenon.px(11) }
                 }
                 // pressed darkens
                 Rectangle { anchors.fill: parent; color: "black"; opacity: tilePress.pressed ? 0.22 : 0 }

@@ -49,7 +49,7 @@ Item {
     readonly property bool lit: step.setup.wantTess
     height: tessCol.implicitHeight + 24
     radius: Zenon.radiusCard
-    color: tess.lit ? Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.14) : Zenon.wash(0.04)
+    color: tess.lit ? Zenon.alpha(Zenon.accent, 0.14) : Zenon.wash(0.04)
     border.width: 1
     border.color: tess.lit ? Zenon.accent : Zenon.border
     Behavior on color { ColorAnimation { duration: Zenon.fast; easing.type: Zenon.ease } }
@@ -76,7 +76,7 @@ Item {
         textFormat: Text.PlainText
         color: tess.lit ? Zenon.accent : Zenon.white
         font.family: Zenon.face
-        font.weight: Font.Bold
+        font.weight: Zenon.titleWeight
         font.pixelSize: Zenon.px(15)
       }
       Text {
@@ -84,7 +84,7 @@ Item {
         wrapMode: Text.Wrap
         text: "Installs " + step.setup.tessFor + ", so Picasso, Clio and Cynosure copy " + step.setup.tessLanguage + " text out of pictures as well as English."
         textFormat: Text.PlainText
-        color: Zenon.muted
+        color: Zenon.accentMuted
         font.family: Zenon.face
         font.weight: Zenon.weight
         font.pixelSize: Zenon.px(13)

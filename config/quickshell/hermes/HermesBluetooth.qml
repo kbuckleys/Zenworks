@@ -65,7 +65,8 @@ Column {
     action: "Look again"
     onGo: Hermes.reprobe()
     action2: "Turn off Bluetooth"
-    busy: Hermes.setupKind === "bluetoothStop"
+    busy2: Hermes.setupKind === "bluetoothStop"
+    busyText2: "Turning off…"
     onGo2: Hermes.setup("bluetoothStop")
   }
   HermesSetup {
@@ -79,7 +80,8 @@ Column {
     action: "Restart the shell"
     onGo: Quickshell.execDetached([Quickshell.shellDir + "/scripts/restart.sh"])
     action2: "Turn off Bluetooth"
-    busy: Hermes.setupKind === "bluetoothStop"
+    busy2: Hermes.setupKind === "bluetoothStop"
+    busyText2: "Turning off…"
     onGo2: Hermes.setup("bluetoothStop")
   }
   HermesSetup {

@@ -66,6 +66,9 @@ Item {
       clip: true
       color: Zenon.ink
       font.family: Zenon.face
+      font.weight: Zenon.weight
+      selectionColor: Zenon.selBg
+      selectedTextColor: Zenon.white
       font.pixelSize: Zenon.px(14)
       cursorDelegate: Caret { field: field }
       onTextChanged: tb.filter = text
@@ -133,6 +136,7 @@ Item {
               text: boxPress.pressed ? "\u{F0134}" : "\u{F0130}"
               color: boxPress.pressed ? Zenon.green : Zenon.accentMuted
               font.family: Zenon.glyphFace
+              font.weight: Zenon.weight
               font.pixelSize: Zenon.px(20)
               MouseArea {
                 id: boxPress
@@ -156,7 +160,7 @@ Item {
               text: one.modelData.h
               color: Zenon.ink
               font.family: Zenon.face
-              font.weight: Font.DemiBold
+              font.weight: Zenon.titleWeight
               font.pixelSize: Zenon.px(15)
             }
             Text {

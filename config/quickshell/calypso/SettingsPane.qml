@@ -31,6 +31,7 @@ Item {
         text: "\u{F08BB}"
         color: Zenon.accent
         font.family: Zenon.glyphFace
+        font.weight: Zenon.weight
         font.pixelSize: Zenon.px(18)
       }
       Text {
@@ -38,7 +39,7 @@ Item {
         text: "Settings"
         color: Zenon.ink
         font.family: Zenon.face
-        font.weight: Font.Bold
+        font.weight: Zenon.titleWeight
         font.pixelSize: Zenon.px(19)
       }
     }
@@ -49,7 +50,7 @@ Item {
         text: "Lock every account after"
         color: Zenon.ink
         font.family: Zenon.face
-        font.weight: Font.DemiBold
+        font.weight: Zenon.titleWeight
         font.pixelSize: Zenon.px(15)
       }
       Segments {
@@ -75,7 +76,7 @@ Item {
         text: "Clear a copied secret after"
         color: Zenon.ink
         font.family: Zenon.face
-        font.weight: Font.DemiBold
+        font.weight: Zenon.titleWeight
         font.pixelSize: Zenon.px(15)
       }
       Segments {

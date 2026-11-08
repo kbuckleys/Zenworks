@@ -60,7 +60,7 @@ Item {
         color: modelData === "" ? (on ? Zenon.wash(0.14) : Zenon.wash(0.05)) : Zenon.alpha(Zenon[modelData], on ? 0.75 : 0.35)
         border.width: on ? 2 : 1
         border.color: on ? Zenon.ink : Zenon.border
-        Text { id: allWord; visible: modelData === ""; anchors.centerIn: parent; text: "All"; color: Zenon.ink; font.family: Zenon.face; font.weight: Font.DemiBold; font.pixelSize: Zenon.px(12) }
+        Text { id: allWord; visible: modelData === ""; anchors.centerIn: parent; text: "All"; color: Zenon.ink; font.family: Zenon.face; font.weight: Zenon.titleWeight; font.pixelSize: Zenon.px(12) }
         MouseArea { anchors.fill: parent; onClicked: hb.marker = modelData }
       }
     }
@@ -84,6 +84,9 @@ Item {
       clip: true
       color: Zenon.ink
       font.family: Zenon.face
+      font.weight: Zenon.weight
+      selectionColor: Zenon.selBg
+      selectedTextColor: Zenon.white
       font.pixelSize: Zenon.px(14)
       cursorDelegate: Caret { field: field }
       onTextChanged: hb.filter = text
@@ -138,7 +141,7 @@ Item {
             text: "“" + card.modelData.text + "”"
             color: Zenon.ink
             font.family: Zenon.face
-            font.weight: Font.DemiBold
+            font.weight: Zenon.titleWeight
             font.pixelSize: Zenon.px(15)
           }
           Text {

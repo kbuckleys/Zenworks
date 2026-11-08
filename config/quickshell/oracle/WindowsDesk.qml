@@ -59,6 +59,7 @@ Item {
       + (desk.followPointer ? "Point at a window to focus it." : "Click a window to focus it.")
     color: desk.dimColor
     font.family: desk.face
+    font.weight: Zenon.weight
     font.pixelSize: Zenon.px(12)
   }
 

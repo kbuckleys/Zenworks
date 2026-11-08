@@ -52,10 +52,27 @@ Singleton {
   // words (release notes, a player's metadata), and curl would as readily
   // take a gopher:// or a -K. Written as file.part and moved, so a fetch
   // cut short never passes for the file. done(ok).
+  //
+  // opts.typed: `file` has no extension yet — it is given one from what the
+  // server says the file is (a picture or a video), else from the address;
+  // done(ok, path, notMedia), notMedia when neither says (Delphi's dropped
+  // web pictures, 2026-11-07: they had a curl of their own).
   function fetch(url, file, opts, done) {
     const o = opts || {};
     const u = String(url || "");
-    if (!/^https?:\/\/\S+$/i.test(u) || String(file || "") === "") { if (done) Qt.callLater(() => done(false)); return; }
+    if (!/^https?:\/\/\S+$/i.test(u) || String(file || "") === "") { if (done) Qt.callLater(() => done(false, "", false)); return; }
+    if (o.typed) {
+      getter.createObject(root, { done: done, running: true, command: ["sh", "-c",
+        'f=$1; mkdir -p "${f%/*}" || exit 1; '
+        + 't=$(curl -fsSL --proto =http,https --proto-redir =http,https --max-time "$3" --max-filesize "$4" -o "$f.part" -w "%{content_type}" -- "$2") '
+        + '&& [ -s "$f.part" ] || { rm -f "$f.part"; exit 1; }; '
+        + 'case $t in image/png*) e=png;; image/jpeg*) e=jpg;; image/gif*) e=gif;; image/webp*) e=webp;; image/avif*) e=avif;; '
+        + 'image/svg*) e=svg;; video/mp4*) e=mp4;; video/webm*) e=webm;; video/quicktime*) e=mov;; '
+        + '*) n=${2%%[?#]*}; e=${n##*.}; case $e in */*|""|*[!A-Za-z0-9]*) rm -f "$f.part"; exit 2;; esac;; esac; '
+        + 'mv -f "$f.part" "$f.$e" && printf %s "$f.$e"',
+        "sh", String(file), u, String(o.timeout || 30), String(o.maxBytes || 100000000)] });
+      return;
+    }
     getter.createObject(root, { done: done, running: true, command: ["sh", "-c",
       'f=$1; [ -s "$f" ] && exit 0; mkdir -p "${f%/*}" || exit 1; '
       + 'curl -fsSL --proto =http,https --proto-redir =http,https --max-time "$3" --max-filesize "$4" -o "$f.part" -- "$2" '
@@ -67,11 +84,14 @@ Singleton {
     Process {
       id: g
       property var done: null
+      property string said: ""
+      stdout: StdioCollector { onStreamFinished: g.said = this.text }
+      // streamFinished comes before exited (morpheus/process-exit order)
       onExited: (code) => {
-        const fn = g.done;
+        const fn = g.done, said = g.said;
         g.done = null;
         g.destroy();
-        if (fn) fn(code === 0);
+        if (fn) fn(code === 0, said, code === 2);
       }
     }
   }

@@ -38,6 +38,7 @@ import "../oracle"
 import "."
 import "ceres.js" as Cer
 import "store.js" as St
+import "../morpheus/runjob.js" as RunJob
 
 Item {
   id: store
@@ -230,7 +231,8 @@ Item {
   // which the session's search path need not hold
   function launch(a) {
     if (!a) return;
-    if (a.source === "flatpak") Quickshell.execDetached(["flatpak", "run", a.pkg]);
+    // an id the catalog named, never one that reads as an option (11-08)
+    if (a.source === "flatpak") { if (/^[A-Za-z0-9_][A-Za-z0-9._-]*$/.test(a.pkg)) Quickshell.execDetached(["flatpak", "run", a.pkg]); }
     else if (a.launch) Quickshell.execDetached(["sh", "-c", Desktop.launchCommand(a.launch, "")]);
   }
   function act(a) { if (!a) return; if (a.installed) store.launch(a); else store.get(a); }
@@ -265,10 +267,9 @@ Item {
     page.contentY = 0;
     // A NEW PAGE STOPS THE LAST ONE'S ASKING: a Process already running
     // ignores `running = true`, and a quick back-and-forth showed the
-    // previous app's details on this one's page
-    detailProc.running = false;
-    detailProc.command = [store.tool, "detail", a.key];
-    detailProc.running = true;
+    // previous app's details on this one's page; a stopped run still
+    // streams, so each carries its own job (RunJob, audit 11-08)
+    RunJob.latest(detailProc, { key: a.key, command: [store.tool, "detail", a.key] });
     store.facts();
     store.released();
   }
@@ -345,9 +346,13 @@ Item {
   }
   Process {
     id: detailProc
+    property var job: null
+    property var want: null
+    onExited: RunJob.next(detailProc)
     stdout: StdioCollector {
       id: detailOut
       onStreamFinished: {
+        if (!RunJob.current(detailProc) || !store.app || detailProc.job.key !== store.app.key) return;
         try { store.detail = JSON.parse(detailOut.text); } catch (e) { store.detail = {}; }
         store.fetchShots((store.detail.shots || []).map(s => s.url), true);
       }
@@ -563,14 +568,12 @@ Item {
             store.showSection(srow.modelData[0]);
             store.released();
           }
-          Rectangle {
+          Hairline {
             visible: srow.modelData[0] === "installed"
             anchors.bottom: parent.top
             anchors.bottomMargin: 1
             anchors.left: parent.left
             anchors.right: parent.right
-            height: 1
-            color: Zenon.border
           }
         }
       }
@@ -610,7 +613,7 @@ Item {
         text: store.failed ? "The app catalog could not be read" : "Reading the app catalog…"
         color: store.failed ? Zenon.red : Zenon.accentMuted
         font.family: Zenon.face
-        font.weight: Font.Bold
+        font.weight: Zenon.titleWeight
         font.pixelSize: Zenon.px(16)
       }
     }
@@ -697,7 +700,7 @@ Item {
                 text: shelf.modelData.title
                 color: Zenon.white
                 font.family: Zenon.face
-                font.weight: Font.Bold
+                font.weight: Zenon.titleWeight
                 font.pixelSize: Zenon.px(20)
               }
               Text {
@@ -706,7 +709,7 @@ Item {
                 text: "\u203A"
                 color: Zenon.accentMuted
                 font.family: Zenon.face
-                font.weight: Font.Bold
+                font.weight: Zenon.titleWeight
                 font.pixelSize: Zenon.px(22)
               }
               }
@@ -936,7 +939,7 @@ Item {
                 text: page.a ? page.a.name : ""
                 color: Zenon.white
                 font.family: Zenon.face
-                font.weight: Font.Bold
+                font.weight: Zenon.titleWeight
                 font.pixelSize: Zenon.px(34)
               }
               // its section, in the accent, as Developer Tools is Xcode's
@@ -946,7 +949,7 @@ Item {
                 text: sec ? sec[1] : ""
                 color: Zenon.accent
                 font.family: Zenon.face
-                font.weight: Font.Bold
+                font.weight: Zenon.titleWeight
                 font.pixelSize: Zenon.px(17)
               }
               Text {
@@ -1161,7 +1164,7 @@ Item {
                   text: modelData[1]
                   color: Zenon.accentKey
                   font.family: Zenon.face
-                  font.weight: Font.Bold
+                  font.weight: Zenon.titleWeight
                   font.pixelSize: Zenon.px(21)
                 }
                 Text {
@@ -1506,7 +1509,7 @@ Item {
             text: "What’s New"
             color: Zenon.white
             font.family: Zenon.face
-            font.weight: Font.Bold
+            font.weight: Zenon.titleWeight
             font.pixelSize: Zenon.px(20)
           }
           Text {
@@ -1530,10 +1533,8 @@ Item {
         Column {
           width: parent.width
           spacing: 18
-          Rectangle {
+          Hairline {
             width: parent.width
-            height: 1
-            color: Zenon.border
           }
           Grid {
             id: facts
@@ -1610,6 +1611,7 @@ Item {
           text: "\u{F0D68}"
           color: Zenon.accent
           font.family: Zenon.face
+          font.weight: Zenon.weight
           font.pixelSize: Zenon.px(40)
         }
         Text {
@@ -1619,7 +1621,7 @@ Item {
           text: "The Store needs " + Cer.nameList(Ceres.storeNeeds.map((m) => m.pkg), 3) + " first"
           color: Zenon.ink
           font.family: Zenon.face
-          font.weight: Font.Bold
+          font.weight: Zenon.titleWeight
           font.pixelSize: Zenon.px(17)
         }
         Repeater {

@@ -387,10 +387,7 @@ Item {
       "it comes off " + paths.length + (paths.length === 1 ? " item" : " items")
         + " \u2014 the files themselves are untouched",
       "Clear", () => {
-        term.applyTagPairs(paths.map((p) => ({
-          path: p,
-          names: (term.tagMarks[p] || []).filter((t) => t !== name)
-        })));
+        term.applyTagPairs(Tags.withoutPairs(term.tagMarks, name));
         term.status = "Cleared " + name;
       });
   }
@@ -406,11 +403,7 @@ Item {
       term.warn(name + " is a default tag");
       return;
     }
-    const paths = Tags.pathsWith(term.tagMarks, name);
-    const pairs = paths.map((p) => ({
-      path: p,
-      names: (term.tagMarks[p] || []).filter((t) => t !== name)
-    }));
+    const pairs = Tags.withoutPairs(term.tagMarks, name);
     term.editTags((st) => {
       st.defs = st.defs.filter((d) => d.name !== name);
       if (st.views) delete st.views[name];

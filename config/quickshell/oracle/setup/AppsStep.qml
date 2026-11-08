@@ -50,7 +50,7 @@ Item {
         width: parent.width
         height: col.implicitHeight + 28
         radius: Zenon.radiusCard
-        color: q.lit ? Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.14) : Zenon.wash(0.04)
+        color: q.lit ? Zenon.alpha(Zenon.accent, 0.14) : Zenon.wash(0.04)
         border.width: 1
         border.color: q.lit ? Zenon.accent : Zenon.border
         Behavior on color { ColorAnimation { duration: Zenon.fast; easing.type: Zenon.ease } }
@@ -78,7 +78,7 @@ Item {
             textFormat: Text.PlainText
             color: q.lit ? Zenon.accent : Zenon.white
             font.family: Zenon.face
-            font.weight: Font.Bold
+            font.weight: Zenon.titleWeight
             font.pixelSize: Zenon.px(15)
           }
           Text {
@@ -86,7 +86,7 @@ Item {
             wrapMode: Text.Wrap
             text: q.modelData.words
             textFormat: Text.PlainText
-            color: Zenon.muted
+            color: Zenon.accentMuted
             font.family: Zenon.face
             font.weight: Zenon.weight
             font.pixelSize: Zenon.px(13)

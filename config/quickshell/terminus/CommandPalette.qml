@@ -164,17 +164,9 @@ Rectangle {
 
   InputShield { keepTop: term.tabStripRef.height + term.crumbBarRef.height; onClicked: cmdPalette.dismiss() }
 
-  Sheet {
-    // clear: the listing is cut away under it (see sheetHole)
-    ground: "transparent"
-    backdrop: term.sheetBackdrop   // the listing, frosted under the card
-    seamFrost: term.sheetSeam   // the bar's frost, carried over the seam
-    splice: true
-    onCardInkChanged: term.noteSheet("s3", cardInk, drawnX, drawnW, drawnY, drawnH)
-    onDrawnXChanged: term.noteSheet("s3", cardInk, drawnX, drawnW, drawnY, drawnH)
-    onDrawnWChanged: term.noteSheet("s3", cardInk, drawnX, drawnW, drawnY, drawnH)
-    onDrawnYChanged: term.noteSheet("s3", cardInk, drawnX, drawnW, drawnY, drawnH)
-    onDrawnHChanged: term.noteSheet("s3", cardInk, drawnX, drawnW, drawnY, drawnH)
+  TermSheet {
+    host: term
+    note: "s3"
     id: paletteSheet
     leftInset: term.sideRef.width
     floating: false   // hangs from the bar, which carries its title — see barTitle
@@ -272,7 +264,7 @@ Rectangle {
           // is, and inking the cursor's row as well said the same fact
           // twice and hid which kind of row it was.
           color: cmdRow.modelData.act ? Zenon.white
-            : Qt.rgba(Zenon.white.r, Zenon.white.g, Zenon.white.b, 0.6)
+            : Zenon.alpha(Zenon.white, 0.6)
           font.family: Zenon.face
           font.weight: Zenon.weight
           font.pixelSize: Zenon.px(16)

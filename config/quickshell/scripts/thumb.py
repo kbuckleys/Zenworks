@@ -30,6 +30,15 @@ import posixpath
 PICS = (".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".avif", ".jxl")
 
 
+# Thumbnails run unasked on whatever lands in a directory, and an archive can
+# say a small member unpacks to gigabytes. The timeout only covers magick.
+MAX_MEMBER = 256 * 1024 * 1024
+
+
+def member_bytes(z, name):
+    return z.read(name) if z.getinfo(name).file_size <= MAX_MEMBER else b""
+
+
 def ext(path):
     return os.path.splitext(path)[1].lower().lstrip(".")
 
@@ -99,7 +108,7 @@ def layered(src, out, px):
             names = set(z.namelist())
             for want in ("mergedimage.png", "preview.png", "Thumbnails/thumbnail.png"):
                 if want in names:
-                    finish("png:-", out, px, z.read(want))
+                    finish("png:-", out, px, member_bytes(z, want))
                     return
     except (zipfile.BadZipFile, OSError):
         pass
@@ -116,7 +125,7 @@ def comic(src, out, px):
                            if n.lower().endswith(PICS) and not n.startswith("__MACOSX")),
                           key=natural)
             if pics:
-                data, kind = z.read(pics[0]), coder(pics[0])
+                data, kind = member_bytes(z, pics[0]), coder(pics[0])
     elif e == "cbr":
         names = run(["unrar", "lb", "-inul", src]).decode("utf-8", "replace").splitlines()
         pics = sorted((n for n in names if n.lower().endswith(PICS)), key=natural)
@@ -146,10 +155,10 @@ def epub(src, out, px):
         names = z.namelist()
         href = None
         try:
-            container = z.read("META-INF/container.xml").decode("utf-8", "replace")
+            container = member_bytes(z, "META-INF/container.xml").decode("utf-8", "replace")
             m = re.search(r'full-path\s*=\s*"([^"]+)"', container)
             opf_path = m.group(1) if m else None
-            opf = z.read(opf_path).decode("utf-8", "replace") if opf_path else ""
+            opf = member_bytes(z, opf_path).decode("utf-8", "replace") if opf_path else ""
         except KeyError:
             opf_path, opf = None, ""
 
@@ -181,7 +190,7 @@ def epub(src, out, px):
             covers = [n for n in pics if "cover" in n.lower()]
             member = (covers or pics or [None])[0]
         if member and coder(member):
-            finish(coder(member) + ":-", out, px, z.read(member))
+            finish(coder(member) + ":-", out, px, member_bytes(z, member))
 
 
 def main():

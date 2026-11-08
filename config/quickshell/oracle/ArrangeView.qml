@@ -64,6 +64,7 @@ Item {
     text: "Drag a screen to where it sits on your desk. Click one for its settings."
     color: arr.dimColor
     font.family: arr.face
+    font.weight: Zenon.weight
     font.pixelSize: Zenon.px(12)
   }
 
@@ -207,7 +208,7 @@ Item {
               text: box.modelData.name
               color: arr.fgColor
               font.family: arr.face
-              font.weight: Font.DemiBold
+              font.weight: Zenon.titleWeight
               font.pixelSize: Zenon.px(14)
             }
             // the model, then the mode, as room allows
@@ -220,6 +221,7 @@ Item {
               text: box.mon ? box.mon.model : ""
               color: arr.dimColor
               font.family: arr.face
+              font.weight: Zenon.weight
               font.pixelSize: Zenon.px(11)
             }
             Text {
@@ -238,6 +240,7 @@ Item {
               }
               color: arr.dimColor
               font.family: arr.face
+              font.weight: Zenon.weight
               font.pixelSize: Zenon.px(11)
             }
           }

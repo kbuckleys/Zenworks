@@ -30,15 +30,15 @@ import Quickshell
 import Quickshell.Io
 import "."
 import "icons.js" as Icons
+import "quote.js" as Quote
 
 QtObject {
   id: root
   // POSIX single-quoting: wrap in quotes and replace each embedded quote with
   // '\'' — close, escape, reopen. Safe for every byte a filename can hold,
   // which is why every layer that shells out reaches for it.
-  function shellQuote(s) {
-    return "'" + String(s ?? "").replace(/'/g, "'\\''") + "'";
-  }
+  // (morpheus/quote.js, which the .js libraries share)
+  function shellQuote(s) { return Quote.shellQuote(s); }
 
   // WHICH OF THESE STILL EXIST, as one shell line for `sh -c`: each that does
   // is printed with \036 after it, since a path may hold anything else. One
@@ -99,10 +99,7 @@ QtObject {
     return "file://" + String(p ?? "").split("/").map(encodeURIComponent).join("/");
   }
 
-  function escapeHtml(s) {
-    return String(s ?? "")
-      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  }
+  function escapeHtml(s) { return Quote.escapeHtml(s); }
 
   // A LINK FROM SOMEONE ELSE'S TEXT (a PDF, an issue, release notes, store
   // data): opened only when it is the web or mail. xdg-open hands file:,

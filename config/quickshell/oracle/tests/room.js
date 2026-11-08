@@ -11,6 +11,11 @@
 module.exports = {
   module: "morpheus/room.js",
   cases: (R, t) => {
+    const probe = (w, m) => JSON.stringify(w) + "\n@@mons\n" + JSON.stringify(m);
+    const mine = { class: "org.quickshell", title: "Terminus", address: "0x1" };
+    t.eq("the probe: ours", R.parseProbe(probe(mine, [{ id: 0 }]), "Terminus").win.address, "0x1");
+    t.eq("the probe: another window is not ours", R.parseProbe(probe(Object.assign({}, mine, { title: "Plato" }), []), "Terminus"), null);
+    t.eq("the probe: unreadable is nothing", R.parseProbe("hyprctl: no socket", "Terminus"), null);
     const mons = [
       { id: 0, x: 0, y: 0, width: 1920, height: 1080, scale: 1, transform: 3, reserved: [0, 0, 0, 38] },
       { id: 1, x: 1080, y: 0, width: 2560, height: 1440, scale: 1, transform: 0, reserved: [0, 0, 0, 0] }];

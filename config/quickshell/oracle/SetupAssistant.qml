@@ -365,6 +365,7 @@ PanelWindow {
           text: asst.step.glyph || ""
           color: Zenon.accent
           font.family: Zenon.face
+          font.weight: Zenon.weight
           font.pixelSize: Zenon.px(40)
         }
         Text {
@@ -383,7 +384,7 @@ PanelWindow {
           wrapMode: Text.Wrap
           text: asst.step.words || ""
           textFormat: Text.PlainText
-          color: Zenon.muted
+          color: Zenon.accentMuted
           font.family: Zenon.face
           font.weight: Zenon.weight
           font.pixelSize: Zenon.px(15)
@@ -492,7 +493,7 @@ PanelWindow {
           horizontalAlignment: Text.AlignHCenter
           wrapMode: Text.Wrap
           text: "A few choices and you're set: language, keyboard, the look, a few accounts. Everything here stays in Oracle for later."
-          color: Zenon.muted
+          color: Zenon.accentMuted
           font.family: Zenon.face
           font.weight: Zenon.weight
           font.pixelSize: Zenon.px(15)

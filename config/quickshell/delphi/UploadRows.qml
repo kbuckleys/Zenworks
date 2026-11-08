@@ -49,6 +49,7 @@ Item {
       width: list.width
       height: ur.rowH
       Text {
+        textFormat: Text.PlainText
         id: glyph
         x: 6
         width: 20
@@ -56,6 +57,7 @@ Item {
         text: Terminus.glyphOf(row.probe, Icons)
         color: Zenon[Terminus.inkKeyOf(row.probe)]
         font.family: Zenon.glyphFace
+        font.weight: Zenon.weight
         font.pixelSize: Zenon.px(14)
       }
       Text {
@@ -88,6 +90,7 @@ Item {
         font.pixelSize: Zenon.px(13)
       }
       Text {
+        textFormat: Text.PlainText
         id: size
         anchors.right: mark.left
         anchors.rightMargin: 10
@@ -117,12 +120,14 @@ Item {
           gap: 3
         }
         Text {
+          textFormat: Text.PlainText
           visible: row.e.state !== "sending"
           anchors.right: parent.right
           anchors.verticalCenter: parent.verticalCenter
           text: row.e.state === "sent" ? "" : row.e.state === "failed" ? "" : "•"
           color: row.e.state === "sent" ? Zenon.green : row.e.state === "failed" ? Zenon.red : Zenon.dimInk
           font.family: Zenon.glyphFace
+          font.weight: Zenon.weight
           font.pixelSize: Zenon.px(13)
         }
       }

@@ -336,7 +336,7 @@ Item {
   // ── AS WIDE AS ITS WIDEST ENTRY ────────────────────────────────────────
   // the widest row as drawn, times the columns showing, the hint strip as
   // the floor and the 1000 every layer shares as the ceiling
-  FontMetrics { id: rowFm; font.family: Zenon.face; font.weight: 600; font.pixelSize: Zenon.px(16) }
+  FontMetrics { id: rowFm; font.family: Zenon.face; font.weight: Zenon.titleWeight; font.pixelSize: Zenon.px(16) }
   FontMetrics { id: userFm; font.family: Zenon.face; font.pixelSize: Zenon.px(14) }
   FontMetrics { id: headFm; font.family: Zenon.face; font.weight: Zenon.titleWeight; font.pixelSize: Zenon.px(17) }
   FontMetrics { id: noteFm; font.family: Zenon.face; font.pixelSize: Zenon.px(12) }
@@ -431,6 +431,7 @@ Item {
                 text: ""
                 color: popup.entryColor
                 font.family: Zenon.glyphFace
+                font.weight: Zenon.weight
                 font.pixelSize: Zenon.px(15)
               }
               TextInput {
@@ -440,9 +441,9 @@ Item {
                 verticalAlignment: TextInput.AlignVCenter
                 color: popup.entryColor
                 selectionColor: popup.entryColor
-                selectedTextColor: Zenon.inkOnAccent
+                selectedTextColor: Zenon.white
                 font.family: Zenon.face
-                font.weight: Font.Bold
+                font.weight: Zenon.titleWeight
                 font.pixelSize: Zenon.px(18)
                 cursorDelegate: Caret { field: filterInput }
                 clip: true
@@ -514,7 +515,7 @@ Item {
                 textFormat: Text.RichText
                 clip: true
                 font.family: Zenon.face
-                font.weight: 600
+                font.weight: Zenon.titleWeight
                 font.pixelSize: Zenon.px(16)
               }
               Text {
@@ -527,6 +528,7 @@ Item {
                 visible: !!cell.entry && cell.entry.sub !== ""
                 horizontalAlignment: Text.AlignRight
                 text: cell.entry ? cell.entry.sub : ""
+                textFormat: Text.PlainText
                 color: popup.dimColor
                 elide: Text.ElideLeft
                 font.family: Zenon.face
@@ -579,7 +581,7 @@ Item {
           Item {
             width: parent.width
             height: popup.actHeadH
-            Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Zenon.border }
+            Hairline { anchors.bottom: parent.bottom; width: parent.width }
             ItemTile {
               id: actTile
               x: 16
@@ -609,6 +611,7 @@ Item {
                 width: parent.width
                 text: !popup.activeEntry || !popup.mgr ? "" : [popup.activeEntry.sub,
                   (popup.mgr.accountOf(popup.activeEntry.acct) || {}).name].filter((s) => !!s).join("  ·  ")
+                textFormat: Text.PlainText
                 color: popup.dimColor
                 elide: Text.ElideMiddle
                 font.family: Zenon.face
@@ -654,6 +657,7 @@ Item {
                         text: group.modelData.glyph
                         color: Zenon.accent
                         font.family: Zenon.glyphFace
+                        font.weight: Zenon.weight
                         font.pixelSize: Zenon.px(13)
                       }
                       Text {
@@ -694,6 +698,7 @@ Item {
                         text: act.action.glyph
                         color: act.picked ? popup.entryColor : popup.dimColor
                         font.family: Zenon.glyphFace
+                        font.weight: Zenon.weight
                         font.pixelSize: Zenon.px(18)
                       }
                       // a code with seconds to live expires on its way:
@@ -778,7 +783,7 @@ Item {
                   text: popup.lockAcct ? popup.lockAcct.name : ""
                   color: Zenon.ink
                   font.family: Zenon.face
-                  font.weight: Font.Bold
+                  font.weight: Zenon.titleWeight
                   font.pixelSize: Zenon.px(15)
                 }
               }
@@ -828,6 +833,7 @@ Item {
                 text: popup.mode === "error" ? "" : ""
                 color: popup.mode === "error" ? Zenon.red : Zenon.accent
                 font.family: Zenon.glyphFace
+                font.weight: Zenon.weight
                 font.pixelSize: Zenon.px(16)
               }
               Text {
@@ -835,7 +841,7 @@ Item {
                 text: popup.mode === "error" ? popup.errorMsg : "No accounts yet — add one in calypso"
                 color: popup.mode === "error" ? Zenon.red : popup.dimColor
                 font.family: Zenon.face
-                font.weight: 600
+                font.weight: Zenon.titleWeight
                 font.pixelSize: Zenon.px(15)
               }
             }

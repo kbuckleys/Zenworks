@@ -105,10 +105,8 @@ Rectangle {
     }
   }
 
-  Rectangle {
+  Hairline {
     anchors.bottom: parent.bottom
     width: parent.width
-    height: 1
-    color: Zenon.border
   }
 }

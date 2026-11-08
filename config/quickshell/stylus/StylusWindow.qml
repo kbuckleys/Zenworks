@@ -35,6 +35,7 @@ import "../hestia/hestia.js" as Health
 import "../ceres"
 import "../terminus/usage.js" as U
 import "stylus.js" as S
+import "../morpheus/runjob.js" as RunJob
 
 FloatingWindow {
   id: sw
@@ -217,23 +218,23 @@ FloatingWindow {
   }
   function runSums(p) {
     sw.sumsCheck = { running: true };
-    sumsProc.asked = sumsProc.asked.concat([p]);
-    sumsProc.command = ["python3", "-I", sw.mgr.core, "sums", p];
-    sumsProc.running = true;
+    RunJob.latest(sumsProc, { path: p, command: ["python3", "-I", sw.mgr.core, "sums", p] });
   }
-  function stopSums() { if (sumsProc.running) sumsProc.signal(15); sw.sumsCheck = null; }
-  // each run's own path, in the order asked: a run stopped for a new image
-  // still streams its "cancelled" done, which was taken for the new one's
-  // answer (audit 10-31); the lines are the oldest run's until it exits
+  function stopSums() { RunJob.drop(sumsProc); sw.sumsCheck = null; }
+  // each run its own job (RunJob, audit 11-08): a run stopped for a new
+  // image still streams its "cancelled" done, and the new image's run was
+  // only started once the old one had exited — a slow one left it never
+  // started, "Checking…" for good
   Process {
     id: sumsProc
-    property var asked: []
-    onExited: sumsProc.asked = sumsProc.asked.slice(1)
+    property var job: null
+    property var want: null
+    onExited: RunJob.next(sumsProc)
     stdout: SplitParser {
       splitMarker: "\n"
       onRead: (line) => {
         const e = S.parseEvent(line);
-        const mine = sumsProc.asked.length > 0 && sumsProc.asked[0] === sw.path;
+        const mine = RunJob.current(sumsProc) && sumsProc.job.path === sw.path;
         if (mine && e && e.ev === "done" && sw.sumsCheck) sw.sumsCheck = { done: e };
       }
     }
@@ -802,8 +803,7 @@ FloatingWindow {
       anchors.left: sideBox.right
       anchors.right: parent.right
       height: sw.headH
-      Rectangle { anchors.fill: parent; color: Zenon.headBg }
-      Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Zenon.border }
+      HeadGround {}
       DialogButton {
         id: sideBtn
         x: 14
@@ -824,7 +824,7 @@ FloatingWindow {
         color: Zenon.ink
         font.family: Zenon.face
         font.weight: Zenon.titleWeight
-        font.pixelSize: Zenon.px(16)
+        font.pixelSize: Zenon.px(17)
       }
       // beside the name: the drives, the write as it goes, or how it went
       Text {
@@ -913,6 +913,7 @@ FloatingWindow {
             text: S.driveGlyph(sw.drive)
             color: sw.vol ? Zenon.accentMuted : Zenon.accent
             font.family: Zenon.glyphFace
+            font.weight: Zenon.weight
             font.pixelSize: Zenon.px(48)
           }
           Column {
@@ -920,12 +921,14 @@ FloatingWindow {
             spacing: 4
             Text {
               text: sw.vol ? S.partName(sw.vol) : S.driveTitle(sw.drive)
+              textFormat: Text.PlainText
               color: Zenon.ink
               font.family: Zenon.face
               font.weight: Zenon.titleWeight
               font.pixelSize: Zenon.px(22)
             }
             Text {
+              textFormat: Text.PlainText
               text: sw.vol ? S.volumeLine(sw.vol) : S.detailLine(sw.drive)
               color: Zenon.accentMuted
               font.family: Zenon.face
@@ -994,7 +997,7 @@ FloatingWindow {
             text: use.error !== "" ? use.error
               : sw.vol && sw.vol.encrypted && !sw.vol.inner ? "Locked — unlock it to see what is on it"
               : sw.vol && sw.vol.fstype ? "Not mounted — mount it to see what is on it" : "No filesystem on it"
-            color: Zenon.muted
+            color: Zenon.accentMuted
             font.family: Zenon.face
             font.weight: Zenon.weight
             font.pixelSize: Zenon.px(13)

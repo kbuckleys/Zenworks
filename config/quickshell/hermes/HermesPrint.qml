@@ -324,6 +324,7 @@ Column {
               text: H.printerGlyph(prRow.p)
               color: H.reasonWords(prRow.p.reasons) !== "" ? Zenon.yellow : prRow.p.state === "printing" ? Zenon.accent : Zenon.accentMuted
               font.family: Zenon.glyphFace
+              font.weight: Zenon.weight
               font.pixelSize: Zenon.px(17)
             }
             Column {
@@ -335,16 +336,18 @@ Column {
               Text {
                 width: parent.width
                 elide: Text.ElideRight
+                textFormat: Text.PlainText
                 text: prRow.p.info + (prRow.p.default ? "  ·  default" : "")
                 color: prRow.index === page.sel ? Zenon.ink : Zenon.white
                 font.family: Zenon.face
-                font.weight: 600
+                font.weight: Zenon.titleWeight
                 font.pixelSize: Zenon.px(15)
               }
               Text {
                 width: parent.width
                 elide: Text.ElideRight
                 visible: text !== ""
+                textFormat: Text.PlainText
                 text: prRow.p.model
                 color: Zenon.accentMuted
                 font.family: Zenon.face
@@ -421,6 +424,7 @@ Column {
             anchors.verticalCenter: parent.verticalCenter
             width: parent.width - 160
             elide: Text.ElideRight
+            textFormat: Text.PlainText
             text: (jobRow.on ? jobRow.on.info : jobRow.j.printer) + "  ·  " + Helpers.sizeFormat(jobRow.j.size)
             color: Zenon.ink
             font.family: Zenon.face
@@ -482,6 +486,7 @@ Column {
             text: devRow.d.kind === "usb" ? "\u{F0553}" : H.G.network
             color: Zenon.accentMuted
             font.family: Zenon.glyphFace
+            font.weight: Zenon.weight
             font.pixelSize: Zenon.px(16)
           }
           Text {
@@ -495,7 +500,7 @@ Column {
             text: devRow.d.name
             color: Zenon.white
             font.family: Zenon.face
-            font.weight: 600
+            font.weight: Zenon.titleWeight
             font.pixelSize: Zenon.px(15)
           }
           DialogButton {
@@ -568,6 +573,7 @@ Column {
             text: scRow.index === page.scanSel ? H.G.check : ""
             color: scRow.index === page.scanSel ? Zenon.accent : Zenon.accentMuted
             font.family: Zenon.glyphFace
+            font.weight: Zenon.weight
             font.pixelSize: Zenon.px(16)
           }
           Text {
@@ -581,7 +587,7 @@ Column {
             text: scRow.s.name
             color: scRow.index === page.scanSel ? Zenon.ink : Zenon.white
             font.family: Zenon.face
-            font.weight: 600
+            font.weight: Zenon.titleWeight
             font.pixelSize: Zenon.px(15)
           }
           MouseArea { anchors.fill: parent; onClicked: page.scanSel = scRow.index }

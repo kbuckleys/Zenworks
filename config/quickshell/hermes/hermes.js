@@ -74,7 +74,7 @@ function emptyProbe() {
     bt: { hw: false, installed: false, running: false, controllers: -1 },
     rfkill: { wifi: null, bt: null },
     vpn: [],
-    display: { backlight: [], ddcutil: false, i2c: false, hyprsunset: false, sunsetRunning: false }
+    display: { backlight: [], ddcutil: false, i2c: false, hyprsunset: false }
   };
 }
 
@@ -110,7 +110,7 @@ function parseProbe(text) {
     var d = j.display;
     p.display = {
       backlight: Array.isArray(d.backlight) ? d.backlight.filter(function (b) { return b && b.name && b.max > 0; }) : [],
-      ddcutil: !!d.ddcutil, i2c: !!d.i2c, hyprsunset: !!d.hyprsunset, sunsetRunning: !!d.sunsetRunning
+      ddcutil: !!d.ddcutil, i2c: !!d.i2c, hyprsunset: !!d.hyprsunset
     };
   }
   return p;

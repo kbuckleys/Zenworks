@@ -32,7 +32,8 @@ function M.use(word)
   vim.cmd("stopinsert")
 end
 function M.add(word, good)
-  vim.cmd((good and "spellgood " or "spellgood! ") .. vim.fn.fnameescape(word))
+  -- the word as it is: fnameescape kept "don't" as don\'t (audit 11-07)
+  vim.cmd.spellgood({ args = { word }, bang = not good })
   require("plato.view").schedule(true)
 end
 

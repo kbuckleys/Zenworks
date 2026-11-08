@@ -97,7 +97,7 @@ Item {
             text: mod.modelData
             color: sample.fgColor
             font.family: sample.face
-            font.weight: 500
+            font.weight: Zenon.weight
             font.pixelSize: Zenon.px(12)
           }
           Text {
@@ -108,6 +108,7 @@ Item {
             text: "+"
             color: sample.dimColor
             font.family: sample.face
+            font.weight: Zenon.weight
             font.pixelSize: Zenon.px(12)
           }
         }
@@ -120,6 +121,7 @@ Item {
       text: "No hyper key: every key is its usual self"
       color: sample.dimColor
       font.family: sample.face
+      font.weight: Zenon.weight
       font.pixelSize: Zenon.px(12)
     }
   }

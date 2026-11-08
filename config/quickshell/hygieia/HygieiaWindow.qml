@@ -109,28 +109,12 @@ FloatingWindow {
       anchors.left: parent.left
       anchors.right: parent.right
       height: tw.headH
-      Rectangle { anchors.fill: parent; color: Zenon.headBg }
-      Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Zenon.border }
-      Column {
-        x: 20
-        anchors.verticalCenter: parent.verticalCenter
-        spacing: 1
-        Text {
-          text: "Tidy"
-          color: Zenon.ink
-          font.family: Zenon.face
-          font.weight: Zenon.titleWeight
-          font.pixelSize: Zenon.px(17)
-        }
-        Text {
-          text: !tw.ov.known ? (tw.mgr && tw.mgr.scanning ? "Looking…" : "")
+      HeadGround {}
+      HeadWords {
+        title: "Tidy"
+        status: !tw.ov.known ? (tw.mgr && tw.mgr.scanning ? "Looking…" : "")
             : H.reclaimable(tw.ov) > 0 ? tw.size(H.reclaimable(tw.ov)) + " could be given back without a second look"
             : "Nothing that needs a second look"
-          color: Zenon.accentMuted
-          font.family: Zenon.face
-          font.weight: Zenon.weight
-          font.pixelSize: Zenon.px(12)
-        }
       }
       BusyButton {
         anchors.right: parent.right
@@ -399,11 +383,13 @@ FloatingWindow {
                 label: "Move " + tw.picked("pickDupes").length + (tw.picked("pickDupes").length === 1 ? " copy" : " copies") + " to the trash"
                 ink: Zenon.accent
                 primary: true
-                ready: !tw.busy
+                // not on a list being compared again (audit 11-08)
+                ready: !tw.busy && !(tw.mgr && tw.mgr.dupesScanning)
                 onClicked: { const p = Object.keys(H.safePicks(tw.dupeGroups, tw.pickDupes)); tw.mgr.trash(p, p.length === 1 ? "1 copy" : p.length + " copies"); }
               }
               DeleteButton {
                 kind: "dupes"
+                hold: !!tw.mgr && tw.mgr.dupesScanning
                 count: tw.picked("pickDupes").length
                 bytes: -1
                 onConfirmed: { const p = Object.keys(H.safePicks(tw.dupeGroups, tw.pickDupes)); tw.mgr.erase(p, p.length === 1 ? "1 copy" : p.length + " copies"); }
@@ -471,6 +457,8 @@ FloatingWindow {
     property string kind: ""
     property int count: 0
     property real bytes: -1
+    // held while what it acts on is being worked out again
+    property bool hold: false
     signal confirmed()
     visible: del.count > 0
     label: tw.arming === del.kind
@@ -478,7 +466,7 @@ FloatingWindow {
       : "Delete"
     ink: Zenon.red
     primary: tw.arming === del.kind
-    ready: !tw.busy
+    ready: !tw.busy && !del.hold
     onClicked: tw.twice(del.kind, () => del.confirmed())
   }
   component Words: Text {
@@ -529,7 +517,7 @@ FloatingWindow {
       text: ln.name
       color: ln.head ? Zenon.ink : ln.tick && !ln.lit ? Zenon.accentMuted : Zenon.white
       font.family: Zenon.face
-      font.weight: ln.head ? Font.DemiBold : Zenon.weight
+      font.weight: ln.head ? Zenon.titleWeight : Zenon.weight
       font.pixelSize: Zenon.px(15)
       TapHandler { onTapped: ln.opened() }
     }
@@ -540,6 +528,7 @@ FloatingWindow {
       anchors.rightMargin: 12
       anchors.verticalCenter: parent.verticalCenter
       elide: Text.ElideRight
+      textFormat: Text.PlainText
       text: ln.sub
       color: Zenon.accentMuted
       font.family: Zenon.face
@@ -554,6 +543,7 @@ FloatingWindow {
       text: ln.bytes >= 0 ? tw.size(ln.bytes) : ""
       color: Zenon.accentMuted
       font.family: Zenon.faceMono
+      font.weight: Zenon.weight
       font.pixelSize: Zenon.px(13)
     }
   }

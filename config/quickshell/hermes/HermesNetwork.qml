@@ -127,7 +127,7 @@ Column {
         }
       }
     }
-    Rectangle { width: parent.width; height: 1; color: Zenon.border; visible: !!page.wifiLink }
+    Hairline { width: parent.width;  visible: !!page.wifiLink }
     Item { width: 1; height: 6; visible: !!page.wifiLink }
     HermesFact { label: "IPv4"; value: page.wifiLink ? page.wifiLink.ipv4.join("\n") : "" }
     HermesFact { label: "Gateway"; value: page.wifiLink ? page.wifiLink.gateway : "" }

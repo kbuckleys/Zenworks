@@ -274,6 +274,7 @@ Item {
     if (pg.commit && pg.scope !== "all") pg.wantSha = pg.commit.sha;
     if (pg.session >= 0) pg.win.mgr.call("logClose", pg.win.root, { session: pg.session });
     pg.session = -1;
+    pg.logGen++;
     pg.ended = false;
     if (pg.scope === "all") return;
     const args = pg.query === "" ? {} : pg.searchIn === "changes" ? { pickaxe: pg.query } : { grep: pg.query };
@@ -304,9 +305,18 @@ Item {
     }
     pg.openLog(root, args);
   }
+  property int logGen: 0
   function openLog(root, args) {
-    pg.win.mgr.call("logOpen", root, args, (ok, res) => { if (!pg) return;
-      if (!ok || root !== pg.win.root) return;
+    const mgr = pg.win.mgr, gen = pg.logGen;
+    mgr.call("logOpen", root, args, (ok, res) => {
+      if (!ok) return;
+      // the page went, the repository changed or a newer reload is out:
+      // this session is nobody's — closed, not left reading git log
+      if (!pg || !pg.win || root !== pg.win.root || gen !== pg.logGen) {
+        mgr.call("logClose", root, { session: res.session });
+        return;
+      }
+      if (pg.session >= 0) mgr.call("logClose", root, { session: pg.session });
       pg.session = res.session;
       pg.commits = [];
       // a page still out belongs to the session just closed (its answer is
@@ -433,10 +443,11 @@ Item {
       text: pg.peekC ? pg.peekC.subject : ""
       color: Zenon.ink
       font.family: Zenon.face
-      font.weight: Font.Bold
+      font.weight: Zenon.titleWeight
       font.pixelSize: Zenon.px(15)
     }
     Text {
+      textFormat: Text.PlainText
       width: 452
       visible: peekBubble.rest !== ""
       wrapMode: Text.Wrap
@@ -698,17 +709,15 @@ Item {
       current: pg.scope
       onChose: (v) => pg.setScope(v)
     }
-    BulkField {
+    SearchBox {
       id: search
+      compact: true
       visible: pg.scope !== "all" && pg.scope !== "compare"
       readonly property bool under: true
       x: 12
       y: scopes.y + scopes.height + 8
       width: Math.round((parent.width - 32) * 0.42)
-      height: scopes.height
-      textSize: Zenon.px(14)
-      ghost: pg.searchIn === "changes" ? "  Search the changes  ( / )" : "  Search messages  ( / )"
-      clearable: true
+      ghost: pg.searchIn === "changes" ? "Search the changes  ( / )" : "Search messages  ( / )"
       // narrows as it is typed (user, 2026-10-12), a beat after the last key
       function apply() {
         typing.stop();
@@ -757,6 +766,7 @@ Item {
         text: "→"
         color: Zenon.accentMuted
         font.family: Zenon.face
+        font.weight: Zenon.weight
         font.pixelSize: Zenon.px(16)
       }
       DialogButton {
@@ -773,18 +783,16 @@ Item {
         onClicked: pg.swapCompare()
       }
     }
-    BulkField {
+    SearchBox {
       id: pathField
+      compact: true
       visible: pg.scope !== "all" && pg.scope !== "compare"
       anchors.left: searchIn.right
       anchors.leftMargin: 8
       anchors.right: parent.right
       anchors.rightMargin: 12
       y: search.y
-      height: search.height
-      textSize: Zenon.px(14)
-      ghost: "  Only a file or directory  ( f )"
-      clearable: true
+      ghost: "Only a file or directory  ( f )"
       Component.onCompleted: pathField.text = pg.onlyPath
       // as typed too, a little later than the search (a half-typed path
       // narrows to nothing)
@@ -824,10 +832,11 @@ Item {
           anchors.rightMargin: 8
           anchors.bottomMargin: 6
           radius: Zenon.windowRadius
-          color: pg.whole ? (pg.area === "commits" ? pg.win.hiFill : Zenon.wash(0.05)) : wholePress.pressed ? Zenon.wash(0.04) : "transparent"
+          color: pg.whole ? (pg.area === "commits" ? pg.win.hiFill : Zenon.wash(0.05)) : wholePress.pressed ? Zenon.pressWash(0.12) : "transparent"
           border.width: 1
           border.color: Zenon.border
           Text {
+            textFormat: Text.PlainText
             x: 14
             width: parent.width - 28
             anchors.verticalCenter: parent.verticalCenter
@@ -880,7 +889,7 @@ Item {
                 text: modelData.glyph + " " + modelData.label
                 color: Zenon[modelData.ink]
                 font.family: Zenon.face
-                font.weight: Font.Bold
+                font.weight: Zenon.titleWeight
                 font.pixelSize: Zenon.px(12)
               }
             }
@@ -927,6 +936,7 @@ Item {
           CiDot { anchors.centerIn: parent; c: pg.ciOf(crow.c.sha) }
         }
         Text {
+          textFormat: Text.PlainText
           id: when
           anchors.right: parent.right
           anchors.rightMargin: 16
@@ -1075,10 +1085,11 @@ Item {
         text: pg.commit ? pg.commit.subject : ""
         color: Zenon.ink
         font.family: Zenon.face
-        font.weight: Font.Bold
+        font.weight: Zenon.titleWeight
         font.pixelSize: Zenon.px(17)
       }
       Text {
+        textFormat: Text.PlainText
         width: parent.width
         elide: Text.ElideRight
         text: !pg.commit ? "" : pg.commit.range ? pg.cmpFrom + "..." + pg.cmpTo + "  ·  " + pg.files.length + (pg.files.length === 1 ? " file" : " files")
@@ -1148,6 +1159,7 @@ Item {
         spacing: 8
         CiDot { anchors.verticalCenter: parent.verticalCenter; c: parent.c }
         Text {
+          textFormat: Text.PlainText
           anchors.verticalCenter: parent.verticalCenter
           text: !parent.c ? "" : D.ciWords(parent.c)
           color: !parent.c ? Zenon.accentMuted : parent.c.state === "failure" ? Zenon.red : parent.c.state === "success" ? Zenon.green
@@ -1172,17 +1184,15 @@ Item {
     // under this page, so the title and message read over it (user,
     // 2026-10-11: the frost carried up through them)
     // its files, filtered by what is typed here
-    BulkField {
+    SearchBox {
       id: fileFilter
       visible: pg.files.length > 1
       anchors.top: headRule.bottom
       anchors.left: parent.left
       anchors.right: parent.right
       anchors.margins: 10
-      height: pg.files.length > 1 ? 30 : 0
-      textSize: Zenon.px(14)
-      ghost: "  Filter " + pg.files.length + " files  ( / )"
-      clearable: true
+      height: pg.files.length > 1 ? 34 : 0
+      ghost: "Filter " + pg.files.length + " files  ( / )"
       onTextChanged: pg.fileQuery = fileFilter.text.trim()
       onAccepted: { pg.area = "files"; pg.win.focusKeys(); }
       Keys.onEscapePressed: { fileFilter.text = ""; pg.area = "files"; pg.win.focusKeys(); }
@@ -1211,6 +1221,7 @@ Item {
         width: fileList.width
         height: fileList.rowH
         Text {
+          textFormat: Text.PlainText
           id: fg
           x: 18
           width: 20
@@ -1218,6 +1229,7 @@ Item {
           text: Terminus.glyphOf(frow.probe, Icons)
           color: Zenon[Terminus.inkKeyOf(frow.probe)]
           font.family: Zenon.glyphFace
+          font.weight: Zenon.weight
           font.pixelSize: Zenon.px(14)
         }
         Text {

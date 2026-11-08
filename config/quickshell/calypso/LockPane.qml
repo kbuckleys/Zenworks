@@ -98,7 +98,7 @@ Item {
         text: lock.acct ? lock.acct.name : ""
         color: Zenon.ink
         font.family: Zenon.face
-        font.weight: Font.Bold
+        font.weight: Zenon.titleWeight
         font.pixelSize: Zenon.px(22)
       }
       Text {

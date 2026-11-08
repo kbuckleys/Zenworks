@@ -2882,7 +2882,9 @@ function fetchUrlCommand(url, destDir, fallback) {
   const origin = String(url).replace(/^([a-z]+:\/\/[^\/]+).*$/i, '$1') + '/';
   return FREE_NAME
     + 'f=$(terminus_free ' + d + ' ' + Strings.shellQuote(fallback) + ' "")\n'
-    + 'curl -fsSL --max-time 120 '
+    // morpheus/Net.fetch's limits: no scheme but http(s), on a redirect too,
+    // and a size cap (audit 11-07)
+    + 'curl -fsSL --proto =http,https --proto-redir =http,https --max-filesize 4000000000 --max-time 120 '
     + '-A ' + Strings.shellQuote(
         'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 '
         + '(KHTML, like Gecko) Chrome/124.0 Safari/537.36') + ' '
@@ -3635,19 +3637,26 @@ function bulkFormat(names, fmt, kind, where, start, sep, stemOnly) {
   });
 }
 
-function bulkIssues(oldNames, newNames) {
+// A name nobody edited stays as it is, edge spaces and all. `dirs`, one per
+// row: names only collide inside one directory (results and branches mix them).
+function bulkTarget(oldName, newName) {
+  const raw = String(newName === undefined ? "" : newName);
+  return raw === oldName ? raw : raw.trim();
+}
+function bulkIssues(oldNames, newNames, dirs) {
   const out = [];
   const seen = Object.create(null);
   for (let i = 0; i < newNames.length; ++i) {
-    const to = String(newNames[i] === undefined ? "" : newNames[i]).trim();
+    const to = bulkTarget(oldNames[i], newNames[i]);
     if (to === "") { out.push("empty"); continue; }
     if (to.indexOf("/") >= 0) { out.push("has a /"); continue; }
     if (to === "." || to === "..") { out.push("reserved"); continue; }
-    if (seen[to] !== undefined) {
-      out.push("same as row " + (seen[to] + 1));
+    const key = (dirs ? dirs[i] : "") + "/" + to;
+    if (seen[key] !== undefined) {
+      out.push("same as row " + (seen[key] + 1));
       continue;
     }
-    seen[to] = i;
+    seen[key] = i;
     out.push("");
   }
   return out;
@@ -3657,13 +3666,13 @@ function bulkIssues(oldNames, newNames) {
 // act on. A name that did not change is not a rename. Anything illegal refuses
 // the WHOLE batch, because a bulk rename that half-applies is worse than one
 // that does not run.
-function bulkPairs(oldNames, newNames) {
+function bulkPairs(oldNames, newNames, dirs) {
   if (!newNames || newNames.length !== oldNames.length) return null;
-  const bad = bulkIssues(oldNames, newNames);
+  const bad = bulkIssues(oldNames, newNames, dirs);
   for (let i = 0; i < bad.length; ++i) if (bad[i] !== "") return null;
   const pairs = [];
   for (let i = 0; i < newNames.length; ++i) {
-    const to = String(newNames[i]).trim();
+    const to = bulkTarget(oldNames[i], newNames[i]);
     if (to !== oldNames[i]) pairs.push([oldNames[i], to]);
   }
   return pairs;
@@ -3879,6 +3888,15 @@ function adoptAppCommand(desktopId, mime, path) {
 // cannot leave half a mimeapps.list behind — this is the file every
 // application on the desktop consults to find out what opens what, and a
 // truncated one breaks all of them rather than just this window.
+// Taken off the list, and if it was the default the next one becomes it:
+// xdg-mime would go on answering with an application no longer listed.
+function removeHandlerCommand(id, mime, defaultId, apps) {
+  const cmd = removeAppCommand(id, mime);
+  if (id !== defaultId) return cmd;
+  const next = apps.find((a) => a.id !== id);
+  return next ? "{ " + cmd + "; } && " + setDefaultAppCommand(next.id, mime) : cmd;
+}
+
 function removeAppCommand(desktopId, mime) {
   const id = Desktop.fileName(desktopId);
   if (String(mime || "") === "" || String(id || "") === "") return "true";

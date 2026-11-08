@@ -32,12 +32,10 @@ Item {
 
   implicitHeight: col.implicitHeight + 22
 
-  Rectangle {
+  Hairline {
     visible: row.ruled
     x: 16
     width: parent.width - 32
-    height: 1
-    color: Zenon.border
   }
 
   Column {
@@ -65,6 +63,7 @@ Item {
         width: Math.min(implicitWidth, parent.width - (ring.visible ? ring.width + 10 : 0))
         anchors.verticalCenter: parent.verticalCenter
         text: row.shown
+        textFormat: Text.PlainText
         elide: row.field && row.field.kind === "url" ? Text.ElideMiddle : Text.ElideRight
         wrapMode: row.open && row.field && row.field.value === "" && row.shown.indexOf("\n") >= 0 ? Text.WrapAnywhere : Text.NoWrap
         maximumLineCount: 12
@@ -72,7 +71,7 @@ Item {
           : row.field && row.field.kind === "url" ? Zenon.blue
           : row.secret && !row.open ? Zenon.accentSoft : Zenon.ink
         font.family: row.secret || row.isTotp ? Zenon.faceMono : Zenon.face
-        font.weight: row.isTotp ? Font.Bold : Zenon.weight
+        font.weight: row.isTotp ? Zenon.titleWeight : Zenon.weight
         font.pixelSize: row.isTotp ? Zenon.px(20) : Zenon.px(15)
         font.letterSpacing: row.isTotp ? 1.5 : row.secret && !row.open ? 1 : 0
         font.features: { "tnum": 1 }

@@ -882,7 +882,7 @@ module.exports.themes = (t, T) => {
     "half\t{ \"name\": ",
     "zenon\t{ \"name\": \"Not the real one\" }",
     ""].join("\n"));
-  t.eq("zenon comes first, built in", opts[0].value, "zenon");
+  t.eq("follow daytime comes first", opts[0].value, "sun");
   t.eq("a file named zenon does not shadow it", opts.filter((o) => o.value === "zenon").length, 1);
   t.eq("a theme is labeled with its own name", opts.find((o) => o.value === "nord").label, "Nord");
   t.eq("a light one is marked", opts.find((o) => o.value === "paper").label, "Paper  \u{F19E2}");
@@ -894,13 +894,23 @@ module.exports.themes = (t, T) => {
   t.eq("a saved light one keeps its light mark too",
     T.themeOptions("custom-sky\t{ \"name\": \"Sky\", \"mode\": \"light\", \"custom\": true }").find((o) => o.value === "custom-sky").label,
     "Sky  \uF2C0  \u{F19E2}");
-  t.eq("follow the sun comes third", opts[2].value, "sun");
+  t.eq("zenon comes third, ahead of the files", opts[2].value, "zenon");
   t.eq("nothing in themes/ is zenon, follow background and follow the sun", T.themeOptions("").length, 3);
+  // a theme's inks for its list row: its own, Zenon's where it has none
+  const base = { ground: "#000000", red: "#111111", sand: "#222222", yellow: "#333333", green: "#444444",
+    accent: "#555555", blue: "#666666", magenta: "#777777", pink: "#888888" };
+  const inked = T.themeOptions("sky\t{ \"colors\": { \"ground\": \"#ffffff\", \"cyan\": \"#00aaaa\", \"red\": \"nope\" } }")
+    .find((o) => o.value === "sky");
+  t.eq("inks: own ground, cyan as accent, a bad red left to Zenon",
+    T.themeInksFor(inked, base, null), ["#ffffff", "#111111", "#222222", "#333333", "#444444", "#00aaaa", "#666666", "#777777", "#888888"]);
+  t.eq("inks: Zenon is Zenon's", T.themeInksFor({ value: "zenon" }, base, null)[0], "#000000");
+  t.eq("inks: follow the sun has none", T.themeInksFor({ value: "sun" }, base, null), null);
+  t.eq("inks: follow background before it made one has none", T.themeInksFor({ value: "follow" }, base, null), null);
   const withLight = T.themeOptions([
     "ayu-light\t{ \"name\": \"Ayu Light\", \"mode\": \"light\" }",
     "zenon-light\t{ \"name\": \"Zenon Light\", \"mode\": \"light\" }"].join("\n"));
-  t.eq("zenon light sits right under zenon", withLight[1].value, "zenon-light");
-  t.eq("then the two follows", withLight[2].value, "follow");
+  t.eq("zenon light sits right under zenon", withLight[3].value, "zenon-light");
+  t.eq("the two follows above them", withLight[1].value, "follow");
 };
 
 // Shortcuts: binds.lua read, keys.lua written, a key press named, no dupes.

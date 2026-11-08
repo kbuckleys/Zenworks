@@ -82,7 +82,38 @@ function serializeQueries(list) {
 function addQuery(list, q) {
   const t = String(q || "").trim();
   if (t === "") return (list || []).slice();
-  return [t].concat((list || []).filter((x) => x !== t)).slice(0, QUERIES_MAX);
+  const key = queryText(t);
+  return [t].concat((list || []).filter((x) => queryText(x) !== key)).slice(0, QUERIES_MAX);
+}
+// ── WHAT WAS SEARCHED, NOT WHAT WAS TYPED (user, 2026-11-07) ──────────────
+// A history entry is the line that reaches what you picked, and the chip it
+// was searched under: "line<TAB>glyph<TAB>chip". Typed "cla", picked Claude:
+// "Claude", under App; picked Nord under the theme chip: "theme Nord". A
+// line written before this has no chip part and still reads.
+function queryText(entry) { return String(entry || "").split("\t")[0]; }
+function queryTag(entry) {
+  const p = String(entry || "").split("\t");
+  return p.length >= 3 && p[2] !== "" ? { glyph: p[1], text: p[2] } : null;
+}
+function queryEntry(line, tag) {
+  const flat = (s) => String(s || "").replace(/[\t\n\r]+/g, " ").trim();
+  const l = flat(line);
+  return l !== "" && tag && flat(tag.text) !== "" ? l + "\t" + flat(tag.glyph) + "\t" + flat(tag.text) : l;
+}
+// a name without the marks a list puts beside it (a light theme's glyph)
+function plainName(s) {
+  return String(s || "").replace(/[\uE000-\uF8FF]|[\u{F0000}-\u{10FFFD}]/gu, "").replace(/\s+/g, " ").trim();
+}
+// The rows whose name is what was searched for: their whole name stands in
+// for the start that was typed. Everything else (a clip, a sum, a word
+// looked up) keeps the line as typed, and a clip's text is never kept.
+const PICK_NAMED = ["app", "window", "file", "link", "contact", "script", "traymenu"];
+function pickedLine(query, chipWord, row) {
+  const q = String(query || "").trim();
+  if (!row) return q;
+  const named = PICK_NAMED.indexOf(row.kind) >= 0 || (row.kind === "argcmd" && !!row.cmd && row.cmd.kind === "theme");
+  const name = named ? plainName(row.label || row.text) : "";
+  return name === "" ? q : (chipWord ? chipWord + " " : "") + name;
 }
 
 // ── THE DICTIONARY AND THE TRANSLATOR, AS CARDS (2026-11-01) ──────────────
@@ -558,6 +589,7 @@ function snapRect(mon, gaps, where, size) {
   case "maxW": return R(ax, Math.max(ay, size.y), aw, Math.min(ah, size.h));
   case "maxH": return R(Math.max(ax, size.x), ay, Math.min(aw, size.w), ah);
   // the middle, at the size it has (`size`) or the size asked
+  case "size":
   case "center": {
     const w = Math.min(aw, size.w), h = Math.min(ah, size.h);
     return R(ax + (aw - w) / 2, ay + (ah - h) / 2, w, h);
@@ -567,10 +599,6 @@ function snapRect(mon, gaps, where, size) {
   case "top": return R(ax, ay, aw, ah / 2 - half);
   case "bottom": return R(ax, ay + ah / 2 + half, aw, ah / 2 - half);
   case "max": return R(ax, ay, aw, ah);
-  case "size": {
-    const w = Math.min(aw, size.w), h = Math.min(ah, size.h);
-    return R(ax + (aw - w) / 2, ay + (ah - h) / 2, w, h);
-  }
   }
   return null;
 }
@@ -1004,6 +1032,7 @@ const HELP = [
   ["Do", "larger", "The window a tenth larger (also: smaller, maximize width, maximize height)", "larger", "larger"],
   ["Do", "fullscreen", "The window full screen, or back (also: previous screen)", "fullscreen", "fullscreen"],
   ["Do", "dark mode", "The theme's dark side (also: light mode, toggle appearance)", "dark mode", "dark mode"],
+  ["Do", "theme", "Every theme as Oracle lists it, and dark or light mode", "theme nord", "theme "],
   ["Do", "show desktop", "An empty workspace", "show desktop", "show desktop"],
   ["Do", "quit all", "Closes every window", "quit all apps", "quit all apps"],
   ["Do", "empty trash", "Deletes what is in the trash for good", "empty trash", "empty trash"],
@@ -1254,7 +1283,7 @@ const RESERVED = ["f", "cb", "calc", "def", "define", "tr", "translate", "em", "
   "store", "install", "notes", "note", "pkg", "event", "todo", "todos", "tasks", "book", "books", "output",
   "colors", "go", "ps", "port", "bt", "wifi", "repo", "svc", "notif", "in", "font", "shots", "rec", "help", "?",
   "bm", "browsed", "github", "prs", "issues", "music", "videos", "menu", "qr", "focus", "layout", "layouts",
-  "contact", "contacts", "confetti", "camera", "history", "quit", "snap", "snaps"];
+  "contact", "contacts", "confetti", "camera", "history", "quit", "snap", "snaps", "theme", "themes"];
 function aliasProblem(word) {
   const w = String(word || "").trim().toLowerCase();
   if (w === "") return "";
@@ -1739,7 +1768,8 @@ const CHIPS = [
   ["svc", [], "Services"], ["notif", [], "Notifications"], ["help", [], "Help"], ["calc", [], "Calculator"],
   ["bm", [], "Bookmarks"], ["browsed", [], "Browsed"], ["history", [], "History"], ["github", [], "GitHub"], ["prs", [], "Pull requests"],
   ["issues", [], "Issues"], ["music", [], "Music"], ["videos", [], "Videos"], ["menu", [], "Menus"],
-  ["contacts", ["contact"], "Contacts"], ["quit", [], "Quit"], ["layout", ["layouts"], "Layouts"], ["snap", ["snaps"], "Snap"]
+  ["contacts", ["contact"], "Contacts"], ["quit", [], "Quit"], ["layout", ["layouts"], "Layouts"], ["snap", ["snaps"], "Snap"],
+  ["theme", ["themes"], "Themes"]
 ];
 // the chip a word is: { word (as the line reads it), text }, or null; your
 // quick links and scripts that take words are chips too
@@ -1803,12 +1833,31 @@ function snapRows(query, windowName) {
     .map((x) => ({ kind: "argcmd", key: "snap:" + x[0], cmd: { kind: "snap", where: x[0] }, text: x[2], label: x[1],
       sub: "\u201C" + x[2] + "\u201D \u00B7 " + (windowName || "the window you were in"), glyph: x[3], section: "Window" }));
 }
-// "history …": your searches, newest first (the queries file), to search again
-function searchRows(queries, query) {
+// "theme …": every theme, as Oracle's Theme list has them (its name with its
+// marks, its inks at the right), the worn one ticked (2026-11-07, user).
+// `inksOf(option)` is Ora.themeInksFor with Zenon's colors.
+function themeRows(options, current, query, inksOf) {
   const q = String(query || "").trim().toLowerCase();
-  return (queries || []).filter((line) => q === "" || String(line).toLowerCase().indexOf(q) >= 0).slice(0, 60)
-    .map((line, i) => ({ kind: "search", key: "search:" + i + ":" + line, text: line, label: line, sub: "",
-      glyph: "\uF1DA", section: "Searches" }));
+  return (options || []).filter((o) => q === "" || String(o.label).toLowerCase().indexOf(q) >= 0 || String(o.value).indexOf(q) >= 0)
+    .map((o) => ({ kind: "argcmd", key: "theme:" + o.value, cmd: { kind: "theme", value: o.value }, text: o.label,
+      label: o.label, sub: "", glyph: "", section: "Themes", worn: o.value === current,
+      inks: inksOf ? inksOf(o) : null }));
+}
+// "history …": your searches, newest first (the queries file), to search again
+// Each with the chip it was searched under, as the field shows one: a line
+// that opens on a chip's word shows that chip and the rest
+function searchRows(queries, query, links, scripts) {
+  const q = String(query || "").trim().toLowerCase();
+  return (queries || []).filter((e) => q === "" || queryText(e).toLowerCase().indexOf(q) >= 0).slice(0, 60)
+    .map((e, i) => {
+      const line = queryText(e);
+      const m = /^\s*(\S+)\s+([\s\S]+)$/.exec(line);
+      const c = m ? chipFor(m[1], links, scripts) : null;
+      const saved = queryTag(e);
+      const tag = c ? { glyph: saved && saved.text === c.text ? saved.glyph : "", text: c.text } : saved;
+      return { kind: "search", key: "search:" + i + ":" + line, text: line, label: c ? m[2].trim() : line, sub: "",
+        glyph: "\uF1DA", section: "Searches", chipTag: tag };
+    });
 }
 // ── EACH CHIP ITS LAST SEARCHES (2026-11-04) ── a chip with nothing typed
 // after it leads with what you last looked for under it ("def" → the words
@@ -1822,8 +1871,9 @@ const CHIPS_OWN_RECENTS = ["def", "tr", "calc"];
 function chipRecentRows(queries, word, links, scripts) {
   const out = [], seen = {};
   if (CHIPS_OWN_RECENTS.indexOf(word) >= 0) return out;
-  for (const line of queries || []) {
-    const m = /^\s*(\S+)\s+(.+?)\s*$/.exec(String(line));
+  for (const entry of queries || []) {
+    const line = queryText(entry);
+    const m = /^\s*(\S+)\s+(.+?)\s*$/.exec(line);
     if (!m) continue;
     const c = chipFor(m[1], links, scripts);
     if (!c || c.word !== word || seen[m[2].toLowerCase()]) continue;
@@ -2514,7 +2564,7 @@ function kindActions(r) {
       a("explain", "Explain the working", "\uF05A", "ctrl e")];
   case "lexi":
     return [a("go", "Copy", A_COPY, "return"),
-      ...(r.say ? [a("lexiSay", r.mode === "dict" ? "Say the word" : "Read it out", "\uF028", "alt p")] : []),
+      ...(r.say ? [a("lexiSay", r.mode === "dict" ? "Say the word" : "Read it out", r.mode === "dict" ? "\u{F07C5}" : "\uF028", "alt p")] : []),
       ...(r.mode === "dict" && r.more ? [a("lexiMore", "Show more or fewer senses", "\uF036", "alt e")] : []),
       ...(r.swap ? [a("lexiSwap", "Swap the languages", "\uF0EC", "alt s")] : [])];
   case "storeapp":
@@ -2695,7 +2745,7 @@ function kindName(r) {
   if (r.kind === "traymenu") return "Menu item";
   if (r.kind === "contact") return "Contact";
   if (r.kind === "info") return "";
-  if (r.kind === "argcmd") return "Command";
+  if (r.kind === "argcmd") return r.cmd && r.cmd.kind === "theme" ? "Theme" : "Command";
   if (r.kind === "search") return "Search";
   if (r.kind === "window") return r.focused ? "This window" : "Window";
   if (r.kind === "script") return "Script";

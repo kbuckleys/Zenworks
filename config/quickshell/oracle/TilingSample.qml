@@ -127,6 +127,7 @@ Item {
       + ", four windows; the last is a group of two. Click a window to focus it."
     color: sample.dimColor
     font.family: sample.face
+    font.weight: Zenon.weight
     font.pixelSize: Zenon.px(12)
   }
 
@@ -230,6 +231,7 @@ Item {
                         text: parent.lit ? "Terminus" : "Plato"
                         color: sample.fgColor
                         font.family: sample.face
+                        font.weight: Zenon.weight
                         font.pixelSize: Math.max(8, Math.min(Zenon.px(12), sample.tabsH * 0.55))
                       }
                     }
@@ -265,7 +267,7 @@ Item {
                   text: String(win.index + 1)
                   color: win.active ? sample.highlight : Zenon.alpha(Zenon.ink, 0.4)
                   font.family: sample.face
-                  font.weight: Font.Bold
+                  font.weight: Zenon.titleWeight
                   font.pixelSize: Math.max(10, Math.min(Zenon.px(22), body.height * 0.35))
                 }
               }

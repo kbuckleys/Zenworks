@@ -135,6 +135,7 @@ Item {
               text: own.modelData.name
               color: sa.fgColor
               font.family: sa.face
+              font.weight: Zenon.weight
               font.pixelSize: Zenon.px(16)
             }
             Text {
@@ -186,9 +187,11 @@ Item {
                 text: appRow.a.name || Ora.startupName(appRow.a.command) || "New app"
                 color: appRow.a.on ? sa.fgColor : sa.dimColor
                 font.family: sa.face
+                font.weight: Zenon.weight
                 font.pixelSize: Zenon.px(16)
               }
               Text {
+                textFormat: Text.PlainText
                 anchors.left: appName.right
                 anchors.leftMargin: 16
                 anchors.right: runState.left
@@ -198,6 +201,7 @@ Item {
                 text: appRow.a.command + (appRow.a.delay ? "  · after " + appRow.a.delay + " s" : "")
                 color: sa.dimColor
                 font.family: Zenon.faceMono
+                font.weight: Zenon.weight
                 font.pixelSize: Zenon.px(13)
               }
               Text {
@@ -339,9 +343,11 @@ Item {
                 text: inst.modelData.name
                 color: sa.fgColor
                 font.family: sa.face
+                font.weight: Zenon.weight
                 font.pixelSize: Zenon.px(16)
               }
               Text {
+                textFormat: Text.PlainText
                 anchors.left: instName.right
                 anchors.leftMargin: 16
                 anchors.right: parent.right
@@ -352,6 +358,7 @@ Item {
                 text: inst.modelData.command
                 color: sa.dimColor
                 font.family: Zenon.faceMono
+                font.weight: Zenon.weight
                 font.pixelSize: Zenon.px(13)
               }
               TapHandler { id: instTap; onTapped: sa.add(inst.modelData.name, inst.modelData.command) }
@@ -390,7 +397,7 @@ Item {
     verticalAlignment: Text.AlignVCenter
     color: sa.dimColor
     font.family: sa.face
-    font.weight: Font.Bold
+    font.weight: Zenon.titleWeight
     font.pixelSize: Zenon.px(15)
   }
   // green while it runs, red when the shell's own is not

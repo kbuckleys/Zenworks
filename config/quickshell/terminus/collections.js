@@ -109,6 +109,24 @@ function blank(id) {
   };
 }
 
+// A search as a collection's rules: the query first, spelled the way a
+// collection would have it (rg's text, or a name containing it), then the
+// criteria rows. Empty rows are dropped, except where the editor keeps
+// them (keepEmpty: a row still being filled in). One spelling for the
+// search bar's save, a respec'd search and the editor (2026-11-08).
+function searchRules(kind, query, rules, keepEmpty) {
+  var out = [];
+  if (query !== "") out.push(kind === "grep"
+    ? { kind: "content", op: "text", value: query }
+    : { kind: "name", op: "contains", value: query });
+  var list = rules || [];
+  for (var i = 0; i < list.length; ++i) {
+    var r = list[i];
+    if (keepEmpty || String(r.value || "").trim() !== "") out.push({ kind: r.kind, op: r.op, value: r.value });
+  }
+  return out;
+}
+
 // ── size and date, as fd spells them ────────────────────────────────────
 
 // "10m", "2g", "500k" — and a bare number means bytes, which is what a
@@ -222,7 +240,16 @@ function fdCommand(folder, rules, home) {
       if (r.op === "matches") patterns.push(v);
       // Anchored, so "notes" is notes and not notes-old.
       else if (r.op === "is") patterns.push("^" + escapeRe(v) + "$");
-      else patterns.push(escapeRe(v));
+      // CONTAINS IS WORDS, as a search is (Terminus.findCommand): each one
+      // somewhere in the name, in any case. A saved search "haven png" was
+      // the one phrase, space and all, and found nothing (user, 2026-11-08).
+      // fd is smart-case, so a word in lower case already ignores it; one
+      // with a capital says so.
+      else {
+        var words = v.split(/\s+/);
+        for (var w = 0; w < words.length; ++w)
+          if (words[w] !== "") patterns.push((/[A-Z]/.test(words[w]) ? "(?i)" : "") + escapeRe(words[w]));
+      }
     } else if (r.kind === "ext") {
       // Comma-separated, so "png,jpg" is one rule. fd ORs its -e flags,
       // which is what a list of extensions means.
@@ -265,11 +292,13 @@ function fdCommand(folder, rules, home) {
   // fd wants the pattern before the path, and an empty pattern means
   // everything — which is spelled with an explicit "." rather than by leaving
   // it out, because leaving it out makes fd read the path as the pattern.
+  // After the --, and --and with its =: a rule that starts with a dash is a
+  // name to find, and before them fd read "-x…" as run this on every match.
   for (var a = 1; a < patterns.length; ++a)
-    args.push("--and " + Strings.shellQuote(patterns[a]));
+    args.push(Strings.shellQuote("--and=" + patterns[a]));
+  args.push("--");
   args.push(patterns.length > 0
     ? Strings.shellQuote(patterns[0]) : Strings.shellQuote("."));
-  args.push("--");
   args.push(Strings.shellQuote(expandHome(folder.root || ".", home)));
   return args.join(" ");
 }
@@ -308,12 +337,28 @@ function rgStage(rule) {
 // Returns "" when the directory cannot ask anything yet — no rules, or only
 // empty ones. The caller shows nothing rather than listing the entire disk,
 // which is what an unconstrained fd would do.
+// A rule's word as the pipeline can take it: "" for an empty one, "bad" for
+// one it cannot (a size of "abc", a kind it has no list for), else "ok".
+// A bad one used to count as asked while fd was given no flag for it, so
+// "size larger than abc" listed every file under the directory (audit
+// 2026-11-07); it now asks nothing until the rule reads.
+function ruleState(r) {
+  if (r.kind === "tag") return "ok";
+  var v = String(r.value || "").trim();
+  if (v === "") return "";
+  if (r.kind === "size") return sizeArg(v) !== "" ? "ok" : "bad";
+  if (r.kind === "date") return dateArg(v) !== "" ? "ok" : "bad";
+  if (r.kind === "kind") return kindSpec(v) ? "ok" : "bad";
+  return "ok";
+}
+
 function command(folder, home) {
   var rules = (folder && folder.rules) ? folder.rules : [];
   var usable = 0;
   for (var i = 0; i < rules.length; ++i) {
-    if (rules[i].kind === "tag") { usable++; continue; }
-    if (String(rules[i].value || "").trim() !== "") usable++;
+    var st = ruleState(rules[i]);
+    if (st === "bad") return "";
+    if (st === "ok") usable++;
   }
   if (usable === 0) return "";
 

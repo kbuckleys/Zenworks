@@ -63,6 +63,7 @@ Item {
     text: "Drag the window. Close to hyprland's own, not exact."
     color: fx.dimColor
     font.family: fx.face
+    font.weight: Zenon.weight
     font.pixelSize: Zenon.px(12)
   }
 
@@ -268,6 +269,7 @@ Item {
         text: "Corner ×" + Math.round(lens.k)
         color: fx.dimColor
         font.family: fx.face
+        font.weight: Zenon.weight
         font.pixelSize: Zenon.px(10)
       }
     }

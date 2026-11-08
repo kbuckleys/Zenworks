@@ -1278,7 +1278,7 @@ Item {
                 textFormat: Text.PlainText
                 font.family: win.face.family
                 font.pixelSize: win.face.pixelSize
-                font.weight: modelData[2] ? Font.Bold : win.face.weight
+                font.weight: modelData[2] ? Zenon.titleWeight : win.face.weight
                 color: modelData[1] ? modelData[1] : win.ed.normalFg
                 text: modelData[0]
               }
@@ -1296,7 +1296,7 @@ Item {
         if (l) win.client.cmd(String(l.n));
       }
     }
-    Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Zenon.border }
+    Hairline { anchors.bottom: parent.bottom; width: parent.width }
     // THE SHADOW DEEPENS AS THE TEXT GOES UNDER: faint while the block's
     // opener has only just reached the top, full once a few lines of it
     // have scrolled beneath the pinned lines

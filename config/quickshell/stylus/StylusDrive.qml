@@ -60,6 +60,7 @@ Rectangle {
     text: S.driveGlyph(card.drive)
     color: card.result ? (card.result.ok ? Zenon.green : Zenon.red) : card.picked ? Zenon.accent : Zenon.accentMuted
     font.family: Zenon.glyphFace
+    font.weight: Zenon.weight
     font.pixelSize: Zenon.px(26)
   }
 
@@ -74,6 +75,7 @@ Rectangle {
       width: parent.width
       elide: Text.ElideRight
       text: S.driveTitle(card.drive) + "  ·  " + S.driveLine(card.drive)
+      textFormat: Text.PlainText
       color: Zenon.ink
       font.family: Zenon.face
       font.weight: Zenon.titleWeight

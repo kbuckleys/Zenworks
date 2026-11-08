@@ -74,8 +74,9 @@ FocusScope {
       anchors.verticalCenter: parent.verticalCenter
       // a magnifier, as an escape (glyphs get lost in edits)
       text: "\uF002"
-      color: Zenon.muted
+      color: Zenon.accentMuted
       font.family: Zenon.face
+      font.weight: Zenon.weight
       font.pixelSize: Zenon.px(13)
     }
     TextInput {
@@ -87,7 +88,7 @@ FocusScope {
       anchors.verticalCenter: parent.verticalCenter
       focus: true
       color: Zenon.white
-      selectionColor: Zenon.accentMuted
+      selectionColor: Zenon.selBg
       font.family: Zenon.face
       font.weight: Zenon.weight
       font.pixelSize: Zenon.px(15)
@@ -112,7 +113,7 @@ FocusScope {
       anchors.verticalCenter: parent.verticalCenter
       visible: input.text === ""
       text: pl.placeholder
-      color: Zenon.muted
+      color: Zenon.accentMuted
       font.family: Zenon.face
       font.weight: Zenon.weight
       font.pixelSize: Zenon.px(15)
@@ -168,6 +169,7 @@ FocusScope {
           text: row.worn ? "\uF00C" : ""
           color: Zenon.accent
           font.family: Zenon.face
+          font.weight: Zenon.weight
           font.pixelSize: Zenon.px(13)
         }
         Text {
@@ -181,7 +183,7 @@ FocusScope {
           elide: Text.ElideRight
           color: Zenon.white
           font.family: Zenon.face
-          font.weight: row.worn ? Font.Bold : Zenon.weight
+          font.weight: row.worn ? Zenon.titleWeight : Zenon.weight
           font.pixelSize: Zenon.px(15)
         }
         Text {
@@ -194,7 +196,7 @@ FocusScope {
           text: row.modelData.sub || ""
           textFormat: Text.PlainText
           elide: Text.ElideLeft
-          color: Zenon.muted
+          color: Zenon.accentMuted
           font.family: Zenon.face
           font.weight: Zenon.weight
           font.pixelSize: Zenon.px(13)

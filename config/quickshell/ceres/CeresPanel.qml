@@ -111,6 +111,9 @@ LayerPopup {
     // would be what a later Update all ran instead.
     field.pw = "";
     if (!Ceres.txBusy) Ceres.forgetNext();
+    // and the news held up in front of an upgrade: left up, it came back
+    // holding that stale upgrade when the next job's result was cleared
+    if (Ceres.newsGate) Ceres.holdBack();
     popup.asking = false;
     // A result that has been seen is done with; a run in progress is not.
     if (Ceres.txState === "done" || Ceres.txState === "authfail") Ceres.txClear();
@@ -243,12 +246,6 @@ LayerPopup {
   // ── pieces ──────────────────────────────────────────────────────────────
 
 
-  component Rule: Rectangle {
-    anchors.left: parent.left
-    anchors.right: parent.right
-    height: 1
-    color: Zenon.border
-  }
 
   // ── the card ────────────────────────────────────────────────────────────
   LayerPanel {
@@ -291,7 +288,7 @@ LayerPopup {
             : "Updates  " + Ceres.total
           color: popup.face === "result" && Ceres.txState === "failed" ? Zenon.red : Zenon.accent
           font.family: Zenon.face
-          font.weight: Font.Bold
+          font.weight: Zenon.titleWeight
           font.pixelSize: Zenon.px(16)
         }
 
@@ -341,12 +338,13 @@ LayerPopup {
           text: "\u{F03CC}"
           color: toWindowPress.pressed ? Zenon.white : Zenon.accentKey
           font.family: Zenon.glyphFace
+          font.weight: Zenon.weight
           font.pixelSize: Zenon.px(15)
           HoverHandler { id: toWindowHov }
           TapHandler { id: toWindowPress; onTapped: popup.continueInWindow() }
         }
 
-        Rule { anchors.bottom: parent.bottom }
+        Hairline { anchors.bottom: parent.bottom }
       }
 
       // ── what is wrong with the answer ───────────────────────────────
@@ -386,7 +384,7 @@ LayerPopup {
           text: Ceres.lastOk > 0 ? "Nothing to update" : "Not checked yet"
           color: Zenon.accentMuted
           font.family: Zenon.face
-          font.weight: Font.Bold
+          font.weight: Zenon.titleWeight
           font.pixelSize: Zenon.px(15)
         }
 
@@ -430,7 +428,7 @@ LayerPopup {
                 + "  " + modelData.n
               color: modelData.flatpak ? Ceres.ink.flat : modelData.aur ? Ceres.ink.aur : Ceres.ink.repo
               font.family: Zenon.face
-              font.weight: Font.Bold
+              font.weight: Zenon.titleWeight
               font.pixelSize: Zenon.px(13)
             }
 

@@ -154,7 +154,7 @@ Item {
   }
   FileView {
     id: settleFile
-    path: (Quickshell.env("XDG_CACHE_HOME") || (Quickshell.env("HOME") + "/.cache")) + "/quickshell/settle.json"
+    path: Paths.cacheDir() + "/quickshell/settle.json"
     blockLoading: true
     printErrors: false
   }
@@ -255,7 +255,7 @@ Item {
 
   FileView {
     id: logFile
-    path: (Quickshell.env("XDG_CACHE_HOME") || (Quickshell.env("HOME") + "/.cache")) + "/quickshell/lag.log"
+    path: Paths.cacheDir() + "/quickshell/lag.log"
     blockLoading: true
     printErrors: false
     // carry on from the last session's lines rather than starting over

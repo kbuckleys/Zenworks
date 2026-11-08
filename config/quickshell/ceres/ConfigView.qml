@@ -23,6 +23,7 @@ import "../terminus"
 import "."
 import "pacconf.js" as Pac
 import "ceres.js" as Cer
+import "../morpheus/runjob.js" as RunJob
 
 Item {
   id: view
@@ -64,15 +65,18 @@ Item {
 
   // ── the file ────────────────────────────────────────────────────────────
   function load() {
-    readProc.running = false;
-    readProc.running = true;
+    // a stopped cat still streams its part (RunJob, audit 11-08)
+    RunJob.latest(readProc, { command: ["cat", "/etc/pacman.conf"] });
   }
   Process {
     id: readProc
-    command: ["cat", "/etc/pacman.conf"]
+    property var job: null
+    property var want: null
+    onExited: RunJob.next(readProc)
     stdout: StdioCollector {
       id: readOut
       onStreamFinished: {
+        if (!RunJob.current(readProc)) return;
         const ls = Pac.lines(readOut.text);
         view.orig = ls;
         view.cur = ls;
@@ -88,10 +92,15 @@ Item {
   readonly property string draft: Paths.cacheDir() + "/ceres/pacman.conf.new"
   property var review: null
   property bool reviewing: false
+  // the text the review was made of, kept here: it is what root writes, not
+  // the draft in your cache, which anything running as you could change
+  // between the review and the password (audit 11-08)
+  property string reviewedText: ""
   function askReview() {
     if (view.changes === 0 || view.reviewing) return;
     view.review = null;
     view.reviewing = true;
+    view.reviewedText = Pac.text(view.cur);
     // and the file AS IT WAS READ beside it, to check nothing has written
     // /etc/pacman.conf since — see Pac.readReviewOut on "@@stale"
     const was = view.draft + ".read";
@@ -101,7 +110,7 @@ Item {
       // on the way through Pac.lines/text, and is not "changed" for it
       + " && { { cat /etc/pacman.conf; [ -n \"$(tail -c1 /etc/pacman.conf)\" ] && echo; }"
       + " | cmp -s - " + Cer.q(was) + " || { echo '@@stale'; exit 0; }; }"
-      + " && printf '%s' " + Cer.q(Pac.text(view.cur)) + " > " + Cer.q(view.draft)
+      + " && printf '%s' " + Cer.q(view.reviewedText) + " > " + Cer.q(view.draft)
       + " && " + Pac.reviewCommand(view.draft)];
     draftProc.running = true;
     view.reviewAsked();
@@ -129,8 +138,9 @@ Item {
     view.saving = Ceres.request([["@sudo", "sh", "-c",
       "if [ -e /var/lib/pacman/db.lck ]; then echo 'error: pacman is running — try again when it has finished'; exit 1; fi; "
       + "cp -p /etc/pacman.conf /etc/pacman.conf.ceres-bak"
-      + " && install -m 644 " + Cer.q(view.draft) + " /etc/pacman.conf.ceres-new"
-      + " && mv -f /etc/pacman.conf.ceres-new /etc/pacman.conf"]],
+      + " && umask 022 && printf '%s' \"$1\" > /etc/pacman.conf.ceres-new"
+      + " && chmod 644 /etc/pacman.conf.ceres-new"
+      + " && mv -f /etc/pacman.conf.ceres-new /etc/pacman.conf", "sh", view.reviewedText]],
       "save pacman.conf · " + view.changes + (view.changes === 1 ? " line" : " lines"), 0);
   }
   // the password sheet was backed out of: nothing is being saved after all
@@ -222,7 +232,7 @@ Item {
   // AS WIDE AS IT NEEDS: the widest title or summary, the dot's gutter and
   // the row's padding — not a share of the window, which left most of the
   // column empty and squeezed the settings it sits beside.
-  FontMetrics { id: fmTitle; font.family: Zenon.face; font.weight: Font.Bold; font.pixelSize: Zenon.px(17) }
+  FontMetrics { id: fmTitle; font.family: Zenon.face; font.weight: Zenon.titleWeight; font.pixelSize: Zenon.px(17) }
   FontMetrics { id: fmSum; font.family: Zenon.face; font.pixelSize: Zenon.px(15) }
   readonly property real sideW: {
     let w = 0;
@@ -300,7 +310,7 @@ Item {
               text: grow.modelData.title
               color: Zenon.white
               font.family: Zenon.face
-              font.weight: Font.Bold
+              font.weight: Zenon.titleWeight
               font.pixelSize: Zenon.px(17)
             }
             Text {
@@ -371,7 +381,7 @@ Item {
       text: view.group.title
       color: Zenon.white
       font.family: Zenon.face
-      font.weight: Font.Bold
+      font.weight: Zenon.titleWeight
       font.pixelSize: Zenon.px(22)
     }
     Text {
@@ -454,7 +464,7 @@ Item {
             text: "The AUR, through paru"
             color: Zenon.accentMuted
             font.family: Zenon.face
-            font.weight: Font.Bold
+            font.weight: Zenon.titleWeight
             font.pixelSize: Zenon.px(15)
           }
           ParuChoice {
@@ -493,7 +503,7 @@ Item {
             text: "Wait before new AUR changes"
             color: Zenon.accentMuted
             font.family: Zenon.face
-            font.weight: Font.Bold
+            font.weight: Zenon.titleWeight
             font.pixelSize: Zenon.px(15)
           }
           Segments {
@@ -540,7 +550,7 @@ Item {
             text: "Flathub, through Flatpak"
             color: Zenon.accentMuted
             font.family: Zenon.face
-            font.weight: Font.Bold
+            font.weight: Zenon.titleWeight
             font.pixelSize: Zenon.px(15)
           }
           Text {
@@ -580,7 +590,7 @@ Item {
             text: "Open apps on"
             color: Zenon.accentMuted
             font.family: Zenon.face
-            font.weight: Font.Bold
+            font.weight: Zenon.titleWeight
             font.pixelSize: Zenon.px(15)
           }
           Segments {
@@ -654,7 +664,7 @@ Item {
       clip: true
       text: fld.value
       color: Zenon.white
-      selectionColor: Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.35)
+      selectionColor: Zenon.alpha(Zenon.accent, 0.35)
       font.family: Zenon.face
       font.weight: Zenon.weight
       font.pixelSize: Zenon.px(15)
@@ -760,7 +770,7 @@ Item {
         text: "KEY TRUST"
       }
       // row by row, as a Grid fills: the label, its check, its trust
-      Text { width: 96; text: "Packages"; color: Zenon.accentKey; font.family: Zenon.face; font.pixelSize: Zenon.px(15) }
+      Text { width: 96; text: "Packages"; color: Zenon.accentKey; font.family: Zenon.face; font.weight: Zenon.weight; font.pixelSize: Zenon.px(15) }
       Segmented {
         options: [["Never", "Never"], ["Optional", "Optional"], ["Required", "Required"]]
         value: se.sig.pkg.check
@@ -773,7 +783,7 @@ Item {
         dim: se.inherited
         onPicked: (v) => se.pick("pkg", "trust", v)
       }
-      Text { width: 96; text: "Databases"; color: Zenon.accentKey; font.family: Zenon.face; font.pixelSize: Zenon.px(15) }
+      Text { width: 96; text: "Databases"; color: Zenon.accentKey; font.family: Zenon.face; font.weight: Zenon.weight; font.pixelSize: Zenon.px(15) }
       Segmented {
         options: [["Never", "Never"], ["Optional", "Optional"], ["Required", "Required"]]
         value: se.sig.db.check
@@ -855,7 +865,7 @@ Item {
     radius: Zenon.windowRadius
     color: "transparent"
     border.width: 1
-    border.color: orow.changed ? Qt.rgba(Zenon.yellow.r, Zenon.yellow.g, Zenon.yellow.b, 0.5) : Zenon.border
+    border.color: orow.changed ? Zenon.alpha(Zenon.yellow, 0.5) : Zenon.border
 
     Item {
       id: sigWideRow
@@ -879,7 +889,7 @@ Item {
           text: orow.spec.label
           color: Zenon.white
           font.family: Zenon.face
-          font.weight: Font.Bold
+          font.weight: Zenon.titleWeight
           font.pixelSize: Zenon.px(17)
         }
         Text {
@@ -956,7 +966,7 @@ Item {
           linkColor: Zenon.link   // a link in it is the theme's (Zenon.link)
           color: Zenon.white
           font.family: Zenon.face
-          font.weight: Font.Bold
+          font.weight: Zenon.titleWeight
           font.pixelSize: Zenon.px(17)
         }
         // A Row, so only the visible control counts toward its width: an
@@ -1014,7 +1024,7 @@ Item {
               text: orow.now.set ? orow.now.value : "—"
               color: orow.now.set ? Zenon.white : Zenon.accentMuted
               font.family: Zenon.face
-              font.weight: Font.Bold
+              font.weight: Zenon.titleWeight
               font.pixelSize: Zenon.px(17)
             }
             DialogButton {
@@ -1160,7 +1170,7 @@ Item {
     radius: Zenon.windowRadius
     color: "transparent"
     border.width: 1
-    border.color: card.changed ? Qt.rgba(Zenon.yellow.r, Zenon.yellow.g, Zenon.yellow.b, 0.5) : Zenon.border
+    border.color: card.changed ? Zenon.alpha(Zenon.yellow, 0.5) : Zenon.border
 
     function set(key, value) { view.cur = Pac.setRepoKey(view.cur, card.repo.name, key, value); }
 
@@ -1213,7 +1223,7 @@ Item {
               text: (card.at + 1) + ".  [" + card.repo.name + "]"
               color: card.repo.enabled ? Zenon.white : Zenon.accentMuted
               font.family: Zenon.face
-              font.weight: Font.Bold
+              font.weight: Zenon.titleWeight
               font.pixelSize: Zenon.px(17)
             }
             Text {
@@ -1393,7 +1403,7 @@ Item {
         text: "New repository"
         color: Zenon.white
         font.family: Zenon.face
-        font.weight: Font.Bold
+        font.weight: Zenon.titleWeight
         font.pixelSize: Zenon.px(17)
       }
       Text {

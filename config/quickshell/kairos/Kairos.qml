@@ -145,10 +145,18 @@ Singleton {
   function say(title, body, urgency) {
     Quickshell.execDetached(["notify-send", "-u", urgency, "-a", "Screen Time", "-i", "preferences-system-time", title, body]);
   }
+  // the app in front before this one: it was in front until now, so that
+  // is when it was last seen (audit 11-08: stamped only on arriving, an app
+  // used for 40 minutes was quit a minute after leaving under a 30 one)
+  property string _was: ""
   onCurrentChanged: {
     root.tick();
     // auto quit's "last in front" (see quitIdle)
-    if (root.current !== "") { const s = Object.assign({}, root.seen); s[root.current] = Date.now(); root.seen = s; }
+    const s = Object.assign({}, root.seen), now = Date.now();
+    if (root._was !== "") s[root._was] = now;
+    if (root.current !== "") s[root.current] = now;
+    root.seen = s;
+    root._was = root.current;
   }
   onCountingChanged: root.tick()
 
@@ -245,7 +253,8 @@ Singleton {
       const wins = Hyprland.toplevels.values.filter((t) => t.wayland
         && K.appKey(t.wayland.appId, t.title) === key);
       if (wins.length === 0) { delete s[key]; continue; }
-      if (!s[key]) { s[key] = now; continue; }
+      // in front now: seen now
+      if (!s[key] || key === root.current) { s[key] = now; continue; }
       if (!K.quitDue(root.rules.autoQuit[key], s[key], now, key === root.current)) continue;
       for (const t of wins) Hyprland.dispatch(Hypr.closeWindow(Hypr.byAddress(t.address)));
       delete s[key];
@@ -333,5 +342,17 @@ Singleton {
     root.limits = l.limits;
     root.told = l.told;
   }
-  Component.onDestruction: { root.tick(); root.flush(); }
+  // ON THE WAY OUT, WRITTEN THERE AND THEN (audit 11-08): AtomicWriter's
+  // Process went with the shell on a reload, and up to a minute of screen
+  // time with it
+  FileView { id: lastWrite; blockWrites: true; atomicWrites: true; printErrors: false }
+  Component.onDestruction: {
+    root.tick();
+    for (const mk in root.dirty) {
+      if (!root.months[mk]) continue;
+      lastWrite.path = root.pathOf(mk);
+      lastWrite.setText(JSON.stringify(root.months[mk]));
+    }
+    root.dirty = ({});
+  }
 }

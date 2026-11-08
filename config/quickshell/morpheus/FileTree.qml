@@ -207,6 +207,8 @@ FocusScope {
     }
     onExited: Qt.callLater(() => {
       tree.pump();
+      // a directory only gets watched once it has been read
+      watcher.restartSoon();
       // the last directory read: a row still missing is not coming
       if (tree.following !== "") tree._land();
     })
@@ -489,22 +491,30 @@ FocusScope {
   // Process, and a single slot ran the second's after on the first's exit
   // (audit 10-31)
   function run(cmd, after) {
-    runner.afters = runner.afters.concat([after || null]);
     // a script string, or terminus' { script, args } (trashCommand is one —
     // handed to sh -c as it was, it ran "[object Object]")
-    runner.command = typeof cmd === "string" ? ["sh", "-c", cmd] : Terminus.shArgv(cmd);
-    runner.running = true;
+    const argv = typeof cmd === "string" ? ["sh", "-c", cmd] : Terminus.shArgv(cmd);
+    runner.jobs = runner.jobs.concat([{ argv: argv, after: after || null }]);
+    if (!runner.running) runner.next();
   }
   Process {
     id: runner
-    property var afters: []
+    // first is the one running: the Process itself only keeps one waiting, so
+    // a third asked for meanwhile replaced the second
+    property var jobs: []
+    function next() {
+      if (runner.jobs.length === 0) return;
+      runner.command = runner.jobs[0].argv;
+      runner.running = true;
+    }
     stderr: StdioCollector { id: runErr }
     onExited: (code) => {
-      const after = runner.afters.length > 0 ? runner.afters[0] : null;
-      runner.afters = runner.afters.slice(1);
+      const after = runner.jobs.length > 0 ? runner.jobs[0].after : null;
+      runner.jobs = runner.jobs.slice(1);
       tree.error = code === 0 ? "" : (String(runErr.text).trim() || "failed");
       if (code === 0 && after) after();
       errorClear.restart();
+      Qt.callLater(runner.next);
     }
   }
   Timer { id: errorClear; interval: 4000; onTriggered: tree.error = "" }
@@ -538,10 +548,12 @@ FocusScope {
   }
   // Renaming is the row's own — terminus' EntryRow edits its name in place
   // and asks its host to commit or give up (see `host` below).
-  function beginRename() {
+  // `path` from a menu: the row it opened on, not whatever a relist has put at
+  // that index since
+  function beginRename(path) {
     const r = tree.flat[tree.actAt()];
-    if (!r) return;
-    treeHost.renamePath = r.e.path;
+    if (!path && !r) return;
+    treeHost.renamePath = path || r.e.path;
     treeHost.renaming = true;
   }
   function commitEdit() {
@@ -572,8 +584,8 @@ FocusScope {
       if (then) then(to);
     });
   }
-  function trashSel() {
-    const p = tree.selPath();
+  function trashSel(path) {
+    const p = path || tree.selPath();
     if (p === "") return;
     tree.run(Terminus.trashCommand([p]), () => tree.pathChanged(p, ""));
   }
@@ -668,13 +680,12 @@ FocusScope {
     y: tree.toolbarBottom ? tree.height - height : 0
     color: tree.toolbarColor
     // the hairline on the side the list is
-    Rectangle {
+    Hairline {
       y: tree.toolbarBottom ? 0 : parent.height - 1
       width: parent.width
-      height: 1
-      color: Zenon.border
     }
     Text {
+      textFormat: Text.PlainText
       anchors.left: parent.left
       anchors.leftMargin: 12
       anchors.right: tools.left
@@ -683,7 +694,7 @@ FocusScope {
       elide: Text.ElideRight
       font.family: Zenon.face
       font.pixelSize: tree.fontSize
-      font.weight: Font.Medium
+      font.weight: Zenon.weight
       color: Zenon.keyInk
       text: tree.rootPath.slice(tree.rootPath.lastIndexOf("/") + 1)
     }
@@ -907,7 +918,7 @@ FocusScope {
       font.weight: Zenon.weight
       font.pixelSize: tree.fontSize
       color: Zenon.white
-      selectionColor: Qt.rgba(Zenon.magenta.r, Zenon.magenta.g, Zenon.magenta.b, 0.5)
+      selectionColor: Zenon.selBg
       cursorDelegate: Caret { field: nameField }
       clip: true
       Keys.onReturnPressed: tree.commitEdit()
@@ -940,8 +951,9 @@ FocusScope {
     anchors.bottomMargin: tree.toolbarBottom ? bar.height : 0
     width: parent.width
     height: tree.rowH
-    color: Qt.rgba(Zenon.red.r, Zenon.red.g, Zenon.red.b, 0.15)
+    color: Zenon.alpha(Zenon.red, 0.15)
     Text {
+      textFormat: Text.PlainText
       anchors.fill: parent
       anchors.leftMargin: 10
       verticalAlignment: Text.AlignVCenter
@@ -989,10 +1001,10 @@ FocusScope {
       { isSeparator: true },
       { text: "New file…", icon: "\u{F0415}", hint: "a", run: () => tree.beginNew(false) },
       { text: "New directory…", icon: "\u{F0B9D}", hint: "A", run: () => tree.beginNew(true) },
-      { text: "Duplicate", icon: "\u{F0191}", enabled: !!e, run: () => tree.duplicateSel() },
+      { text: "Duplicate", icon: "\u{F0191}", enabled: !!e, run: () => tree.duplicateSel(p) },
       { isSeparator: true },
-      { text: "Rename…", icon: "\u{F0CB5}", hint: "R", enabled: !!e, run: () => tree.beginRename() },
-      { text: "Move to trash", icon: "\u{F0A7A}", hint: "d", enabled: !!e, run: () => tree.trashSel() },
+      { text: "Rename…", icon: "\u{F0CB5}", hint: "R", enabled: !!e, run: () => tree.beginRename(p) },
+      { text: "Move to trash", icon: "\u{F0A7A}", hint: "d", enabled: !!e, run: () => tree.trashSel(p) },
       { isSeparator: true },
       { text: "Copy path", icon: "\u{F506}", hint: "y", run: sh(Terminus.copyPathCommand(p)) },
       { text: "Copy relative path", icon: "\u{F506}", enabled: rel !== p, run: sh(Terminus.copyPathCommand(rel)) },
@@ -1016,13 +1028,13 @@ FocusScope {
     return out;
   }
   // a copy beside it, named as terminus' Keep both names one: "a (1).txt"
-  function duplicateSel() {
+  function duplicateSel(path) {
     const r = tree.flat[tree.actAt()];
-    if (!r) return;
-    const p = r.e.path;
+    if (!path && !r) return;
+    const p = path || r.e.path;
     const dir = p.slice(0, p.lastIndexOf("/"));
-    const name = Terminus.freeNameKeeping(tree.kids["k:" + dir] || [], r.e.name);
-    const q = (x) => "'" + String(x).replace(/'/g, "'\\''") + "'";
+    const name = Terminus.freeNameKeeping(tree.kids["k:" + dir] || [], Terminus.basename(p));
+    const q = Strings.shellQuote;
     tree.run("cp -an -- " + q(p) + " " + q(Terminus.joinPath(dir, name)), () => tree.readKids(dir));
   }
 

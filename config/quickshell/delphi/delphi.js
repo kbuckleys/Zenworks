@@ -1,4 +1,5 @@
 .pragma library
+.import "../morpheus/quote.js" as Quote
 // ┌─┐┌─┐┌┐┌┬ ┬┌─┐┬─┐┬┌─┌─┐
 // ┌─┘├┤ │││││││ │├┬┘├┴┐└─┐
 // └─┘└─┘┘└┘└┴┘└─┘┴└─┴ ┴└─┘
@@ -516,6 +517,25 @@ function setServers(list) {
   });
 }
 
+// MEDIA IN NOTES, FROM WHERE (audit 2026-11-07). A release's notes are
+// anyone's words, and a picture they name on some other server tells that
+// server who read them, and when. The forge's own (its page, its upload
+// hosts — GitHub's githubusercontent.com — and any forge set up here, plus
+// the hosts the caller names: the repository's own) load as the forge's
+// page loads them; anything else waits for a click.
+var MEDIA_HOSTS = ["github.com", "githubusercontent.com", "gitlab.com", "codeberg.org"];
+function mediaOwnHost(addr, hosts) {
+  var m = /^https?:\/\/(?:[^@\/?#]*@)?([^:\/?#]+)/i.exec(String(addr || ""));
+  if (!m) return false;
+  var h = m[1].toLowerCase().replace(/\.$/, "");
+  var own = MEDIA_HOSTS.slice();
+  for (var i = 0; i < FORGE_ORDER.length; i++) own.push(String(FORGES[FORGE_ORDER[i]].host || "").toLowerCase());
+  for (var j = 0; j < (hosts || []).length; j++) own.push(String(hosts[j] || "").toLowerCase());
+  for (var k = 0; k < own.length; k++)
+    if (own[k] !== "" && (h === own[k] || h.slice(-own[k].length - 1) === "." + own[k])) return true;
+  return false;
+}
+
 function forgeOfHost(host) {
   var h = String(host || "").toLowerCase();
   for (var i = 0; i < FORGE_ORDER.length; i++)
@@ -632,6 +652,17 @@ function mdOf(text) {
     // a reference picture (![alt][ref], ![alt]) a link to it too
     .replace(/!\[([^\]]*)\](?=\[|[^(]|$)/g, function (m, alt) { return "[" + (alt || "picture") + "]"; })
     .replace(/<\/?(details|summary|p|div|span|br|sub|sup|kbd|picture|source)\b[^>]*>/gi, "")
+    // what is left of raw HTML keeps no attribute that can name a picture:
+    // a background= or a style's url() is fetched as an <img> was (audit
+    // 11-07); every one in a tag, however many
+    .replace(/<[a-z][^>]*>/gi, function (tag) {
+      var t = tag, was;
+      do {
+        was = t;
+        t = t.replace(/\s(?:style|background|bgcolor|poster|srcset|src)\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/i, "");
+      } while (t !== was);
+      return t;
+    })
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 }
@@ -916,10 +947,11 @@ function sideNames(state, oursLabel, theirsLabel) {
   return { ours: "Yours", theirs: "Theirs" };
 }
 
+// a path as a .gitignore pattern that matches only itself (repo.glob_literal)
+function globLiteral(p) { return String(p || "").replace(/([\\\[\]*?])/g, "\\$1"); }
+
 // text into StyledText: its own < > & left as written
-function esc(s) {
-  return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
+function esc(s) { return Quote.escapeHtml(s); }
 
 // ── THE NEXT RELEASE'S NAME ─────────────────────────────────────────────
 // The last tag with its last number one up — v1.4.2 → v1.4.3, 2.0 → 2.1,

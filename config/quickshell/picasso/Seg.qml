@@ -30,11 +30,11 @@ Rectangle {
   // PRESSED, DARKENED as terminus' ClearChip and Segments are (user, 2026-10-15)
   color: segMa.pressed ? Zenon.pressFill
     : seg.chosen
-    ? Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.16)
+    ? Zenon.alpha(Zenon.accent, 0.16)
     : (Zenon.wash(0.03))
   border.width: 1
   border.color: seg.chosen ? Zenon.accent
-    : (seg.current ? Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.4)
+    : (seg.current ? Zenon.alpha(Zenon.accent, 0.4)
                    : Zenon.border)
   Behavior on color { ColorAnimation { duration: Zenon.fast; easing.type: Zenon.ease } }
 

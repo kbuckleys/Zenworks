@@ -121,9 +121,19 @@ class OnePassword(Provider):
         with _lock:
             _via[aid] = "env"
         code, _, _ = self.op(["whoami", "--format", "json"], cancel, timeout=20)
+        if code == 0:
+            return
+        # argv only when op demonstrably ignores the environment: the same
+        # question with --session answers where the env one did not. Both
+        # failing (offline, a timeout) says nothing about op, so the token
+        # stays off argv (audit 11-08: one failed whoami had put it in every
+        # later command line for the session)
+        with _lock:
+            _via[aid] = "argv"
+        code, _, _ = self.op(["whoami", "--format", "json"], cancel, timeout=20)
         if code != 0:
             with _lock:
-                _via[aid] = "argv"
+                _via[aid] = "env"
 
     def known(self, cancel):
         code, out, _ = run(["op", "account", "list", "--format", "json"], cancel, timeout=20)
@@ -162,11 +172,15 @@ class OnePassword(Provider):
             raise VaultError("A Secret Key looks like A3-XXXXXX-XXXXXX-XXXXX-XXXXX-XXXXX — it is in your Emergency Kit")
         if not secret:
             raise VaultError("Your 1Password account password is needed to add it")
+        # the Secret Key in OP_SECRET_KEY, not --secret-key: argv is readable
+        # by every user on the machine, a process's environment only by you
+        # (op 2.41 no longer lists the flag; checked 2026-11-08)
         argv = ["op", "account", "add", "--address", address, "--email", email,
-                "--secret-key", key.replace(" ", ""), "--signin", "--raw"]
+                "--signin", "--raw"]
         if short:
             argv += ["--shorthand", short]
-        code, out, err = run(argv, cancel, stdin=secret + "\n", timeout=120)
+        code, out, err = run(argv, cancel, stdin=secret + "\n", timeout=120,
+                             env={"OP_SECRET_KEY": key.replace(" ", "")})
         if code != 0:
             raise VaultError(self.why(err), "auth")
         t = out.strip().splitlines()[-1].strip() if out.strip() else ""
@@ -369,12 +383,35 @@ class OnePassword(Provider):
             for c in draft["custom"]:
                 ref = str(c.get("ref") or "")
                 old = byid.get(ref[2:]) if ref.startswith("c:") else None
+                otype = ((old or {}).get("type") or "STRING").upper()
+                # a second one-time code is kept above already
+                if otype == "OTP":
+                    continue
                 val = c.get("value")
                 if val is None and old is not None:
                     val = old.get("value")
+                # its own type kept (DATE, EMAIL, PHONE, URL, MONTH_YEAR…);
+                # only hiding or showing it changes it (audit 11-08: every
+                # save turned them into text)
+                if c.get("hidden"):
+                    typ = "CONCEALED"
+                elif old is not None and otype != "CONCEALED":
+                    typ = otype
+                else:
+                    typ = "STRING"
+                ov = (old or {}).get("value")
+                if isinstance(ov, dict):
+                    # an address is shown joined: unchanged, it goes back whole;
+                    # retyped, it can only be text
+                    if val == ", ".join(str(v) for v in ov.values() if v):
+                        val = ov
+                    elif typ != "CONCEALED":
+                        typ = "STRING"
+                if typ == "MONTH_YEAR" and val and "/" in str(val):
+                    mm, _, yy = str(val).partition("/")
+                    val = yy.strip() + mm.strip().zfill(2)
                 x = dict(old) if old else {"id": "", "section": sec}
-                x.update({"label": c.get("label") or "field", "value": val or "",
-                          "type": "CONCEALED" if c.get("hidden") else "STRING"})
+                x.update({"label": c.get("label") or "field", "value": val if isinstance(val, dict) else (val or ""), "type": typ})
                 keep.append(x)
             if any((x.get("section") or {}).get("id") == "calypso" for x in keep):
                 secs = e.setdefault("sections", [])

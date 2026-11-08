@@ -29,6 +29,7 @@ Item {
   // members (see FileTree's)
   required property var host
   id: entryRow
+  objectName: "entryRow"
 
   property var entry: null
   property bool current: false
@@ -295,14 +296,13 @@ Item {
     // SelectBar stands down and the cursor's row wears a HeldRing (below)
     // instead — hollow, no fill of its own (user, 2026-10-18).
     color: entryRow.ticked
-      ? Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.10)
+      ? Zenon.alpha(Zenon.accent, 0.10)
       : "transparent"
 
     Rectangle {
       anchors.fill: parent
       visible: entryRow.bornGlow > 0
-      color: Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b,
-                     0.30 * entryRow.bornGlow)
+      color: Zenon.alpha(Zenon.accent, 0.30 * entryRow.bornGlow)
     }
 
     // The sweep itself — see the Connections above for when it runs.
@@ -316,7 +316,7 @@ Item {
         GradientStop { position: 0.0; color: "transparent" }
         GradientStop {
           position: 0.5
-          color: Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.30)
+          color: Zenon.alpha(Zenon.accent, 0.30)
         }
         GradientStop { position: 1.0; color: "transparent" }
       }
@@ -340,6 +340,9 @@ Item {
 
   // Still tracked, for the drag box: whether the pointer is ON a row is what
   // decides whether a drag moves that row or draws a selection rectangle.
+  // a row trashed or renamed away under the pointer never hears it leave
+  // (audit 11-07: the drag box stayed off till another row was crossed)
+  Component.onDestruction: if (entryHov.hovered && host.hoverRow) host.hoverRow = false
   HoverHandler {
     id: entryHov
     enabled: entryRow.clickable
@@ -362,7 +365,7 @@ Item {
              && !host.railHover && !host.railDragging
     onActiveChanged: {
       if (!rowDrag.active) return;
-      host.beginDrag(entryRow.entry, 16, entryRow.height / 2);
+      host.beginDrag(entryRow.entry, 16, entryRow.height / 2, rowDrag.centroid.scenePosition);
     }
   }
 
@@ -456,6 +459,7 @@ Item {
     anchors.fill: parent
     z: 5
     on: !!host && host.sideMenuAt === entryRow
+    middleOf: rowMouse
   }
 
   // Lit while a drag is over this directory, so a drop says where it is
@@ -464,7 +468,7 @@ Item {
     anchors.fill: parent
     z: 6
     visible: entryRow.dropTarget
-    color: Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.12)
+    color: Zenon.alpha(Zenon.accent, 0.12)
     border.width: 1
     border.color: Zenon.border
     radius: Zenon.radiusControl
@@ -729,7 +733,7 @@ Item {
         color: host.gitInk(entryGit.state)
         opacity: entryRow.dim ? 0.65 : 1
         font.family: Zenon.glyphMono   // JetBrainsMono's, whatever the shell face (Zenon.glyphFace)
-        font.weight: Font.Bold
+        font.weight: Zenon.titleWeight
         // The FILE ICON's size, not something smaller. It was 13 against a
         // 16px name and an 18px glyph, which made the whole gutter read as a
         // footnote — and the one mark that is not a letter disappeared
@@ -924,7 +928,7 @@ Item {
         color: Zenon.white
         // the accent, not selBg: the row being renamed is the selected row,
         // already filled in selBg, so the highlighted name was invisible on it
-        selectionColor: Zenon.alpha(Zenon.accent, 0.22)
+        selectionColor: Zenon.selBg
         selectedTextColor: Zenon.white
         font.family: Zenon.face
         font.weight: Zenon.weight
@@ -942,8 +946,7 @@ Item {
             entryEdit.select(0, stem.length > 0 ? stem.length : entryEdit.text.length);
           }
           entryEdit.forceActiveFocus();
-          editClaim.tries = 0;
-          editClaim.restart();
+          editClaim.begin();
           // terminus' window only — plato's tree and delphi host rows too
           if ("renameField" in host) host.renameField = entryEdit;
         }
@@ -960,17 +963,13 @@ Item {
         // item the scene has not finished placing and is dropped. The field
         // was visible and the keyboard was still in the listing, which is
         // exactly "it makes the file and will not let me name it".
-        Timer {
+        FocusRetry {
           id: editClaim
           interval: 40
-          repeat: true
-          property int tries: 0
-          onTriggered: {
-            if (!entryRow.editing || entryEdit.activeFocus
-                || editClaim.tries++ > 12) {
-              editClaim.stop();
-              return;
-            }
+          checkFirst: true
+          live: entryRow.editing
+          took: entryEdit.activeFocus
+          onPlace: {
             entryEdit.forceActiveFocus();
           }
         }

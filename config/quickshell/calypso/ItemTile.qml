@@ -42,6 +42,7 @@ Rectangle {
     text: tile.glyph !== "" ? tile.glyph : tile.mark.glyph
     color: tile.hue
     font.family: Zenon.glyphFace
+    font.weight: Zenon.weight
     font.pixelSize: Math.round(tile.size * 0.66)
     opacity: tile.lit ? 1 : 0.85
   }

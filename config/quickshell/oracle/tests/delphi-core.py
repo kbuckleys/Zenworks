@@ -147,9 +147,6 @@ def status_conflict_and_state():
     st = r.status()
     eq([(c["path"], c["how"]) for c in st["conflicts"]], [("f", "both modified")])
     eq(st["state"]["op"], "merge")
-    v = r.conflict_versions("f")
-    eq((open(v["base"]).read(), open(v["ours"]).read(), open(v["theirs"]).read()),
-       ("base\n", "ours\n", "theirs\n"), "three sides")
     r.take("f", "theirs")
     res = r.sequence("merge", "continue")
     eq(res["done"], True, "merge finished")
@@ -309,6 +306,25 @@ def stage_nothing_is_a_no_op():
     r = R.Repo(d)
     r.stage_lines("f", {"0": []})
     eq(index_of(d, "f"), LINES)
+
+
+@test
+def stage_lines_refused_when_the_file_moved_on():
+    d = fresh({"f": LINES})
+    write(d, "f", LINES.replace("line 2\n", "two\n"))
+    r = R.Repo(d)
+    shown = r.diff("f")["files"][0]
+    tok = D.token(shown)
+    assert tok.startswith("index "), tok
+    write(d, "f", LINES.replace("line 2\n", "deux\n"))
+    try:
+        r.stage_lines("f", {"0": None}, token=tok)
+        raise AssertionError("staged against a stale diff")
+    except R.GitError as e:
+        assert "changed since" in str(e), e
+    eq(index_of(d, "f"), LINES)
+    r.stage_lines("f", {"0": None}, token=D.token(r.diff("f")["files"][0]))
+    eq(index_of(d, "f"), LINES.replace("line 2\n", "deux\n"))
 
 
 @test

@@ -197,9 +197,11 @@ function escape(path) { return String(path).replace(/([ \t\n*?[{`$\\%#'"|!<])/g,
 // buffer with NO name leaves a listed [No Name] behind as the alternate
 // file — a second tab out of nowhere — so an unnamed buffer is named
 // (:file) and written instead; a named one is :saveas'd as before.
+// The dialog that picked the path is the say-so to overwrite (audit 11-07:
+// a file already there was E13, and nothing was written).
 function saveAsCmd(path) {
   const p = escape(path);
-  return "if bufname() ==# '' | file " + p + " | write | else | saveas " + p + " | endif";
+  return "if bufname() ==# '' | file " + p + " | write! | else | saveas! " + p + " | endif";
 }
 
 function all() { return list; }

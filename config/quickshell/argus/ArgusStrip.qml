@@ -125,6 +125,7 @@ Item {
       text: ""
       color: Zenon.inkOnAccent
       font.family: Zenon.glyphFace
+      font.weight: Zenon.weight
       font.pixelSize: Zenon.px(10)
     }
     MouseArea {
@@ -153,6 +154,7 @@ Item {
       text: ""
       color: Zenon.inkOnAccent
       font.family: Zenon.glyphFace
+      font.weight: Zenon.weight
       font.pixelSize: Zenon.px(10)
     }
     MouseArea {

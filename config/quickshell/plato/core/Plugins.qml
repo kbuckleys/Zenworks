@@ -294,9 +294,15 @@ Scope {
     // stamp: it failed before pack.lua could say anything) is a failure,
     // not a phase left on "checking" for good
     property bool answered: false
+    // what to do once it has exited: the stream ends before the exit, and a
+    // check started then found the worker still running (audit 11-07)
+    property var after: null
     onExited: {
       overstay.stop();
       if (worker.stamp !== "") unanswered.restart();
+      const f = worker.after;
+      worker.after = null;
+      if (f) Qt.callLater(f);
     }
     stdout: StdioCollector {
       id: said
@@ -330,7 +336,7 @@ Scope {
           } else {
             plugins.note = "Updated. New plato windows use the new versions.";
             // what is left, now
-            Qt.callLater(plugins.check);
+            worker.after = plugins.check;
           }
         } else {
           // an install that failed is not installed
@@ -383,15 +389,38 @@ Scope {
     parserWorker.command = ["env", "NVIM_APPNAME=zenworks/plato", "PLATO_PARSERS=" + mode,
       "PLATO_PARSERS_NAMES=" + names.join(","), "PLATO_PARSERS_FT=" + ft,
       "nvim", "--headless", "-i", "NONE", "--clean", "-c", "luafile " + plugins.parserScript];
+    parserWorker.timedOut = false;
     parserWorker.running = true;
+    parserCap.interval = mode === "list" ? 60000 : 900000;
+    parserCap.restart();
+  }
+  // a headless nvim that never comes back (a compiler waiting on something,
+  // a network fetch hung) held "building…" and every later parser job for
+  // good: a minute to list, fifteen to build (audit 2026-11-07)
+  Timer {
+    id: parserCap
+    onTriggered: if (parserWorker.running) { parserWorker.timedOut = true; parserWorker.running = false; }
   }
   Process {
     id: parserWorker
     property string mode: ""
     property string ft: ""
+    property var after: null
+    property bool timedOut: false
+    onExited: {
+      parserCap.stop();
+      const f = parserWorker.after;
+      parserWorker.after = null;
+      if (f) Qt.callLater(f);
+    }
     stdout: StdioCollector {
       id: parserSaid
       onStreamFinished: {
+        if (parserWorker.timedOut) {
+          plugins.parserPhase = "failed";
+          plugins.parserNote = parserWorker.mode === "list" ? "listing the parsers took too long" : "the build took too long and was stopped";
+          return;
+        }
         const lines = String(parserSaid.text).split("\n");
         const err = lines.find((l) => l.startsWith("ERROR "));
         if (err) { plugins.parserPhase = "failed"; plugins.parserNote = err.slice(6); return; }
@@ -419,7 +448,8 @@ Scope {
             ? (ok.join(", ") + (ok.length === 1 ? " is built." : " are built.") + " Open files use it now.")
             : (ok.join(", ") + " removed. Windows that loaded it keep it until they close.");
         // the list again, with what changed
-        Qt.callLater(() => plugins.listParsers(parserWorker.ft));
+        const ft = parserWorker.ft;
+        parserWorker.after = () => plugins.listParsers(ft);
       }
     }
   }

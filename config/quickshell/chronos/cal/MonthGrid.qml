@@ -54,23 +54,6 @@ Column {
     }
   }
 
-  component Chevron: Item {
-    id: chev
-    property string glyph: ""
-    signal activated()
-    width: 20
-    height: 28
-    Text {
-      anchors.centerIn: parent
-      text: chev.glyph
-      color: chevMa.pressed ? Zenon.accent : Zenon.muted
-      Behavior on color { ColorAnimation { duration: Zenon.fast } }
-      font.family: Zenon.face
-      font.weight: Font.Bold
-      font.pixelSize: Zenon.px(16)
-    }
-    MouseArea { id: chevMa; anchors.fill: parent; onClicked: chev.activated() }
-  }
 
   // «  ‹  October 2026  ›  »
   Item {
@@ -80,8 +63,8 @@ Column {
     Row {
       anchors.left: parent.left
       anchors.verticalCenter: parent.verticalCenter
-      Chevron { glyph: "«"; onActivated: mg.stepped(-12) }
-      Chevron { glyph: "‹"; onActivated: mg.stepped(-1) }
+      StepChevron { compact: true; glyph: "«"; onActivated: mg.stepped(-12) }
+      StepChevron { compact: true; glyph: "‹"; onActivated: mg.stepped(-1) }
     }
     Row {
       anchors.centerIn: parent
@@ -92,13 +75,13 @@ Column {
         color: headMa.pressed ? Zenon.white : Zenon.accent
         Behavior on color { ColorAnimation { duration: Zenon.fast } }
         font.family: Zenon.face
-        font.weight: Font.Bold
+        font.weight: Zenon.titleWeight
         font.pixelSize: Zenon.px(15)
       }
       Text {
         id: yearText
         text: String(mg.month.getFullYear())
-        color: Zenon.muted
+        color: Zenon.accentMuted
         font.family: Zenon.face
         font.weight: Zenon.weight
         font.pixelSize: Zenon.px(13)
@@ -114,8 +97,8 @@ Column {
     Row {
       anchors.right: parent.right
       anchors.verticalCenter: parent.verticalCenter
-      Chevron { glyph: "›"; onActivated: mg.stepped(1) }
-      Chevron { glyph: "»"; onActivated: mg.stepped(12) }
+      StepChevron { compact: true; glyph: "›"; onActivated: mg.stepped(1) }
+      StepChevron { compact: true; glyph: "»"; onActivated: mg.stepped(12) }
     }
   }
 
@@ -129,7 +112,7 @@ Column {
         text: Chr.dayShort(index)
         color: index >= 5 ? Zenon.muted : Zenon.keyInk
         font.family: Zenon.face
-        font.weight: Font.Bold
+        font.weight: Zenon.titleWeight
         font.pixelSize: Zenon.px(11)
         horizontalAlignment: Text.AlignHCenter
         verticalAlignment: Text.AlignVCenter
@@ -177,7 +160,7 @@ Column {
             : !dayCell.modelData.cur ? Zenon.dimInk
             : dayCell.weekend ? Zenon.muted : Zenon.white
           font.family: Zenon.face
-          font.weight: dayCell.isToday ? Font.Black : Font.Bold
+          font.weight: dayCell.isToday ? Font.Black : Zenon.titleWeight
           font.pixelSize: Zenon.px(12)
         }
         // the forecast's condition, in its color

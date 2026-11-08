@@ -45,7 +45,7 @@ Rectangle {
       textFormat: Text.PlainText
       anchors.verticalCenter: parent.verticalCenter
       text: tip.word
-      color: Zenon.muted
+      color: Zenon.accentMuted
       font.family: Zenon.face
       font.weight: Zenon.weight
       font.pixelSize: Zenon.px(12)
@@ -55,7 +55,7 @@ Rectangle {
       text: tip.joiner
       color: Zenon.accent
       font.family: Zenon.face
-      font.weight: Font.Bold
+      font.weight: Zenon.titleWeight
       font.pixelSize: Zenon.px(12)
     }
     Text {
@@ -63,7 +63,7 @@ Rectangle {
       text: tip.to
       color: Zenon.keyInk
       font.family: Zenon.face
-      font.weight: Font.Bold
+      font.weight: Zenon.titleWeight
       font.pixelSize: Zenon.px(12)
       font.features: { "tnum": 1 }
     }

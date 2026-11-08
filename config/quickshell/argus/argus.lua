@@ -106,6 +106,10 @@ case "$audiomode" in
       mods="$mods $(pactl load-module module-loopback source="$system" sink=argus_mix latency_msec=30)"
       mods="$mods $(pactl load-module module-loopback source="$mic" sink=argus_mix latency_msec=30)"
       echo "$mods" > "$output_dir/.active-modules"
+      # every way out before the recorder starts (Escape in the picker, no
+      # window, a failed start) unloads the mix again; cleared once it runs
+      # (audit 11-08: the microphone stayed looped until logout)
+      trap unmix EXIT
       audio=argus_mix.monitor
     else
       audio="${system:-$mic}"
@@ -224,6 +228,7 @@ for e in "${encoders[@]}"; do
     echo "$filename" > "$output_dir/.active-recording"
     notify-send "$label" "${detail:+$detail · }$e"
     qs ipc call Argus recording true >/dev/null 2>&1
+    trap - EXIT
     exit 0
   fi
   # a failed start can leave a stub behind, and wf-recorder asks before

@@ -130,7 +130,7 @@ FloatingWindow {
   // their own — so an inactive tab can be thinner glass than the rest of the
   // window, which no amount of painting OVER one ground could do.
   color: root.ground(0)
-  function ground(a) { return Qt.rgba(Zenon.layerBg.r, Zenon.layerBg.g, Zenon.layerBg.b, a); }
+  function ground(a) { return Zenon.alpha(Zenon.layerBg, a); }
   // an inactive tab's glass, against the window's own
   // (0.4 went to a dark slab over a dark background, the label lost in it).
   // Zenon tints it navy as well, a dark theme in its own hue — see
@@ -545,7 +545,12 @@ FloatingWindow {
     // one handler per signal: remembering the open tabs lives here too
     opening.viewSave.restart();
   }
-  onSearchModeChanged: root.watch()
+  onSearchModeChanged: {
+    root.watch();
+    // see searchPane
+    if (root.searchMode === "") root.searchPane = null;
+    else if (!root.searchPane) root.searchPane = root.act;
+  }
   // ── COMING BACK IS A REASON TO LOOK AGAIN ─────────────────────────
   // The watch is the main way a change shows, and it is not the only one
   // that has to work: a watch that died quietly (watchBare gives up on a
@@ -1457,6 +1462,12 @@ FloatingWindow {
   // the listing rather than opening a pane: they ARE what you are looking at,
   // and every verb should act on them exactly as it acts on a directory.
   property string searchMode: ""
+  // ── THE PANE A SEARCH IS IN (audit 11-07) ─────────────────────────────
+  // searchMode is the window's, but its results are one pane's: the other
+  // pane stays a sorted directory, results that land after a Tab still go
+  // where they were asked from, and Escape goes back there first
+  property Pane searchPane: null
+  readonly property Pane hitPane: root.searchPane || root.act
   property string searchQuery: ""
   // A search out and not back yet, and how long the last one took (ms, -1
   // when there is none) — the search bar's dots and its "· 0.4 s". Set by
@@ -3114,6 +3125,9 @@ FloatingWindow {
   // Nothing about the row has changed between those calls, so nothing should
   // be redrawn. This is what they check.
   property string previewShown: ""
+  // another directory previewed starts at its top, however far the last was
+  // wheeled; a column that slid into the seat keeps where it stood
+  onPreviewShownChanged: if (!root.stepping && root.preCol) root.preCol.view.contentY = 0
 
 
   function loadPreview() { return preview.loadPreview(); }
@@ -3142,8 +3156,6 @@ FloatingWindow {
   // A reply arriving after the cursor has moved on is dropped rather than
   // shown against the wrong file: ffprobe on a large mkv can outlive several
   // keystrokes.
-  property string previewInfoFor: ""
-  property string previewInfoKind: ""
   property var infoCache: ({})
   property var infoOrder: []
 
@@ -3436,6 +3448,8 @@ FloatingWindow {
     : (root.millerOrder[0] === 1 ? chrome.colB : chrome.colC)
   readonly property var midCol: root.millerOrder[1] === 0 ? chrome.colA
     : (root.millerOrder[1] === 1 ? chrome.colB : chrome.colC)
+  readonly property var preCol: root.millerOrder[2] === 0 ? chrome.colA
+    : (root.millerOrder[2] === 1 ? chrome.colB : chrome.colC)
 
   // True from the moment a step is taken until the slide it starts has
   // finished. The travel is queued a tick late now (see millerStep), so
@@ -4611,7 +4625,7 @@ FloatingWindow {
   // to go into one of them — see springCheck. Empty when nothing is dragged.
   property var dragPaths: []
 
-  function beginDrag(entry, hx, hy) { return renameDrag.beginDrag(entry, hx, hy); }
+  function beginDrag(entry, hx, hy, at) { return renameDrag.beginDrag(entry, hx, hy, at); }
 
   function dragRows(entry) { return renameDrag.dragRows(entry); }
 
@@ -5240,7 +5254,7 @@ FloatingWindow {
       // Dialogs are handled by dialogKeys, which takes the keyboard for as
       // long as one is up — see its own note. Nothing here may act while a
       // question is on screen.
-      if (confirm.open || props.open
+      if (confirm.open || props.open || prefs.open || connect.open
           || appPick.open || sendTo.open || glyphPick.open || collEdit.open) return;
 
       // ── AND WHILE A NAME IS BEING TYPED IN THE LISTING ────────────
@@ -5775,7 +5789,6 @@ FloatingWindow {
         if (root.mgr) root.mgr.spawn(root.cwd);
         break;
       case "~":  event.accepted = true; cmdPalette.ask(); break;
-      case "g":  event.accepted = true; content.seq("g"); break;
       case "c":  event.accepted = true; content.seq("c"); break;
       case "b":  event.accepted = true; content.seq("b"); break;
       case ",":  event.accepted = true; content.seq(","); break;
@@ -6232,17 +6245,9 @@ FloatingWindow {
       }
 
 
-      Sheet {
-        // clear: the listing is cut away under it (see sheetHole)
-        ground: "transparent"
-        backdrop: root.sheetBackdrop   // the listing, frosted under the card
-        seamFrost: root.sheetSeam   // the bar's frost, carried over the seam
-        splice: true
-        onCardInkChanged: root.noteSheet("s0", cardInk, drawnX, drawnW, drawnY, drawnH)
-        onDrawnXChanged: root.noteSheet("s0", cardInk, drawnX, drawnW, drawnY, drawnH)
-        onDrawnWChanged: root.noteSheet("s0", cardInk, drawnX, drawnW, drawnY, drawnH)
-        onDrawnYChanged: root.noteSheet("s0", cardInk, drawnX, drawnW, drawnY, drawnH)
-        onDrawnHChanged: root.noteSheet("s0", cardInk, drawnX, drawnW, drawnY, drawnH)
+      TermSheet {
+        host: root
+        note: "s0"
         id: propsSheet
         leftInset: side.width
         floating: false   // hangs from the bar, which carries its title — see barTitle
@@ -6445,6 +6450,7 @@ FloatingWindow {
       Drag.dragType: Drag.Automatic
       Drag.onDragFinished: (dropAction) => {
         dragProxy.Drag.active = false;
+        dragCard.landed(dropAction);
         root.draggingRow = false;
         root.dragPaths = [];
       }
@@ -6528,12 +6534,37 @@ FloatingWindow {
       glyphInk: root.sheetGlyphInk
       onRenamed: (moves) => {
         if (moves.length === 0) { root.status = "No names changed"; return; }
-        root.run(Terminus.bulkRenameApply(moves));
-        // a glyph chosen for one follows it to its new name (FileGlyphs)
-        FileGlyphs.moved(moves);
+        // a glyph chosen for one follows it to its new name (FileGlyphs) —
+        // once the rename is done, and only for the names it really gave:
+        // moved first, a refused rename left the glyphs on names that were
+        // never made (audit 2026-11-07)
+        const job = Terminus.bulkRenameApply(moves);
+        job.after = (code) => {
+          if (code === 0) { FileGlyphs.moved(moves); return; }
+          renameProbe.moves = moves;
+          renameProbe.command = Terminus.shArgv(Terminus.withArgs(
+            "i=0; odd=1; for a; do if [ $odd = 1 ]; then f=$a; odd=0; continue; fi; odd=1; "
+            + "{ [ -e \"$f\" ] || [ -L \"$f\" ]; } || printf '%s\\n' $i; i=$((i+1)); done",
+            [].concat.apply([], moves.map((q) => [q[0], q[1]]))));
+          renameProbe.running = true;
+        };
+        root.run(job);
         root.status = "Renamed " + moves.length;
       }
       onClosed: content.forceActiveFocus()
+    }
+    // after a bulk rename that did not all go: which old names are gone,
+    // so only those renames carry a glyph along
+    Process {
+      id: renameProbe
+      property var moves: []
+      stdout: StdioCollector {
+        onStreamFinished: {
+          const gone = String(this.text).split("\n").filter((l) => l !== "").map(Number);
+          const landed = gone.map((i) => renameProbe.moves[i]).filter((q) => !!q);
+          if (landed.length > 0) FileGlyphs.moved(landed);
+        }
+      }
     }
 
 
@@ -6609,10 +6640,11 @@ FloatingWindow {
       // Cancel is appended here rather than passed in: every one of these can
       // be backed out of, and a caller that forgot to offer the way out would
       // be a dialog with no way out.
-      function askMany(heading, detail, choices, items) {
+      function askMany(heading, detail, choices, items, onCancel) {
         confirm.items = items || [];
         const all = choices.slice();
-        all.push({ label: "Cancel", ink: Zenon.accentMuted, act: null });
+        all.push({ label: "Cancel", ink: Zenon.accentMuted, act: onCancel || null });
+        confirm.cancelAct = onCancel || null;
         confirm.pick = 0;
         confirm.heading = heading;
         confirm.detail = detail;
@@ -6636,10 +6668,14 @@ FloatingWindow {
       // reason — and escape takes none of them.
       function accept() { confirm.choose(0); }
 
+      property var cancelAct: null
       function dismiss() {
+        const undo = confirm.cancelAct;
+        confirm.cancelAct = null;
         confirm.open = false;
         confirm.choices = [];
         content.forceActiveFocus();
+        if (undo) undo();
       }
 
       InputShield { keepTop: chrome.tabStrip.height + chrome.crumbBar.height; onClicked: confirm.dismiss() }
@@ -6654,17 +6690,9 @@ FloatingWindow {
       // bottom right — the way out on the left, the verb at the far right.
       // Attached under the bars as picasso's is, so the bar keeps its
       // breadcrumb rather than repeating the question.
-      Sheet {
-        // clear: the listing is cut away under it (see sheetHole)
-        ground: "transparent"
-        backdrop: root.sheetBackdrop   // the listing, frosted under the card
-        seamFrost: root.sheetSeam   // the bar's frost, carried over the seam
-        splice: true
-        onCardInkChanged: root.noteSheet("s2", cardInk, drawnX, drawnW, drawnY, drawnH)
-        onDrawnXChanged: root.noteSheet("s2", cardInk, drawnX, drawnW, drawnY, drawnH)
-        onDrawnWChanged: root.noteSheet("s2", cardInk, drawnX, drawnW, drawnY, drawnH)
-        onDrawnYChanged: root.noteSheet("s2", cardInk, drawnX, drawnW, drawnY, drawnH)
-        onDrawnHChanged: root.noteSheet("s2", cardInk, drawnX, drawnW, drawnY, drawnH)
+      TermSheet {
+        host: root
+        note: "s2"
         id: confirmSheet
         leftInset: side.width
         shown: confirm.open
@@ -6830,17 +6858,9 @@ FloatingWindow {
 
       InputShield { keepTop: chrome.tabStrip.height + chrome.crumbBar.height; onClicked: plug.dismiss() }
 
-      Sheet {
-        // clear: the listing is cut away under it (see sheetHole)
-        ground: "transparent"
-        backdrop: root.sheetBackdrop   // the listing, frosted under the card
-        seamFrost: root.sheetSeam   // the bar's frost, carried over the seam
-        splice: true
-        onCardInkChanged: root.noteSheet("s4", cardInk, drawnX, drawnW, drawnY, drawnH)
-        onDrawnXChanged: root.noteSheet("s4", cardInk, drawnX, drawnW, drawnY, drawnH)
-        onDrawnWChanged: root.noteSheet("s4", cardInk, drawnX, drawnW, drawnY, drawnH)
-        onDrawnYChanged: root.noteSheet("s4", cardInk, drawnX, drawnW, drawnY, drawnH)
-        onDrawnHChanged: root.noteSheet("s4", cardInk, drawnX, drawnW, drawnY, drawnH)
+      TermSheet {
+        host: root
+        note: "s4"
         id: plugSheet
         leftInset: side.width
         floating: false   // hangs from the bar, which carries its title — see barTitle
@@ -6954,17 +6974,9 @@ FloatingWindow {
 
       InputShield { keepTop: chrome.tabStrip.height + chrome.crumbBar.height; onClicked: diskTool.dismiss() }
 
-      Sheet {
-        // clear: the listing is cut away under it (see sheetHole)
-        ground: "transparent"
-        backdrop: root.sheetBackdrop   // the listing, frosted under the card
-        seamFrost: root.sheetSeam   // the bar's frost, carried over the seam
-        splice: true
-        onCardInkChanged: root.noteSheet("disktool", cardInk, drawnX, drawnW, drawnY, drawnH)
-        onDrawnXChanged: root.noteSheet("disktool", cardInk, drawnX, drawnW, drawnY, drawnH)
-        onDrawnWChanged: root.noteSheet("disktool", cardInk, drawnX, drawnW, drawnY, drawnH)
-        onDrawnYChanged: root.noteSheet("disktool", cardInk, drawnX, drawnW, drawnY, drawnH)
-        onDrawnHChanged: root.noteSheet("disktool", cardInk, drawnX, drawnW, drawnY, drawnH)
+      TermSheet {
+        host: root
+        note: "disktool"
         id: diskToolSheet
         leftInset: side.width
         floating: false
@@ -7117,17 +7129,9 @@ FloatingWindow {
       // shadow, and now this window's too. A card is a card: one of
       // them wearing a shadow of its own was two answers to the same
       // question.
-      Sheet {
-        // clear: the listing is cut away under it (see sheetHole)
-        ground: "transparent"
-        backdrop: root.sheetBackdrop   // the listing, frosted under the card
-        seamFrost: root.sheetSeam   // the bar's frost, carried over the seam
-        splice: true
-        onCardInkChanged: root.noteSheet("s10", cardInk, drawnX, drawnW, drawnY, drawnH)
-        onDrawnXChanged: root.noteSheet("s10", cardInk, drawnX, drawnW, drawnY, drawnH)
-        onDrawnWChanged: root.noteSheet("s10", cardInk, drawnX, drawnW, drawnY, drawnH)
-        onDrawnYChanged: root.noteSheet("s10", cardInk, drawnX, drawnW, drawnY, drawnH)
-        onDrawnHChanged: root.noteSheet("s10", cardInk, drawnX, drawnW, drawnY, drawnH)
+      TermSheet {
+        host: root
+        note: "s10"
         id: appSheet
         leftInset: side.width
         floating: false   // hangs from the bar, which carries its title — see barTitle
@@ -7271,9 +7275,6 @@ FloatingWindow {
   QuickLook {
     id: lookLayer
     root: root
-    card: card
-    facts: chrome.facts
-    previewBody: chrome.previewBody
   }
 
 

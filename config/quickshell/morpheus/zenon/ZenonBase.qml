@@ -349,7 +349,6 @@ QtObject {
   readonly property color panelBg: floor(glass(
     cfg.barBlur ? Math.max(cfg.barOpacity, blurFloor) : cfg.barOpacity))
 
-  readonly property color panelBgDeep: floor(0.7)
   readonly property color dim:        pick("dim")   // muted accent, inactive workspace
   // dim AS TEXT (inactive workspaces, other months' days, quiet states). A
   // light theme's dim is a pale surface tone, and as ink on pale glass it was
@@ -773,10 +772,7 @@ QtObject {
   //
   // Kept as names rather than deleted: they say "a panel's shadow",
   // which is still a thing worth being able to say.
-  readonly property color shadowInk:  menuShadowInk
-  readonly property int   shadowGrow: menuShadowGrow
   readonly property int   shadowBlur: menuShadowBlur
-  readonly property int   shadowDrop: menuShadowDrop
   readonly property int   shadowPad:  menuShadowPad
 
   // ── the shadow a MENU's BORDER casts ──

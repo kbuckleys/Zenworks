@@ -58,6 +58,7 @@ PanelWindow {
         text: Kairos.glyphOf(Kairos.current)
         color: Zenon.muted
         font.family: Zenon.face
+        font.weight: Zenon.weight
         font.pixelSize: Zenon.px(40)
       }
       Text {

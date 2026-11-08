@@ -53,6 +53,7 @@ Rectangle {
     text: src.glyph
     color: src.path === "" ? Zenon.muted : Zenon.accent
     font.family: Zenon.glyphFace
+    font.weight: Zenon.weight
     font.pixelSize: Zenon.px(30)
   }
   Column {

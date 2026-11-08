@@ -22,8 +22,6 @@ Rectangle {
   height: implicitHeight
   radius: Zenon.rad(3)
   color: sw.colors ? sw.colors[0] : "transparent"
-  border.width: 1
-  border.color: Zenon.border
   // the ink, as a line of text would sit
   Rectangle {
     x: 4

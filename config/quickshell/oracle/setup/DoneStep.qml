@@ -52,6 +52,7 @@ Item {
           textFormat: Text.PlainText
           color: Zenon.accent
           font.family: Zenon.face
+          font.weight: Zenon.weight
           font.pixelSize: Zenon.px(16)
         }
         Text {

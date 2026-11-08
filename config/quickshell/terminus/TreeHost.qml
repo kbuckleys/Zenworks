@@ -69,6 +69,7 @@ QtObject {
   property int madePulse: 0
   readonly property string cwd: host.root
   readonly property string searchMode: ""
+  readonly property var searchPane: null
   readonly property bool modal: false
   readonly property int markedCount: 0
   readonly property bool railHover: false

@@ -129,7 +129,7 @@ Item {
               text: cell.p.name
               color: Zenon.ink
               font.family: Zenon.face
-              font.weight: Font.Bold
+              font.weight: Zenon.titleWeight
               font.pixelSize: Zenon.px(16)
             }
             Text {

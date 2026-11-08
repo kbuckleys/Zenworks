@@ -417,6 +417,7 @@ Item {
         }
       }
       Text {
+        textFormat: Text.PlainText
         visible: !!pg.info && !pg.info.aur
         text: pg.info && pg.info.error !== "" ? pg.info.error : "Nothing yet — the first push publishes it."
         color: Zenon.accentMuted
@@ -425,6 +426,7 @@ Item {
         font.pixelSize: Zenon.px(14)
       }
       Text {
+        textFormat: Text.PlainText
         visible: !!pg.a
         text: pg.a ? pg.a.web : ""
         color: Zenon.link
@@ -458,14 +460,17 @@ Item {
             : modelData.state === "run" ? Zenon.accent : Zenon.accentMuted
           Text { textFormat: Text.PlainText; width: Zenon.px(15) * 8; text: srow.modelData.label; color: Zenon.accentMuted; font.family: Zenon.face; font.weight: Zenon.weight; font.pixelSize: Zenon.px(14) }
           Text {
+            textFormat: Text.PlainText
             width: Zenon.px(15) * 1.4
             text: srow.modelData.state === "ok" ? "\uF00C" : srow.modelData.state === "bad" ? "\uF00D"
               : srow.modelData.state === "run" ? "\uF192" : srow.modelData.state === "skip" ? "\uF068" : "\uF10C"
             color: srow.mark
             font.family: Zenon.glyphFace
+            font.weight: Zenon.weight
             font.pixelSize: Zenon.px(14)
           }
           Text {
+            textFormat: Text.PlainText
             width: body.width - Zenon.px(15) * 9.4 - 32
             wrapMode: Text.Wrap
             text: srow.modelData.note !== "" ? srow.modelData.note : srow.modelData.state === "run" ? "Under way…" : ""
@@ -480,6 +485,7 @@ Item {
       Item { width: 1; height: 14; visible: !!pg.built }
       SectionLabel { visible: !!pg.built; text: pg.built ? "Built: " + pg.built.package : "" }
       Text {
+        textFormat: Text.PlainText
         visible: !!pg.built
         width: body.width
         wrapMode: Text.Wrap
@@ -487,9 +493,11 @@ Item {
           : pg.built.notes.length === 0 ? "namcap has nothing to say." : pg.built.notes.join("\n")
         color: pg.built && pg.built.notes.length > 0 ? Zenon.yellow : Zenon.accentMuted
         font.family: Zenon.faceMono
+        font.weight: Zenon.weight
         font.pixelSize: Zenon.px(13)
       }
       Text {
+        textFormat: Text.PlainText
         topPadding: 8
         text: pg.ready ? "Publish (p) commits the recipe and pushes it to the AUR." : ""
         visible: !!pg.built && pg.ready

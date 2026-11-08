@@ -66,6 +66,7 @@ ShelfRow {
     text: row.shut ? "" : ""
     color: Zenon.accentMuted
     font.family: Zenon.glyphFace
+    font.weight: Zenon.weight
     font.pixelSize: Zenon.px(9)
     MouseArea { anchors.fill: parent; anchors.margins: -6; onClicked: row.toggled() }
   }

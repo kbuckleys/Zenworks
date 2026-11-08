@@ -10,7 +10,7 @@
 // file:// line and saving the release sends to the forge
 // (core rest.attach_media):
 //   a file (terminus, a file manager)      as it is
-//   a picture from a browser (its address)  fetched by curl
+//   a picture from a browser (its address)  fetched by morpheus Net
 //   a picture as data (a screenshot tool)   written out
 // into ~/.cache/delphi/dropped. Words dropped go in as words.
 //
@@ -66,31 +66,13 @@ DropArea {
   // what the server says it is when the address has none
   function fetch(url, at) {
     drop.out++;
-    fetcher.createObject(drop, { at: at, url: url, running: true });
-  }
-  Component {
-    id: fetcher
-    Process {
-      id: f
-      property string url: ""
-      property point at
-      property string said: ""
-      command: ["sh", "-c",
-        'd=$1; mkdir -p "$d" || exit 1; f="$d/$(printf %s "$2" | md5sum | cut -c1-16)"; '
-        + 't=$(curl -fsSL --proto =http,https --proto-redir =http,https --max-time 120 --max-filesize 300000000 -o "$f.part" -w "%{content_type}" -- "$2") || { rm -f "$f.part"; exit 1; }; '
-        + 'case $t in image/png*) e=png;; image/jpeg*) e=jpg;; image/gif*) e=gif;; image/webp*) e=webp;; image/avif*) e=avif;; '
-        + 'image/svg*) e=svg;; video/mp4*) e=mp4;; video/webm*) e=webm;; video/quicktime*) e=mov;; '
-        + '*) n=${2%%[?#]*}; e=${n##*.}; case $e in */*|"") rm -f "$f.part"; exit 2;; esac;; esac; '
-        + 'mv -f "$f.part" "$f.$e" && printf %s "$f.$e"',
-        "sh", drop.dir, f.url]
-      stdout: StdioCollector { onStreamFinished: f.said = this.text }
-      onExited: (code) => {
+    Net.fetch(url, drop.dir + "/" + Qt.md5(url).substring(0, 16), { typed: true, timeout: 120, maxBytes: 300000000 },
+      (ok, path, notMedia) => {
+        if (!drop) return;
         drop.out--;
-        if (code === 0 && f.said !== "") drop.media([f.said], f.at);
-        else drop.failed(code === 2 ? "That address is not a picture or a video" : "The picture could not be fetched");
-        f.destroy();
-      }
-    }
+        if (ok && path !== "") drop.media([path], at);
+        else drop.failed(notMedia ? "That address is not a picture or a video" : "The picture could not be fetched");
+      });
   }
 
   // a picture handed over as bytes, written out

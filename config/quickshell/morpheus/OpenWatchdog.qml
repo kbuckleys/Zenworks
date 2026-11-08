@@ -54,8 +54,11 @@ Timer {
   onGhostChanged: dog.ghostSince = dog.ghost ? Date.now() : 0
   onShownChanged: if (dog.shown) { dog.asked = null; dog.rebuilt = false; dog.waited = false; }
 
+  property bool rebuilding: false
   function arm(args) {
     Hyprland.refreshToplevels();
+    // a press of yours gets its one rebuild; the rebuild's own re-open does not
+    if (!dog.rebuilding) dog.rebuilt = false;
     dog.asked = args;
     dog.armedAt = Date.now();
     dog.waited = false;
@@ -90,6 +93,7 @@ Timer {
     const again = dog.asked;
     if (w) { try { w.destroy(); } catch (e) {} }
     mgr.win = null;
-    mgr.open(again[0]);
+    dog.rebuilding = true;
+    try { mgr.open(again[0]); } finally { dog.rebuilding = false; }
   }
 }

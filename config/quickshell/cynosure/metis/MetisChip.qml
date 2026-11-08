@@ -32,12 +32,12 @@ Rectangle {
   height: 26
   radius: Zenon.windowRadius
   // selected: blue, outlined — a gray fill alone was too quiet to find
-  color: chip.sel ? Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.14)
-    : hover.pressed ? Qt.rgba(Zenon.border.r, Zenon.border.g, Zenon.border.b, 0.45)
+  color: chip.sel ? Zenon.alpha(Zenon.accent, 0.14)
+    : hover.pressed ? Zenon.alpha(Zenon.border, 0.45)
     : Zenon.alpha(Zenon.border, 0)
   Behavior on color { ColorAnimation { duration: Zenon.fast } }
   border.width: 1
-  border.color: chip.sel ? Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.65) : Zenon.border
+  border.color: chip.sel ? Zenon.alpha(Zenon.accent, 0.65) : Zenon.border
   Behavior on border.color { ColorAnimation { duration: Zenon.fast } }
 
   opacity: 0
@@ -85,7 +85,7 @@ Rectangle {
       width: Math.min(implicitWidth, 170)
       elide: Text.ElideRight
       text: chip.sub
-      color: Zenon.muted
+      color: Zenon.accentMuted
       font.family: Zenon.face
       font.weight: Zenon.weight
       font.pixelSize: Zenon.px(13)
@@ -98,7 +98,7 @@ Rectangle {
       color: chip.sel ? Zenon.accent : Zenon.keyInk
       Behavior on color { ColorAnimation { duration: Zenon.fast } }
       font.family: Zenon.face
-      font.weight: Font.Bold
+      font.weight: Zenon.titleWeight
       font.pixelSize: Zenon.px(14)
       font.features: { "tnum": 1 }
     }

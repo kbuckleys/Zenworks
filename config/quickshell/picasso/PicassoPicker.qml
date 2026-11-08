@@ -138,7 +138,9 @@ Scope {
     const hex = Cap.format(r, g, b, "hex");
     picker.remember(hex);
     const dir = Paths.runtimeDir() + "/picasso";
-    const sw = dir + "/swatch-" + hex.slice(1) + ".png";
+    // one file, made again for each color: one per color piled up in the
+    // runtime directory (audit 11-08)
+    const sw = dir + "/swatch.png";
     Quickshell.execDetached(["sh", "-c",
       "printf '%s' " + picker.sh(text) + " | wl-copy; mkdir -p " + picker.sh(dir) + "; "
       + "magick -size 64x64 xc:" + picker.sh(hex) + " " + picker.sh(sw) + " 2>/dev/null; "
@@ -390,9 +392,14 @@ Scope {
             picker.active = false;
           }
           // the palette: 1 … 9, then 0 for the tenth
-          else if (!picker.ruler && !picker.forCaller && e.key >= Qt.Key_0 && e.key <= Qt.Key_9) {
+          // (Shift with a digit arrives as its symbol, ! for 1, so the row
+          // is read by its keys' place: evdev codes 10 … 19, 1 … 0)
+          else if (!picker.ruler && !picker.forCaller && (e.key >= Qt.Key_0 && e.key <= Qt.Key_9
+                   || (e.modifiers & Qt.ShiftModifier) && e.nativeScanCode >= 10 && e.nativeScanCode <= 19)) {
             e.accepted = true;
-            if (picker.copyPalette(e.key === Qt.Key_0 ? 9 : e.key - Qt.Key_1) && !(e.modifiers & Qt.ShiftModifier))
+            const n = e.key >= Qt.Key_0 && e.key <= Qt.Key_9
+              ? (e.key === Qt.Key_0 ? 9 : e.key - Qt.Key_1) : e.nativeScanCode - 10;
+            if (picker.copyPalette(n) && !(e.modifiers & Qt.ShiftModifier))
               picker.active = false;
           }
         }
@@ -665,7 +672,7 @@ Scope {
                 text: pane.measured === "" ? "—" : pane.measured + " px"
                 color: Zenon.white
                 font.family: Zenon.faceMono
-                font.weight: Font.Bold
+                font.weight: Zenon.titleWeight
                 font.pixelSize: Zenon.px(22)
               }
               Text {
@@ -694,7 +701,7 @@ Scope {
                   text: pane.rgb ? Cap.format(pane.rgb.r, pane.rgb.g, pane.rgb.b, picker.scheme) : ""
                   color: Zenon.white
                   font.family: Zenon.faceMono
-                  font.weight: Font.Bold
+                  font.weight: Zenon.titleWeight
                   font.pixelSize: Zenon.px(19)
                 }
                 Text {
@@ -724,7 +731,7 @@ Scope {
                     id: schemeMetrics
                     font.family: Zenon.face
                     font.pixelSize: Zenon.px(13)
-                    font.weight: 600
+                    font.weight: Zenon.titleWeight
                     text: Cap.SCHEME_LABELS[modelData]
                   }
                 }
@@ -750,17 +757,15 @@ Scope {
                     text: String((parent.index + 1) % 10)
                     color: { const n = parseInt(parent.modelData.slice(1), 16); return Cap.inkOn((n >> 16) & 255, (n >> 8) & 255, n & 255); }
                     font.family: Zenon.faceMono
-                    font.weight: Font.Bold
+                    font.weight: Zenon.titleWeight
                     font.pixelSize: Zenon.px(11)
                   }
                 }
               }
             }
 
-            Rectangle {
+            Hairline {
               width: parent.width
-              height: 1
-              color: Zenon.border
             }
 
             // the gestures, as keys — the cap every hint in the shell is

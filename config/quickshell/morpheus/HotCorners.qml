@@ -87,7 +87,7 @@ Item {
     const ws = Hyprland.focusedWorkspace;
     const here = ws ? String(ws.name) : "";
     if (hot.leftFrom !== "" && here === hot.wentTo && ws && ws.toplevels.values.length === 0) {
-      Hyprland.dispatch(Hypr.focusWorkspace(hot.leftFrom));
+      Hyprland.dispatch(Hypr.focusNamedWorkspace(hot.leftFrom));
       hot.leftFrom = "";
       hot.wentTo = "";
       return;

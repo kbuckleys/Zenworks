@@ -158,6 +158,15 @@ def opf_path(z):
     return rf.get("full-path")
 
 
+def write_meta(meta_path, book):
+    # a part of this process's own: two opens of one book at once each
+    # replaced the shared .part, and the second failed (audit 11-08)
+    part = "%s.%d.part" % (meta_path, os.getpid())
+    with open(part, "w") as f:
+        json.dump(book, f)
+    os.replace(part, meta_path)
+
+
 def open_book(src, dest):
     src, dest = os.path.abspath(src), os.path.abspath(dest)
     os.makedirs(dest, exist_ok=True)
@@ -203,14 +212,21 @@ def open_book(src, dest):
         # pictures: extracted once, by their path in the book
         img_dir = os.path.join(dest, "img")
 
+        # once per unpack, not once ever: a book changed on disk (a new
+        # stamp, the same cache) showed its old pictures (audit 11-08)
+        written = set()
+
         def extract(path):
             if path not in names:
                 return ""
             out = os.path.join(img_dir, path.replace("/", "_"))
-            if not os.path.exists(out):
+            if out not in written:
                 os.makedirs(img_dir, exist_ok=True)
-                with open(out, "wb") as f:
+                part = "%s.%d.part" % (out, os.getpid())
+                with open(part, "wb") as f:
                     f.write(z.read(path))
+                os.replace(part, out)
+                written.add(out)
             return "file://" + out
 
         cover = ""
@@ -308,9 +324,7 @@ def open_book(src, dest):
 
     book = {"stamp": stamp, "title": title, "author": author, "cover": cover,
             "dir": dest, "chapters": chapters, "toc": toc}
-    with open(meta_path + ".part", "w") as f:
-        json.dump(book, f)
-    os.replace(meta_path + ".part", meta_path)
+    write_meta(meta_path, book)
     return book
 
 
@@ -474,9 +488,7 @@ def text_book(src, dest):
             toc.append({"label": ct, "chapter": n, "anchor": "", "depth": 0})
     book = {"stamp": stamp, "title": title, "author": "", "cover": "", "dir": dest,
             "chapters": chapters, "toc": toc}
-    with open(meta_path + ".part", "w") as f:
-        json.dump(book, f)
-    os.replace(meta_path + ".part", meta_path)
+    write_meta(meta_path, book)
     return book
 
 

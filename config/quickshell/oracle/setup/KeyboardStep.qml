@@ -75,7 +75,7 @@ Item {
       anchors.margins: 12
       anchors.verticalCenter: parent.verticalCenter
       color: Zenon.white
-      selectionColor: Zenon.accentMuted
+      selectionColor: Zenon.selBg
       font.family: Zenon.face
       font.weight: Zenon.weight
       font.pixelSize: Zenon.px(15)
@@ -88,7 +88,7 @@ Item {
       anchors.verticalCenter: parent.verticalCenter
       visible: tryIn.text === ""
       text: "Type here to try it"
-      color: Zenon.muted
+      color: Zenon.accentMuted
       font.family: Zenon.face
       font.weight: Zenon.weight
       font.pixelSize: Zenon.px(15)

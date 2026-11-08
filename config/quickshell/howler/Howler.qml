@@ -290,12 +290,27 @@ Singleton {
   readonly property string framesDir: Paths.cacheDir() + "/quickshell/howler-frames"
   // The row keeps both: the original for the rest of this session (the copy
   // may not have landed when the panel first asks for it), the copy after.
-  function keepFrame(src) {
-    if (src.charAt(0) !== "/" || src.indexOf(root.framesDir + "/") === 0) return "";
+  //
+  // ONLY A RECORDING'S OWN FRAME (audit 11-08): any sender could name any
+  // path — /dev/zero copied until the disk filled, a FIFO hung cp. So: a
+  // video capture's png under the runtime directory, where argus writes it
+  // (howler-capture-*.png), a regular file, at most 32 MB.
+  readonly property string runtimeDir: String(Quickshell.env("XDG_RUNTIME_DIR") || "/tmp")
+  function keepFrame(kind, src) {
+    if (kind !== "video" || !/\.png$/i.test(src) || src.indexOf("/../") >= 0
+        || src.indexOf(root.runtimeDir + "/howler-capture-") !== 0) return "";
     const dest = root.framesDir + "/" + Date.now() + "-" + src.split("/").pop();
-    Quickshell.execDetached(["sh", "-c", 'mkdir -p "$1" && cp -f "$2" "$3"',
+    Quickshell.execDetached(["sh", "-c",
+      '[ -f "$2" ] && [ ! -L "$2" ] && [ "$(stat -c %s -- "$2")" -le 33554432 ] && mkdir -p "$1" && cp -f -- "$2" "$3"',
       "sh", root.framesDir, src, dest]);
     return dest;
+  }
+  // A capture's file, before any button acts on it: an absolute path to a
+  // picture or a video, nothing else — the hint is the sender's word, and a
+  // click must not open whatever path or URL it names (audit 11-08)
+  function captureFileOk(file) {
+    return /^\//.test(file) && file.indexOf("/../") < 0
+      && /\.(png|jpe?g|webp|gif|mp4|mkv|webm|mov)$/i.test(file);
   }
 
   // ONCE, AT START: every frame in the directory that no row names is gone.
@@ -465,7 +480,8 @@ Singleton {
       capture: String((notif.hints || {})["x-howler-capture"] || ""),
       captureFile: String((notif.hints || {})["x-howler-file"] || ""),
       capturePicture: String((notif.hints || {})["x-howler-picture"] || ""),
-      captureKept: root.keepFrame(String((notif.hints || {})["x-howler-picture"] || "")),
+      captureKept: root.keepFrame(String((notif.hints || {})["x-howler-capture"] || ""),
+                                  String((notif.hints || {})["x-howler-picture"] || "")),
       // a calendar reminder's hue and day, so its history row keeps the
       // toast's look (the hints themselves are not kept)
       eventHue: String((notif.hints || {})["x-howler-event"] || ""),
@@ -734,20 +750,20 @@ Singleton {
   // picture opens in picasso's viewer; a recording in whatever the desktop
   // plays video with, since nothing in this shell does.
   function captureOpen(kind, file) {
-    if (file === "") return;
+    if (!root.captureFileOk(file)) return;
     Quickshell.execDetached(kind === "shot"
       ? ["qs", "ipc", "call", "Picasso", "view", file]
       : ["xdg-open", file]);
   }
   function captureReveal(file) {
-    if (file !== "") Quickshell.execDetached(["qs", "ipc", "call", "Terminus", "reveal", file]);
+    if (root.captureFileOk(file)) Quickshell.execDetached(["qs", "ipc", "call", "Terminus", "reveal", file]);
   }
   // a recording, cut in argus' editor
   function captureEdit(file) {
-    if (file !== "") Quickshell.execDetached(["qs", "ipc", "call", "Argus", "edit", file]);
+    if (root.captureFileOk(file)) Quickshell.execDetached(["qs", "ipc", "call", "Argus", "edit", file]);
   }
   function captureAnnotate(file) {
-    if (file !== "") Quickshell.execDetached(["qs", "ipc", "call", "Picasso", "annotate", file]);
+    if (root.captureFileOk(file)) Quickshell.execDetached(["qs", "ipc", "call", "Picasso", "annotate", file]);
   }
 
   // ── OPENING A HISTORY ROW ───────────────────────────────────────────────

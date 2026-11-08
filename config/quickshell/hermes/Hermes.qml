@@ -421,6 +421,13 @@ Singleton {
         const v = brightProc.written["ddc:" + d.bus];
         return v === undefined ? d : Object.assign({}, d, { cur: Math.round(v * d.max / 100) });
       });
+      // and the backlights the same way: their slider snapped back to the
+      // old probe until the reprobe answered (audit 11-08)
+      const bl = root.probe.display.backlight.map((b) => {
+        const v = brightProc.written["bl:" + b.name];
+        return v === undefined ? b : Object.assign({}, b, { cur: Math.round(v * b.max / 100) });
+      });
+      root.probe = Object.assign({}, root.probe, { display: Object.assign({}, root.probe.display, { backlight: bl }) });
       root.pending = left;
       if (Object.keys(left).length > 0) brightWrite.restart();
       else root.reprobe();
@@ -547,15 +554,18 @@ Singleton {
     if (id === root._filterApplied || root.sim) return;
     root._filterApplied = id;
     const lua = root.hyprDir + "/lua/filter.lua";
-    const tell = (path) => filterWriter.write(lua, H.filterLua(path), () =>
-      Quickshell.execDetached(["hyprctl", "-q", "eval", H.filterEval(path)]));
+    // a write that failed is tried again next time, not taken as worn (11-08)
+    const tell = (path) => filterWriter.write(lua, H.filterLua(path), (ok) => {
+      if (!ok) { root._filterApplied = "\u0000unwritten"; return; }
+      Quickshell.execDetached(["hyprctl", "-q", "eval", H.filterEval(path)]);
+    });
     if (id === "") { tell(""); return; }
     zoomFrag.reload();
     const src = H.filterShader(zoomFrag.text(), id);
     // zoom.frag missing or reshaped: no filter rather than a broken screen
     if (src === "") { console.warn("hermes: zoom.frag has no shape to filter; color filter not applied"); tell(""); return; }
     const path = H.filterShaderPath(root.hyprDir, id);
-    filterWriter.write(path, src, (ok) => { if (ok) tell(path); });
+    filterWriter.write(path, src, (ok) => { if (ok) tell(path); else root._filterApplied = "\u0000unwritten"; });
   }
 
   // ── SETTINGS ───────────────────────────────────────────────────────────

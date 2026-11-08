@@ -29,10 +29,6 @@ Singleton {
   readonly property bool muted: root.audio ? root.audio.muted : false
   readonly property int percent: Math.round(root.level * 100)
 
-  // the exact figure, for tooltips — the meters are a six-notch reading
-  readonly property string text: !root.ready ? "Volume: --"
-    : (root.muted ? "Volume: Muted" : "Volume: " + root.percent + "%")
-
   // Right-click on the meter, and the OSD's own toggle. A property, not a
   // `pamixer -t`: the mute is already bound here, so shelling out meant a
   // process, a package and a round trip to change a bool this singleton is

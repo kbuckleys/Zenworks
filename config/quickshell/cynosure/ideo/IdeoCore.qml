@@ -67,10 +67,10 @@ Item {
     core.detach("sleep 0.25 && printf '%s' " + Strings.shellQuote(ch) +
       " | wl-copy >/dev/null 2>&1 && sleep 0.15 && wtype " + Strings.shellQuote(ch));
   }
-  // onto the clipboard only
+  // onto the clipboard only — and Cynosure STAYS, for the next one
+  // (user, 2026-11-08); only a paste goes, its keys meant for the window
+  // under it
   function copyGlyph(ch) {
-    core.closeHost();
-    core.detach("sleep 0.25 && printf '%s' " + Strings.shellQuote(ch) +
-      " | wl-copy >/dev/null 2>&1");
+    core.detach("printf '%s' " + Strings.shellQuote(ch) + " | wl-copy >/dev/null 2>&1");
   }
 }

@@ -23,6 +23,7 @@ Column {
   spacing: 4
 
   Text {
+    textFormat: Text.PlainText
     width: ps.lineWidth
     horizontalAlignment: ps.centered ? Text.AlignHCenter : Text.AlignLeft
     elide: Text.ElideRight
@@ -32,7 +33,7 @@ Column {
     color: ps.q.state === "done" ? Zenon.green : ps.q.state === "failed" ? Zenon.red
       : ps.q.state === "stopped" ? Zenon.yellow : Zenon.ink
     font.family: Zenon.face
-    font.weight: Font.Bold
+    font.weight: Zenon.titleWeight
     font.pixelSize: Zenon.px(ps.centered ? 17 : 14)
   }
   // how far along: the job's own phase and percent, a meter under it; full
@@ -43,6 +44,7 @@ Column {
     height: phaseText.implicitHeight + 8 + 6 + 6
     readonly property real frac: ps.q.state === "done" ? 1 : ps.job && ps.job.progress >= 0 ? ps.job.progress / 100 : 0
     Text {
+      textFormat: Text.PlainText
       id: phaseText
       width: parent.width
       horizontalAlignment: ps.centered ? Text.AlignHCenter : Text.AlignLeft
@@ -68,6 +70,7 @@ Column {
     }
   }
   Text {
+    textFormat: Text.PlainText
     width: ps.lineWidth
     horizontalAlignment: ps.centered ? Text.AlignHCenter : Text.AlignLeft
     visible: ps.q.whole || ps.q.commits === null || ps.q.commits.length === 0
@@ -89,10 +92,12 @@ Column {
         required property var modelData
         spacing: 10
         Text {
+          textFormat: Text.PlainText
           text: cr.modelData.sha
           color: Zenon.yellow
           font.family: Zenon.face
           font.features: { "tnum": 1 }
+          font.weight: Zenon.weight
           font.pixelSize: Zenon.px(13)
         }
         Text {
@@ -108,6 +113,7 @@ Column {
       }
     }
     Text {
+      textFormat: Text.PlainText
       visible: ps.q.more > 0
       text: "And " + ps.q.more + " more"
       color: Zenon.accentMuted

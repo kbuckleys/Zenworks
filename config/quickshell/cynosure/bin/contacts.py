@@ -48,7 +48,8 @@ def unfold(text):
 
 
 def unescape(v):
-    return v.replace("\\n", "\n").replace("\\,", ",").replace("\\;", ";").replace("\\\\", "\\")
+    # one pass: "\\n" is a backslash then n, not a line break (11-08)
+    return re.sub(r"\\(.)", lambda m: "\n" if m.group(1) in "nN" else m.group(1), v)
 
 
 def cards(text, path):

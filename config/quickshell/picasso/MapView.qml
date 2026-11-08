@@ -149,7 +149,7 @@ Item {
       width: V.TILE
       height: V.TILE
       readonly property string file: map.files[map.keyOf(modelData)] || ""
-      source: file !== "" ? "file://" + file : ""
+      source: file !== "" ? Strings.fileUrl(file) : ""
       asynchronous: true
       opacity: status === Image.Ready ? 1 : 0
       Behavior on opacity { NumberAnimation { duration: Zenon.fast } }
@@ -214,7 +214,7 @@ Item {
         radius: height / 2   // shape: the pin's count, round like the pin
         color: Zenon.sand
         Text { id: countText; anchors.centerIn: parent; text: pin.modelData.n; color: Zenon.black
-               font.family: Zenon.face; font.weight: 600; font.pixelSize: Zenon.px(12) }
+               font.family: Zenon.face; font.weight: Zenon.titleWeight; font.pixelSize: Zenon.px(12) }
       }
       MouseArea {
         anchors.fill: parent
@@ -243,7 +243,7 @@ Item {
       font.weight: Zenon.weight
       font.pixelSize: Zenon.px(11)
       MouseArea { id: creditMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                  onClicked: Qt.openUrlExternally("https://www.openstreetmap.org/copyright") }
+                  onClicked: Strings.openLink("https://www.openstreetmap.org/copyright") }
     }
   }
   // the zoom, for the eye

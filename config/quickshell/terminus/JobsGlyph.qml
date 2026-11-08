@@ -121,7 +121,7 @@ Item {
     style: Text.Outline
     styleColor: jobsToggle.tone
     font.family: Zenon.face
-    font.weight: Font.Bold
+    font.weight: Zenon.titleWeight
     font.pixelSize: Zenon.px(10)
   }
 

@@ -224,7 +224,7 @@ Scope {
   function readText(geo) {
     const tmp = Paths.runtimeDir() + "/picasso-ocr-" + Date.now() + ".png";
     textProc.command = ["sh", "-c",
-      "sleep 0.15; timeout 10 grim -g \"$2\" \"$1\" || exit 4\n" + V.ocrCommand(tmp), "sh", tmp, geo];
+      "sleep 0.15; timeout 10 grim -g \"$2\" \"$1\" || { rm -f \"$1\"; exit 4; }\n" + V.ocrCommand(), "sh", tmp, geo];
     textProc.running = true;
   }
   // a QR code (or any bar code zbarimg knows) the same way: what it says to
@@ -455,7 +455,7 @@ Scope {
         height: region.lh + 2
         color: "transparent"
         border.width: region.has ? 2 : 1
-        border.color: region.has ? Zenon.accent : Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.6)
+        border.color: region.has ? Zenon.accent : Zenon.alpha(Zenon.accent, 0.6)
       }
     }
 
@@ -507,8 +507,21 @@ Scope {
       id: ptr
       anchors.fill: parent
       hoverEnabled: true
-      cursorShape: ptr.grab === "move" ? Qt.ClosedHandCursor
-        : ptr.grab !== "" && ptr.grab !== "new" ? Qt.SizeAllCursor : Qt.CrossCursor
+      // what the pointer is over, or holds: each edge and corner its own
+      // resize arrow, the inside the move cross, as picasso/CropBox draws
+      // them (user, 2026-11-08: it showed one shape for all, and only once
+      // pressed) — the grab hand stays the pannable views' alone
+      cursorShape: ptr.shapeOf(ptr.grab !== "" ? ptr.grab : ptr.over)
+      function shapeOf(e) {
+        if (e === "move") return Qt.SizeAllCursor;
+        if (e === "tl" || e === "br") return Qt.SizeFDiagCursor;
+        if (e === "tr" || e === "bl") return Qt.SizeBDiagCursor;
+        if (e === "l" || e === "r") return Qt.SizeHorCursor;
+        if (e === "t" || e === "b") return Qt.SizeVerCursor;
+        return Qt.CrossCursor;
+      }
+      // the edge under a pointer that is not pressed ("" outside the box)
+      property string over: ""
       // "" idle, "new" drawing, "move", or an edge ("tl", "r" …)
       property string grab: ""
       property real px: 0
@@ -532,6 +545,7 @@ Scope {
       onPositionChanged: (m) => {
         if (ptr.grab === "") {
           if (!region.has) region.hoverWin = Cap.windowAt(cap.wins, m.x, m.y);
+          ptr.over = cap.purpose === "window" ? "" : ptr.edgeAt(m.x, m.y);
           return;
         }
         const W = region.width, H = region.height;
@@ -569,9 +583,10 @@ Scope {
           region.finish(true);
           return;
         }
-        if (m.button === Qt.RightButton) { ptr.grab = ""; return; }
+        if (m.button === Qt.RightButton) { ptr.grab = ""; ptr.over = ptr.edgeAt(m.x, m.y); return; }
         const drew = ptr.grab === "new";
         ptr.grab = "";
+        ptr.over = ptr.edgeAt(m.x, m.y);
         // a click that never traveled: take the window under it whole
         if (drew && Math.abs(m.x - ptr.px) < 4 && Math.abs(m.y - ptr.py) < 4) {
           const w = Cap.windowAt(cap.wins, m.x, m.y);

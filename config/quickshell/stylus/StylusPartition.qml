@@ -186,12 +186,14 @@ FocusScope {
               x: 10
               anchors.verticalCenter: parent.verticalCenter
               text: modelData.part ? S.partName(modelData.part) : "Free space"
+              textFormat: Text.PlainText
               color: modelData.part ? Zenon.ink : Zenon.accentMuted
               font.family: Zenon.face
               font.weight: Zenon.weight
               font.pixelSize: Zenon.px(14)
             }
             Text {
+              textFormat: Text.PlainText
               anchors.right: parent.right
               anchors.rightMargin: 10
               anchors.verticalCenter: parent.verticalCenter
@@ -207,13 +209,9 @@ FocusScope {
         }
       }
       CursorBand { repeater: rowRep; index: body.sel; shown: body.rows.length > 0 }
-      Text {
+      EmptyState {
         visible: body.rows.length === 0
         text: "No room to make a partition"
-        color: Zenon.muted
-        font.family: Zenon.face
-        font.weight: Zenon.weight
-        font.pixelSize: Zenon.px(13)
       }
     }
 

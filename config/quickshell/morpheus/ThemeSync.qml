@@ -110,7 +110,7 @@ Item {
   readonly property string fcitxText: Oracle.imOn ? Sync.renderFcitxTheme({
     name: Zenon.theme.name || Zenon.themeName, card: Zenon.hex(Zenon.card),
     border: Zenon.hex(Zenon.border), ink: Zenon.hex(Zenon.ink), accent: Zenon.hex(Zenon.accent) }) : ""
-  readonly property string fcitxPath: (Quickshell.env("XDG_DATA_HOME") || (Quickshell.env("HOME") + "/.local/share"))
+  readonly property string fcitxPath: Paths.dataDir()
     + "/fcitx5/themes/default/theme.conf"
   property string fcitxLast: ""
   onFcitxTextChanged: settle.restart()

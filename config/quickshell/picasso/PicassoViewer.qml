@@ -158,6 +158,14 @@ Scope {
   // the session; the hashes are kept on disk too, being slow to make.
   property var meta: ({})
   property var hashes: ({})
+  // a cache file by path, kept to the last `storeCap` written (each entry
+  // moved to the end when written again): they only ever grew (audit 11-08)
+  readonly property int storeCap: 30000
+  function capped(m) {
+    const keys = Object.keys(m);
+    for (let i = 0; i < keys.length - mgr.storeCap; ++i) delete m[keys[i]];
+    return m;
+  }
   function sigOf(r) { return (r.size || 0) + ":" + (r.mtime || 0); }
   function noteMeta(got, rows) {
     const next = Object.assign({}, mgr.meta);
@@ -166,8 +174,8 @@ Scope {
   }
   function noteHashes(got, rows) {
     const next = Object.assign({}, mgr.hashes);
-    for (const r of rows) if (got[r.path]) next[r.path] = Object.assign({ sig: mgr.sigOf(r) }, got[r.path]);
-    mgr.hashes = next;
+    for (const r of rows) if (got[r.path]) { delete next[r.path]; next[r.path] = Object.assign({ sig: mgr.sigOf(r) }, got[r.path]); }
+    mgr.hashes = mgr.capped(next);
     hashFile.setText(JSON.stringify(mgr.hashes));
   }
   FileView {
@@ -194,11 +202,12 @@ Scope {
       if (!(v > 0)) continue;
       const sig = mgr.sigOf(r), was = next[r.path];
       if (was && was.sig === sig && Math.abs(was.r - v) < 0.002) continue;
+      delete next[r.path];
       next[r.path] = { sig: sig, r: v };
       changed = true;
     }
     if (!changed) return;
-    mgr.shapes = next;
+    mgr.shapes = mgr.capped(next);
     shapeSave.restart();
   }
   Timer { id: shapeSave; interval: 1500; onTriggered: shapeFile.setText(JSON.stringify(mgr.shapes)) }

@@ -90,7 +90,7 @@ Rectangle {
       selectByMouse: true
       cursorDelegate: Caret { field: edit }
       color: Zenon.ink
-      selectionColor: Zenon.alpha(Zenon.accent, 0.4)
+      selectionColor: Zenon.selBg
       font.family: Zenon.face
       font.weight: Zenon.weight
       font.pixelSize: mw.textSize
@@ -110,6 +110,7 @@ Rectangle {
       }
       SpellMarks { id: spell; field: edit; mgr: mw.spellMgr; active: !!mw.spellMgr && mw.spelling; visible: active }
       Text {
+        textFormat: Text.PlainText
         visible: edit.text === ""
         width: parent.width
         wrapMode: Text.Wrap
@@ -141,6 +142,7 @@ Rectangle {
     anchors.bottom: flick.bottom
   }
   Text {
+    textFormat: Text.PlainText
     anchors.right: parent.right
     anchors.bottom: parent.bottom
     anchors.margins: 8

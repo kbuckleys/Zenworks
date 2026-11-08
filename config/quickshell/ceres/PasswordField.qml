@@ -232,6 +232,7 @@ Item {
         horizontalAlignment: Text.AlignHCenter
         elide: Text.ElideRight
         visible: field.purpose !== ""
+        textFormat: Text.PlainText
         text: field.purpose
         color: Zenon.accentKey
         font.family: Zenon.face

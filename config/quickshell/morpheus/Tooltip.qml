@@ -90,7 +90,7 @@ CursorAnchor {
         textFormat: popup.styled ? Text.StyledText : Text.PlainText
         color: Zenon.white
         font.family: Zenon.face
-        font.weight: Font.Bold
+        font.weight: Zenon.titleWeight
         font.pixelSize: Zenon.px(16)
         horizontalAlignment: popup.align
         verticalAlignment: Text.AlignVCenter

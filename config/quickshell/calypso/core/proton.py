@@ -105,8 +105,9 @@ class Proton(Provider):
     BLURB = "pass-cli stays signed in on this machine; locking here only hides the vault"
     # pass-cli makes logins only, and cannot set a one-time password or
     # move an item (its docs, 2026-10-12); deleting is for good
+    # secretsFixed: a saved item's secrets are not changed here (see save)
     CAN = {"create": ["login"], "edit": True, "delete": "delete", "restore": False,
-           "custom": True, "totpEdit": False, "folders": True, "attachments": False,
+           "custom": True, "secretsFixed": True, "totpEdit": False, "folders": True, "attachments": False,
            "fav": False, "tags": False, "history": False}
 
     def pc(self, args, cancel, **kw):
@@ -326,24 +327,48 @@ class Proton(Provider):
             sid = next((s for s, n in vs if n == vault), None) if vault else (vs[0][0] if len(vs) == 1 else None)
             return {"id": sid + "/" + m.group(1) if sid else None}
         sid, iid = self.split(id)
-        # Only --field: pass-cli takes no other way in, so a changed secret
-        # is in pass-cli's argv for the moment it runs.
+        # ONLY --field, ON pass-cli's ARGV: `item update` takes no stdin,
+        # template or file (pass-cli 2.7, checked 2026-11-08), and argv is
+        # readable by every user on the machine. So a secret is never sent
+        # this way: one unchanged (revealed, or the editor's own copy) is left
+        # out, and one changed is refused — Proton Pass itself changes it.
+        # The item as it is now, to tell which is which.
+        self.need(cancel)
+        cur = self.json(["item", "view", "--share-id", sid, "--item-id", iid], cancel)
+        have = {}
+        for x in pick(cur, "extra_fields", "extraFields", "custom_fields") or []:
+            if isinstance(x, dict):
+                name = str(pick(x, "name", "field_name", "label") or "field")
+                hidden = bool(pick(x, "hidden")) or "hidden" in str(pick(x, "type") or "").lower() \
+                    or "totp" in str(pick(x, "type") or "").lower()
+                have[name] = (str(pick(x, "value", "content", "text", "hidden") or ""), hidden)
+        fixed = "Proton Pass's command-line tool can only take a changed secret where every program on this computer can read it — change {} in Proton Pass itself"
         sets = [("title", draft.get("title"))]
-        for key in ("username", "password", "email"):
+        for key in ("username", "email"):
             if f.get(key) is not None:
                 sets.append((key, f[key]))
+        if f.get("password") is not None and f["password"] != str(pick(cur, "password") or ""):
+            raise VaultError(fixed.format("the password"))
         if "notes" in draft:
             sets.append(("note", draft["notes"]))
         if "urls" in draft and draft["urls"]:
             sets.append(("url", draft["urls"][0]))
         for c in draft.get("custom") or []:
-            if c.get("value") is not None:
-                sets.append((str(c.get("label") or "field"), c["value"]))
+            v = c.get("value")
+            if v is None:
+                continue
+            label = str(c.get("label") or "field")
+            old = have.get(label)
+            secret = bool(c.get("hidden")) or bool(old and old[1])
+            if old is not None and old[0] == v:
+                continue
+            if secret:
+                raise VaultError(fixed.format("“%s”" % label))
+            sets.append((label, v))
         argv = ["item", "update", "--share-id", sid, "--item-id", iid]
         for k, v in sets:
             if v is not None:
                 argv += ["--field", f"{k}={v}"]
-        self.need(cancel)
         code, _, err = self.pc(argv, cancel, timeout=120)
         if code != 0:
             raise VaultError(first_line(err) or "pass-cli could not save the item")

@@ -26,9 +26,6 @@ Item {
   property string path: ""
   // a background has space around it to fill; a photo being edited does not
   property bool showBackdrop: true
-  // the picture covers the whole screen (cropped, stretched): nothing is
-  // left around it for the backdrop to fill, and the row says so
-  property bool fills: false
   property string kbRow: ""
   // what the custom tint swatch holds when the tint is one of the presets
   property string customTint: "#7a8cff"
@@ -53,7 +50,7 @@ Item {
   readonly property string accentKind: {
     if (ed.accent === "") return "";
     const own = Picasso.accentFor(ed.path);
-    return own && own.toLowerCase() === ed.accent ? "accent" : "custom";
+    return own && own.toLowerCase() === ed.accent.toLowerCase() ? "accent" : "custom";
   }
   // what the custom accent swatch holds when the accent is not one
   property string customAccent: ""
@@ -276,6 +273,7 @@ Item {
             color: Art.hexToHsv(ac.ink).v > 0.6 ? "#000000" : "#ffffff"
             opacity: 0.85
             font.family: Zenon.glyphFace
+            font.weight: Zenon.weight
             font.pixelSize: Zenon.px(14)
           }
           MouseArea {
@@ -309,7 +307,7 @@ Item {
         width: 30
         height: 30
         radius: height / 2
-        color: dropMa.pressed ? Zenon.pressWash(0.14) : "transparent"
+        color: dropMa.pressed ? Zenon.pressWash(0.12) : "transparent"
         border.width: 1
         border.color: Zenon.wash(0.25)
         Behavior on color { ColorAnimation { duration: Zenon.fast; easing.type: Zenon.ease } }
@@ -318,6 +316,7 @@ Item {
           text: "\u{F020A}"
           color: Zenon.accentSoft
           font.family: Zenon.glyphFace
+          font.weight: Zenon.weight
           font.pixelSize: Zenon.px(15)
         }
         MouseArea {
@@ -336,7 +335,7 @@ Item {
       text: "Reset look"
       color: resetMa.pressed || ed.kbRow === "reset" ? Zenon.accent : Zenon.accentSoft
       font.family: Zenon.face
-      font.weight: 600
+      font.weight: Zenon.titleWeight
       font.pixelSize: Zenon.px(14)
       MouseArea {
         id: resetMa

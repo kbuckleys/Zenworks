@@ -33,7 +33,7 @@ Item {
   property var hostWindow: null
   property int fontSize: 17
   property string fontFamily: Zenon.faceCode
-  property int fontWeight: Font.DemiBold
+  property int fontWeight: Zenon.titleWeight
   // the settings sheet's motion settings (core/Settings.qml)
   property bool cursorBreathes: true
   property bool cursorGlides: true
@@ -991,6 +991,7 @@ Item {
           elide: Text.ElideRight
           color: modelData.c === "o" ? Zenon.red : Zenon.green
           font.family: view.fontFamily
+          font.weight: Zenon.weight
           font.pixelSize: Math.max(12, view.fontSize - 2)
         }
       }

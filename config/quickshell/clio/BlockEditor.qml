@@ -25,6 +25,7 @@ import Quickshell.Io
 import "../morpheus"
 import "../morpheus/undo"
 import "notes.js" as N
+import "../morpheus/runjob.js" as RunJob
 
 Item {
   id: ed
@@ -140,7 +141,7 @@ Item {
     return String(Qt.rgba(c.r, c.g, c.b, 1)).toLowerCase();
   }
   function display(h) {
-    let s = N.paint(h || "", ed.inkHex, ed.markHex);
+    let s = N.paint(N.localOnly(h || ""), ed.inkHex, ed.markHex);
     s = s.replace(/<a\b([^>]*)>([\s\S]*?)<\/a>/gi, (m, a, t) => "<a" + a + "><span style=\"color:" + String(Zenon.accent) + "; text-decoration: underline;\">" + t + "</span></a>");
     return s;
   }
@@ -885,11 +886,37 @@ Item {
   // a whole block's attachment, handed back by the backend
   function attachBlock(b) { ed.insertBlocks([N.block(b.k, "", { src: b.src, name: b.name, size: b.size })], false); }
   // a rich paste the owner did not take as a picture: the block's own paste
+  //
+  // THE CLIPBOARD'S HTML, NOT QT'S PASTE (audit 11-08): the native paste
+  // drew a web page's pictures straight from the web. Read here, the
+  // remote ones dropped (N.localOnly), then put in; with no HTML on the
+  // clipboard the block's own paste, which then has none to fetch.
   function pasteText() {
-    const it = ed.current();
     if (ed.cross) ed.deleteCross();
     const now = ed.current();
-    if (now && now.isText) now.te.paste();
+    if (!now || !now.isText) return;
+    if (now.kind === "mono") { now.te.paste(); return; }
+    RunJob.latest(htmlProc, { it: now, command: ["sh", "-c", "wl-paste -l 2>/dev/null | grep -qx text/html || exit 3; wl-paste -n -t text/html 2>/dev/null"] });
+  }
+  Process {
+    id: htmlProc
+    property var job: null
+    property var want: null
+    onExited: RunJob.next(htmlProc)
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        if (!RunJob.current(htmlProc)) return;
+        const it = htmlProc.job.it;
+        if (!it || it !== ed.current() || !it.isText || ed.readOnly) return;
+        const h = N.localOnly(N.fragment(String(text || "")));
+        if (h.trim() === "") { it.te.paste(); return; }
+        ed.snap(false);
+        const te = it.te;
+        if (te.selectionStart !== te.selectionEnd) te.remove(te.selectionStart, te.selectionEnd);
+        te.insert(te.cursorPosition, h);
+      }
+    }
   }
 
   // ── THE CLIPBOARD ── a paste, the holder's or the editor's own
@@ -900,15 +927,18 @@ Item {
   property var _plainEmpty: null
   function pastePlainNow(empty) {
     ed._plainEmpty = empty;
-    plainProc.running = false;
-    plainProc.running = true;
+    // one run each: a stopped one still streams, and pasted twice (11-08)
+    RunJob.latest(plainProc, { command: ["sh", "-c", "wl-paste -n -t text 2>/dev/null"] });
   }
   Process {
     id: plainProc
-    command: ["sh", "-c", "wl-paste -n -t text 2>/dev/null"]
+    property var job: null
+    property var want: null
+    onExited: RunJob.next(plainProc)
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
+        if (!RunJob.current(plainProc)) return;
         if (text === "") { if (ed._plainEmpty) ed._plainEmpty(); return; }
         ed.pastePlain(text);
       }
@@ -1484,9 +1514,12 @@ Item {
     const it = rep.itemAt(h.i);
     ed.snap(true);
     it.te.remove(h.a, h.b);
-    it.te.insert(h.a, N.escape(t));
+    it.te.insert(h.a, ed.asTyped(it, t));
     ed.find(ed.findQuery);
   }
+  // words for a block: a code block is plain text, so they go in as they
+  // are (escaped there, "&amp;" showed up in it — audit 11-08)
+  function asTyped(it, t) { return it && it.kind === "mono" ? String(t) : N.escape(t); }
   function replaceAll(t) {
     ed.snap(true);
     for (let x = ed.findHits.length - 1; x >= 0; x--) {
@@ -1494,7 +1527,7 @@ Item {
       const it = rep.itemAt(h.i);
       if (!it) continue;
       it.te.remove(h.a, h.b);
-      it.te.insert(h.a, N.escape(t));
+      it.te.insert(h.a, ed.asTyped(it, t));
     }
     ed.find(ed.findQuery);
   }

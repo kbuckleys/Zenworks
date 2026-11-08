@@ -92,8 +92,8 @@ PanelWindow {
         Row {
           anchors.verticalCenter: parent.verticalCenter
           spacing: 10
-          Text { anchors.verticalCenter: parent.verticalCenter; text: ""; color: Zenon.sand; font.family: Zenon.glyphFace; font.pixelSize: Zenon.px(18) }
-          Text { anchors.verticalCenter: parent.verticalCenter; text: "Quick note"; color: Zenon.ink; font.family: Zenon.face; font.weight: Font.Bold; font.pixelSize: Zenon.px(16) }
+          Text { anchors.verticalCenter: parent.verticalCenter; text: ""; color: Zenon.sand; font.family: Zenon.glyphFace; font.weight: Zenon.weight; font.pixelSize: Zenon.px(18) }
+          Text { anchors.verticalCenter: parent.verticalCenter; text: "Quick note"; color: Zenon.ink; font.family: Zenon.face; font.weight: Zenon.titleWeight; font.pixelSize: Zenon.px(16) }
         }
         Segments {
           anchors.right: parent.right
@@ -123,7 +123,7 @@ PanelWindow {
             width: capFlick.width
             wrapMode: TextEdit.Wrap
             color: Zenon.ink
-            selectionColor: Zenon.alpha(Zenon.accent, 0.32)
+            selectionColor: Zenon.selBg
             selectedTextColor: color
             font.family: cap.mgr ? cap.mgr.faceFor(cap.into === "today") : Zenon.face
             font.pixelSize: Zenon.px(16)

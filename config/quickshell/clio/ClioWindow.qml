@@ -22,7 +22,7 @@
 //   ctrl+p  pin    ctrl+d  duplicate    ctrl+e  export    ctrl+,  settings
 //   ctrl+1 ctrl+2  list, gallery   ctrl+= ctrl+- ctrl+0  text size
 //   ctrl+alt+l  lock now          delete  to the Trash (from the list)
-//   esc     unwinds: the find, the search, then closes
+//   esc     unwinds: the tray, the find, the search, the day (never closes)
 
 import QtQuick
 import Quickshell
@@ -57,7 +57,7 @@ FloatingWindow {
   Component.onCompleted: if (win.mgr) win.mgr.hold()
 
   readonly property color hiFill: Zenon.menuHi
-  readonly property int headH: 50
+  readonly property int headH: Zenon.toolbarH
   readonly property int footH: Zenon.hintBarH   // morpheus/HintBar's strip
   readonly property var tipsItem: tips
   readonly property Item stageItem: stage
@@ -264,7 +264,14 @@ FloatingWindow {
     for (const p of paths) win.mgr.attach(id, p, (b) => {
       if (b) blocks.splice(blocks.length - 1, 0, N.block(b.k, "", { src: b.src, name: b.name, size: b.size }));
       if (--left > 0) return;
-      win.mgr.setBlocks(id, blocks);
+      // what was typed while the copies landed stays: the pictures go in
+      // over the entry as it is now (audit 11-08), not a fresh title and body
+      if (pane.noteId === id) pane.commit();
+      const now = (win.mgr.blocksOf(win.mgr.noteOf(id)) || []).slice();
+      const base = now.length ? now : [N.block("title", ""), N.block("body", "")];
+      const pics = blocks.filter((x) => !N.isText(x));
+      // before its last line, the one to type on
+      win.mgr.setBlocks(id, base.slice(0, -1).concat(pics, base.slice(-1)));
       pane.show(win.mgr.noteOf(id));
       Qt.callLater(() => pane.focusEditor(true));
     });
@@ -423,9 +430,14 @@ FloatingWindow {
   function printNote(n) {
     if (!n) return;
     win.commit();
-    win.makePdf(n, Quickshell.env("XDG_RUNTIME_DIR") || "/tmp", (ok, said) => {
+    const dir = Quickshell.env("XDG_RUNTIME_DIR") || "/tmp";
+    win.makePdf(n, dir, (ok, said) => {
       if (!ok) { win.say("Not printed: " + said, true); return; }
-      win.mgr.call("print", { path: said }, (ok2, r, err) => win.say(ok2 ? "Sent to the printer" : "Not printed: " + (err ? err.error : ""), !ok2));
+      win.mgr.call("print", { path: said }, (ok2, r, err) => {
+        win.say(ok2 ? "Sent to the printer" : "Not printed: " + (err ? err.error : ""), !ok2);
+        // lp has sent it by now: the PDF made for it goes (audit 11-08)
+        if (String(said).indexOf(dir + "/") === 0 && /\.pdf$/.test(said)) Quickshell.execDetached(["rm", "-f", "--", said]);
+      });
     });
   }
   Paper { id: paper; parent: stage }
@@ -666,7 +678,7 @@ FloatingWindow {
       win.say("Updated from the disk");
     }
     function onConflicted(id, copy) {
-      if (win.current && win.current.id === id) pane.show(win.mgr.noteOf(id));
+      if (win.current && win.current.id === id) { pane.editsTo(copy); pane.show(win.mgr.noteOf(id)); }
       win.say("Changed on another machine too — both kept, this one as “(this machine)”", true);
     }
   }
@@ -766,6 +778,8 @@ FloatingWindow {
                    (ok, r, err) => win.say(ok ? "Exported " + list.length + " entries" : "Not exported: " + (err ? err.error : ""), !ok));
     };
     if (win.mgr.fileManager) win.mgr.fileManager.choose(true, Quickshell.env("HOME") + "/Documents", (p) => { if (p && p.length) go(p[0]); });
+    // no picker: Documents, as a note's export does (it did nothing, 11-08)
+    else go(Quickshell.env("HOME") + "/Documents");
   }
 
   // ── CARRYING ───────────────────────────────────────────────────────────
@@ -981,8 +995,9 @@ FloatingWindow {
   readonly property var hintRows: pane.finding ? [["return", "next"], ["shift return", "back"], ["esc", "close find"]]
     : pane.editing ? [["ctrl b i u", "bold, italic, underline"], ["ctrl shift l", "checklist"], ["- * 1. []", "lists as you type"],
                       [">>", "link a note"], ["… =", "work it out"], ["ctrl f", "find"], ["esc", "to the list"]]
-    : win.inJournal ? [["↑↓", "entry"], ["return", "write"], ["ctrl j", "new entry"], ["delete", "delete"], ["esc", win.query !== "" ? "clear" : "close"]]
-    : [["↑↓", "note"], ["return", "write"], ["ctrl n", "new note"], ["ctrl p", "pin"], ["delete", "delete"], ["typing", "search"], ["esc", win.query !== "" ? "clear" : "close"]]
+    // esc clears a search and nothing more: it never closes Clio (unwind)
+    : win.inJournal ? [["↑↓", "entry"], ["return", "write"], ["ctrl j", "new entry"], ["delete", "delete"]].concat(win.query !== "" ? [["esc", "clear"]] : [])
+    : [["↑↓", "note"], ["return", "write"], ["ctrl n", "new note"], ["ctrl p", "pin"], ["delete", "delete"], ["typing", "search"]].concat(win.query !== "" ? [["esc", "clear"]] : [])
 
   // ── SHEETS ─────────────────────────────────────────────────────────────
   // each behind a shield, hung from the head over the note's side
@@ -1171,18 +1186,14 @@ FloatingWindow {
       color: win.barSheet ? Zenon.floor(Zenon.glass(win.barSheet.glass)) : "transparent"
     }
     // the hairline either side of the card, none across it
-    Rectangle {
+    Hairline {
       anchors.bottom: parent.bottom
-      height: 1
       width: win.barSheet ? Math.max(0, win.barSheet.drawnX) : parent.width
-      color: Zenon.border
     }
-    Rectangle {
+    Hairline {
       anchors.bottom: parent.bottom
-      height: 1
       x: win.barSheet ? win.barSheet.drawnX + win.barSheet.drawnW : parent.width
       width: Math.max(0, parent.width - x)
-      color: Zenon.border
     }
     Row {
       anchors.centerIn: parent
@@ -1192,6 +1203,7 @@ FloatingWindow {
         text: win.barName[0]
         color: win.barName[2]
         font.family: Zenon.glyphFace
+        font.weight: Zenon.weight
         font.pixelSize: Zenon.px(17)
       }
       Text {
@@ -1227,6 +1239,7 @@ FloatingWindow {
         text: !win.carried ? "" : win.carried.kind === "entry" ? "\u{F0B64}" : win.carried.kind === "sticky" ? "\u{F178F}" : "\u{F11D7}"
         color: Zenon.sand
         font.family: Zenon.glyphFace
+        font.weight: Zenon.weight
         font.pixelSize: Zenon.px(14)
       }
       Text {
@@ -1238,7 +1251,7 @@ FloatingWindow {
         text: win.carried ? N.titleOf(win.carried, win.carried.kind === "entry" ? N.dateLong(win.carried.date) : "") : ""
         color: Zenon.ink
         font.family: Zenon.face
-        font.weight: Font.DemiBold
+        font.weight: Zenon.titleWeight
         font.pixelSize: Zenon.px(13)
       }
     }

@@ -55,6 +55,7 @@ Item {
         text: "\u{F051B}"
         color: trow.r && trow.r.next ? Zenon.accent : Zenon.accentMuted
         font.family: Zenon.glyphFace
+        font.weight: Zenon.weight
         font.pixelSize: Zenon.px(17)
       }
       Column {
@@ -70,7 +71,7 @@ Item {
           text: trow.r ? H.shortName(trow.r.unit.replace(/\.timer$/, "")) + (trow.r.scope === "user" ? "  (yours)" : "") : ""
           color: Zenon.white
           font.family: Zenon.face
-          font.weight: 600
+          font.weight: Zenon.titleWeight
           font.pixelSize: Zenon.px(14)
         }
         Text {
@@ -97,7 +98,7 @@ Item {
           text: !trow.r ? "" : trow.r.next ? "Next " + H.relUs(trow.r.next, tp.now) : "Not scheduled"
           color: trow.r && trow.r.next ? Zenon.ink : Zenon.accentMuted
           font.family: Zenon.face
-          font.weight: 600
+          font.weight: Zenon.titleWeight
           font.pixelSize: Zenon.px(13)
         }
         Text {

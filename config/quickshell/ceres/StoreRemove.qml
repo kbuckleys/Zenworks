@@ -35,6 +35,7 @@ Rectangle {
     text: "\u{F0A7A}"
     color: rm.ready ? Zenon.red : Zenon.accentMuted
     font.family: Zenon.glyphFace
+    font.weight: Zenon.weight
     font.pixelSize: Zenon.px(rm.big ? 18 : 16)
   }
 

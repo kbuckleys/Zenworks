@@ -12,6 +12,8 @@
 -- What undotree plugins drew in a split, without the split.
 
 local api = vim.api
+-- vim.diff moved to vim.text.diff (as editing.lua guards it)
+local textDiff = vim.text and vim.text.diff or vim.diff
 local M = {}
 
 -- every state, flattened out of the tree: { seq, time, save? }
@@ -84,7 +86,7 @@ function M.list()
     if s.seq ~= tree.seq_cur then
       local lines = texts[s.seq]
       if lines then
-        local a, d = counts(vim.diff(now, table.concat(lines, "\n") .. "\n") or "")
+        local a, d = counts(textDiff(now, table.concat(lines, "\n") .. "\n") or "")
         detail = ("+%d −%d"):format(a, d)
       end
     end
@@ -105,7 +107,7 @@ function M.preview(seq)
   local lines = textsAt({ seq })[seq]
   if not lines then return "" end
   local now = table.concat(api.nvim_buf_get_lines(0, 0, -1, false), "\n") .. "\n"
-  return vim.diff(now, table.concat(lines, "\n") .. "\n", { ctxlen = 2 }) or ""
+  return textDiff(now, table.concat(lines, "\n") .. "\n", { ctxlen = 2 }) or ""
 end
 
 function M.go(seq)

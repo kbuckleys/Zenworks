@@ -32,6 +32,7 @@ import "."
 import "ceres.js" as Cer
 import "store.js" as St
 import "../morpheus/controls" as Controls
+import "../morpheus/runjob.js" as RunJob
 
 FloatingWindow {
   id: win
@@ -243,12 +244,12 @@ FloatingWindow {
     win.fpRuntime = null;
     if (remove) win.measureData(app.pkg);
     if (!remove) {
-      fpInfoProc.running = false;
-      fpMetaProc.running = false;
-      fpInfoProc.command = ["flatpak", "remote-info", "--system", "flathub", app.pkg];
-      fpMetaProc.command = ["flatpak", "remote-info", "--system", "--show-metadata", "flathub", app.pkg];
-      fpInfoProc.running = true;
-      fpMetaProc.running = true;
+      // each run its own job (RunJob): a stopped one still streams, and the
+      // last app's sizes and sandbox showed on this one's sheet (11-08);
+      // `--` before an id the catalog named
+      RunJob.drop(fpRtProc);
+      RunJob.latest(fpInfoProc, { pkg: app.pkg, command: ["flatpak", "remote-info", "--system", "--", "flathub", app.pkg] });
+      RunJob.latest(fpMetaProc, { pkg: app.pkg, command: ["flatpak", "remote-info", "--system", "--show-metadata", "--", "flathub", app.pkg] });
     }
     win.overlay = "fpget";
   }
@@ -264,19 +265,22 @@ FloatingWindow {
   }
   Process {
     id: fpInfoProc
+    property var job: null
+    property var want: null
+    onExited: RunJob.next(fpInfoProc)
     stdout: StdioCollector {
       id: fpInfoOut
       onStreamFinished: {
+        if (!RunJob.current(fpInfoProc) || !win.fpApp || fpInfoProc.job.pkg !== win.fpApp.pkg) return;
         win.fpInfo = St.remoteInfo(fpInfoOut.text);
         // and the runtime it runs on: here already, or what it costs first
         const rt = win.fpInfo["Runtime"] || "";
         win.fpRuntime = null;
         if (rt === "") return;
-        fpRtProc.running = false;
-        fpRtProc.command = ["sh", "-c", "rt=" + Cer.q(rt) + "; "
+        const pkg = fpInfoProc.job.pkg;
+        Qt.callLater(() => RunJob.latest(fpRtProc, { pkg, command: ["sh", "-c", "rt=" + Cer.q(rt) + "; "
           + "flatpak list --runtime --columns=ref 2>/dev/null | grep -qx \"$rt\" && { echo '@@have'; exit 0; }; "
-          + "flatpak remote-info --system flathub \"runtime/$rt\" 2>/dev/null"];
-        Qt.callLater(() => { fpRtProc.running = true; });
+          + "flatpak remote-info --system flathub \"runtime/$rt\" 2>/dev/null"] }));
       }
     }
   }
@@ -287,9 +291,13 @@ FloatingWindow {
   property var fpRuntime: null
   Process {
     id: fpRtProc
+    property var job: null
+    property var want: null
+    onExited: RunJob.next(fpRtProc)
     stdout: StdioCollector {
       id: fpRtOut
       onStreamFinished: {
+        if (!RunJob.current(fpRtProc) || !win.fpApp || fpRtProc.job.pkg !== win.fpApp.pkg) return;
         if (fpRtOut.text.indexOf("@@have") >= 0) { win.fpRuntime = null; return; }
         const i = St.remoteInfo(fpRtOut.text);
         win.fpRuntime = i["Download Size"] ? { name: (fpRtOut.text.split("\n")[0] || "").split(" - ")[0].trim(),
@@ -300,7 +308,16 @@ FloatingWindow {
   }
   Process {
     id: fpMetaProc
-    stdout: StdioCollector { id: fpMetaOut; onStreamFinished: win.fpPerms = St.permissions(fpMetaOut.text) }
+    property var job: null
+    property var want: null
+    onExited: RunJob.next(fpMetaProc)
+    stdout: StdioCollector {
+      id: fpMetaOut
+      onStreamFinished: {
+        if (!RunJob.current(fpMetaProc) || !win.fpApp || fpMetaProc.job.pkg !== win.fpApp.pkg) return;
+        win.fpPerms = St.permissions(fpMetaOut.text);
+      }
+    }
   }
   // THE HEAD STANDS DOWN while there is nothing it could do: through
   // onboarding, and for the whole of a job — tabs and a filter over a
@@ -879,6 +896,7 @@ FloatingWindow {
       width: 412
       visible: text !== "" && text !== "None"
       elide: Text.ElideMiddle
+      textFormat: Text.PlainText
       text: peekBubble.m["URL"] || ""
       color: Zenon.blue
       font.family: Zenon.face
@@ -1116,6 +1134,8 @@ FloatingWindow {
     win.undo = null;
     win.targets = ({});
     win.plan = null;
+    // a plan still on its way for the confirm left is not this one's
+    win.planSeq++;
     win.planning = true;
     win.overlay = "confirm";
     undoProc.command = ["sh", "-c", Cer.undoCommand(Paths.cacheDir() + "/paru/clone")];
@@ -1233,6 +1253,7 @@ FloatingWindow {
   function loadHistory() {
     historyProc.command = ["sh", "-c", Cer.historyCommand(600)];
     historyProc.running = true;
+    if (!hInstalledProc.running) hInstalledProc.running = true;
   }
   Process {
     id: historyProc
@@ -1303,11 +1324,88 @@ FloatingWindow {
     return r && !r.head ? r.e : null;
   }
 
+  // ── MANAGING WHAT HISTORY NAMES (user, 2026-11-08) ─────────────────────
+  // A row's package acted on from here, not looked up in Packages first:
+  // the right-click menu (openHistMenu) and the keys say the same things,
+  // and the hint bar lists them. What is installed is read with the log
+  // (pacman -Qq), so a row knows at once whether it can be removed.
+  property var hInstalled: ({})
+  Process {
+    id: hInstalledProc
+    command: ["pacman", "-Qq"]
+    stdout: StdioCollector {
+      id: hInstalledOut
+      onStreamFinished: {
+        const m = {};
+        for (const n of hInstalledOut.text.split("\n")) if (n !== "") m[n] = true;
+        win.hInstalled = m;
+      }
+    }
+  }
+  // a Flatpak row's app, as the Store knows it (installed, its scope)
+  function hAppOf(e) {
+    if (!e || !e.flatpak) return null;
+    for (const a of storeView.apps) {
+      if (a.source === "flatpak" && a.pkg === e.id) return a;
+      if ((a.others || []).some(o => o.source === "flatpak" && o.pkg === e.id)) return St.asSource(a, "flatpak");
+    }
+    return null;
+  }
+  function hCanRemove(e) {
+    if (!e || e.runtime) return false;
+    if (e.flatpak) { const a = win.hAppOf(e); return !!a && a.installed; }
+    return !!win.hInstalled[e.name];
+  }
+  // pacman's through the confirm sheet, as Packages' ↵ asks; a Flatpak app
+  // through its own removal sheet, as the Store's Remove does
+  function hRemove(e) {
+    if (!win.hCanRemove(e) || Ceres.txBusy) return;
+    if (e.flatpak) storeView.remove(win.hAppOf(e));
+    else win.confirmOne({ name: e.name, installed: true, aur: false });
+  }
+  function hCanShow(e) { return !!e && !e.runtime && (!e.flatpak || !!win.hAppOf(e)); }
+  function hShow(e) {
+    if (!win.hCanShow(e)) return;
+    if (e.flatpak) { win.showTab("store"); storeView.open(win.hAppOf(e)); }
+    else win.jumpTo(e.name);
+  }
+  // the field set to its name: only this package's history
+  function hOnly(e) {
+    if (!e) return;
+    win.sharedQuery = e.name;
+    win.typing = false;
+    keys.forceActiveFocus();
+  }
+  function hCopy(e) { if (e) Strings.copy(e.flatpak ? e.id : e.name); }
+  function openHistMenu(x, y) {
+    const r = win.historyRows[win.hsel];
+    if (!r || r.head) return;
+    const e = r.e;
+    const back = win.wayBack;
+    histMenu.open(x, y, (back ? [
+      { text: "Go back to " + back.version, icon: "\u{F099B}", mark: "return", enabled: !Ceres.txBusy,
+        run: () => win.installCached(back) }] : []).concat([
+      { text: "Remove " + e.name, icon: "\u{F0A7A}", mark: "d", danger: true,
+        enabled: win.hCanRemove(e) && !Ceres.txBusy, run: () => win.hRemove(e) },
+      { isSeparator: true },
+      { text: e.flatpak ? "Show in Store" : "Show in Packages", icon: e.flatpak ? win.tabGlyphs.store : win.tabGlyphs.packages,
+        mark: "p", enabled: win.hCanShow(e), run: () => win.hShow(e) },
+      { text: "Only this package", icon: "\u{F0232}", mark: "f", run: () => win.hOnly(e) },
+      { text: "Undo this transaction", icon: "\u{F054C}", mark: "ctrl z", enabled: !e.flatpak && !Ceres.txBusy,
+        run: () => win.undoTransaction(r.tx) },
+      { isSeparator: true },
+      { text: "Copy name", icon: "\u{F018F}", mark: "c", run: () => win.hCopy(e) }
+    ]));
+  }
+
   // What is in the cache for the selected event's package, and what is
   // installed now — the two things a way back depends on.
   property var cached: []
   property string installedNow: ""
-  onHeventChanged: cacheDelay.restart()
+  // emptied AT ONCE, not when the look starts: for its 120 ms the last
+  // row's versions stood under this one's name, and a quick ↵ installed
+  // the other package's cached file (2026-11-08)
+  onHeventChanged: { win.cached = []; win.archived = []; win.installedNow = ""; cacheDelay.restart(); }
   Timer {
     id: cacheDelay
     interval: 120
@@ -1466,7 +1564,7 @@ FloatingWindow {
     { key: "pacnew", title: "Configuration files" },
     { key: "cache", title: "Package cache" },
     { key: "clones", title: "AUR build clones" },
-    { key: "sync", title: "Package databases" },
+    { key: "sync", title: "Package lists" },
     { key: "mirrors", title: "Mirrors" },
     { key: "oldcode", title: "Running old code" },
     { key: "aurhealth", title: "AUR health" }
@@ -1540,7 +1638,7 @@ FloatingWindow {
       + m.fpRuntimes.length + (m.fpRuntimes.length === 1 ? " runtime" : " runtimes")
       + (m.fpUnused.length ? " \u00b7 " + m.fpUnused.length + " unused" : "")
       + (win.fpRepair && win.fpRepair.problems.length ? " \u00b7 needs repair" : "");
-    case "sync": return (m.synced ? "synced " + Cer.age(Date.now() - m.synced) : "never synced")
+    case "sync": return (Ceres.lastOk > 0 ? "checked " + Cer.age(Date.now() - Ceres.lastOk) : "not checked yet")
       + (m.aurList ? " \u00b7 AUR list " + Cer.age(Date.now() - m.aurList).replace(" ago", " old") : "");
     }
     return "";
@@ -1730,30 +1828,22 @@ FloatingWindow {
     }
   }
 
-  // The new list is written as you, then put in place as root — the old one
-  // kept beside it as .ceres-bak — through the one password path.
-  readonly property string mirrorDraft: Paths.cacheDir() + "/ceres/mirrorlist.new"
+  // The new list is written by root from the text made here — the old one
+  // kept beside it as .ceres-bak — through the one password path. It was a
+  // draft in your cache, installed as root: anything running as you could
+  // have changed it before the password was typed (audit 11-08).
   function useRanked() {
     if (!win.ranked || win.ranked.ranked.length === 0) return;
-    draftProc.command = ["sh", "-c", "mkdir -p " + Cer.q(Paths.cacheDir() + "/ceres") + " && printf '%s' "
-      + Cer.q(Cer.mirrorlistText(win.ranked.ranked, Qt.formatDate(new Date(), "yyyy-MM-dd")))
-      + " > " + Cer.q(win.mirrorDraft)];
-    draftProc.running = true;
+    const text = Cer.mirrorlistText(win.ranked.ranked, Qt.formatDate(new Date(), "yyyy-MM-dd"));
+    // written beside the mirrorlist and renamed over it, so there is no
+    // moment where the file is half written — see ConfigView.save
+    win.mirrorsAfter = Ceres.request(
+      [["@sudo", "cp", "-p", Cer.MIRRORLIST, Cer.MIRRORLIST + ".ceres-bak"],
+       ["@sudo", "sh", "-c", "umask 022 && printf '%s' \"$1\" > \"$2\" && chmod 644 \"$2\"", "sh", text, Cer.MIRRORLIST + ".ceres-new"],
+       ["@sudo", "mv", "-f", Cer.MIRRORLIST + ".ceres-new", Cer.MIRRORLIST]],
+      "use the " + win.ranked.ranked.length + " fastest mirrors from here", 0);
   }
   property bool mirrorsAfter: false
-  Process {
-    id: draftProc
-    onExited: (code) => {
-      if (code !== 0) return;
-      // installed beside the mirrorlist and renamed over it, so there is no
-      // moment where the file is half written — see ConfigView.save
-      win.mirrorsAfter = Ceres.request(
-        [["@sudo", "cp", "-p", Cer.MIRRORLIST, Cer.MIRRORLIST + ".ceres-bak"],
-         ["@sudo", "install", "-m", "644", win.mirrorDraft, Cer.MIRRORLIST + ".ceres-new"],
-         ["@sudo", "mv", "-f", Cer.MIRRORLIST + ".ceres-new", Cer.MIRRORLIST]],
-        "use the " + win.ranked.ranked.length + " fastest mirrors from here", 0);
-    }
-  }
 
   // the primary action of the selected item, what ↵ does
   function maintGo(which) {
@@ -1805,11 +1895,14 @@ FloatingWindow {
       else win.useRanked();
     }
     else if (key === "sync") {
-      // the system's databases, then our AUR list; then a fresh look for
-      // updates, since a sync is exactly when there may be new ones
-      win.checkAfter = true;
-      Ceres.request([["@sudo", "pacman", "-Sy"], ["@user", Cer.q(win.script) + " aur"]],
-                    "sync package databases", 0);
+      // A REFRESH, NOT A SYNC (user, 2026-11-08). `pacman -Sy` on its own
+      // left the system's databases ahead of what is installed, and the
+      // next single install was a partial upgrade. Our AUR list, then the
+      // update check, which syncs Ceres' own copy (Ceres.dbPath) and leaves
+      // the system's to the next full upgrade. No password.
+      // only a request taken leaves the flag up (audit 11-08: a refused one
+      // ran the check after some unrelated job)
+      win.checkAfter = Ceres.request([["@user", Cer.q(win.script) + " aur"]], "refresh the package lists", 0);
     }
   }
   readonly property int keepVersions: 2
@@ -1836,6 +1929,7 @@ FloatingWindow {
     if (!configView.review || !configView.review.ok) return;
     win.checkAfter = true;
     configView.save();
+    if (!configView.saving) win.checkAfter = false;
   }
 
   // ── the transaction ─────────────────────────────────────────────────────
@@ -1856,7 +1950,7 @@ FloatingWindow {
       // A change that went through leaves the list it was made from out of
       // date — what was available is installed, what was installed is gone.
       if (Ceres.txState === "done" || Ceres.txState === "failed") configView.jobDone(Ceres.txState === "done");
-      if (Ceres.txState === "failed") win.checkAfter = false;
+      if (Ceres.txState === "failed") { win.checkAfter = false; win.mirrorsAfter = false; }
       if (Ceres.txState === "done") {
         if (win.checkAfter) { win.checkAfter = false; Ceres.check(); }
         if (win.mirrorsAfter) { win.mirrorsAfter = false; win.ranked = null; win.loadMirrors(); }
@@ -2104,6 +2198,15 @@ FloatingWindow {
         }
         else if (!win.typing && k === Qt.Key_J) win.move(1);
         else if (!win.typing && k === Qt.Key_K) win.move(-1);
+        // the row's package, managed from here (openHistMenu says the same)
+        else if (!win.typing && !ctrl && (k === Qt.Key_D || k === Qt.Key_Delete)) win.hRemove(win.hevent);
+        else if (!win.typing && !ctrl && k === Qt.Key_P) win.hShow(win.hevent);
+        else if (!win.typing && !ctrl && k === Qt.Key_F) win.hOnly(win.hevent);
+        else if (!win.typing && !ctrl && k === Qt.Key_C) win.hCopy(win.hevent);
+        else if (!win.typing && k === Qt.Key_Menu) {
+          const it = histList.itemAtIndex(win.hsel);
+          if (it) { const p = it.mapToItem(histMenu, 40, it.height); win.openHistMenu(p.x, p.y); }
+        }
         else event.accepted = win.filterKey(event);
         return;
       }
@@ -2180,10 +2283,6 @@ FloatingWindow {
               aur: Zenon.magenta, local: Zenon.white })[repo] || Zenon.accentKey;
   }
 
-  component Rule: Rectangle {
-    height: 1
-    color: Zenon.border
-  }
 
 
 
@@ -2341,7 +2440,7 @@ FloatingWindow {
               + (win.markInstalls && win.markRemovals ? "  " : "")
               + (win.markRemovals ? "<font color='" + Zenon.red + "'>\u2212" + win.markRemovals + "</font>" : "")
           font.family: Zenon.face
-          font.weight: Font.Bold
+          font.weight: Zenon.titleWeight
           font.pixelSize: Zenon.px(16)
         }
 
@@ -2416,8 +2515,8 @@ FloatingWindow {
                   low: 0.3
                 }
                 color: win.typing ? Zenon.white : Zenon.accentKey
-                selectionColor: Zenon.accent
-                selectedTextColor: Zenon.inkOnAccent
+                selectionColor: Zenon.selBg
+                selectedTextColor: Zenon.white
                 font.family: Zenon.face
                 font.weight: Zenon.weight
                 font.pixelSize: Zenon.px(15)
@@ -2580,7 +2679,7 @@ FloatingWindow {
       }
 
 
-      Rule { anchors.bottom: parent.bottom; anchors.left: parent.left; anchors.right: parent.right }
+      Hairline { anchors.bottom: parent.bottom; anchors.left: parent.left; anchors.right: parent.right }
     }
 
     // ── THE MESSAGE BAR ──────────────────────────────────────────────
@@ -2680,12 +2779,10 @@ FloatingWindow {
             // ── the day, as terminus' sidebar names a section ────────
             // its SideHead, metric for metric: air 13, rule, air 7, name, air 7, rule —
             // the rules edge to edge across the list, under the scroll rail too
-            Rectangle {
+            Hairline {
               visible: hrow.modelData.kind === "day" && !hrow.modelData.first
               y: 13
               width: histList.width
-              height: 1
-              color: Zenon.border
             }
             Text {
               textFormat: Text.PlainText
@@ -2695,16 +2792,14 @@ FloatingWindow {
               text: hrow.modelData.label || ""
               color: Zenon.accentKey
               font.family: Zenon.face
-              font.weight: Font.Bold
+              font.weight: Zenon.titleWeight
               font.pixelSize: Zenon.px(15)
               font.letterSpacing: 1.2
             }
-            Rectangle {
+            Hairline {
               visible: hrow.modelData.kind === "day"
               anchors.bottom: parent.bottom
               width: histList.width
-              height: 1
-              color: Zenon.border
             }
 
             // a transaction: when, what, how much
@@ -2718,14 +2813,15 @@ FloatingWindow {
                 text: hrow.modelData.time || ""
                 color: Zenon.blue
                 font.family: Zenon.face
-                font.weight: Font.Bold
+                font.weight: Zenon.titleWeight
                 font.pixelSize: Zenon.px(16)
               }
               Text {
+                textFormat: Text.PlainText
                 text: hrow.modelData.what || ""
                 color: Zenon.accentKey
                 font.family: Zenon.face
-                font.weight: Font.Bold
+                font.weight: Zenon.titleWeight
                 font.pixelSize: Zenon.px(16)
               }
               Text {
@@ -2761,6 +2857,17 @@ FloatingWindow {
               enabled: !hrow.modelData.head
               onTapped: { win.hsel = hrow.index; keys.forceActiveFocus(); }
               onDoubleTapped: { win.hsel = hrow.index; win.installCached(win.wayBack); }
+            }
+            // what can be done with its package (openHistMenu)
+            TapHandler {
+              enabled: !hrow.modelData.head
+              acceptedButtons: Qt.RightButton
+              onTapped: (ev) => {
+                win.hsel = hrow.index;
+                keys.forceActiveFocus();
+                const p = hrow.mapToItem(histMenu, ev.position.x, ev.position.y);
+                win.openHistMenu(p.x, p.y);
+              }
             }
           }
 
@@ -2815,7 +2922,7 @@ FloatingWindow {
               text: win.hevent ? win.hevent.name : ""
               color: Zenon.white
               font.family: Zenon.face
-              font.weight: Font.Bold
+              font.weight: Zenon.titleWeight
               font.pixelSize: Zenon.px(24)
             }
             // A FLATPAK'S EVENT: what it was, and why there is no way back
@@ -2855,7 +2962,7 @@ FloatingWindow {
               text: win.cached.length ? "In the package cache" : "Nothing of it in the package cache"
               color: Zenon.accentMuted
               font.family: Zenon.face
-              font.weight: Font.Bold
+              font.weight: Zenon.titleWeight
               font.pixelSize: Zenon.px(15)
             }
             // every cached version, the way back and any other
@@ -2870,7 +2977,7 @@ FloatingWindow {
               text: "From the Arch archive"
               color: Zenon.accentMuted
               font.family: Zenon.face
-              font.weight: Font.Bold
+              font.weight: Zenon.titleWeight
               font.pixelSize: Zenon.px(15)
             }
             Repeater {
@@ -2936,7 +3043,7 @@ FloatingWindow {
         // As wide as its content, as Config's is: the widest title or
         // summary, the dot's gutter, the padding. A share of the window
         // left most of it empty and squeezed the detail beside it.
-        FontMetrics { id: mfTitle; font.family: Zenon.face; font.weight: Font.Bold; font.pixelSize: Zenon.px(17) }
+        FontMetrics { id: mfTitle; font.family: Zenon.face; font.weight: Zenon.titleWeight; font.pixelSize: Zenon.px(17) }
         FontMetrics { id: mfSum; font.family: Zenon.face; font.pixelSize: Zenon.px(15) }
         readonly property real sideW: {
           let w = 0;
@@ -3013,7 +3120,7 @@ FloatingWindow {
                     text: mrow.modelData.title
                     color: Zenon.white
                     font.family: Zenon.face
-                    font.weight: Font.Bold
+                    font.weight: Zenon.titleWeight
                     font.pixelSize: Zenon.px(17)
                   }
                   Text {
@@ -3060,7 +3167,7 @@ FloatingWindow {
             text: win.maintItems[win.msel].title
             color: Zenon.white
             font.family: Zenon.face
-            font.weight: Font.Bold
+            font.weight: Zenon.titleWeight
             font.pixelSize: Zenon.px(22)
           }
           Text {
@@ -3180,7 +3287,7 @@ FloatingWindow {
             }
             DialogButton {
               visible: mdetail.key === "sync"
-              label: "Sync now"
+              label: "Refresh now"
               ink: Zenon.accent
               primary: true
               onClicked: win.maintGo("")
@@ -3393,7 +3500,7 @@ FloatingWindow {
                 anchors.verticalCenter: parent.verticalCenter
                 textFormat: Text.StyledText
                 linkColor: Zenon.link   // a link in it is the theme's (Zenon.link)
-                font.weight: mitem.modelData.head ? Font.Bold : Font.Normal
+                font.weight: mitem.modelData.head ? Zenon.titleWeight : Font.Normal
                 text: mitem.modelData.head ? "<font color='" + Zenon.accentMuted + "'>" + Cer.esc(mitem.modelData.name) + "</font>"
                   : Cer.esc(mitem.modelData.name) + (mitem.modelData.version
                   ? "  <font color='" + Zenon.accentMuted + "'>" + Cer.esc(mitem.modelData.version) + "</font>" : "")
@@ -3445,6 +3552,7 @@ FloatingWindow {
             boundsBehavior: Flickable.StopAtBounds
             model: win.pnDiff
             delegate: Text {
+              textFormat: Text.PlainText
               required property var modelData
               width: pnView.width - 14
               wrapMode: Text.WrapAnywhere
@@ -3492,11 +3600,9 @@ FloatingWindow {
             anchors.top: parent.top
             height: visible ? 22 : 0
 
-            Rectangle {
+            Hairline {
               anchors.bottom: parent.bottom
               width: parent.width
-              height: 1
-              color: Zenon.border
             }
 
             component ColHead: Item {
@@ -3570,8 +3676,8 @@ FloatingWindow {
                 // terminus' rule — the fill deepens and an accent outline says
                 // "you are here", whatever the mark (EntryRow.cursorOnly)
                 color: prow.mark ? (prow.modelData.installed
-                    ? Qt.rgba(Zenon.red.r, Zenon.red.g, Zenon.red.b, 0.12)
-                    : Qt.rgba(Zenon.green.r, Zenon.green.g, Zenon.green.b, 0.10))
+                    ? Zenon.alpha(Zenon.red, 0.12)
+                    : Zenon.alpha(Zenon.green, 0.10))
                   : "transparent"
                 border.width: prow.here && prow.mark ? 1 : 0
                 border.color: prow.mark ? Zenon.accent : Zenon.border
@@ -3716,7 +3822,7 @@ FloatingWindow {
                 visible: !urow.modelData.head
                 // see the packages' rows: a cursor on a marked row deepens
                 // it and rings it in accent
-                color: urow.marked ? Qt.rgba(Zenon.yellow.r, Zenon.yellow.g, Zenon.yellow.b, 0.10)
+                color: urow.marked ? Zenon.alpha(Zenon.yellow, 0.10)
                   : "transparent"
                 border.width: urow.index === win.usel && urow.marked ? 1 : 0
                 border.color: urow.marked ? Zenon.accent : Zenon.border
@@ -3731,7 +3837,7 @@ FloatingWindow {
                   + "  " + urow.modelData.n
                 color: urow.modelData.flatpak ? Ceres.ink.flat : urow.modelData.aur ? Ceres.ink.aur : Ceres.ink.repo
                 font.family: Zenon.face
-                font.weight: Font.Bold
+                font.weight: Zenon.titleWeight
                 font.pixelSize: Zenon.px(16)
               }
               Text {
@@ -3785,7 +3891,7 @@ FloatingWindow {
               text: Ceres.lastOk > 0 ? "Up to date" : "Not checked yet"
               color: Zenon.accentMuted
               font.family: Zenon.face
-              font.weight: Font.Bold
+              font.weight: Zenon.titleWeight
               font.pixelSize: Zenon.px(17)
             }
           }
@@ -3836,7 +3942,7 @@ FloatingWindow {
               text: win.info ? (win.info.map["Name"] || "") : ""
               color: Zenon.white
               font.family: Zenon.face
-              font.weight: Font.Bold
+              font.weight: Zenon.titleWeight
               font.pixelSize: Zenon.px(24)
             }
             Text {
@@ -3901,7 +4007,7 @@ FloatingWindow {
               width: infoCol.width
               topPadding: 14
               spacing: 7
-              Rectangle { width: ih.width; height: 1; color: Zenon.border }
+              Hairline { width: ih.width }
               Row {
                 spacing: 8
                 Text {
@@ -3910,7 +4016,7 @@ FloatingWindow {
                   text: ih.label
                   color: ih.foldable && ihPress.pressed ? Zenon.white : Zenon.accentKey
                   font.family: Zenon.face
-                  font.weight: Font.Bold
+                  font.weight: Zenon.titleWeight
                   font.pixelSize: Zenon.px(15)
                   font.letterSpacing: 1.2
                 }
@@ -3996,6 +4102,7 @@ FloatingWindow {
                   required property string modelData
                   width: infoCol.width
                   elide: Text.ElideMiddle
+                  textFormat: Text.PlainText
                   text: modelData
                   color: Zenon.accentKey
                   font.family: Zenon.faceFixed
@@ -4044,7 +4151,7 @@ FloatingWindow {
               : "Changes since it was last built here")
           color: Zenon.magenta
           font.family: Zenon.face
-          font.weight: Font.Bold
+          font.weight: Zenon.titleWeight
           font.pixelSize: Zenon.px(16)
         }
         // A Flickable over a Column, not a ListView. The lines wrap, so
@@ -4081,6 +4188,7 @@ FloatingWindow {
             Repeater {
               model: win.review ? win.review.lines : []
               delegate: Text {
+                textFormat: Text.PlainText
                 required property var modelData
                 width: reviewLines.width
                 wrapMode: Text.WrapAnywhere
@@ -4184,6 +4292,9 @@ FloatingWindow {
     }
     if (win.tab === "history")
       return (win.wayBack ? [["return", "go back to " + win.wayBack.version]] : [])
+        .concat(win.typing ? [] : (win.hCanRemove(win.hevent) ? [["d", "remove"]] : [])
+          .concat(win.hCanShow(win.hevent) ? [["p", win.hevent.flatpak ? "show in store" : "show in packages"]] : [])
+          .concat(win.hevent ? [["f", "only this package"]] : []))
         .concat(win.hevent && !win.hevent.flatpak ? [["ctrl z", "undo this transaction"]] : [])
         .concat(win.typing ? [] : [["j k", "move"], ["/", "filter"]])
         .concat([["ctrl tab", "next"]]).concat(win.escHint());
@@ -4381,7 +4492,7 @@ FloatingWindow {
           }
           color: Ceres.txState === "failed" ? Zenon.red : Zenon.white
           font.family: Zenon.face
-          font.weight: Font.Bold
+          font.weight: Zenon.titleWeight
           font.pixelSize: Zenon.px(17)
         }
         // HOW FAR, when the job says (user, 2026-10-15): a Flatpak's
@@ -4410,7 +4521,7 @@ FloatingWindow {
             text: Ceres.txTotal ? Math.round(Ceres.txTotal.frac * 100) + "%" : ""
             color: Zenon.white
             font.family: Zenon.face
-            font.weight: Font.Bold
+            font.weight: Zenon.titleWeight
             font.features: { "tnum": 1 }
             font.pixelSize: Zenon.px(14)
           }
@@ -4432,6 +4543,7 @@ FloatingWindow {
           width: parent.width
           horizontalAlignment: Text.AlignHCenter
           elide: Text.ElideRight
+          textFormat: Text.PlainText
           text: Ceres.txLog.length ? Ceres.txLog[Ceres.txLog.length - 1] : ""
           color: Zenon.accentKey
           font.family: Zenon.face
@@ -4513,7 +4625,7 @@ FloatingWindow {
             : settleCol.conflicts.length ? "Packages in conflict" : "Which provider?"
           color: Zenon.white
           font.family: Zenon.face
-          font.weight: Font.Bold
+          font.weight: Zenon.titleWeight
           font.pixelSize: Zenon.px(19)
         }
         Text {
@@ -4548,7 +4660,7 @@ FloatingWindow {
                   + "<font color='" + Zenon.red + "'>\u2212 " + modelData.replaces.join(", ") + "</font>")
             color: Zenon.ink
             font.family: Zenon.face
-            font.weight: Font.Bold
+            font.weight: Zenon.titleWeight
             font.pixelSize: Zenon.px(16)
           }
         }
@@ -4560,6 +4672,7 @@ FloatingWindow {
             required property string modelData
             width: settleCol.width
             wrapMode: Text.Wrap
+            textFormat: Text.PlainText
             text: modelData + " is required by " + Ceres.txNeeds[modelData].join(", ")
               + ". They stay only if the replacement provides what they need; pacman stops if it does not."
             color: Zenon.yellow
@@ -4659,7 +4772,7 @@ FloatingWindow {
           linkColor: Zenon.link   // a link in it is the theme's (Zenon.link)
           color: Zenon.white
           font.family: Zenon.face
-          font.weight: Font.Bold
+          font.weight: Zenon.titleWeight
           font.pixelSize: Zenon.px(20)
         }
         Text {
@@ -4685,6 +4798,7 @@ FloatingWindow {
               required property string modelData
               width: confProblems.width
               elide: Text.ElideRight
+              textFormat: Text.PlainText
               text: modelData.replace(/config file [^,]*, /, "")
               color: Zenon.red
               font.family: Zenon.faceCode
@@ -4714,6 +4828,7 @@ FloatingWindow {
           boundsBehavior: Flickable.StopAtBounds
           model: confSheet.diffLines
           delegate: Text {
+            textFormat: Text.PlainText
             required property var modelData
             width: confDiff.width - 14
             height: 21
@@ -4794,7 +4909,7 @@ FloatingWindow {
               text: !fpGetSheet.a ? "" : (win.fpRemove ? "Remove " : "Install ") + fpGetSheet.a.name + (win.fpRemove ? "?" : "")
               color: Zenon.white
               font.family: Zenon.face
-              font.weight: Font.Bold
+              font.weight: Zenon.titleWeight
               font.pixelSize: Zenon.px(20)
             }
             Text {
@@ -4923,7 +5038,7 @@ FloatingWindow {
           text: "Remove Flatpak?"
           color: Zenon.white
           font.family: Zenon.face
-          font.weight: Font.Bold
+          font.weight: Zenon.titleWeight
           font.pixelSize: Zenon.px(20)
         }
         Text {
@@ -5144,7 +5259,7 @@ FloatingWindow {
               text: stat.value
               color: stat.ink
               font.family: Zenon.face
-              font.weight: Font.Bold
+              font.weight: Zenon.titleWeight
               font.pixelSize: Zenon.px(24)
             }
           }
@@ -5233,7 +5348,7 @@ FloatingWindow {
             text: card.title
             color: card.ink
             font.family: Zenon.face
-            font.weight: Font.Bold
+            font.weight: Zenon.titleWeight
             font.pixelSize: Zenon.px(18)
           }
 
@@ -5249,7 +5364,7 @@ FloatingWindow {
             anchors.rightMargin: 12
             height: visible ? bannerCol.implicitHeight + 16 : 0
             radius: Zenon.windowRadius
-            color: Qt.rgba(Zenon.red.r, Zenon.red.g, Zenon.red.b, 0.12)
+            color: Zenon.alpha(Zenon.red, 0.12)
             border.width: 1
             border.color: Zenon.red
             Column {
@@ -5262,10 +5377,11 @@ FloatingWindow {
               Text {
                 width: parent.width
                 wrapMode: Text.Wrap
+                textFormat: Text.PlainText
                 text: card.error
                 color: Zenon.red
                 font.family: Zenon.face
-                font.weight: Font.Bold
+                font.weight: Zenon.titleWeight
                 font.pixelSize: Zenon.px(16)
               }
               // pacman's line under it, quieter, for when the plain words
@@ -5310,6 +5426,7 @@ FloatingWindow {
                   required property string modelData
                   width: bannerCol.width
                   wrapMode: Text.Wrap
+                  textFormat: Text.PlainText
                   text: modelData
                   color: Zenon.accentKey
                   font.family: Zenon.face
@@ -5381,7 +5498,7 @@ FloatingWindow {
                 text: ent.modelData.name
                 color: Zenon.accentMuted
                 font.family: Zenon.face
-                font.weight: Font.Bold
+                font.weight: Zenon.titleWeight
                 font.pixelSize: Zenon.px(15)
               }
 
@@ -5408,7 +5525,7 @@ FloatingWindow {
                 text: ent.modelData.name
                 color: ent.modelData.target ? Zenon.white : Zenon.accentKey
                 font.family: Zenon.face
-                font.weight: ent.modelData.target ? Font.Bold : Font.Normal
+                font.weight: ent.modelData.target ? Zenon.titleWeight : Font.Normal
                 font.pixelSize: Zenon.px(ent.modelData.target ? 17 : 16)
               }
               Text {
@@ -5436,7 +5553,7 @@ FloatingWindow {
                 width: aurText.implicitWidth + 16
                 height: 22
                 radius: Zenon.windowRadius
-                color: aurPress.pressed ? Qt.rgba(Zenon.magenta.r, Zenon.magenta.g, Zenon.magenta.b, 0.18) : "transparent"
+                color: aurPress.pressed ? Zenon.alpha(Zenon.magenta, 0.18) : "transparent"
                 border.width: 1
                 border.color: aurPress.pressed ? Zenon.magenta : Zenon.border
                 Text {
@@ -5475,7 +5592,7 @@ FloatingWindow {
           anchors.right: parent.right
           height: visible ? partialText.implicitHeight + 18 : 0
           radius: Zenon.windowRadius
-          color: Qt.rgba(Zenon.yellow.r, Zenon.yellow.g, Zenon.yellow.b, 0.10)
+          color: Zenon.alpha(Zenon.yellow, 0.10)
           border.width: 1
           border.color: Zenon.yellow
           Text {
@@ -5566,6 +5683,15 @@ FloatingWindow {
     }
   }
 
+  // a History row's menu (openHistMenu)
+  Term.PopMenu {
+    id: histMenu
+    parent: stage
+    anchors.fill: parent
+    window: win
+    cardWidth: 260
+    onClosed: keys.forceActiveFocus()
+  }
   // the search field's right-click menu (openFieldMenu)
   Term.PopMenu {
     id: fieldMenu

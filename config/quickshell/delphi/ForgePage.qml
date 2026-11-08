@@ -400,6 +400,7 @@ Item {
         width: list.width
         height: list.rowH
         Text {
+          textFormat: Text.PlainText
           id: fg
           x: 22
           width: 18
@@ -407,6 +408,7 @@ Item {
           text: frow.mark.glyph
           color: Zenon[frow.mark.ink]
           font.family: Zenon.glyphFace
+          font.weight: Zenon.weight
           font.pixelSize: Zenon.px(16)
         }
         // its checks (CiDot), for an open pull request whose commit is known
@@ -476,6 +478,7 @@ Item {
       spacing: 14
       visible: !pg.hub || (pg.listError !== "" && !pg.loading)
       Text {
+        textFormat: Text.PlainText
         width: parent.width
         horizontalAlignment: Text.AlignHCenter
         wrapMode: Text.Wrap
@@ -614,11 +617,11 @@ Item {
           width: parent.width
           wrapMode: Text.Wrap
           textFormat: Text.StyledText
-          text: pg.item ? pg.item.title.replace(/&/g, "&amp;").replace(/</g, "&lt;")
+          text: pg.item ? Strings.escapeHtml(pg.item.title)
             + "  <font color='" + Zenon.accentMuted + "'>#" + pg.item.number + "</font>" : ""
           color: Zenon.ink
           font.family: Zenon.face
-          font.weight: Font.Bold
+          font.weight: Zenon.titleWeight
           font.pixelSize: Zenon.px(20)
         }
         // its state, who opened it when, and for a pull request where to where
@@ -638,10 +641,12 @@ Item {
               anchors.centerIn: parent
               spacing: 6
               Text {
+                textFormat: Text.PlainText
                 anchors.verticalCenter: parent.verticalCenter
                 text: parent.parent.mark.glyph
                 color: Zenon[parent.parent.mark.ink]
                 font.family: Zenon.glyphFace
+                font.weight: Zenon.weight
                 font.pixelSize: Zenon.px(13)
               }
               Text {
@@ -650,7 +655,7 @@ Item {
                 text: parent.parent.mark.word
                 color: Zenon[parent.parent.mark.ink]
                 font.family: Zenon.face
-                font.weight: Font.Bold
+                font.weight: Zenon.titleWeight
                 font.pixelSize: Zenon.px(13)
               }
             }
@@ -738,7 +743,7 @@ Item {
     anchors.bottom: parent.bottom
     height: 150
     visible: pg.whole
-    Rectangle { width: parent.width; height: 1; color: Zenon.border }
+    Hairline { width: parent.width }
     MessageWell {
       id: reply
       x: 14
@@ -783,7 +788,7 @@ Item {
       text: pg.peek ? pg.peek.title : ""
       color: Zenon.ink
       font.family: Zenon.face
-      font.weight: Font.Bold
+      font.weight: Zenon.titleWeight
       font.pixelSize: Zenon.px(15)
     }
     Text {
@@ -791,8 +796,8 @@ Item {
       wrapMode: Text.Wrap
       textFormat: Text.StyledText
       text: !pg.peek ? "" : "<font color='" + Zenon[peekBubble.mark.ink] + "'>" + peekBubble.mark.word + "</font>"
-        + "  ·  #" + pg.peek.number + " by " + pg.peek.author + "  ·  " + D.ago(D.secondsOf(pg.peek.created), Date.now())
-        + (pg.peek.pull && pg.peek.branch ? "  ·  " + pg.peek.branch + " → " + pg.peek.base : "")
+        + "  ·  #" + pg.peek.number + " by " + D.esc(pg.peek.author) + "  ·  " + D.ago(D.secondsOf(pg.peek.created), Date.now())
+        + (pg.peek.pull && pg.peek.branch ? "  ·  " + D.esc(pg.peek.branch) + " → " + D.esc(pg.peek.base) : "")
       color: Zenon.accentMuted
       font.family: Zenon.face
       font.weight: Zenon.weight

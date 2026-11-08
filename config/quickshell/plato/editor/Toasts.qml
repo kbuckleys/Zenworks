@@ -76,7 +76,9 @@ Item {
         }
       }
     }
-    const last = cards.count - 1;
+    // a question is never merged into or rewritten: its buttons are for
+    // its own words (audit 11-07)
+    const last = cards.count > 0 && cards.get(cards.count - 1).ask > 0 ? -1 : cards.count - 1;
     if (last >= 0 && ev.append) { root.update(last, cards.get(last).text + text, t, kind); return; }
     if (last >= 0 && ev.replace) { root.update(last, text, t, kind); return; }
     // parts of one burst: a line each, the loudest ink
@@ -95,7 +97,9 @@ Item {
   function trim() {
     while (cards.count > root.maxCards) {
       let i = 0;
-      while (i < cards.count - 1 && cards.get(i).ask > 0) i++;
+      while (i < cards.count && cards.get(i).ask > 0) i++;
+      // all questions: none is dropped unanswered (its asker would wait)
+      if (i >= cards.count) break;
       cards.remove(i);
     }
   }
@@ -256,6 +260,7 @@ Item {
           textFormat: Text.PlainText
           // a listing is columns, and reads as columns
           font.family: card.many ? Zenon.faceFixed : Zenon.face
+          font.weight: Zenon.weight
           font.pixelSize: card.many ? root.face.pixelSize - 2 : root.face.pixelSize - 1
           color: card.tone === "error" ? Zenon.red : Zenon.white
           lineHeight: 1.1
@@ -280,7 +285,7 @@ Item {
               width: choiceRow.implicitWidth + 20
               height: 28
               radius: Zenon.windowRadius
-              color: choicePress.pressed ? Zenon.wash(0.1) : Zenon.wash(0.05)
+              color: choicePress.pressed ? Zenon.pressWash(0.12) : Zenon.wash(0.05)
               border.width: 1
               border.color: Zenon.border
               Row {

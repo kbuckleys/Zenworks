@@ -42,8 +42,8 @@ Item {
     selectByMouse: true
     wrapMode: TextEdit.Wrap
     color: Zenon.ink
-    selectionColor: Zenon.accent
-    selectedTextColor: Zenon.inkOnAccent
+    selectionColor: Zenon.selBg
+    selectedTextColor: Zenon.white
     font.family: Zenon.face
     font.weight: Zenon.weight
     font.pixelSize: Zenon.px(14)

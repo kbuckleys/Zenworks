@@ -18,6 +18,7 @@
 
 import os
 import re
+import shutil
 import tempfile
 
 import diff as D
@@ -241,6 +242,12 @@ def changelog_section(lines, tag):
     return "\n".join(body).strip("\n")
 
 
+
+def glob_literal(path):
+    """A path as a .gitignore pattern that matches only itself: [ ] * ? and
+    a backslash escaped (audit 11-07: "a[1].txt" also matched a1.txt)"""
+    return re.sub(r"([\\\[\]*?])", r"\\\1", str(path))
+
 class Repo:
     def __init__(self, path, sock=None):
         info = discover(path)
@@ -250,6 +257,14 @@ class Repo:
         self.root = info["root"]
         self.gitdir = info["gitdir"]
         self.git = Git(self.root, sock)
+        # a rebase's message files, needed until it is no longer in
+        # progress, then removed — not left in /tmp (audit 2026-11-07)
+        self._rebase_tmps = []
+
+    def cleanup(self):
+        for d in self._rebase_tmps:
+            shutil.rmtree(d, ignore_errors=True)
+        self._rebase_tmps = []
 
     # ── kept out of the repository, kept on disk ───────────────────────────
     # A file you make inside a repository and do not want in it (a build's
@@ -279,7 +294,7 @@ class Repo:
     def untrack(self, paths, ignore=True, where="gitignore", cancel=None):
         self.git.run(["rm", "--cached", "-r", "-q", "--"] + lit(paths), cancel=cancel)
         if ignore:
-            self.ignore(["/" + p.strip("/") + ("/" if os.path.isdir(os.path.join(self.root, p)) else "")
+            self.ignore(["/" + glob_literal(p.strip("/")) + ("/" if os.path.isdir(os.path.join(self.root, p)) else "")
                          for p in paths], where, cancel)
         return {"untracked": list(paths)}
 
@@ -409,24 +424,26 @@ class Repo:
         """Delete untracked files — again, asked about before this runs."""
         self.git.run(["clean", "-f", "-d", "-q", "--"] + lit(paths), cancel=cancel)
 
-    def stage_lines(self, path, chosen, cancel=None, untracked=False):
+    def stage_lines(self, path, chosen, cancel=None, untracked=False, token=None):
         """Stage part of a file's working-tree diff. chosen = {hunk: None |
-        [line indexes]} against the diff this same path gives right now."""
+        [line indexes]} against the diff this same path gives right now.
+        token = the diff's `index` line the user was looking at; if the file
+        changed since, the chosen indexes point at other lines — refused."""
         if untracked:
             # Partial staging of a new file: git add -N gives it an empty
             # index entry, and the chosen lines go onto that.
             self.git.run(["add", "-N", "--", lit1(path)], cancel=cancel)
         files = D.parse(self.git.run(["diff", "--no-ext-diff", "-U3", "--", lit1(path)],
                                      cancel=cancel, lock=False))
-        f = self._one(files, path)
+        f = self._one(files, path, token if not untracked else None)
         if f["status"] == "added":
             f = D.as_modification(f)
         self._apply(D.build(f, _keys(chosen)), ["--cached"], cancel)
 
-    def unstage_lines(self, path, chosen, cancel=None):
+    def unstage_lines(self, path, chosen, cancel=None, token=None):
         files = D.parse(self.git.run(["diff", "--cached", "--no-ext-diff", "-U3",
                                       "--", lit1(path)], cancel=cancel, lock=False))
-        f = self._one(files, path)
+        f = self._one(files, path, token)
         if f["status"] == "added":
             f = D.as_modification(f)
             p = D.build(f, _keys(chosen), reverse=True)
@@ -434,15 +451,17 @@ class Repo:
             return
         self._apply(D.build(f, _keys(chosen), reverse=True), ["--cached", "-R"], cancel)
 
-    def discard_lines(self, path, chosen, cancel=None):
+    def discard_lines(self, path, chosen, cancel=None, token=None):
         files = D.parse(self.git.run(["diff", "--no-ext-diff", "-U3", "--", lit1(path)],
                                      cancel=cancel, lock=False))
-        f = self._one(files, path)
+        f = self._one(files, path, token)
         self._apply(D.build(f, _keys(chosen), reverse=True), ["-R"], cancel)
 
-    def _one(self, files, path):
+    def _one(self, files, path, token=None):
         for f in files:
             if path in (f["new"], f["old"]):
+                if token and D.token(f) and D.token(f) != token:
+                    raise GitError(["diff"], 1, f"{path} changed since it was shown — look again")
                 return f
         raise GitError(["diff"], 1, f"no changes in {path} any more")
 
@@ -527,7 +546,13 @@ class Repo:
             # only moved it) — History's search in the changes themselves
             a += [f"-S{pickaxe}"]
         if revs:
-            a += list(revs)
+            # revisions only: "--output=…" or "--exec" from a typed compare
+            # range is an option to git log (audit 2026-11-07); Lost's own
+            # `--not --all` is the one pair allowed
+            for v in revs:
+                if str(v).startswith("-") and v not in ("--not", "--all"):
+                    raise GitError(["log"], 1, f"not a revision: {v}")
+            a += [str(v) for v in revs]
         elif all_refs:
             a += ["--branches", "--remotes", "--tags", "HEAD"]
         if path:
@@ -681,9 +706,16 @@ class Repo:
     # up on a stalled connection, and says nothing about progress.
     def fetch_quiet(self, cancel=None):
         quiet = Git(self.root)
+        # never asking, on the ssh the repository is set to use: its own
+        # core.sshCommand (a key, a proxy) kept, not replaced (audit 11-07)
+        try:
+            own = self.git.run(["config", "--get", "core.sshCommand"], ok=(0, 1), lock=False).strip()
+        except GitError:
+            own = ""
+        ssh = (os.environ.get("GIT_SSH_COMMAND") or own or "ssh") + " -o BatchMode=yes -o ConnectTimeout=10"
         quiet.run(["-c", "http.lowSpeedLimit=1000", "-c", "http.lowSpeedTime=20",
                    "fetch", "--all", "--prune", "--quiet"], cancel=cancel, creds=True,
-                  extra={"GIT_SSH_COMMAND": "ssh -o BatchMode=yes -o ConnectTimeout=10"})
+                  extra={"GIT_SSH_COMMAND": ssh})
         return {}
 
     def blame(self, path, rev=None, cancel=None):
@@ -912,13 +944,17 @@ class Repo:
                 if cancel and cancel.done:
                     raise
                 failed.append({"remote": n, "error": str(e), "step": "fetch"})
-        out = self.git.run(["for-each-ref", "--format=%(refname)\t%(objectname)",
+        out = self.git.run(["for-each-ref", "--format=%(refname)\t%(objectname)\t%(worktreepath)",
                             "refs/heads"] + [f"refs/remotes/{n}" for n in fetched], lock=False)
-        local, tips = {}, {}
+        local, tips, elsewhere = {}, {}, set()
         for l in out.splitlines():
-            ref, sha = (l.split("\t") + [""])[:2]
+            ref, sha, wt = (l.split("\t") + ["", ""])[:3]
             if ref.startswith("refs/heads/"):
                 local[ref[11:]] = sha
+                # checked out in another worktree: moving it under that
+                # worktree leaves its files at odds with its HEAD (audit 11-07)
+                if wt and os.path.realpath(wt) != os.path.realpath(self.root):
+                    elsewhere.add(ref[11:])
                 continue
             rest = ref[len("refs/remotes/"):]
             n, _, b = rest.partition("/")
@@ -941,6 +977,8 @@ class Repo:
                     try:
                         if b == head:
                             self.git.run(["merge", "--ff-only", "-q", best], cancel=cancel)
+                        elif b in elsewhere:
+                            raise GitError(["update-ref"], 1, "checked out in another worktree — pull it there")
                         else:
                             self.git.run(["update-ref", f"refs/heads/{b}", best, local[b]], cancel=cancel)
                         row["moved"] = True
@@ -1017,6 +1055,9 @@ class Repo:
             a.append("--set-upstream")
         if tags:
             a.append("--follow-tags")
+        # a remote or a refspec that starts with "-" would be read as an option
+        if str(remote or "").startswith("-") or str(branch or "").startswith("-"):
+            raise GitError(["push"], 1, "that is not a remote or a branch")
         if remote:
             a.append(remote)
             if branch:
@@ -1078,16 +1119,29 @@ class Repo:
             a += ["--"] + lit(paths)
         self.git.run(a, cancel=cancel)
 
-    def stash_apply(self, ref, pop=False, index=True, cancel=None):
+    # stash@{N} is a position: a stash pushed or popped elsewhere since the
+    # list was read moves every one after it. With the sha the list showed,
+    # one that is no longer at that place is refused, not dropped (audit 11-07)
+    def _stash_is(self, ref, sha):
+        if not sha:
+            return
+        now = self.git.run(["rev-parse", "--verify", "-q", ref], ok=(0, 1), lock=False).strip()
+        if now != sha:
+            raise GitError(["stash"], 1, "the stashes changed since they were listed — look again")
+
+    def stash_apply(self, ref, pop=False, index=True, sha=None, cancel=None):
+        self._stash_is(ref, sha)
         a = ["stash", "pop" if pop else "apply"]
         if index:
             a.append("--index")
         self.git.run(a + [ref], cancel=cancel)
 
-    def stash_drop(self, ref, cancel=None):
+    def stash_drop(self, ref, sha=None, cancel=None):
+        self._stash_is(ref, sha)
         self.git.run(["stash", "drop", ref], cancel=cancel)
 
-    def stash_branch(self, name, ref, cancel=None):
+    def stash_branch(self, name, ref, sha=None, cancel=None):
+        self._stash_is(ref, sha)
         self.git.run(["stash", "branch", name, ref], cancel=cancel)
 
     # ── worktrees ───────────────────────────────────────────────────────
@@ -1177,6 +1231,7 @@ class Repo:
         combined message (GIT_EDITOR is `:`), and fixup -C or a reword after
         it is how a different one is chosen."""
         tmp = tempfile.mkdtemp(prefix="delphi-rebase-")
+        self._rebase_tmps.append(tmp)
         lines = []
         for n, step in enumerate(plan):
             act, sha = step["action"], step["sha"]
@@ -1213,6 +1268,10 @@ class Repo:
         # 2026-10-28d)
         if st is not None and st.get("op") == "bisect":
             st = None
+        if S.repo_state(self.gitdir) is None:
+            for d in self._rebase_tmps:
+                shutil.rmtree(d, ignore_errors=True)
+            self._rebase_tmps = []
         if code == 0:
             return {"done": st is None, "state": st}
         if st is not None or "CONFLICT" in out + err:
@@ -1335,24 +1394,6 @@ class Repo:
 
     def mark_resolved(self, paths, cancel=None):
         self.git.run(["add", "--"] + lit(paths), cancel=cancel)
-
-    def conflict_versions(self, path, cancel=None):
-        """The three sides of a conflicted file — base, ours, theirs — written
-        to files beside nothing, for the merge view to open. A missing side
-        (added by one, deleted by other) is absent from the answer."""
-        tmp = tempfile.mkdtemp(prefix="delphi-merge-")
-        res = {"merged": os.path.join(self.root, path)}
-        for n, side in ((1, "base"), (2, "ours"), (3, "theirs")):
-            try:
-                data = self.git.run(["show", f":{n}:{path}"], cancel=cancel,
-                                    lock=False, text=False)
-            except GitError:
-                continue
-            p = os.path.join(tmp, f"{side}.{os.path.basename(path)}")
-            with open(p, "wb") as f:
-                f.write(data)
-            res[side] = p
-        return res
 
 
 def _blocks(text):

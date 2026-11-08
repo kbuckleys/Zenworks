@@ -93,7 +93,7 @@ Item {
       text: String(chip.num)
       color: sample.fgColor
       font.family: sample.face
-      font.weight: Font.DemiBold
+      font.weight: Zenon.titleWeight
       font.pixelSize: Zenon.px(12)
     }
     // the layout, as three tiles
@@ -129,6 +129,7 @@ Item {
     text: "Which screen each workspace opens on, and its layout. Lit: a layout of its own."
     color: sample.dimColor
     font.family: sample.face
+    font.weight: Zenon.weight
     font.pixelSize: Zenon.px(12)
   }
 
@@ -147,6 +148,7 @@ Item {
       text: "Any screen"
       color: sample.dimColor
       font.family: sample.face
+      font.weight: Zenon.weight
       font.pixelSize: Zenon.px(12)
       rightPadding: 4
     }
@@ -210,6 +212,7 @@ Item {
           text: mon.modelData.name !== "" ? mon.modelData.name : "Your screen"
           color: mon.main ? sample.fgColor : sample.dimColor
           font.family: sample.face
+          font.weight: Zenon.weight
           font.pixelSize: Zenon.px(11)
         }
       }

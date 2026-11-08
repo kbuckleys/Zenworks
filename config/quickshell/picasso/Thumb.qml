@@ -25,6 +25,9 @@ ClippingRectangle {
 
   property string path: ""
   property string thumb: ""
+  // the thumbnail named would not open (swept from the shared pool, say):
+  // the owner may make it again (audit 11-08)
+  signal missed()
   property bool wait: false
   property int fillMode: Image.PreserveAspectCrop
   // the spinner while it loads — the picker's grid wants it; the viewer's
@@ -75,7 +78,7 @@ ClippingRectangle {
     source: img.hasThumb ? "file://" + box.thumb
       : (box.wait || box.path === "" ? "" : Strings.fileUrl(box.path))
     onStatusChanged: {
-      if (status === Image.Error && img.hasThumb) img.thumbFailed = true;
+      if (status === Image.Error && img.hasThumb) { img.thumbFailed = true; box.missed(); }
       if (status === Image.Ready && img.pool && box.keeper) box.keeper.keep(img.source);
     }
     readonly property bool pool: box.pooled && img.hasThumb

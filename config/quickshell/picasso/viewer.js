@@ -12,6 +12,7 @@
 // One path, or several separated by newlines (the launcher's %F). Blank lines
 // dropped, the same file named twice kept once, the order kept.
 .pragma library
+.import "../morpheus/quote.js" as Quote
 // ONE COPY FOR THE WHOLE SHELL. Without the pragma every component instance
 // that imports this file evaluated all of it again (qmlprofiler, 2026-10-09;
 // see morpheus/icons.js and terminus/terminus.js for what that cost).
@@ -440,6 +441,8 @@ function clipboardLookCommand(stem) {
     + '[ -n "$m" ] || { printf \'none\\036\'; exit 0; }\n'
     + 'ext=${m#image/}\n'
     + 'case $ext in jpeg) ext=jpg ;; svg+xml) ext=svg ;; x-*) ext=${ext#x-} ;; esac\n'
+    // a type is anyone's to offer: only a plain extension goes in the path
+    + 'case $ext in ""|*[!a-z0-9+.-]*|*..*) printf \'none\\036\'; exit 0 ;; esac\n'
     + 'f="$1.$ext"\n'
     + 'mkdir -p "$(dirname "$f")" && wl-paste -t "$m" > "$f" 2>/dev/null && [ -s "$f" ]'
     + ' && printf \'image\\036%s\' "$f" || printf \'none\\036\'\n';
@@ -473,8 +476,9 @@ function parseClipboardLook(text) {
 // tesseract on a png, its text to the clipboard. A missing tesseract says so
 // with exit 127, which the caller turns into "install it". In every language
 // installed, English first (as morpheus/py/ocrlangs.py), not English alone.
-function ocrCommand(png) {
-  return 'command -v tesseract >/dev/null || exit 127\n'
+// The png is "$1" (the caller's argv), removed on every way out (11-08).
+function ocrCommand() {
+  return 'command -v tesseract >/dev/null || { rm -f "$1"; exit 127; }\n'
     + 'l=$({ echo eng; tesseract --list-langs 2>/dev/null | sed 1d | grep -vxE \'osd|equ|eng\' | sort; } | paste -sd+)\n'
     + 'out=$(tesseract "$1" - -l "$l" 2>/dev/null | sed -e \'s/[[:space:]]*$//\' | sed -e :a -e \'/^\\n*$/{$d;N;ba\' -e \'}\')\n'
     + 'rm -f "$1"\n'
@@ -1005,7 +1009,7 @@ function parseTools(text) {
 // onnxruntime; rembg itself only when the script's modules are missing.
 function cutoutCommand(script) {
   return 'if python3 -c "import onnxruntime, numpy, PIL, scipy" >/dev/null 2>&1; then exec python3 -I '
-    + "'" + String(script || "").replace(/'/g, "'\\''") + "'" + ' --progress -- "$1" "$2"; fi\n'
+    + Quote.shellQuote(script || "") + ' --progress -- "$1" "$2"; fi\n'
     + 'command -v rembg >/dev/null 2>&1 && exec rembg i -- "$1" "$2"\n'
     + 'echo "cutout: needs python-onnxruntime-cpu" >&2; exit 127\n';
 }

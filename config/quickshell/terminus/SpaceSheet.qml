@@ -121,16 +121,9 @@ Rectangle {
   }
 
   InputShield { keepTop: term.tabStripRef.height + term.crumbBarRef.height; onClicked: space.dismiss() }
-  Sheet {
-    ground: "transparent"
-    backdrop: term.sheetBackdrop   // the listing, frosted under the card
-    seamFrost: term.sheetSeam   // the bar's frost, carried over the seam
-    splice: true
-    onCardInkChanged: term.noteSheet("s11", cardInk, drawnX, drawnW, drawnY, drawnH)
-    onDrawnXChanged: term.noteSheet("s11", cardInk, drawnX, drawnW, drawnY, drawnH)
-    onDrawnWChanged: term.noteSheet("s11", cardInk, drawnX, drawnW, drawnY, drawnH)
-    onDrawnYChanged: term.noteSheet("s11", cardInk, drawnX, drawnW, drawnY, drawnH)
-    onDrawnHChanged: term.noteSheet("s11", cardInk, drawnX, drawnW, drawnY, drawnH)
+  TermSheet {
+    host: term
+    note: "s11"
     id: spaceSheet
     leftInset: term.sideRef.width
     floating: false   // hangs from the bar, which carries its title — see barTitle
@@ -177,7 +170,7 @@ Rectangle {
               + (space.unmeasured === 1 ? " directory…" : " directories…") : "")
         color: space.unmeasured > 0 ? Zenon.accent : Zenon.white
         font.family: Zenon.face
-        font.weight: 600
+        font.weight: Zenon.titleWeight
         font.pixelSize: Zenon.px(14)
       }
     }
@@ -254,11 +247,12 @@ Rectangle {
             Text {
               width: parent.width
               elide: Text.ElideRight
+              textFormat: Text.PlainText
               text: !tile.it ? "" : tile.it.rest ? tile.it.count + " smaller items"
                 : (tile.row.isDir ? " " : "") + tile.row.name
               color: Zenon.white
               font.family: Zenon.face
-              font.weight: 600
+              font.weight: Zenon.titleWeight
               font.pixelSize: Zenon.px(13)
             }
             Text {

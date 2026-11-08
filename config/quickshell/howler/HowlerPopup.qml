@@ -263,7 +263,7 @@ LayerPopup {
               : "Notifications  " + popup.rows.length
           color: Zenon.accent
           font.family: Zenon.face
-          font.weight: Font.Bold
+          font.weight: Zenon.titleWeight
           font.pixelSize: Zenon.px(16)
         }
 
@@ -296,8 +296,8 @@ LayerPopup {
             height: 22
             radius: Zenon.radiusControl
             color: Howler.trackMusic
-              ? Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.18)
-              : (musicPress.pressed ? Zenon.wash(0.08) : "transparent")
+              ? Zenon.alpha(Zenon.accent, 0.18)
+              : (musicPress.pressed ? Zenon.pressWash(0.12) : "transparent")
             border.width: 1
             border.color: Howler.trackMusic ? Zenon.accent : Zenon.border
             Behavior on color { ColorAnimation { duration: Zenon.fast } }
@@ -328,8 +328,8 @@ LayerPopup {
             height: 22
             radius: Zenon.radiusControl
             color: Howler.silent
-              ? Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.18)
-              : (silentPress.pressed ? Zenon.wash(0.08) : "transparent")
+              ? Zenon.alpha(Zenon.accent, 0.18)
+              : (silentPress.pressed ? Zenon.pressWash(0.12) : "transparent")
             border.width: 1
             border.color: Howler.silent ? Zenon.accent : Zenon.border
             Behavior on color { ColorAnimation { duration: Zenon.fast } }
@@ -367,12 +367,10 @@ LayerPopup {
           }
         }
 
-        Rectangle {
+        Hairline {
           anchors.bottom: parent.bottom
           anchors.left: parent.left
           anchors.right: parent.right
-          height: 1
-          color: Zenon.border
         }
       }
 
@@ -403,7 +401,7 @@ LayerPopup {
         width: chipText.implicitWidth + 20
         height: 24
         radius: Zenon.radiusControl
-        color: chip.on ? Qt.rgba(Zenon.sand.r, Zenon.sand.g, Zenon.sand.b, 0.20)
+        color: chip.on ? Zenon.alpha(Zenon.sand, 0.20)
                        : "transparent"
         border.color: chip.on ? Zenon.sand : Zenon.border
         border.width: 1
@@ -555,7 +553,7 @@ LayerPopup {
                 text: Qt.locale().dayName(row.eventDay.getDay(), Locale.ShortFormat).toUpperCase()
                 color: row.eventInk
                 font.family: Zenon.face
-                font.weight: Font.Bold
+                font.weight: Zenon.titleWeight
                 font.pixelSize: Zenon.px(10)
               }
               Text {
@@ -563,7 +561,7 @@ LayerPopup {
                 text: row.eventDay.getDate()
                 color: Zenon.ink
                 font.family: Zenon.face
-                font.weight: Font.Bold
+                font.weight: Zenon.titleWeight
                 font.pixelSize: Zenon.px(20)
               }
             }
@@ -636,6 +634,7 @@ LayerPopup {
               text: Howler.missingGlyph
               color: Zenon.accentMuted
               font.family: Zenon.glyphFace
+              font.weight: Zenon.weight
               font.pixelSize: Zenon.px(24)
             }
           }
@@ -655,7 +654,7 @@ LayerPopup {
                 : row.modelData.appName
             color: row.modelData.urgency === 2 && !row.event ? Zenon.red : Zenon.white
             font.family: Zenon.face
-            font.weight: Font.Bold
+            font.weight: Zenon.titleWeight
             font.pixelSize: Zenon.px(14)
           }
 
@@ -671,7 +670,7 @@ LayerPopup {
             textFormat: Howler.markup ? Text.StyledText : Text.PlainText
             color: row.event ? row.eventInk : Zenon.muted
             font.family: Zenon.face
-            font.weight: Font.Bold
+            font.weight: Zenon.titleWeight
             font.pixelSize: Zenon.px(13)
           }
 
@@ -684,7 +683,7 @@ LayerPopup {
             anchors.top: parent.top
             anchors.topMargin: 12
             text: Qt.formatDateTime(new Date(row.modelData.time || 0), "HH:mm")
-            color: Zenon.muted
+            color: Zenon.accentMuted
             font.family: Zenon.face
             font.weight: Zenon.weight
             font.pixelSize: Zenon.px(12)
@@ -711,6 +710,7 @@ LayerPopup {
             text: "\u{F0A92}"
             color: Zenon.accentMuted
             font.family: Zenon.glyphFace
+            font.weight: Zenon.weight
             font.pixelSize: Zenon.px(13)
           }
 

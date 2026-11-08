@@ -203,7 +203,7 @@ QtObject {
   readonly property var sorted: {
     const kept = Terminus.filterEntries(pane.raw, "", term.showHidden,
                                         term.portalGhost);
-    if (term.searchMode !== "")
+    if (pane.searching)
       return pane.searchGrouped ? Terminus.groupByDir(kept) : kept;
     if (term.sizing) {
       const m = term.dirSizes;
@@ -805,7 +805,7 @@ QtObject {
     // directory listing cannot produce this — its rows are all siblings
     // in cwd and everything spliced in is strictly deeper — so the pass
     // is skipped there rather than run to find nothing.
-    if (term.searchMode === "")
+    if (!pane.searching)
       return { rows: out, guide: g, depth: dp };
     const once = [];
     for (let i = 0; i < out.length; ++i)
@@ -904,7 +904,9 @@ QtObject {
   }
 
   // This pane is showing the results, grouped (term.searchGrouped)
-  readonly property bool searchGrouped: pane.active && term.searchGrouped
+  readonly property bool searchGrouped: pane.searching && term.searchGrouped
+  // this pane holds the search's results (the other one stays a directory)
+  readonly property bool searching: term.searchMode !== "" && (!term.searchPane || term.searchPane === pane)
   // A row opened out of a result directory belongs to that result's run,
   // so it is the top-level row above it that is labeled.
   function searchLabelAt(i) {

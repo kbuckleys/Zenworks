@@ -80,7 +80,15 @@ def get(host):
 def put(host, username, password):
     """Kept in the keyring when there is one, else in the file — and read
     back from where it went, so a store that kept nothing is never
-    believed. Answers where."""
+    believed. Answers where. An entry left under another username for
+    the same host goes first: the keyring keeps one per (host, username)
+    and `fill` answers with whichever it finds, so the old account's token
+    could win over the one just put (audit 2026-11-07)."""
+    for _ in range(4):
+        c = rest.keyring("fill", {"protocol": "https", "host": host})
+        if not c.get("password") or c.get("username", "") == username:
+            break
+        rest.keyring("reject", {"protocol": "https", "host": host, "username": c.get("username", "")})
     rest.keyring("approve", {"protocol": "https", "host": host,
                              "username": username, "password": password})
     if not rest.KEYRING["down"]:

@@ -120,6 +120,7 @@ Item {
     text: "The desktop's right-click menu at its real width and row height."
     color: sample.dimColor
     font.family: sample.face
+    font.weight: Zenon.weight
     font.pixelSize: Zenon.px(12)
   }
 
@@ -146,6 +147,7 @@ Item {
       text: "\u{F01BF}"
       color: sample.fgColor
       font.family: Zenon.glyphFace
+      font.weight: Zenon.weight
       font.pixelSize: Zenon.px(18)
       style: Text.Outline
       styleColor: Zenon.shade(0.6)

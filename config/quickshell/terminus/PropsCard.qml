@@ -197,7 +197,11 @@ Item {
 
   function computeChecksum() {
     const r = props.rows[0];
-    if (!r || r.isDir || sumProc.running) return;
+    if (!r || r.isDir) return;
+    if (sumProc.running && sumProc.forGen === props.gen) return;
+    // an earlier card's hash still running: its answer is dropped and this
+    // one runs when it exits
+    sumProc.superseded = sumProc.running;
     props.checksum = "\u2026";
     sumProc.forGen = props.gen;
     sumProc.command = ["sh", "-c", Terminus.checksumCommand(r.path)];
@@ -583,6 +587,7 @@ Item {
             }
             font.family: specimen ? propFace.font.family
               : Zenon.face
+            font.weight: Zenon.weight
             font.pixelSize: Zenon.px(56)
           }
           // THE GLYPH IS WHERE IT IS CHANGED: a click on it is Change
@@ -595,7 +600,7 @@ Item {
               && !propShotClip.visible && propFace.status !== FontLoader.Ready
             anchors.fill: parent
             radius: Zenon.windowRadius
-            color: glyphMa.pressed ? Zenon.wash(0.08) : glyphMa.containsMouse ? Zenon.wash(0.04) : "transparent"
+            color: glyphMa.pressed ? Zenon.pressWash(0.12) : "transparent"
             visible: glyphHit.can
             // set by a click: the card is going, and the bubble with it
             property bool leaving: false
@@ -646,6 +651,7 @@ Item {
                 text: glyphBubble.facts ? glyphBubble.facts.glyph : ""
                 color: Zenon.accent
                 font.family: Zenon.glyphFace
+                font.weight: Zenon.weight
                 font.pixelSize: Zenon.px(22)
               }
               Column {
@@ -695,6 +701,7 @@ Item {
                     text: verb.modelData.glyph
                     color: Zenon.ink
                     font.family: Zenon.glyphFace
+                    font.weight: Zenon.weight
                     font.pixelSize: Zenon.px(15)
                   }
                   Text {
@@ -778,6 +785,7 @@ Item {
                   font.pixelSize: Zenon.px(15)
                 }
                 Text {
+                  textFormat: Text.PlainText
                   anchors.verticalCenter: parent.verticalCenter
                   text: modelData
                   color: Zenon.white
@@ -954,7 +962,7 @@ Item {
             selectionColor: Zenon.selBg
             selectedTextColor: Zenon.white
             font.family: Zenon.faceMono
-            font.weight: Font.Bold
+            font.weight: Zenon.titleWeight
             font.pixelSize: Zenon.px(30)
             cursorDelegate: Caret { field: permOctal }
             selectByMouse: true
@@ -1001,7 +1009,7 @@ Item {
           text: Terminus.modeStringMixed(props.permMode, props.permShownMixed)
           color: Zenon.sand
           font.family: Zenon.faceMono
-          font.weight: Font.Bold
+          font.weight: Zenon.titleWeight
           font.pixelSize: Zenon.px(21)
         }
       }
@@ -1011,58 +1019,33 @@ Item {
       // The four modes anyone actually types. A permissions dialog whose
       // quickest route to 755 is nine clicks is a dialog that has not
       // finished the job.
-      Row {
+      // as Segments (user, 2026-11-08): the four as one switch, the
+      // mode's own lit when it is one of them, none when it is not (or the
+      // selection's modes differ). The high bits — setuid and friends — are
+      // left alone: this is a shortcut for the nine, not a reset of the
+      // whole mode.
+      Segments {
+        id: permPresets
+        readonly property var bits: ({ "644": 420, "755": 493, "600": 384, "700": 448 })
         anchors.horizontalCenter: parent.horizontalCenter
-        spacing: 8
-
-        Repeater {
-          model: [
-            ["644", 420], ["755", 493], ["600", 384], ["700", 448]
-          ]
-
-          delegate: Rectangle {
-            required property var modelData
-            readonly property bool on: (props.permMode & 511) === modelData[1] && props.permShownMixed === 0
-            width: 62
-            height: 24
-            radius: Zenon.radiusControl
-            // PRESSED, DARKENED as every button in the suite (user, 2026-10-17)
-            color: presetPress.pressed ? Zenon.pressFill
-              : on ? Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.20)
-              : "transparent"
-            border.width: 1
-            border.color: Zenon.border
-            Behavior on color {
-              ColorAnimation { duration: Zenon.fast; easing.type: Zenon.ease }
-            }
-
-            Text {
-              textFormat: Text.PlainText
-              anchors.centerIn: parent
-              text: modelData[0]
-              color: parent.on ? Zenon.accent : Zenon.accentMuted
-              opacity: presetPress.pressed ? Zenon.pressDim : 1
-              font.family: Zenon.faceMono
-              font.weight: Zenon.weight
-              font.pixelSize: Zenon.px(14)
-            }
-
-            MouseArea {
-              id: presetPress
-              anchors.fill: parent
-              // the high bits — setuid and friends — are left alone: this
-              // is a shortcut for the nine, not a reset of the whole mode
-              onClicked: props.setPermBits(modelData[1])
-            }
-          }
+        face: Zenon.faceMono
+        weight: Zenon.weight
+        textSize: Zenon.px(14)
+        // sized by its words (all four are three digits): `even` shares a
+        // width the holder sets, and with none it drew nothing
+        options: [["644", "644"], ["755", "755"], ["600", "600"], ["700", "700"]]
+        current: {
+          if (props.permShownMixed !== 0) return "";
+          const m = props.permMode & 511;
+          for (const k in permPresets.bits) if (permPresets.bits[k] === m) return k;
+          return "";
         }
+        onChose: (v) => props.setPermBits(permPresets.bits[v])
       }
 
       Item { width: 1; height: permGrid.gap + 2 }
 
-      Rectangle {
-        height: 1
-        color: Zenon.border
+      Hairline {
       }
 
       Item { width: 1; height: permGrid.gap }
@@ -1083,8 +1066,11 @@ Item {
             height: 18
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter
+            textFormat: Text.PlainText
             text: modelData
-            color: Zenon.border
+            // the muted ink every caption wears: in the border's grey it
+            // all but vanished on the frost (user, 2026-11-08)
+            color: Zenon.accentMuted
             font.family: Zenon.face
             font.weight: Zenon.weight
             font.pixelSize: Zenon.px(12)
@@ -1140,10 +1126,11 @@ Item {
                 radius: Zenon.radiusControl
                 color: bitPress.pressed ? Zenon.pressFill
                   : parent.on
-                  ? Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.20)
+                  ? Zenon.alpha(Zenon.accent, 0.20)
                   : "transparent"
                 border.width: 1
-                border.color: Zenon.border
+                // the arrows' cursor: Space flips this bit
+                border.color: parent.here ? Zenon.accent : Zenon.border
                 Behavior on color {
                   ColorAnimation { duration: Zenon.fast; easing.type: Zenon.ease }
                 }
@@ -1156,7 +1143,7 @@ Item {
                   color: bitCell.on ? Zenon.accent : Zenon.accentMuted
                   opacity: bitPress.pressed ? Zenon.pressDim : 1
                   font.family: Zenon.faceMono
-                  font.weight: Font.Bold
+                  font.weight: Zenon.titleWeight
                   font.pixelSize: Zenon.px(16)
                 }
               }
@@ -1190,9 +1177,7 @@ Item {
 
       Item { width: 1; height: permGrid.gap + 2 }
 
-      Rectangle {
-        height: 1
-        color: Zenon.border
+      Hairline {
       }
 
       // ── ONLY WHEN THERE IS SOMETHING TO COMMIT ──────────────
@@ -1242,10 +1227,8 @@ Item {
     anchors.bottom: parent.bottom
     width: parent.width
 
-    Rectangle {
+    Hairline {
       width: parent.width
-      height: 1
-      color: Zenon.border
     }
 
     Item {
@@ -1386,10 +1369,12 @@ Item {
     // the card it was asked for: a hash still running when the card moved
     // on to another file landed there as that file's (audit 2026-10-28d)
     property int forGen: -1
+    property bool superseded: false
     stdout: StdioCollector {
       id: sumOut
       waitForEnd: true
       onStreamFinished: {
+        if (sumProc.superseded) { sumProc.superseded = false; return; }
         if (sumProc.forGen !== props.gen) return;
         const t = String(sumOut.text || "").trim();
         props.checksum = t === "" ? "unreadable" : t;

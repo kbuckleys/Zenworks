@@ -90,6 +90,7 @@ Item {
       : "The pill at its real size. Click a module to show or hide it."
     color: bs.dimColor
     font.family: bs.face
+    font.weight: Zenon.weight
     font.pixelSize: Zenon.px(12)
   }
 
@@ -132,7 +133,7 @@ Item {
         radius: pill.radius + modelData[0]
         color: "transparent"
         border.width: 1
-        border.color: Qt.rgba(Zenon.border.r, Zenon.border.g, Zenon.border.b, Zenon.border.a * modelData[1])
+        border.color: Zenon.alpha(Zenon.border, Zenon.border.a * modelData[1])
         opacity: pill.opacity
       }
     }
@@ -148,7 +149,7 @@ Item {
       // Frameless: the modules alone, as shell.qml's pillFrame at rest
       color: Oracle.barBare ? "transparent" : Zenon.panelBg
       border.width: Oracle.barBare ? 0 : 1
-      border.color: Qt.rgba(Zenon.border.r, Zenon.border.g, Zenon.border.b, Math.min(1, Zenon.border.a * 2.5))
+      border.color: Zenon.alpha(Zenon.border, Math.min(1, Zenon.border.a * 2.5))
       opacity: Oracle.barAutohide ? 0.6 : 1
       clip: true
       Behavior on y { NumberAnimation { duration: Zenon.menuFade; easing.type: Easing.OutCubic } }

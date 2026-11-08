@@ -85,7 +85,7 @@ Item {
           color: Zenon.wash(0.05)
           radius: Zenon.windowRadius
         }
-        Rectangle { visible: rowItem.r > 0; width: parent.width; height: 1; color: Zenon.border }
+        Hairline { visible: rowItem.r > 0; width: parent.width }
         Row {
           id: cellRow
           Repeater {

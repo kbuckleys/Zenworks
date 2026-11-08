@@ -40,7 +40,6 @@ Item {
   readonly property var coast: pan.host ? pan.host.elastic || null : null
   // whether there is anywhere to pan to
   property bool on: false
-  readonly property bool panning: grab.active
 
   width: pan.flick ? pan.flick.contentWidth : 0
   height: pan.flick ? pan.flick.contentHeight : 0

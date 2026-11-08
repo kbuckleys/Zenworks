@@ -47,6 +47,7 @@ import "answers.js" as Answers
 import "../chronos/weather.js" as Wx
 import "../chronos/chronos.js" as Chr
 import "../morpheus/hypr.js" as Hypr
+import "../morpheus/runjob.js" as RunJob
 import "../oracle/oracle.js" as Ora
 import "../morpheus/offspecial.js" as Off
 import "../terminus/terminus.js" as Terminus
@@ -243,6 +244,7 @@ LayerPopup {
     : popup.quitScoped ? { glyph: "\uF00D", text: "Quit" }
     : popup.historyScoped ? { glyph: "\uF1DA", text: "History" }
     : popup.snapScoped ? { glyph: "\uF2D0", text: "Snap" }
+    : popup.themesScoped ? { glyph: "\uF1FC", text: "Themes" }
     : popup.layoutsScoped ? { glyph: "\uF009", text: "Layouts" }
     : popup.settingsScoped ? { glyph: "\uF013", text: "Settings" }
     : popup.storeScoped ? { glyph: "\uF07A", text: "Store" }
@@ -280,7 +282,10 @@ LayerPopup {
   readonly property bool answerGraph: !!popup.answer && (popup.answer.kind === "cpu" || popup.answer.kind === "memory")
   readonly property bool answerMeter: !!popup.answer && popup.answer.level !== undefined
   readonly property bool answerQr: !!popup.answer && !!popup.answer.qr
-  readonly property int answerGaugeH: popup.answerQr ? Zenon.px(200) + 14
+  // facts under an answer's two lines (the uptime's load, processes, cores)
+  readonly property bool answerFacts: !!popup.answer && !!popup.answer.facts && popup.answer.facts.length > 0
+  readonly property int answerGaugeH: popup.answerFacts ? Zenon.px(22) + 14
+    : popup.answerQr ? Zenon.px(200) + 14
     : popup.answerGraph ? Zenon.px(64) + 14
     : popup.answerMeter ? Zenon.px(8) + 14 : 0
   readonly property int topH: popup.folioEditing ? popup.folioH
@@ -311,7 +316,9 @@ LayerPopup {
   // down on the empty compact field opens it on your favorites and
   // suggestions (2026-11-04); esc, a key typed or the next opening folds it
   property bool compactOpen: false
-  onQueryChanged: popup.compactOpen = false
+  onQueryChanged: { popup.compactOpen = false; popup.lastPick = null; }
+  // the row return last ran, for history (closeCynosure)
+  property var lastPick: null
   readonly property int rootH: popup.confirmLine ? popup.confirmH
     : popup.compactNow ? popup.fieldH
     : popup.editing ? popup.fieldH + Zenon.hintBarH
@@ -661,7 +668,6 @@ LayerPopup {
     // an inline script's row already says it: return copies what it said
     if (sc.mode === "inline") {
       popup.copyText(popup.scriptSaid[sc.path] || "");
-      popup.closeCynosure();
       return;
     }
     const args = arg ? [arg] : [];
@@ -823,7 +829,8 @@ LayerPopup {
           scripts: popup.scripts }) : [],
         helpOnly: popup.helpScoped,
         only: popup.snapScoped ? Cynosure.snapRows(popup.scopeRest, popup.lastWindowName())
-          : popup.historyScoped ? Cynosure.searchRows(popup.queries, popup.scopeRest)
+          : popup.themesScoped ? popup.themeList()
+          : popup.historyScoped ? Cynosure.searchRows(popup.queries, popup.scopeRest, popup.links, popup.scripts)
           : popup.quitScoped ? popup.quitList() : popup.layoutsScoped ? Cynosure.layoutRows(popup.layouts, popup.scopeRest)
           : lookups.scoped ? lookups.rows : null });
     // a chip with nothing after it: what you last looked for under it, first
@@ -1147,10 +1154,10 @@ LayerPopup {
   // move after it puts it right)
   Process {
     id: snapProc
-    property string address: ""
-    property string where: ""
-    property var size: null
-    command: ["sh", "-c", "hyprctl monitors -j; printf '\\036'; hyprctl clients -j; printf '\\036'; hyprctl getoption general:gaps_out -j"]
+    property var job: null
+    property var queue: []
+    readonly property var snapCmd: ["sh", "-c", "hyprctl monitors -j; printf '\\036'; hyprctl clients -j; printf '\\036'; hyprctl getoption general:gaps_out -j"]
+    onExited: RunJob.next(snapProc)
     stdout: StdioCollector {
       id: snapOut
       waitForEnd: true
@@ -1158,7 +1165,9 @@ LayerPopup {
         const parts = snapOut.text.split("\u001e");
         let mons = [], clients = [];
         try { mons = JSON.parse(parts[0]); clients = JSON.parse(parts[1]); } catch (e) { return; }
-        const addr = snapProc.address;
+        const job = snapProc.job;
+        if (!job) return;
+        const addr = job.address;
         // quickshell's address has no 0x, hyprctl's has
         const bare = (a) => String(a || "").replace(/^0x/, "");
         const c = addr !== "" ? clients.find((x) => bare(x.address) === bare(addr))
@@ -1169,7 +1178,7 @@ LayerPopup {
         const sel = Hypr.byAddress(c.address);
         const lead = [Hypr.focusWindow(sel), Hypr.raiseWindow(sel)];
         // "restore": as it was before the first time it was put somewhere
-        if (snapProc.where === "restore") {
+        if (job.where === "restore") {
           const was = popup.snapWas[c.address];
           if (!was) return;
           delete popup.snapWas[c.address];
@@ -1180,8 +1189,8 @@ LayerPopup {
         // "center" keeps the size it has; larger, smaller and the widths go
         // from where it is
         const own = { x: c.at[0], y: c.at[1], w: c.size[0], h: c.size[1] };
-        const size = ["center", "grow", "shrink", "maxW", "maxH"].indexOf(snapProc.where) >= 0 ? own : snapProc.size;
-        const r = Cynosure.snapRect(mon, Cynosure.gapsOf(parts[2]), snapProc.where, size);
+        const size = ["center", "grow", "shrink", "maxW", "maxH"].indexOf(job.where) >= 0 ? own : job.size;
+        const r = Cynosure.snapRect(mon, Cynosure.gapsOf(parts[2]), job.where, size);
         if (!r) return;
         if (!popup.snapWas[c.address] && Oracle.cynosureRememberPlaces)
           popup.snapWas[c.address] = { floating: !!c.floating, x: c.at[0], y: c.at[1], w: c.size[0], h: c.size[1] };
@@ -1387,32 +1396,32 @@ LayerPopup {
   function expandKeyword(kw) {
     const path = popup.snipKeys[kw];
     if (!path || Kairos.locked) return;
-    expandProc.word = kw;
-    expandProc.fromFile = true;
-    expandProc.command = ["sh", "-c", "cat -- \"$1\"; printf '\\036'; wl-paste -n -t text 2>/dev/null | head -c 100000", "cynosure", path];
-    expandProc.running = true;
+    RunJob.queued(expandProc, { word: kw, fromFile: true,
+      command: ["sh", "-c", "cat -- \"$1\"; printf '\\036'; wl-paste -n -t text 2>/dev/null | head -c 100000", "cynosure", path] });
   }
   Process {
     id: expandProc
-    property string word: ""
-    // read from the snippet's file (a keyword typed), not handed in filled
-    property bool fromFile: false
+    // job: { word, fromFile — read from the snippet's file (a keyword
+    // typed), not handed in filled }; one at a time, so two keywords typed
+    // fast each take back their own word
+    property var job: null
+    property var queue: []
+    onExited: RunJob.next(expandProc)
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
+        const job = expandProc.job;
         const t = String(text);
         const cut = t.indexOf("\u001e");
-        if (cut < 0) return;
+        if (cut < 0 || !job) return;
         // values to ask for first: the panel opens for them (askSnipArgs),
         // and types it all once they are given
-        if (expandProc.fromFile && Folio.snippetArgs(t.slice(0, cut)).length > 0) {
-          expandProc.fromFile = false;
-          popup.askSnipArgs(t.slice(0, cut), "type", expandProc.word);
+        if (job.fromFile && Folio.snippetArgs(t.slice(0, cut)).length > 0) {
+          popup.askSnipArgs(t.slice(0, cut), "type", job.word);
           return;
         }
-        expandProc.fromFile = false;
         const x = Folio.expandSnippetAt(t.slice(0, cut), new Date(), t.slice(cut + 1));
-        for (const argv of Folio.expandKeys(Array.from(expandProc.word).length, x.text, x.back))
+        for (const argv of Folio.expandKeys(Array.from(job.word).length, x.text, x.back))
           Quickshell.execDetached(argv);
       }
     }
@@ -1439,10 +1448,7 @@ LayerPopup {
       popup.dispatchLater(steps.concat([Hypr.moveToMonitor(where === "next" ? "+1" : "-1")]));
       return;
     }
-    snapProc.address = address;
-    snapProc.where = where;
-    snapProc.size = size || null;
-    snapProc.running = true;
+    RunJob.queued(snapProc, { command: snapProc.snapCmd, address, where, size: size || null });
     popup.closeCynosure();
   }
 
@@ -1669,7 +1675,10 @@ LayerPopup {
     const now = Date.now();
     for (const sc of popup.inlineScripts) {
       if (!all && !(sc.refresh > 0 && now - (popup.inlineAt[sc.path] || 0) >= sc.refresh)) continue;
+      // one run per script: a slow one is not stacked up behind itself
+      if (popup.inlineLive[sc.path]) continue;
       popup.inlineAt[sc.path] = now;
+      popup.inlineLive[sc.path] = true;
       const p = inlineComp.createObject(popup, { path: sc.path });
       p.running = true;
     }
@@ -1677,6 +1686,7 @@ LayerPopup {
   // run when the scripts are read (scriptsProc), not again on the list
   // changing: that is the same reading, and each ran twice an open
   property var inlineAt: ({})
+  property var inlineLive: ({})
   Component {
     id: inlineComp
     Process {
@@ -1693,7 +1703,7 @@ LayerPopup {
           popup.rebuild();
         }
       }
-      onExited: ip.destroy()
+      onExited: { delete popup.inlineLive[ip.path]; ip.destroy(); }
     }
   }
   // the shortest @refresh asked for, while the panel is up
@@ -1712,24 +1722,24 @@ LayerPopup {
   readonly property string hitLine: popup.hitsScoped ? popup.query.replace(/^\s*in\s+/i, "").trim() : ""
   property var hitRows: []
   onHitLineChanged: {
-    if (popup.hitLine.length < 3) { hitLater.stop(); hitProc.running = false; popup.hitRows = []; popup.applyFilter(); return; }
+    if (popup.hitLine.length < 3) { hitLater.stop(); RunJob.drop(hitProc); popup.hitRows = []; popup.applyFilter(); return; }
     hitLater.restart();
   }
   Timer { id: hitLater; interval: 300; onTriggered: popup.askHits() }
   function askHits() {
-    hitProc.running = false;
-    hitProc.asked = popup.hitLine;
-    hitProc.command = ["sh", "-c", Cynosure.contentCommand(popup.hitLine, Quickshell.env("HOME"))];
-    hitProc.running = true;
+    RunJob.latest(hitProc, { asked: popup.hitLine,
+      command: ["sh", "-c", Cynosure.contentCommand(popup.hitLine, Quickshell.env("HOME"))] });
   }
   Process {
     id: hitProc
-    property string asked: ""
+    property var job: null
+    property var want: null
+    onExited: RunJob.next(hitProc)
     stdout: StdioCollector {
       id: hitOut
       waitForEnd: true
       onStreamFinished: {
-        if (hitProc.asked !== popup.hitLine) return;
+        if (!hitProc.job || hitProc.job.asked !== popup.hitLine) return;
         popup.hitRows = Cynosure.contentRows(hitOut.text, Quickshell.env("HOME"), Icons.glyphFor);
         popup.applyFilter();
       }
@@ -2078,8 +2088,9 @@ LayerPopup {
   // return does it through the app that owns it (Volume, Hermes, Chronos,
   // Howler's quiet, the player, Hyprland). Ending processes asks first.
   readonly property var cmd: popup.mode === "search" && !popup.taken ? Answers.parseCommand(popup.query) : null
-  readonly property var cmdRow: {
-    const c = popup.cmd;
+  readonly property var cmdRow: popup.describeCmd(popup.cmd)
+  // a command as its row: what it does, and how things stand now
+  function describeCmd(c) {
     if (!c) return null;
     const onOff = (on) => on ? "On now" : "Off now";
     let label = "", glyph = "\uF0AD", sub = "";
@@ -2267,6 +2278,7 @@ LayerPopup {
   }
   function runCmd(c) {
     switch (c.kind) {
+    case "theme": Oracle.set("theme", c.value); break;
     case "volume":
       if (!Volume.ready) return;
       Volume.audio.muted = false;
@@ -2373,6 +2385,8 @@ LayerPopup {
   // "snap …": every window place, for the window you were in (Cynosure.SNAPS)
   readonly property bool snapScoped: /^\s*snaps?\s/i.test(popup.query)
   readonly property bool layoutsScoped: /^\s*layouts?\s/i.test(popup.query)
+  // "theme …": dark and light mode, then every theme (Cynosure.themeRows)
+  readonly property bool themesScoped: /^\s*themes?\s/i.test(popup.query)
   readonly property string scopeRest: popup.query.replace(/^\s*\S+\s+/, "")
   // what runs in the tray, by process (bin/trayapps.py asks the bus), read
   // as "quit" is typed and again when the tray changes
@@ -2392,6 +2406,14 @@ LayerPopup {
         popup.applyFilter();
       }
     }
+  }
+  function themeList() {
+    const q = popup.scopeRest.trim().toLowerCase();
+    const modes = [false, true].map((light) => popup.describeCmd({ kind: "appearance", light }))
+      .filter((r) => q === "" || r.label.toLowerCase().indexOf(q) >= 0)
+      .map((r) => Object.assign({}, r, { key: "theme:mode:" + r.label, section: "Themes" }));
+    return modes.concat(Cynosure.themeRows(Oracle.themeOptions, Oracle.theme, q,
+      (o) => Ora.themeInksFor(o, Zenon.zenon, Zenon.followTheme && Zenon.followTheme.colors)));
   }
   function quitList() {
     const apps = Cynosure.quitRows(popup.openWindows(), popup.scopeRest, Strings.appGlyph, (id) => {
@@ -2480,21 +2502,15 @@ LayerPopup {
     if (r.kind === "file") {
       popup.detail = { kind: "file", icon: r.glyph || "\uF15B", busy: true,
         facts: [["Where", r.sub !== "" ? r.sub : "/"]] };
-      statProc.seq = seq;
-      statProc.row = r;
-      statProc.command = Terminus.statArgv([r.path.replace(/\/$/, "")]);
-      statProc.running = true;
+      RunJob.latest(statProc, { seq, row: r, command: Terminus.statArgv([r.path.replace(/\/$/, "")]) });
       const name = Terminus.basename(r.path);
       if (r.isDir) {
-        lookProc.seq = seq; lookProc.shows = "list";
-        lookProc.command = ["sh", "-c", "ls -1Ap -- \"$1\" 2>/dev/null | head -40", "cynosure", r.path];
-        lookProc.running = true;
+        RunJob.latest(lookProc, { seq, shows: "list",
+          command: ["sh", "-c", "ls -1Ap -- \"$1\" 2>/dev/null | head -40", "cynosure", r.path] });
       } else if (Terminus.isImage(name)) {
         popup.setDetail(seq, { image: "file://" + r.path, busy: false });
       } else if (Terminus.kindOf(name) === "text" || Terminus.isText(name)) {
-        lookProc.seq = seq; lookProc.shows = "code";
-        lookProc.command = ["sh", "-c", Terminus.previewCommand(r.path, null)];
-        lookProc.running = true;
+        RunJob.latest(lookProc, { seq, shows: "code", command: ["sh", "-c", Terminus.previewCommand(r.path, null)] });
       } else popup.setDetail(seq, { busy: false });
       return;
     }
@@ -2549,14 +2565,9 @@ LayerPopup {
       const from = Math.max(1, r.line - 3);
       popup.detail = { kind: "file", icon: r.glyph || "\uF15C", busy: true, hit: r.line - from,
         facts: [["Line", String(r.line)]] };
-      statProc.seq = seq;
-      statProc.row = { path: r.path, line: r.line,
-        sub: Artemis.shownPath(Terminus.dirname(r.path), Quickshell.env("HOME")) };
-      statProc.command = Terminus.statArgv([r.path]);
-      statProc.running = true;
-      lookProc.seq = seq; lookProc.shows = "code";
-      lookProc.command = ["sh", "-c", Terminus.previewCommand(r.path, null, from)];
-      lookProc.running = true;
+      RunJob.latest(statProc, { seq, command: Terminus.statArgv([r.path]),
+        row: { path: r.path, line: r.line, sub: Artemis.shownPath(Terminus.dirname(r.path), Quickshell.env("HOME")) } });
+      RunJob.latest(lookProc, { seq, shows: "code", command: ["sh", "-c", Terminus.previewCommand(r.path, null, from)] });
       return;
     }
     if (r.kind === "glyphs") {
@@ -2578,13 +2589,15 @@ LayerPopup {
   }
   Process {
     id: statProc
-    property int seq: 0
-    property var row: null
+    property var job: null
+    property var want: null
+    onExited: RunJob.next(statProc)
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
         const f = Terminus.parseStat(text)[0];
-        const r = statProc.row;
+        const job = statProc.job;
+        const r = job ? job.row : null;
         if (!f || !r) return;
         const kind = r.isDir ? "Directory" : Terminus.kindOf(f.name);
         const facts = [["Kind", kind.charAt(0).toUpperCase() + kind.slice(1)]];
@@ -2593,18 +2606,21 @@ LayerPopup {
         facts.push(["Modified", Terminus.formatTime(f.mtime) + " · " + when.toLocaleDateString(Qt.locale(), Locale.ShortFormat)]);
         if (r.line) facts.push(["Line", String(r.line)]);
         facts.push(["Where", r.sub !== "" ? r.sub : "/"]);
-        popup.setDetail(statProc.seq, { facts });
+        popup.setDetail(job.seq, { facts });
       }
     }
   }
   Process {
     id: lookProc
-    property int seq: 0
-    property string shows: ""
+    property var job: null
+    property var want: null
+    onExited: RunJob.next(lookProc)
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
-        if (lookProc.shows === "code") {
+        const job = lookProc.job;
+        if (!job) return;
+        if (job.shows === "code") {
           const more = { rich: String(text).trim() === "" ? "" : Terminus.ansiToRich(text, Zenon.faceCode), busy: false };
           // where the matching line is in what the pane shows, by character
           const hit = popup.detail ? popup.detail.hit : undefined;
@@ -2614,9 +2630,9 @@ LayerPopup {
             for (let i = 0; i < hit && i < lines.length; ++i) at += lines[i].length + 1;
             more.hitAt = hit < lines.length ? [at, at + lines[hit].length] : null;
           }
-          popup.setDetail(lookProc.seq, more);
+          popup.setDetail(job.seq, more);
         }
-        else popup.setDetail(lookProc.seq, { text: String(text).trim() === "" ? "Empty" : text, mono: true, busy: false });
+        else popup.setDetail(job.seq, { text: String(text).trim() === "" ? "Empty" : text, mono: true, busy: false });
       }
     }
   }
@@ -2692,10 +2708,7 @@ LayerPopup {
       // the calendar: chronos' cal.py, over the days asked about
       if (a.kind === "cal") {
         const r = Answers.calRange(a, new Date());
-        askProc.seq = seq;
-        askProc.kind = "cal";
-        askProc.command = ["python3", "-I", Chronos.calCore, "list", r.from, r.to];
-        askProc.running = true;
+        RunJob.latest(askProc, { seq, kind: "cal", command: ["python3", "-I", Chronos.calCore, "list", r.from, r.to] });
         return;
       }
       // how busy, how full: Sysmon's own readings, live (liveFill)
@@ -2709,7 +2722,7 @@ LayerPopup {
       const cmd = a.kind === "battery"
         ? "for b in /sys/class/power_supply/BAT*; do [ -e \"$b/capacity\" ] && echo \"$(cat \"$b/capacity\") $(cat \"$b/status\")\" && break; done"
         : a.kind === "ip" ? "ip -4 -o addr show scope global"
-        : a.kind === "uptime" ? "cut -d' ' -f1 /proc/uptime"
+        : a.kind === "uptime" ? "cut -d' ' -f1 /proc/uptime; cut -d' ' -f1-4 /proc/loadavg; nproc"
         : a.kind === "disk" ? "df -kP \"$HOME\""
         : a.kind === "kernel" ? "uname -sr"
         : a.kind === "hostname" ? "cat /etc/hostname 2>/dev/null || uname -n"
@@ -2723,10 +2736,7 @@ LayerPopup {
           + "qrencode -s 8 -m 2 --foreground=000000 --background=ffffff -o \"$f\" -- \"$1\" && printf '%s' \"$f\""
  : "";
       if (cmd === "") return;
-      askProc.seq = seq;
-      askProc.kind = a.kind;
-      askProc.command = ["sh", "-c", cmd, "cynosure", a.text || ""];
-      askProc.running = true;
+      RunJob.latest(askProc, { seq, kind: a.kind, command: ["sh", "-c", cmd, "cynosure", a.text || ""] });
       return;
     }
     const w = popup.wxAsk;
@@ -2807,27 +2817,28 @@ LayerPopup {
   }
   Process {
     id: askProc
-    property int seq: 0
-    property string kind: ""
+    property var job: null
+    property var want: null
+    onExited: RunJob.next(askProc)
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
-        if (askProc.seq !== popup.askSeq) return;
-        const k = askProc.kind;
+        if (!askProc.job || askProc.job.seq !== popup.askSeq) return;
+        const k = askProc.job.kind;
         let a = null;
         if (k === "cal") a = popup.ask ? Answers.calAnswer(text, popup.ask, new Date()) : null;
         else if (k === "battery") a = Answers.parseBattery(text) || { big: "No battery", small: "On mains power" };
         else if (k === "ip") {
           const addrs = Answers.parseAddrs(text);
-          a = addrs.length ? { big: addrs.map((x) => x.addr).join("  ·  "), small: addrs.map((x) => x.dev).join(" · ") }
+          a = addrs.length ? { big: addrs.map((x) => x.addr).join("  ·  "), small: addrs.map((x) => x.dev).join(" · "), glyph: "\uF0AC" }
             : { big: "Offline", small: "No address on any network" };
-        } else if (k === "uptime") a = { big: Answers.uptimeText(text), small: "Since this computer started" };
+        } else if (k === "uptime") a = Answers.uptimeCard(text, new Date(), Oracle.clock24h);
         else if (k === "disk") a = Answers.parseDf(text);
-        else if (k === "kernel") a = { big: text.trim(), small: "The kernel running now" };
+        else if (k === "kernel") a = { big: text.trim(), small: "The kernel running now", glyph: "\uF17C" };
         else if (k === "qr") a = text.trim() !== "" ? { big: popup.ask ? popup.ask.text : "", small: "Return copies the picture",
             qr: text.trim() } : { big: "No QR code", small: "Making one needs qrencode" };
-        else if (k === "hostname") a = { big: text.trim(), small: "This computer's name" };
-        else if (k === "wifi") a = text.trim() !== "" ? { big: text.trim(), small: "The Wi-Fi network you are on" }
+        else if (k === "hostname") a = { big: text.trim(), small: "This computer's name", glyph: "\uF108" };
+        else if (k === "wifi") a = text.trim() !== "" ? { big: text.trim(), small: "The Wi-Fi network you are on", glyph: "\uF1EB" }
           : { big: "Not on Wi-Fi", small: "No wireless network joined" };
         else if (k === "hash") a = { big: text.trim(), small: popup.ask ? popup.ask.algo.toUpperCase() + " of \u201C"
           + (popup.ask.text.length > 30 ? popup.ask.text.slice(0, 29) + "\u2026" : popup.ask.text) + "\u201D" : "" };
@@ -2958,7 +2969,6 @@ LayerPopup {
     if (t === "") return;
     x.cardKeep();
     popup.copyText(t);
-    popup.closeCynosure();
   }
   // the other way round: the translation becomes the words, into what they
   // were written in
@@ -2994,7 +3004,7 @@ LayerPopup {
       else popup.lexiCopy();
       return true;
     }
-    if (alt && k === Qt.Key_P) { event.accepted = true; popup.lexi.cardSpeak(popup.lexiMode); return true; }
+    if (alt && k === Qt.Key_P) { event.accepted = true; if (popup.lexiCanSay) popup.lexi.cardSpeak(popup.lexiMode); return true; }
     if (alt && k === Qt.Key_E && popup.lexiMode === "dict") { event.accepted = true; popup.lexi.cardMore(); return true; }
     if (alt && k === Qt.Key_S && popup.lexiMode === "trans") { event.accepted = true; popup.lexiSwap(); return true; }
     return false;
@@ -3151,6 +3161,7 @@ LayerPopup {
   // what return does to a row, chosen or (a hotkey's) kept
   function runRow(row) {
     if (!row) return;
+    popup.lastPick = row;
     if (row.kind === "app") {
       popup.bump(row.key);
       Quickshell.execDetached(["sh", "-c", Cynosure.launchAppCommand(row.id)]);
@@ -3208,7 +3219,6 @@ LayerPopup {
       popup.useOutput(row);
     } else if (row.kind === "pcolor") {
       popup.copyText(row.hex);
-      popup.closeCynosure();
     } else if (row.kind === "place") {
       popup.openPlace(row);
     } else if (row.kind === "proc") {
@@ -3272,8 +3282,9 @@ LayerPopup {
       Strings.openLink(row.url);
       popup.closeCynosure();
     } else if (row.kind === "contact") {
-      if (row.email) Strings.openLink("mailto:" + row.email); else popup.copyText(row.phone || row.label);
-      popup.closeCynosure();
+      // mail opens elsewhere; a number is only copied, so Cynosure stays
+      if (row.email) { Strings.openLink("mailto:" + row.email); popup.closeCynosure(); }
+      else popup.copyText(row.phone || row.label);
     } else if (row.kind === "traymenu") {
       lookups.trigger(row.at);
       popup.closeCynosure();
@@ -3479,12 +3490,19 @@ LayerPopup {
     if (then === "paste") { popup.folio.pasteSnippet(content); return; }
     if (then === "copy") { popup.folio.takeSnippet(content); return; }
     // typed where its keyword was: once the panel has gone, focus is back there
-    expandProc.word = word || "";
-    expandProc.command = ["sh", "-c", "printf '%s' \"$1\"; printf '\\036'; wl-paste -n -t text 2>/dev/null | head -c 100000",
-      "cynosure", content];
-    if (popup.shown) { popup.closeCynosure(); typeLater.restart(); } else expandProc.running = true;
+    const job = { word: word || "", fromFile: false,
+      command: ["sh", "-c", "printf '%s' \"$1\"; printf '\\036'; wl-paste -n -t text 2>/dev/null | head -c 100000",
+        "cynosure", content] };
+    if (popup.shown) { popup.typeJobs = popup.typeJobs.concat([job]); popup.closeCynosure(); typeLater.restart(); }
+    else RunJob.queued(expandProc, job);
   }
-  Timer { id: typeLater; interval: Zenon.slow + 250; onTriggered: expandProc.running = true }
+  // typed once the panel has gone, in the order given
+  property var typeJobs: []
+  Timer {
+    id: typeLater
+    interval: Zenon.slow + 250
+    onTriggered: { const jobs = popup.typeJobs; popup.typeJobs = []; for (const j of jobs) RunJob.queued(expandProc, j); }
+  }
   function saveClipName() {
     if (popup.folio && popup.aliasRow) popup.folio.setName(popup.aliasRow.id, input.text);
     popup.endAlias();
@@ -3584,7 +3602,13 @@ LayerPopup {
     popup.keptLine = popup.mode === "search" ? popup.query : "";
     popup.keptAt = Date.now();
     if (popup.mode === "search" && popup.query.trim() !== "" && Oracle.cynosureRemember) {
-      popup.queries = Cynosure.addQuery(popup.queries, popup.query);
+      // what was searched for, under its chip (Cynosure.pickedLine): the
+      // chip in place or the line's own tag, else the kind of row picked
+      const pick = popup.lastPick;
+      const tag = popup.fieldTag && popup.fieldTag.text ? popup.fieldTag
+        : pick ? { glyph: "", text: Cynosure.kindName(pick) } : null;
+      const line = Cynosure.pickedLine(popup.query, popup.chip ? popup.chip.word : "", pick);
+      popup.queries = Cynosure.addQuery(popup.queries, Cynosure.queryEntry(line, tag));
       writer.write(Cynosure.queriesPath(), Cynosure.serializeQueries(popup.queries));
     }
     // a view keeps what it has on screen first (metis' answer), then says
@@ -3636,10 +3660,15 @@ LayerPopup {
   // the row the panel was opened on: kept, so a list that refreshes under
   // it does not change what the action is done to
   property var actionOn: null
+  // something to say: a player, and the word's own recording (a definition
+  // Wiktionary has none for offers no Say, user 2026-11-08) or a translation
+  readonly property bool lexiCanSay: !!popup.lexi && popup.lexi.playerCmd !== ""
+    && (popup.lexiMode === "dict" ? !!(popup.lexi.dictResult && popup.lexi.dictResult.audio)
+                                  : !!(popup.lexi.cardTr && popup.lexi.cardTr.translation))
   readonly property var chosenRow: !popup.cardSel ? popup.current
     : popup.calcShown ? { kind: "calc" }
     : popup.lexiShown ? { kind: "lexi", mode: popup.lexiMode, more: !!popup.lexi.dictResult,
-        swap: !!(popup.lexiTr && popup.lexiTr.source), say: popup.lexi.playerCmd !== "" }
+        swap: !!(popup.lexiTr && popup.lexiTr.source), say: popup.lexiCanSay }
     : { kind: "answer", weather: !!popup.wxAsk,
         calDay: popup.answer && popup.answer.kind === "cal" ? popup.answer.day || "" : "",
         kairos: popup.answer && popup.answer.kairos ? popup.answer.kairos : "" }
@@ -3764,6 +3793,8 @@ LayerPopup {
     if (k === Qt.Key_Return || k === Qt.Key_Enter) { popup.doAction(popup.actionSel); return; }
     // anything else is not typed into the line while the panel is up
   }
+  // a copy never closes Cynosure: you may want the next one too (user,
+  // 2026-11-08). Pastes, opens and launches still close.
   function copyText(t) {
     Quickshell.execDetached(["sh", "-c", "printf '%s' \"$1\" | wl-copy", "cynosure", String(t)]);
   }
@@ -3776,7 +3807,7 @@ LayerPopup {
     if (act.id.startsWith("as:")) { popup.pasteAs(r, act.id.slice(3)); return; }
     if (act.id.startsWith("form:")) {
       const f = (r.forms || []).find((x) => "form:" + x[0] === act.id);
-      if (f) { popup.copyText(f[1]); popup.closeCynosure(); }
+      if (f) popup.copyText(f[1]);
       return;
     }
     switch (act.id) {
@@ -3799,11 +3830,10 @@ LayerPopup {
       trashProc.running = true;
       return;
     case "taskOpen": popup.addTask(r, true); return;
-    case "copyItem": popup.copyText(r.item.copy !== "" ? r.item.copy : r.item.title); popup.closeCynosure(); return;
-    case "copyLine": popup.copyText(r.text); popup.closeCynosure(); return;
+    case "copyItem": popup.copyText(r.item.copy !== "" ? r.item.copy : r.item.title); return;
+    case "copyLine": popup.copyText(r.text); return;
     case "copyPic":
       Quickshell.execDetached(["sh", "-c", "wl-copy < \"$1\"", "cynosure", r.path]);
-      popup.closeCynosure();
       return;
     case "winLeft": popup.snapWindow(r.address, "left"); return;
     case "winRight": popup.snapWindow(r.address, "right"); return;
@@ -3814,13 +3844,13 @@ LayerPopup {
       popup.closeCynosure();
       return;
     case "forceQuit": popup.endProcess(r, true); return;
-    case "copyPid": popup.copyText(String(r.pid)); popup.closeCynosure(); return;
+    case "copyPid": popup.copyText(String(r.pid)); return;
     case "hermesOpen": popup.closeThen(() => Hermes.open(r.kind === "btdev" ? "bluetooth" : "network")); return;
     case "svcStart": popup.serviceDo(r, "start"); return;
     case "svcStop": popup.serviceDo(r, "stop"); return;
     case "svcRestart": popup.serviceDo(r, "restart"); return;
     case "svcLog": popup.closeThen(() => Quickshell.execDetached(["qs", "ipc", "call", "Hestia", "journal", r.unit])); return;
-    case "copyBody": popup.copyText(r.body); popup.closeCynosure(); return;
+    case "copyBody": popup.copyText(r.body); return;
     case "dropNotif": Howler.forget(r.row); popup.applyFilter(); return;
     case "taskShow": popup.closeThen(() => { if (Clio.app) Clio.app.openTask(r.task.id, r.task.h); }); return;
     case "go":
@@ -3839,7 +3869,7 @@ LayerPopup {
     case "closeWin":
       Hyprland.dispatch(Hypr.closeWindow(Hypr.byAddress(r.address)));
       return;
-    case "copyUrl": popup.copyText(r.url || r.uri); popup.closeCynosure(); return;
+    case "copyUrl": popup.copyText(r.url || r.uri); return;
     case "dropLink":
       popup.ownLinks = popup.ownLinks.filter((l) => l.word !== r.word);
       popup.writeLinks();
@@ -3864,9 +3894,8 @@ LayerPopup {
       return;
     case "copyName":
       popup.copyText(r.kind === "glyphs" ? (r.nerd ? (r.cells[popup.cellSel] || {}).cls : (r.cells[popup.cellSel] || {}).name) || "" : r.kind === "hist" ? r.key : r.kind === "proc" ? r.args || r.name : r.label);
-      popup.closeCynosure();
       return;
-    case "copyPath": popup.copyText(r.path || (r.script ? r.script.path : "")); popup.closeCynosure(); return;
+    case "copyPath": popup.copyText(r.path || (r.script ? r.script.path : "")); return;
     case "editScript":
       Quickshell.execDetached(["qs", "ipc", "call", "Plato", "open", r.script.path]);
       popup.closeCynosure();
@@ -3887,8 +3916,8 @@ LayerPopup {
     case "keep": popup.folio.keepClip(r.id); return;
     case "rename": popup.askClipName(r); return;
     case "pin": popup.folio.togglePin(r.id, r.pinText); return;
-    case "copyEmail": popup.copyText(r.email); popup.closeCynosure(); return;
-    case "copyPhone": popup.copyText(r.phone); popup.closeCynosure(); return;
+    case "copyEmail": popup.copyText(r.email); return;
+    case "copyPhone": popup.copyText(r.phone); return;
     case "snipKey": popup.askSnipKey(r); return;
     case "turn": popup.folio.toggleTurn(r.id); return;
     case "inTurn": popup.folio.pasteInTurn(); popup.closeCynosure(); return;
@@ -3905,7 +3934,6 @@ LayerPopup {
     case "copyFile":
       // as a file, not its path: pasted into terminus or a browser's upload
       Quickshell.execDetached(["sh", "-c", "printf 'file://%s\\n' \"$1\" | wl-copy -t text/uri-list", "cynosure", r.path]);
-      popup.closeCynosure();
       return;
     case "edit": popup.folio.editSnippetAt(r.path, r.label, r.content); return;
     case "newSnippet": popup.runInline({ inline: "newSnippet" }); return;
@@ -3915,7 +3943,7 @@ LayerPopup {
       popup.ideo.copyGlyph(ch);
       return;
     }
-    case "copyCode": popup.copyText(Cynosure.codepoints((r.cells[popup.cellSel] || {}).char)); popup.closeCynosure(); return;
+    case "copyCode": popup.copyText(Cynosure.codepoints((r.cells[popup.cellSel] || {}).char)); return;
     case "copyAnswer": m.takeShown(true); return;
     case "noteOpen": popup.saveNote(r.text, true); return;
     case "eventOpen": popup.addEvent(r, true); return;
@@ -3929,7 +3957,7 @@ LayerPopup {
     case "lexiSay": popup.lexi.cardSpeak(popup.lexiMode); return;
     case "lexiMore": popup.lexi.cardMore(); return;
     case "lexiSwap": popup.lexiSwap(); return;
-    case "copyQuestion": popup.copyText(m.query); popup.closeCynosure(); return;
+    case "copyQuestion": popup.copyText(m.query); return;
     case "tape": m.tapeToggleOpen(); return;
     case "explain":
       if (m.readings.length > 1) m.readingIdx = (m.readingIdx + 1) % m.readings.length;
@@ -4241,6 +4269,7 @@ LayerPopup {
             : popup.fieldTag && popup.fieldTag.glyph ? popup.fieldTag.glyph : ""
           color: popup.alarm ? Zenon.inkOnAccent : popup.mode === "picker" ? Zenon.white : Zenon.muted
           font.family: Zenon.face
+          font.weight: Zenon.weight
           font.pixelSize: Zenon.px(popup.confirmLine ? 16 : 18)
         }
 
@@ -4357,6 +4386,7 @@ LayerPopup {
               text: fieldGlyph.text
               color: Zenon.white
               font.family: Zenon.face
+              font.weight: Zenon.weight
               font.pixelSize: Zenon.px(15)
             }
           Text {
@@ -4373,7 +4403,7 @@ LayerPopup {
               : popup.aliasRow ? "Alias for " + (popup.aliasRow.label || popup.aliasRow.text || "") : ""
             color: Zenon.white
             font.family: Zenon.face
-            font.weight: 600
+            font.weight: Zenon.titleWeight
             font.pixelSize: Zenon.px(15)
           }
           }
@@ -4433,6 +4463,7 @@ LayerPopup {
                   text: answer.modelData.glyph || ""
                   color: Zenon.white
                   font.family: Zenon.face
+                  font.weight: Zenon.weight
                   font.pixelSize: Zenon.px(17)
                 }
                 Text {
@@ -4441,7 +4472,7 @@ LayerPopup {
                   text: answer.modelData.label || ""
                   color: Zenon.white
                   font.family: Zenon.face
-                  font.weight: 600
+                  font.weight: Zenon.titleWeight
                   font.pixelSize: Zenon.px(16)
                 }
               }
@@ -4455,11 +4486,9 @@ LayerPopup {
           }
         }
 
-        Rectangle {
+        Hairline {
           anchors.bottom: parent.bottom
           width: parent.width
-          height: 1
-          color: Zenon.border
           visible: !popup.confirmLine
         }
       }
@@ -4645,6 +4674,7 @@ LayerPopup {
               text: popup.answer && popup.answer.glyph ? popup.answer.glyph : ""
               color: Zenon.white
               font.family: Zenon.face
+              font.weight: Zenon.weight
               font.pixelSize: Zenon.px(28)
             }
           Text {
@@ -4664,10 +4694,40 @@ LayerPopup {
             textFormat: Text.PlainText
             anchors.horizontalCenter: parent.horizontalCenter
             text: popup.answer ? popup.answer.small : ""
-            color: Zenon.muted
+            color: Zenon.accentMuted
             font.family: Zenon.face
             font.weight: Zenon.weight
             font.pixelSize: Zenon.px(14)
+          }
+          // an answer's facts, each its label and value
+          Row {
+            visible: popup.answerFacts
+            anchors.horizontalCenter: parent.horizontalCenter
+            topPadding: 8
+            spacing: Zenon.px(22)
+            Repeater {
+              model: popup.answerFacts ? popup.answer.facts : []
+              delegate: Row {
+                required property var modelData
+                spacing: 7
+                Text {
+                  textFormat: Text.PlainText
+                  text: modelData.label
+                  color: Zenon.accentMuted
+                  font.family: Zenon.face
+                  font.weight: Zenon.weight
+                  font.pixelSize: Zenon.px(13)
+                }
+                Text {
+                  textFormat: Text.PlainText
+                  text: modelData.value
+                  color: Zenon.white
+                  font.family: Zenon.faceMono
+                  font.weight: Zenon.weight
+                  font.pixelSize: Zenon.px(13)
+                }
+              }
+            }
           }
           // cpu and memory over the last while, as the bar's tooltips draw it
           Sparkline {
@@ -4754,6 +4814,7 @@ LayerPopup {
             color: wxCard.tone
             opacity: 0.08
             font.family: Zenon.face
+            font.weight: Zenon.weight
             font.pixelSize: Zenon.px(170)
           }
 
@@ -4767,6 +4828,7 @@ LayerPopup {
               text: Wx.glyph(parent.parent.code, parent.parent.now ? parent.parent.w.current.isDay : true)
               color: Zenon.white
               font.family: Zenon.face
+              font.weight: Zenon.weight
               font.pixelSize: Zenon.px(44)
             }
             Text {
@@ -4787,13 +4849,13 @@ LayerPopup {
                 text: Wx.label(parent.parent.parent.code)
                 color: Zenon.white
                 font.family: Zenon.face
-                font.weight: 600
+                font.weight: Zenon.titleWeight
                 font.pixelSize: Zenon.px(16)
               }
               Text {
                 textFormat: Text.PlainText
                 text: parent.parent.parent.w ? parent.parent.parent.w.name + " · " + popup.dayName(parent.parent.parent.w.offset) : ""
-                color: Zenon.muted
+                color: Zenon.accentMuted
                 font.family: Zenon.face
                 font.weight: Zenon.weight
                 font.pixelSize: Zenon.px(14)
@@ -4860,9 +4922,9 @@ LayerPopup {
                   anchors.horizontalCenter: parent.horizontalCenter
                   textFormat: Text.PlainText
                   text: popup.dayName(dayCol.box.w.offset + 1 + dayCol.index).slice(0, 3)
-                  color: Zenon.muted
+                  color: Zenon.accentMuted
                   font.family: Zenon.face
-                  font.weight: 600
+                  font.weight: Zenon.titleWeight
                   font.pixelSize: Zenon.px(12)
                 }
                 Text {
@@ -4870,6 +4932,7 @@ LayerPopup {
                   text: Wx.glyph(dayCol.modelData.code, true)
                   color: Zenon.white
                   font.family: Zenon.face
+                  font.weight: Zenon.weight
                   font.pixelSize: Zenon.px(18)
                 }
                 Text {
@@ -4942,37 +5005,53 @@ LayerPopup {
             spacing: Zenon.px(6)
 
             // how it was read: the sound and the parts of speech, or which
-            // language into which
-            Text {
-              width: parent.width
-              horizontalAlignment: Text.AlignHCenter
-              visible: text !== ""
-              textFormat: Text.StyledText
-              elide: Text.ElideRight
-              text: {
-                const x = lexiBox.lx;
-                if (!x || popup.lexiBare) return "";
-                if (lexiBox.dict) {
-                  const r = lexiBox.res;
-                  if (!r || lexiBox.failed) return "";
-                  const bits = [];
-                  if (r.ipa) bits.push(Strings.escapeHtml(r.ipa));
-                  if (r.pos.length) bits.push(Strings.escapeHtml(r.pos.map((p) => p.name.toLowerCase()).join(", ")));
-                  if (r.corrected) bits.push('<font color="' + Zenon.keyInk + '">\u21BA ' + Strings.escapeHtml(x.dictAskedAs) + '</font>');
-                  if (popup.lexiAsk.lang) bits.push(Strings.escapeHtml(popup.lexiAsk.lang.en));
-                  return bits.join("  \u00B7  ");
-                }
-                const t = lexiBox.tr;
-                if (!t) return "";
-                const from = t.from || t.source;
-                return (from ? Strings.escapeHtml(Lexicon.langEnName(from)) : "Detected")
-                  + '<font color="' + lexiBox.ink + '">  \u2192  </font>'
-                  + '<font color="' + Zenon.white + '">' + Strings.escapeHtml(Lexicon.langEnName(t.to)) + '</font>';
+            // language into which — after an ear when the word has its own
+            // recording to say (md-ear_hearing, user 2026-11-08; alt p)
+            Row {
+              anchors.horizontalCenter: parent.horizontalCenter
+              spacing: Zenon.px(8)
+              visible: readLine.text !== ""
+              Text {
+                id: hearMark
+                visible: lexiBox.dict && popup.lexiCanSay
+                anchors.verticalCenter: parent.verticalCenter
+                text: "\u{F07C5}"
+                color: lexiBox.ink
+                font.family: Zenon.glyphFace
+                font.weight: Zenon.weight
+                font.pixelSize: Zenon.px(15)
               }
-              color: Zenon.muted
-              font.family: Zenon.face
-              font.weight: Font.Bold
-              font.pixelSize: Zenon.px(14)
+              Text {
+                id: readLine
+                width: Math.min(implicitWidth, lexiCol.width - (hearMark.visible ? hearMark.implicitWidth + Zenon.px(8) : 0))
+                horizontalAlignment: Text.AlignHCenter
+                textFormat: Text.StyledText
+                elide: Text.ElideRight
+                text: {
+                  const x = lexiBox.lx;
+                  if (!x || popup.lexiBare) return "";
+                  if (lexiBox.dict) {
+                    const r = lexiBox.res;
+                    if (!r || lexiBox.failed) return "";
+                    const bits = [];
+                    if (r.ipa) bits.push(Strings.escapeHtml(r.ipa));
+                    if (r.pos.length) bits.push(Strings.escapeHtml(r.pos.map((p) => p.name.toLowerCase()).join(", ")));
+                    if (r.corrected) bits.push('<font color="' + Zenon.keyInk + '">\u21BA ' + Strings.escapeHtml(x.dictAskedAs) + '</font>');
+                    if (popup.lexiAsk.lang) bits.push(Strings.escapeHtml(popup.lexiAsk.lang.en));
+                    return bits.join("  \u00B7  ");
+                  }
+                  const t = lexiBox.tr;
+                  if (!t) return "";
+                  const from = t.from || t.source;
+                  return (from ? Strings.escapeHtml(Lexicon.langEnName(from)) : "Detected")
+                    + '<font color="' + lexiBox.ink + '">  \u2192  </font>'
+                    + '<font color="' + Zenon.white + '">' + Strings.escapeHtml(Lexicon.langEnName(t.to)) + '</font>';
+                }
+                color: Zenon.accentMuted
+                font.family: Zenon.face
+                font.weight: Zenon.titleWeight
+                font.pixelSize: Zenon.px(14)
+              }
             }
 
             // the word, or the translation: large, the way an answer is
@@ -5004,7 +5083,7 @@ LayerPopup {
               // a word in the card's ink; a translation plain (user, 2026-11-01)
               color: lexiBox.failed ? Zenon.red : lexiBox.dict ? lexiBox.ink : Zenon.white
               font.family: Zenon.face
-              font.weight: Font.Bold
+              font.weight: Zenon.titleWeight
               // the prompts and the misses at metis' "Can't read" size, an
               // answer large (user, 2026-11-01)
               font.pixelSize: Zenon.px(popup.lexiBare || lexiBox.failed ? 19
@@ -5022,8 +5101,9 @@ LayerPopup {
                 anchors.verticalCenter: parent.verticalCenter
                 textFormat: Text.PlainText
                 text: lexiBox.dict ? "\uF02D" : "\uF1AB"
-                color: Zenon.muted
+                color: Zenon.accentMuted
                 font.family: Zenon.face
+                font.weight: Zenon.weight
                 font.pixelSize: Zenon.px(16)
               }
               Text {
@@ -5031,7 +5111,7 @@ LayerPopup {
                 textFormat: Text.PlainText
                 text: lexiBox.dict ? "Type the word, or \u201C\u2026 in french\u201D to read another language"
                   : "Type the words, then \u201Cin\u201D and a language: tr good morning in german"
-                color: Zenon.muted
+                color: Zenon.accentMuted
                 font.family: Zenon.face
                 font.weight: Zenon.weight
                 font.pixelSize: Zenon.px(14)
@@ -5050,7 +5130,7 @@ LayerPopup {
                   && /[^\u0000-\u024F\s]/.test(lexiBox.tr.translation || "") ? lexiBox.tr.roman
                 : lexiBox.dict && lexiBox.lx && lexiBox.lx.dictError !== "" && lexiBox.lx.dictErrorWord === "" ? lexiBox.lx.dictError
                 : ""
-              color: Zenon.muted
+              color: Zenon.accentMuted
               font.family: Zenon.face
               font.weight: Zenon.weight
               font.pixelSize: Zenon.px(14)
@@ -5088,7 +5168,7 @@ LayerPopup {
                   text: head ? modelData.text.toLowerCase() : modelData.text
                   color: head ? lexiBox.ink : Zenon.white
                   font.family: Zenon.face
-                  font.weight: head ? Font.Bold : 500
+                  font.weight: head ? Zenon.titleWeight : 500
                   font.italic: head
                   // the senses at the typed line's size; the part of speech
                   // over them two under it, as it was
@@ -5180,6 +5260,7 @@ LayerPopup {
             text: pane.d && pane.d.glyph ? pane.d.glyph : ""
             color: Zenon.white
             font.family: pane.d && pane.d.nerd ? "Symbols Nerd Font" : "Noto Color Emoji"
+            font.weight: Zenon.weight
             font.pixelSize: Zenon.px(96)
           }
           // "in …": the matching line lit under the text, where the text laid
@@ -5212,6 +5293,7 @@ LayerPopup {
             text: pane.d && pane.d.rich ? pane.d.rich : ""
             color: Zenon.white
             font.family: Zenon.faceCode
+            font.weight: Zenon.weight
             font.pixelSize: Zenon.px(14)
             clip: true
             wrapMode: TextEdit.NoWrap
@@ -5225,6 +5307,7 @@ LayerPopup {
             text: pane.d && pane.d.text ? pane.d.text : ""
             color: Zenon.white
             font.family: pane.d && pane.d.mono ? Zenon.faceCode : Zenon.face
+            font.weight: Zenon.weight
             font.pixelSize: Zenon.px(pane.d && pane.d.mono ? 14 : 15)
             wrapMode: Text.Wrap
             elide: Text.ElideRight
@@ -5248,6 +5331,7 @@ LayerPopup {
             text: pane.d && pane.d.icon ? pane.d.icon : ""
             color: Zenon.muted
             font.family: Zenon.face
+            font.weight: Zenon.weight
             font.pixelSize: Zenon.px(64)
           }
           Working {
@@ -5289,7 +5373,7 @@ LayerPopup {
                 textFormat: Text.PlainText
                 anchors.verticalCenter: parent.verticalCenter
                 text: fact.modelData[0]
-                color: Zenon.muted
+                color: Zenon.accentMuted
                 font.family: Zenon.face
                 font.weight: Zenon.weight
                 font.pixelSize: Zenon.px(15)
@@ -5429,6 +5513,7 @@ LayerPopup {
                   text: picCell.font ? picCell.modelData.family : ""
                   color: Zenon.white
                   font.family: picCell.font ? picCell.modelData.face : Zenon.face
+                  font.weight: Zenon.weight
                   font.pixelSize: Zenon.px(24)
                 }
                 // the chosen cell lights before it acts, in the cursor's box
@@ -5496,6 +5581,7 @@ LayerPopup {
                   text: picCell.modelData.video ? "\u{F0567}" : "\uF03E"
                   color: Zenon.muted
                   font.family: Zenon.face
+                  font.weight: Zenon.weight
                   font.pixelSize: Zenon.px(28)
                 }
                 Text {
@@ -5507,7 +5593,7 @@ LayerPopup {
                   elide: Text.ElideRight
                   // a font says what it is (its styles), a picture when it came
                   text: picCell.font ? picCell.modelData.sub : picCell.modelData.stamp
-                  color: Zenon.muted
+                  color: Zenon.accentMuted
                   font.family: Zenon.face
                   font.weight: Zenon.weight
                   font.pixelSize: Zenon.px(12)
@@ -5576,6 +5662,7 @@ LayerPopup {
                   text: cell.modelData.char
                   color: Zenon.white
                   font.family: row.r.nerd ? "Symbols Nerd Font" : "Noto Color Emoji"
+                  font.weight: Zenon.weight
                   font.pixelSize: Zenon.px(row.r.nerd ? 26 : 24)
                 }
                 MouseArea {
@@ -5642,9 +5729,11 @@ LayerPopup {
             anchors.verticalCenter: parent.verticalCenter
             horizontalAlignment: Text.AlignHCenter
             text: row.r.glyph || ""
-            // a picked color's swatch wears the color itself
-            color: row.r.ink || Zenon.white
+            // a picked color's swatch wears the color itself; the theme
+            // worn now is dimmed (user, 2026-11-07)
+            color: row.r.worn ? Zenon.accentMuted : row.r.ink || Zenon.white
             font.family: Zenon.face
+            font.weight: Zenon.weight
             font.pixelSize: Zenon.px(17)
           }
 
@@ -5658,16 +5747,51 @@ LayerPopup {
             spacing: Zenon.px(10)
             clip: true
 
+            // a search's chip, as the field shows it (history)
+            Rectangle {
+              visible: !!row.r.chipTag
+              anchors.verticalCenter: parent.verticalCenter
+              width: histChip.implicitWidth + 16
+              height: histChipText.implicitHeight + 6
+              radius: Zenon.menuRadius
+              color: Zenon.menuHi
+              Row {
+                id: histChip
+                anchors.centerIn: parent
+                spacing: 6
+                Text {
+                  visible: text !== ""
+                  anchors.verticalCenter: parent.verticalCenter
+                  textFormat: Text.PlainText
+                  text: row.r.chipTag ? row.r.chipTag.glyph || "" : ""
+                  color: Zenon.white
+                  font.family: Zenon.face
+                  font.weight: Zenon.weight
+                  font.pixelSize: Zenon.px(13)
+                }
+                Text {
+                  id: histChipText
+                  anchors.verticalCenter: parent.verticalCenter
+                  textFormat: Text.PlainText
+                  text: row.r.chipTag ? row.r.chipTag.text : ""
+                  color: Zenon.white
+                  font.family: Zenon.face
+                  font.weight: Zenon.titleWeight
+                  font.pixelSize: Zenon.px(13)
+                }
+              }
+            }
+
             Text {
               id: label
               anchors.verticalCenter: parent.verticalCenter
               text: row.marked ? Cynosure.highlight(row.r.label, popup.query)
                 : Strings.escapeHtml(row.r.label || "")
               textFormat: Text.StyledText
-              color: Zenon.white
+              color: row.r.worn ? Zenon.accentMuted : Zenon.white
               // a font's row is drawn in the font itself
               font.family: row.r.face || Zenon.face
-              font.weight: 600
+              font.weight: Zenon.titleWeight
               font.pixelSize: Zenon.px(15)
             }
             Text {
@@ -5675,7 +5799,7 @@ LayerPopup {
               anchors.verticalCenter: parent.verticalCenter
               visible: text !== ""
               text: row.r.sub || ""
-              color: Zenon.muted
+              color: Zenon.accentMuted
               font.family: Zenon.face
               font.weight: Zenon.weight
               font.pixelSize: Zenon.px(14)
@@ -5690,6 +5814,21 @@ LayerPopup {
             anchors.rightMargin: 20
             anchors.verticalCenter: parent.verticalCenter
             spacing: Zenon.px(10)
+            // a theme's inks (ThemeInks), as Oracle's Theme list has them
+            Loader {
+              id: rowInks
+              anchors.verticalCenter: parent.verticalCenter
+              active: !!row.r.inks
+              visible: active
+              opacity: row.r.worn ? 0.45 : 1
+              source: Qt.resolvedUrl("../morpheus/ThemeInks.qml")
+              Binding {
+                target: rowInks.item
+                when: rowInks.status === Loader.Ready
+                property: "colors"
+                value: row.r.inks || null
+              }
+            }
             // the word that opens it straight from the field: "cb invoice"
             KeyCap {
               anchors.verticalCenter: parent.verticalCenter
@@ -5718,7 +5857,7 @@ LayerPopup {
               text: row.isStrip
                 ? (row.chosen && row.r.cells[popup.cellSel] ? row.r.cells[popup.cellSel].name : Cynosure.kindName(row.r))
                 : Cynosure.kindName(row.r)
-              color: Zenon.muted
+              color: Zenon.accentMuted
               font.family: Zenon.face
               font.weight: Zenon.weight
               font.pixelSize: Zenon.px(13)

@@ -97,12 +97,21 @@ def _attrs(b, skip):
     return ' data-clio="%s"' % esc(json.dumps(extra, ensure_ascii=False, separators=(",", ":"))) if extra else ""
 
 
+ALIGNS = ("left", "center", "right", "justify")
+
+
 def _style(b):
+    # only what a block can hold: an align of its own words or a level that
+    # is no number broke out of the attribute, or raised (audit 11-08)
     out = []
-    if b.get("align"):
-        out.append("text-align: " + str(b["align"]))
-    if b.get("l"):
-        out.append("margin-left: %.1fem" % (1.6 * int(b["l"])))
+    if b.get("align") in ALIGNS:
+        out.append("text-align: " + b["align"])
+    try:
+        lv = max(0, min(8, int(b.get("l") or 0)))
+    except (TypeError, ValueError):
+        lv = 0
+    if lv:
+        out.append("margin-left: %.1fem" % (1.6 * lv))
     return ' style="%s"' % "; ".join(out) if out else ""
 
 

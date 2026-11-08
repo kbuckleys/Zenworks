@@ -52,8 +52,8 @@ Bubble {
       id: head
       anchors.verticalCenter: parent.verticalCenter
       spacing: 10
-      Text { anchors.verticalCenter: parent.verticalCenter; text: "\u{F03E2}"; color: Zenon.accent; font.family: Zenon.glyphFace; font.pixelSize: Zenon.px(15) }
-      Text { anchors.verticalCenter: parent.verticalCenter; text: "Pictures and files"; color: Zenon.ink; font.family: Zenon.face; font.weight: Font.Bold; font.pixelSize: Zenon.px(15) }
+      Text { anchors.verticalCenter: parent.verticalCenter; text: "\u{F03E2}"; color: Zenon.accent; font.family: Zenon.glyphFace; font.weight: Zenon.weight; font.pixelSize: Zenon.px(15) }
+      Text { anchors.verticalCenter: parent.verticalCenter; text: "Pictures and files"; color: Zenon.ink; font.family: Zenon.face; font.weight: Zenon.titleWeight; font.pixelSize: Zenon.px(15) }
     }
     // from anywhere, without a drag: terminus' picker, several at once
     DialogButton {
@@ -129,6 +129,7 @@ Bubble {
                 text: Icons.glyphFor({ name: tile.modelData.name }) || "\u{F0214}"
                 color: Zenon.accent
                 font.family: Zenon.glyphFace
+                font.weight: Zenon.weight
                 font.pixelSize: Zenon.px(26)
               }
               Text {

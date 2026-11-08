@@ -16,7 +16,12 @@ const vm = require("vm");
 function oracleFamilyOf() {
   const src = fs.readFileSync(path.resolve(__dirname, "../oracle.js"), "utf8");
   const ctx = vm.createContext({ console });
-  vm.runInContext(src.replace(/^\.pragma library$/m, ""), ctx);
+  // its .import of morpheus/quote.js, loaded the same way
+  const quote = vm.createContext({});
+  vm.runInContext(fs.readFileSync(path.resolve(__dirname, "../../morpheus/quote.js"), "utf8")
+    .replace(/^\.(pragma|import)\b.*$/gm, ""), quote);
+  ctx.Quote = quote;
+  vm.runInContext(src.replace(/^\.(pragma|import)\b.*$/gm, ""), ctx);
   return ctx.familyOf;
 }
 

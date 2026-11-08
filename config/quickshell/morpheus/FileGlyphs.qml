@@ -50,15 +50,6 @@ Singleton {
     return typeof g === "string" ? g : "";
   }
 
-  function set(path, glyph) {
-    const p = root.clean_(path);
-    if (p === "") return;
-    const g = String(glyph || "");
-    if (root.of(p) === g) return;
-    const m = Object.assign({}, root.map);
-    if (g === "") delete m[p]; else m[p] = g;
-    root.commit_(m);
-  }
   // many at once, one write (a choice for 500 marked files was 500 writes
   // and 500 relists in every window; audit 11-05)
   function setMany(paths, glyph) {

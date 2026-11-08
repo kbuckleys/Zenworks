@@ -34,12 +34,20 @@ Item {
       waitForEnd: true
       onStreamFinished: {
         const e = String(actErr.text || "").trim();
+        // a warning from a command that then succeeds stays up (audit 11-07:
+        // stderr lands before the exit, which cleared it at once)
+        actProc.warned = e !== "";
         if (e !== "") term.warn(e.split("\n")[0]);
       }
     }
+    property bool warned: false
+    // a queued { script, args, after } is told how it ended: after(code)
+    property var after: null
     onExited: (code) => {
       actProc.sawExit = true;
-      if (code === 0 && term.status !== "") term.status = "";
+      if (actProc.after) { const fn = actProc.after; actProc.after = null; Qt.callLater(() => fn(code)); }
+      if (code === 0 && term.status !== "" && !actProc.warned) term.status = "";
+      actProc.warned = false;
       // Whatever was just made inside a branch is on disk now — see
       // root.madeIn. Cleared either way, so a failed create does not
       // leave the next unrelated command re-reading a stale branch.
@@ -86,6 +94,7 @@ Item {
     const next = term.queue.shift();
     actProc.command = typeof next === "string" ? ["sh", "-c", next]
       : Terminus.shArgv(next);
+    actProc.after = typeof next === "string" ? null : (next.after || null);
     actProc.sawExit = false;
     actProc.running = true;
   }
@@ -139,7 +148,17 @@ Item {
       if (term.chromeRef.archiveList.visible
           && term.chromeRef.archiveList.contentHeight > term.chromeRef.archiveList.height)
         return term.chromeRef.archiveList;
+      // a directory previewed there is read the same way (user, 2026-11-07)
+      if (term.preCol.view.contentHeight > term.preCol.view.height)
+        return term.preCol.view;
     }
+    // THE OUTER COLUMNS SCROLL TOO (user, 2026-11-07): what is around you, read
+    // by the wheel. Only the wheel, and only when it has somewhere to go: their
+    // rows stay inert to a drag, and one that fits passes it to the listing.
+    if (term.viewMode === "columns"
+        && bx - term.activePaneX < term.parCol.x + term.parCol.width
+        && term.parCol.view.contentHeight > term.parCol.view.height)
+      return term.parCol.view;
     return term.viewMode === "grid" ? term.actGrid
          : (term.viewMode === "columns" ? term.midCol.view : term.actList);
   }

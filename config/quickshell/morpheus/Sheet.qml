@@ -477,12 +477,10 @@ Item {
             onDone: sheet.renameDone()
           }
         }
-        Rectangle {
+        Hairline {
           anchors.bottom: parent.bottom
           anchors.left: parent.left
           anchors.right: parent.right
-          height: 1
-          color: Zenon.border
         }
       }
 

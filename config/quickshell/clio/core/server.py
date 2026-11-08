@@ -11,8 +11,8 @@
 #                            and whether a password is set
 #   save {note, seal}        one note, written whole (atomically); `seal`:
 #                            its blocks encrypted, only its head readable
-#   remove {id}              a note gone for good, its attachments with it
-#                            (save those another note still uses)
+#   remove {id, keep}        a note gone for good, its attachments with it
+#                            (save those another note still uses, or `keep`)
 #   meta {meta}              the containers and journals
 #   attach {id, path}        a file copied in beside a note → its block (one
 #                            already in Clio: the same file, not a copy)
@@ -387,21 +387,24 @@ class Server(lines.Service):
     def save(self, args):
         note = dict(args.get("note") or {})
         i = safe_id(note.get("id"))
-        if args.get("seal"):
-            if self.key is None:
-                raise ClioError("Unlock first", "locked")
-            blocks = note.pop("blocks", None)
-            if blocks is not None:
-                note["sealed"] = seal(self.key, blocks)
-                # the files it uses, said in the clear, so another note's
-                # deletion leaves them and its own takes them (the names
-                # are on disk in the clear anyway: attachments are not sealed)
-                note["uses"] = sorted({str(b["src"]) for b in blocks if isinstance(b, dict) and b.get("src")})
         note.pop("_disk", None)
         note.setdefault("kind", "note")
         with self.lock:
             if i in self.removed:
                 return {"sealed": "", "mtime": 0}
+            # SEALED UNDER THE LOCK (audit 11-08): outside it, a save in
+            # flight while the password changed was sealed with the old key
+            # and written after the reseal — unreadable for good
+            if args.get("seal"):
+                if self.key is None:
+                    raise ClioError("Unlock first", "locked")
+                blocks = note.pop("blocks", None)
+                if blocks is not None:
+                    note["sealed"] = seal(self.key, blocks)
+                    # the files it uses, said in the clear, so another note's
+                    # deletion leaves them and its own takes them (the names
+                    # are on disk in the clear anyway: attachments are not sealed)
+                    note["uses"] = sorted({str(b["src"]) for b in blocks if isinstance(b, dict) and b.get("src")})
             now = self.ix.find(i)
             p = now or self.ix.place(note)
             # THE SYNC GUARD. The file changed since it was read (another
@@ -462,8 +465,10 @@ class Server(lines.Service):
                 pass
             self.ix.paths.pop(i, None)
             self.mark(p, gone=True)
-        # its files go with it, save those another note uses as well
+        # its files go with it, save those another note uses as well — on
+        # disk, or in the window and not written yet (`keep`)
         keep = self.used(skip=i)
+        keep |= {str(k) for k in (args.get("keep") or []) if isinstance(k, str)}
         for src in gone - keep:
             p = in_att(src)
             if p and os.path.isfile(p):
@@ -607,21 +612,34 @@ class Server(lines.Service):
                 os.remove(lst)
             except OSError:
                 pass
-        if not ok:
-            r = subprocess.run(["magick"] + pages + ["-units", "PixelsPerInch", "-density", dpi, out], capture_output=True, timeout=600)
-            if r.returncode != 0:
-                raise ClioError("Could not make the PDF: " + r.stderr.decode("utf-8", "replace")[-200:])
-        for p in pages:
-            try:
-                os.remove(p)
-            except OSError:
-                pass
+        # the pages go whatever happens (audit 11-08: a magick that failed,
+        # or was not there, left them in the directory chosen) — only the
+        # window's own .clio-page-N.png, never another path handed in
+        try:
+            if not ok:
+                try:
+                    r = subprocess.run(["magick"] + pages + ["-units", "PixelsPerInch", "-density", dpi, out],
+                                       capture_output=True, timeout=600)
+                except FileNotFoundError:
+                    raise ClioError("Could not make the PDF: ImageMagick is not installed")
+                except subprocess.TimeoutExpired:
+                    raise ClioError("Could not make the PDF: it took too long")
+                if r.returncode != 0:
+                    raise ClioError("Could not make the PDF: " + r.stderr.decode("utf-8", "replace")[-200:])
+        finally:
+            for p in pages:
+                if not os.path.basename(p).startswith(".clio-page-"):
+                    continue
+                try:
+                    os.remove(p)
+                except OSError:
+                    pass
         return {"path": out}
 
     def print_file(self, args):
         p = os.path.expanduser(str(args.get("path") or ""))
         try:
-            r = subprocess.run(["lp", p], capture_output=True, timeout=60)
+            r = subprocess.run(["lp", "--", p], capture_output=True, timeout=60)
         except FileNotFoundError:
             raise ClioError("There is no printing system here (CUPS)", "missing")
         if r.returncode != 0:

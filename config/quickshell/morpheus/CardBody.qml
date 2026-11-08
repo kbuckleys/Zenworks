@@ -153,7 +153,10 @@ Item {
             // Empty trash. A row tinted for what it MEANS is gone; only a row
             // that stands for a color shows it, on its glyph (`iconInk`: a
             // tag, a sticky's hue). `danger` is still accepted and ignored.
-            readonly property color ink: !row.on ? Zenon.accentMuted : Zenon.white
+            // `markDim`: the current choice dimmed instead of ticked
+            // (Oracle's Theme list, user 2026-11-07, as Cynosure's)
+            readonly property bool dimmed: !!row.modelData.markDim && !!row.modelData.mark
+            readonly property color ink: !row.on || row.dimmed ? Zenon.accentMuted : Zenon.white
             // Lit by the pointer, OR because the card it opened is still up.
             // A branch you are standing inside is still the row you came from,
             // and the pointer has by then moved off it onto the child.
@@ -238,8 +241,8 @@ Item {
                 textFormat: Text.PlainText
                 anchors.left: icon.visible ? icon.right : parent.left
                 anchors.leftMargin: icon.visible ? Zenon.menuIconGap : 0
-                anchors.right: keyHint.left
-                anchors.rightMargin: keyHint.width > 0 ? 12 : (tail.width > 0 ? 8 : 0)
+                anchors.right: inksBar.left
+                anchors.rightMargin: inksBar.width > 0 ? 12 : keyHint.width > 0 ? 12 : (tail.width > 0 ? 8 : 0)
                 anchors.verticalCenter: parent.verticalCenter
                 horizontalAlignment: Text.AlignLeft
                 text: row.modelData.text || ""
@@ -256,6 +259,22 @@ Item {
               // edge — so a menu teaches the keyboard as it is used (plato's
               // context menu). On a key cap, as every key the shell shows
               // is (user, 2026-11-01: "keybinds need chips").
+              // a theme's inks (`inks`, Ora.themeInksFor), at the right
+              Loader {
+                id: inksBar
+                anchors.right: keyHint.left
+                anchors.rightMargin: width > 0 ? (keyHint.width > 0 ? 8 : (tail.width > 0 ? 10 : 0)) : 0
+                anchors.verticalCenter: parent.verticalCenter
+                active: !!row.modelData.inks
+                source: Qt.resolvedUrl("ThemeInks.qml")
+                opacity: row.on && !row.dimmed ? 1 : 0.45
+              }
+              Binding {
+                target: inksBar.item
+                when: inksBar.status === Loader.Ready
+                property: "colors"
+                value: row.modelData.inks || null
+              }
               KeyCap {
                 id: keyHint
                 anchors.right: tail.left
@@ -281,7 +300,7 @@ Item {
                 width: tail.text === "" ? 0 : 16
                 height: 16
                 text: row.branch ? ""
-                  : ((row.modelData.mark || false) ? "" : "")
+                  : ((row.modelData.mark || false) && !row.modelData.markDim ? "" : "")
                 // Three answers, not two. A TICK is a state and keeps its
                 // accent; a CHEVRON is punctuation belonging to the label beside
                 // it and takes the label's own white. Muted was lumping the

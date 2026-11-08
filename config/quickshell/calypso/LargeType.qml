@@ -50,7 +50,7 @@ Item {
             text: modelData === " " ? "␣" : modelData
             color: /[0-9]/.test(modelData) ? Zenon.blue : /[A-Za-z]/.test(modelData) ? Zenon.ink : Zenon.pink
             font.family: Zenon.faceMono
-            font.weight: Font.DemiBold
+            font.weight: Zenon.titleWeight
             font.pixelSize: Zenon.px(34)
           }
           Text {
@@ -60,6 +60,7 @@ Item {
             text: index + 1
             color: Zenon.accentMuted
             font.family: Zenon.face
+            font.weight: Zenon.weight
             font.pixelSize: Zenon.px(10)
           }
         }

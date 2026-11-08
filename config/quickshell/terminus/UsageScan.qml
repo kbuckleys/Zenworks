@@ -46,6 +46,9 @@ Item {
 
   function rescan() { use.run(true); }
   function run(fresh) {
+    // a killed scan still hands in its buffered lines and its exit: both
+    // skipped (audit 11-07: the old mount's numbers, "Sorting…" gone early)
+    proc.stale = proc.running;
     proc.running = false;
     use.df = null;
     use.cats = null;
@@ -64,9 +67,11 @@ Item {
 
   Process {
     id: proc
+    property bool stale: false
     stdout: SplitParser {
       splitMarker: "\n"
       onRead: (line) => {
+        if (proc.stale) return;
         const e = U.parseLine(line);
         if (!e) return;
         if (e.ev === "df") use.df = e;
@@ -75,6 +80,6 @@ Item {
         else if (e.ev === "cats") { use.cats = e.cats; use.at = e.at; if (!e.cached) use.scanning = false; }
       }
     }
-    onExited: use.scanning = false
+    onExited: { if (proc.stale) { proc.stale = false; return; } use.scanning = false; }
   }
 }

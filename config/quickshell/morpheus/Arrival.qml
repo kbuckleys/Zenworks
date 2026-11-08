@@ -119,9 +119,17 @@ Singleton {
   // compositor is genuinely scanning out, frameTime settles to the refresh
   // period; before that it is long and ragged. steadyAt is the first moment
   // we saw a run of frames at cadence.
+  // isCold() is no binding, and past the window note() writes nothing: an
+  // intro never played would have left this forcing frames until a restart
+  property bool pastCold: false
+  Timer {
+    interval: Math.max(1, root.coldWindow - root.age())
+    running: true
+    onTriggered: root.pastCold = true
+  }
   FrameAnimation {
     id: clock
-    running: root.tracing && root.isCold() && root.marks.indexOf("played") < 0
+    running: root.tracing && !root.pastCold && root.isCold() && root.marks.indexOf("played") < 0
     property int settled: 0
     onTriggered: {
       root.frames++;

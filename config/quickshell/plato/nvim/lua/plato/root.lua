@@ -44,7 +44,7 @@ local function tidy(path) return vim.fn.fnamemodify(path, ":~") end
 local function write(buf, target, quit)
   local tmp = vim.fn.tempname()
   -- what :w would have done first: trimming, formatting (editing.lua)
-  pcall(api.nvim_exec_autocmds, "BufWritePre", { buffer = buf, modeline = false })
+  pcall(api.nvim_exec_autocmds, "BufWritePre", { buf = buf, modeline = false })
   local ok, err = pcall(api.nvim_buf_call, buf, function()
     vim.cmd("noautocmd keepalt silent write! " .. vim.fn.fnameescape(tmp))
   end)
@@ -65,7 +65,7 @@ local function write(buf, target, quit)
           -- the change watch (disk.lua) does not take this write for someone
           -- else's
           api.nvim_buf_call(buf, function() vim.cmd("silent! checktime") end)
-          pcall(api.nvim_exec_autocmds, "BufWritePost", { buffer = buf, modeline = false })
+          pcall(api.nvim_exec_autocmds, "BufWritePost", { buf = buf, modeline = false })
         end
         if newer then
           vim.notify(tidy(target) .. " written as root, without the changes made since",
@@ -91,12 +91,25 @@ local function onWrite(ev)
   local target = vim.fn.fnamemodify(ev.match, ":p")
   local own = vim.fn.fnamemodify(api.nvim_buf_get_name(buf), ":p")
   -- :w somewhere else, somewhere this user CAN write: an ordinary write
+  -- (noautocmd, or this BufWriteCmd runs again; the file's own Pre and
+  -- Post — trimming, formatting, git signs — are fired around it by hand,
+  -- as write() does, audit 2026-11-07)
   if target ~= own or M.writable(target) then
-    api.nvim_buf_call(buf, function()
+    if target == own then
+      pcall(api.nvim_exec_autocmds, "BufWritePre", { buf = buf, modeline = false })
+    end
+    local ok, err = pcall(api.nvim_buf_call, buf, function()
       vim.cmd("noautocmd keepalt " .. (vim.v.cmdbang == 1 and "write! " or "write ")
         .. vim.fn.fnameescape(target))
     end)
-    if target == own then vim.bo[buf].modified = false end
+    if not ok then
+      require("plato.util").fail(err)
+      return
+    end
+    if target == own then
+      vim.bo[buf].modified = false
+      pcall(api.nvim_exec_autocmds, "BufWritePost", { buf = buf, modeline = false })
+    end
     return
   end
   M.ask(buf, false)
@@ -123,7 +136,7 @@ function M.save(all)
   local buf = api.nvim_get_current_buf()
   if vim.b[buf].plato_root then M.ask(buf, false); return end
   local ok, err = pcall(vim.cmd, all and "wall" or "write")
-  if not ok then vim.notify((tostring(err):gsub("^.-:%d+: ", "")), vim.log.levels.ERROR) end
+  if not ok then require("plato.util").fail(err) end
 end
 
 -- a file that is someone else's: plato writes it, and nvim is not to call
@@ -136,10 +149,10 @@ local function check(buf)
   local foreign = not M.writable(name)
   if foreign == (vim.b[buf].plato_root == true) then return end
   vim.b[buf].plato_root = foreign or nil
-  api.nvim_clear_autocmds({ group = group, buffer = buf, event = "BufWriteCmd" })
+  api.nvim_clear_autocmds({ group = group, buf = buf, event = "BufWriteCmd" })
   if foreign then
     vim.bo[buf].readonly = false
-    api.nvim_create_autocmd("BufWriteCmd", { group = group, buffer = buf, callback = onWrite })
+    api.nvim_create_autocmd("BufWriteCmd", { group = group, buf = buf, callback = onWrite })
   end
 end
 

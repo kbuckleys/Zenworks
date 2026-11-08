@@ -129,7 +129,7 @@ Item {
                 text: H.shortName(u.unit) + (u.scope === "user" ? "  (yours)" : "")
                 color: Zenon.ink
                 font.family: Zenon.face
-                font.weight: 600
+                font.weight: Zenon.titleWeight
                 font.pixelSize: Zenon.px(14)
               }
               Text {
@@ -151,7 +151,7 @@ Item {
               text: isFailed ? "Failed" : "Restarted " + u.restarts + " times"
               color: Zenon.red
               font.family: Zenon.face
-              font.weight: 600
+              font.weight: Zenon.titleWeight
               font.pixelSize: Zenon.px(13)
             }
             MouseArea { id: rowPress; anchors.fill: parent; onClicked: { const x = parent.u; if (ov.win) rowFlash.flashThen(parent.index, () => ov.win.showUnit(x.unit, x.scope)); } }
@@ -197,6 +197,7 @@ Item {
               font.pixelSize: Zenon.px(12)
             }
             Text {
+              textFormat: Text.PlainText
               id: errWho
               x: errTime.x + errTime.width + 10
               y: 4
@@ -209,6 +210,7 @@ Item {
               font.pixelSize: Zenon.px(12)
             }
             Text {
+              textFormat: Text.PlainText
               id: errText
               x: errWho.x + errWho.width + 10
               y: 4
@@ -332,7 +334,7 @@ Item {
                 text: fwRow.d.name + "  ·  " + fwRow.d.version + " \u2192 " + fwRow.d.update
                 color: Zenon.ink
                 font.family: Zenon.face
-                font.weight: 600
+                font.weight: Zenon.titleWeight
                 font.pixelSize: Zenon.px(14)
               }
               Text {

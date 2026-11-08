@@ -9,7 +9,6 @@
 
 import QtQuick
 import "../morpheus"
-import "../terminus"
 import "notes.js" as N
 
 Item {
@@ -40,41 +39,21 @@ Item {
     text: "\u{F0339}  Link to a note"
     color: Zenon.ink
     font.family: Zenon.face
-    font.weight: Font.Bold
+    font.weight: Zenon.titleWeight
     font.pixelSize: Zenon.px(17)
   }
-  Rectangle {
-    id: box
+  SearchBox {
+    id: pickField
     x: 20
     anchors.top: title.bottom
     anchors.topMargin: 12
     width: parent.width - 40
-    height: 34
-    radius: Zenon.windowRadius
-    color: Zenon.wash(0.06)
-    border.width: 1
-    border.color: Zenon.border
-    TextInput {
-      id: pickField
-      anchors.fill: parent
-      anchors.leftMargin: 12
-      anchors.rightMargin: 12
-      verticalAlignment: TextInput.AlignVCenter
-      clip: true
-      cursorDelegate: Caret { field: pickField }
-      color: Zenon.ink
-      selectionColor: Zenon.alpha(Zenon.accent, 0.4)
-      font.family: Zenon.face
-      font.weight: Zenon.weight
-      font.pixelSize: Zenon.px(15)
-      Keys.onPressed: (e) => { if (np.key(e)) e.accepted = true; }
-      Text { visible: pickField.text === ""; anchors.verticalCenter: parent.verticalCenter; text: "Search notes"; color: Zenon.accentMuted; font: pickField.font }
-    }
-    HeldRing { anchors.fill: parent; radius: parent.radius; z: 10; on: pickField.activeFocus }
+    ghost: "Search notes"
+    keyHook: (e) => { if (np.key(e)) e.accepted = true; }
   }
   ListView {
     id: list
-    anchors.top: box.bottom
+    anchors.top: pickField.bottom
     anchors.topMargin: 10
     anchors.bottom: parent.bottom
     anchors.bottomMargin: 12

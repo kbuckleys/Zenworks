@@ -148,7 +148,7 @@ Item {
         Rectangle {
           anchors.fill: parent
           radius: Zenon.rad(2)
-          color: Qt.rgba(Zenon.red.r, Zenon.red.g, Zenon.red.b, 0.20)
+          color: Zenon.alpha(Zenon.red, 0.20)
         }
         Text {
           height: parent.height
@@ -208,7 +208,7 @@ Item {
         height: parent.height
         x: sw.back ? parent.width - width : 0
         radius: Zenon.rad(2)
-        color: Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.28)
+        color: Zenon.alpha(Zenon.accent, 0.28)
       }
       // its leading edge
       Rectangle {

@@ -46,7 +46,7 @@ Column {
     text: "How did it feel?"
     color: Zenon.ink
     font.family: Zenon.face
-    font.weight: Font.Bold
+    font.weight: Zenon.titleWeight
     font.pixelSize: Zenon.px(19)
   }
   // the scale: seven places, the chosen one large and lit
@@ -97,7 +97,7 @@ Column {
       text: mb.chosen ? mb.mood.label : "Choose a place on the scale"
       color: mb.chosen ? mb.ink : Zenon.accentMuted
       font.family: Zenon.face
-      font.weight: Font.Bold
+      font.weight: Zenon.titleWeight
       font.pixelSize: Zenon.px(15)
     }
   }
@@ -106,7 +106,7 @@ Column {
     text: "What best describes it?"
     color: Zenon.accentMuted
     font.family: Zenon.face
-    font.weight: Font.DemiBold
+    font.weight: Zenon.titleWeight
     font.pixelSize: Zenon.px(13)
   }
   Flow {
@@ -123,7 +123,7 @@ Column {
     text: "What is having the biggest impact?"
     color: Zenon.accentMuted
     font.family: Zenon.face
-    font.weight: Font.DemiBold
+    font.weight: Zenon.titleWeight
     font.pixelSize: Zenon.px(13)
   }
   Flow {

@@ -121,11 +121,10 @@ class Fifo:
         self.thread = None
 
     def __enter__(self):
-        for p in (self.path, self.path + ".spent"):
-            try:
-                os.unlink(p)
-            except OSError:
-                pass
+        try:
+            os.unlink(self.path)
+        except OSError:
+            pass
         os.mkfifo(self.path, 0o600)
         if self.secret is not None:
             def write():
@@ -138,10 +137,6 @@ class Fifo:
             self.thread.start()
         return self
 
-    def spend(self):
-        """Marks it answered already (calypso-pinentry.sh declines at once)."""
-        open(self.path + ".spent", "w").close()
-
     def __exit__(self, *a):
         if self.thread and self.thread.is_alive():
             # nobody read it: open the other end so the writer lets go
@@ -151,11 +146,10 @@ class Fifo:
                 os.close(fd)
             except OSError:
                 pass
-        for p in (self.path, self.path + ".spent"):
-            try:
-                os.unlink(p)
-            except OSError:
-                pass
+        try:
+            os.unlink(self.path)
+        except OSError:
+            pass
         self.secret = None
 
 

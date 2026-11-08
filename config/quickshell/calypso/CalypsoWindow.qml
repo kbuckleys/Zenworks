@@ -77,7 +77,7 @@ FloatingWindow {
   }
 
   readonly property color hiFill: Zenon.menuHi
-  readonly property int headH: 46
+  readonly property int headH: Zenon.toolbarH
   readonly property int footH: Zenon.hintBarH   // morpheus/HintBar's strip
   // morpheus/WindowTip is a popup, not an Item
   readonly property var tipsItem: tips
@@ -265,8 +265,9 @@ FloatingWindow {
     const it = win.item;
     if (!it || !win.visible) return;
     const f = win.fieldWith("totp");
+    const gen = win.forgetGen;
     win.mgr.call("totp", win.acctOf(it), { item: it.id, ref: f ? f.ref : "totp" }, (ok, c) => {
-      if (ok && win.item === it) win.code = c;
+      if (ok && gen === win.forgetGen && win.item === it) win.code = c;
     });
   }
   function fieldWith(role) {
@@ -338,9 +339,12 @@ FloatingWindow {
       win.revealed = o;
       return;
     }
+    // the forget generation too, as Large Type's: a reveal answered after
+    // the window hid and came back on the same item stays hidden (11-08)
+    const gen = win.forgetGen;
     win.mgr.call("reveal", win.acctOf(it), { item: it.id, ref: f.ref }, (ok, r, err) => {
+      if (gen !== win.forgetGen || win.item !== it) return;
       if (!ok) { win.say(C.failWords(err), true); return; }
-      if (win.item !== it) return;
       const o = Object.assign({}, win.revealed);
       o[f.ref] = r.value;
       win.revealed = o;
@@ -946,7 +950,7 @@ FloatingWindow {
             text: acctChip.acct ? acctChip.acct.name : "Calypso"
             color: Zenon.ink
             font.family: Zenon.face
-            font.weight: Font.Bold
+            font.weight: Zenon.titleWeight
             font.pixelSize: Zenon.px(16)
           }
           Text {
@@ -972,6 +976,7 @@ FloatingWindow {
           rotation: win.menuHeld === "chip" && menu.isOpen ? 180 : 0
           Behavior on rotation { NumberAnimation { duration: Zenon.normal; easing.type: Zenon.travelEase } }
           font.family: Zenon.glyphFace
+          font.weight: Zenon.weight
           font.pixelSize: Zenon.px(11)
         }
         MouseArea { id: chipPress; anchors.fill: parent; onClicked: win.scopeMenu() }
@@ -1087,7 +1092,7 @@ FloatingWindow {
                       text: acctRow.modelData.name
                       color: Zenon.ink
                       font.family: Zenon.face
-                      font.weight: Font.Bold
+                      font.weight: Zenon.titleWeight
                       font.pixelSize: Zenon.px(14)
                     }
                     Text {
@@ -1261,7 +1266,7 @@ FloatingWindow {
                 text: C.highlight(rowItem.it.title, win.query, Zenon.accent)
                 color: rowItem.here ? Zenon.ink : Zenon.accentSoft
                 font.family: Zenon.face
-                font.weight: Font.DemiBold
+                font.weight: Zenon.titleWeight
                 font.pixelSize: Zenon.px(15)
               }
               Text {
@@ -1287,6 +1292,7 @@ FloatingWindow {
                 text: "\u{F097F}"
                 color: Zenon.alpha(Zenon.accent, 0.8)
                 font.family: Zenon.glyphFace
+                font.weight: Zenon.weight
                 font.pixelSize: Zenon.px(12)
               }
               Text {
@@ -1294,6 +1300,7 @@ FloatingWindow {
                 text: ""
                 color: Zenon.sand
                 font.family: Zenon.glyphFace
+                font.weight: Zenon.weight
                 font.pixelSize: Zenon.px(12)
               }
             }
@@ -1354,70 +1361,24 @@ FloatingWindow {
       }
 
       // the search: everything open, every word somewhere
-      Rectangle {
-        id: search
+      SearchBox {
+        id: searchField
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
         anchors.margins: 12
-        height: 36
-        radius: Zenon.windowRadius
-        color: Zenon.wash(0.06)
-        border.width: 1
-        border.color: Zenon.border
-        Text {
-          id: lens
-          anchors.left: parent.left
-          anchors.leftMargin: 13
-          anchors.verticalCenter: parent.verticalCenter
-          text: ""
-          color: Zenon.accentMuted
-          font.family: Zenon.glyphFace
-          font.pixelSize: Zenon.px(13)
+        ghost: !win.mgr ? "" : "Search " + (win.scope.acct ? (win.mgr.accountOf(win.scope.acct) || {}).name || "" : "everything")
+        onTextChanged: if (win.query !== text) { win.toTop = true; win.query = text; }
+        keyHook: (e) => {
+          // the field's own keys first: its text, its cursor
+          if (e.key === Qt.Key_Escape && searchField.text !== "") { searchField.text = ""; e.accepted = true; return; }
+          if ((e.key === Qt.Key_Left || e.key === Qt.Key_Right || e.key === Qt.Key_Home || e.key === Qt.Key_End
+               || e.key === Qt.Key_Backspace || e.key === Qt.Key_Delete) && !(e.modifiers & Qt.ControlModifier)) return;
+          if ((e.modifiers & Qt.ControlModifier) && (e.key === Qt.Key_A || e.key === Qt.Key_V || e.key === Qt.Key_X
+               || (e.key === Qt.Key_C && searchField.selectedText !== ""))) return;
+          if (win.key(e)) e.accepted = true;
+
         }
-        TextInput {
-          id: searchField
-          cursorDelegate: Caret { field: searchField }
-          anchors.left: lens.right
-          anchors.leftMargin: 9
-          anchors.right: clear.visible ? clear.left : parent.right
-          anchors.rightMargin: clear.visible ? 8 : 13
-          anchors.verticalCenter: parent.verticalCenter
-          onTextChanged: if (win.query !== text) { win.toTop = true; win.query = text; }
-          color: Zenon.ink
-          selectionColor: Zenon.alpha(Zenon.accent, 0.4)
-          font.family: Zenon.face
-          font.weight: Zenon.weight
-          font.pixelSize: Zenon.px(15)
-          clip: true
-          Keys.onPressed: (e) => {
-            // the field's own keys first: its text, its cursor
-            if (e.key === Qt.Key_Escape && searchField.text !== "") { searchField.text = ""; e.accepted = true; return; }
-            if ((e.key === Qt.Key_Left || e.key === Qt.Key_Right || e.key === Qt.Key_Home || e.key === Qt.Key_End
-                 || e.key === Qt.Key_Backspace || e.key === Qt.Key_Delete) && !(e.modifiers & Qt.ControlModifier)) return;
-            if ((e.modifiers & Qt.ControlModifier) && (e.key === Qt.Key_A || e.key === Qt.Key_V || e.key === Qt.Key_X
-                 || (e.key === Qt.Key_C && searchField.selectedText !== ""))) return;
-            if (win.key(e)) e.accepted = true;
-          }
-          Text {
-            textFormat: Text.PlainText
-            visible: searchField.text === ""
-            anchors.verticalCenter: parent.verticalCenter
-            text: !win.mgr ? "" : "Search " + (win.scope.acct ? (win.mgr.accountOf(win.scope.acct) || {}).name || "" : "everything")
-            color: Zenon.accentMuted
-            font: searchField.font
-          }
-        }
-        ClearChip {
-          id: clear
-          size: Zenon.px(15)
-          shown: searchField.text !== ""
-          anchors.right: parent.right
-          anchors.rightMargin: 9
-          anchors.verticalCenter: parent.verticalCenter
-          onClicked: { searchField.text = ""; searchField.forceActiveFocus(); }
-        }
-        HeldRing { anchors.fill: parent; radius: parent.radius; z: 10; on: searchField.activeFocus }
       }
 
       // how the list is ordered, and how many there are
@@ -1425,7 +1386,7 @@ FloatingWindow {
         id: listBar
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.top: search.bottom
+        anchors.top: searchField.bottom
         anchors.topMargin: 8
         anchors.leftMargin: 14
         anchors.rightMargin: 14
@@ -1526,7 +1487,7 @@ FloatingWindow {
             text: "Where do your passwords live?"
             color: Zenon.ink
             font.family: Zenon.face
-            font.weight: Font.Bold
+            font.weight: Zenon.titleWeight
             font.pixelSize: Zenon.px(26)
           }
           Text {
@@ -1556,8 +1517,7 @@ FloatingWindow {
       anchors.right: parent.right
       anchors.top: parent.top
       height: win.headH
-      Rectangle { anchors.fill: parent; color: Zenon.headBg }
-      Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Zenon.border }
+      HeadGround {}
       Text {
         textFormat: Text.PlainText
         id: headTitle
@@ -1578,8 +1538,8 @@ FloatingWindow {
         }
         color: Zenon.ink
         font.family: Zenon.face
-        font.weight: Font.Bold
-        font.pixelSize: Zenon.px(19)
+        font.weight: Zenon.titleWeight
+        font.pixelSize: Zenon.px(17)
       }
       Text {
         textFormat: Text.PlainText
@@ -1704,6 +1664,7 @@ FloatingWindow {
           text: ""
           color: Zenon.accent
           font.family: Zenon.glyphFace
+          font.weight: Zenon.weight
           font.pixelSize: Zenon.px(18)
         }
         Text {
@@ -1711,7 +1672,7 @@ FloatingWindow {
           text: "Add an account"
           color: Zenon.ink
           font.family: Zenon.face
-          font.weight: Font.Bold
+          font.weight: Zenon.titleWeight
           font.pixelSize: Zenon.px(19)
         }
       }

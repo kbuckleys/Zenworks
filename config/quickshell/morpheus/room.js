@@ -40,6 +40,21 @@
 //
 // A monitor's width and height are its mode, before rotation and scale; its
 // `reserved` is [left, top, right, bottom], the bar's share of it.
+// ── ASKING HYPRLAND, ONCE FOR BOTH ─────────────────────────────────────
+// The window and the monitors in one process: PROBE is its command, and
+// parseProbe(text, title) the answer — { win, mons } when the focused window
+// is this suite window (`title`), else null (unreadable, or another window:
+// not ours to resize). Terminus' split and sidebar each had a copy (audit
+// 2026-11-08).
+var PROBE = ["sh", "-c", "hyprctl -j activewindow; echo '@@mons'; hyprctl -j monitors"];
+function parseProbe(text, title) {
+  var parts = String(text || "").split("@@mons");
+  var win = null, mons = null;
+  try { win = JSON.parse(parts[0]); mons = JSON.parse(parts[1]); } catch (e) { return null; }
+  if (!win || !mons || win.class !== "org.quickshell" || win.title !== title) return null;
+  return { win: win, mons: mons };
+}
+
 function make(win, mons, wantW, margin, minW, edge) {
   if (!win || !win.floating || win.fullscreen || !win.size) return null;
   const mon = (mons || []).find((m) => m.id === win.monitor);

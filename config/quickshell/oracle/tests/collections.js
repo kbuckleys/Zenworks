@@ -58,6 +58,14 @@ module.exports = {
     t.eq("a plain b suffix is still decimal", T.sizeArg("10mb"), "10m");
     t.eq("nonsense asks for nothing", T.sizeArg("big"), "");
     t.eq("and so does nothing", T.sizeArg(""), "");
+    // a rule that reads as nothing is not a rule that matches everything
+    t.eq("a size of abc asks nothing at all",
+      T.command({ root: "/r", rules: [{ kind: "size", op: "larger", value: "abc" }] }, HOME), "");
+    t.eq("nor beside a good rule",
+      T.command({ root: "/r", rules: [{ kind: "name", op: "contains", value: "x" },
+        { kind: "date", op: "within", value: "soon" }] }, HOME), "");
+    t.ok("a real size still asks",
+      T.command({ root: "/r", rules: [{ kind: "size", op: "larger", value: "10m" }] }, HOME).indexOf("--size +10m") >= 0);
     t.eq("and so does undefined", T.sizeArg(undefined), "");
 
     // ── dates ─────────────────────────────────────────────────────────────
@@ -91,7 +99,7 @@ module.exports = {
       fd(nameRule).indexOf("--no-ignore") >= 0);
     t.ok("results are NUL separated", fd(nameRule).indexOf("--print0") >= 0);
     t.ok("the root is quoted and last",
-      fd(nameRule).indexOf("-- '/r'") > 0);
+      fd(nameRule).endsWith(" '/r'"));
 
     // FILES BY DEFAULT: without it a name rule also matches the DIRECTORIES
     // holding the files, and a collection of "invoices" lists the invoices
@@ -119,6 +127,11 @@ module.exports = {
     t.ok("a literal dot is escaped",
       fd([{ kind: "name", op: "contains", value: "a.b" }])
         .indexOf("'a\\.b'") >= 0);
+    // contains is words, as a search is (a saved "haven png" found nothing)
+    const words = fd([{ kind: "name", op: "contains", value: "haven png" }]);
+    t.has("each word is a pattern", words, "-- 'haven' ");
+    t.has("and every one is needed", words, "'--and=png'");
+    t.has("a capital ignores case all the same", fd([{ kind: "name", op: "contains", value: "Haven" }]), "'(?i)Haven'");
     t.ok("`matches` is handed over unescaped",
       fd([{ kind: "name", op: "matches", value: "^a.b$" }])
         .indexOf("'^a.b$'") >= 0);
@@ -173,9 +186,16 @@ module.exports = {
     const two = T.fdCommand({ root: "/r" }, [
       { kind: "name", op: "contains", value: "invoice" },
       { kind: "name", op: "contains", value: "2024" }], HOME);
-    t.has("the first name is the pattern", two, "'invoice' --");
-    t.has("the second is required too", two, "--and '2024'");
+    t.has("the first name is the pattern", two, "-- 'invoice' ");
+    t.has("the second is required too", two, "'--and=2024'");
     t.before("and --and comes before the pattern", two, "--and", "'invoice'");
+    // a name that starts with a dash is a name: before the --, fd read
+    // "-xrm" as run rm on every match (audit 2026-11-07)
+    const dash = T.command({ root: "/r", rules: [
+      { kind: "name", op: "contains", value: "-xrm" },
+      { kind: "name", op: "contains", value: "-Xrm" }] }, "/h");
+    t.before("every pattern comes after the --", dash, " -- ", "'-xrm'");
+    t.has("and a second one cannot be an option either", dash, "'--and=");
     const twoC = T.command({ root: "/r", rules: [
       { kind: "content", op: "text", value: "alpha" },
       { kind: "content", op: "text", value: "beta" }] }, HOME);
@@ -303,5 +323,13 @@ module.exports = {
     t.ok("a folder with newest sorts by mtime before cutting",
       newestCmd.indexOf("| xargs -0 -r stat --printf '%Y\\t%n\\0' -- | sort -z -rn | head -z -n 100 | cut -z -f2-") > 0);
     t.ok("and is not ALSO cut at 2000 first", newestCmd.indexOf("head -z -n 2000") < 0);
+
+    // ── a search as a collection's rules (searchRules) ──────────────────
+    const rows = [{ kind: "size", op: "over", value: "10m" }, { kind: "name", op: "ends", value: " " }];
+    t.eq("names: the query first, empty rows dropped", JSON.stringify(T.searchRules("names", "cat", rows)),
+      JSON.stringify([{ kind: "name", op: "contains", value: "cat" }, { kind: "size", op: "over", value: "10m" }]));
+    t.eq("grep is a content rule", T.searchRules("grep", "todo", [])[0].kind, "content");
+    t.eq("no query, no first rule", T.searchRules("names", "", rows).length, 1);
+    t.eq("the editor keeps a row being filled in", T.searchRules("names", "", rows, true).length, 2);
   }
 };

@@ -92,6 +92,7 @@ Item {
       anchors.verticalCenter: qText.lineCount === 1 ? qText.verticalCenter : undefined
     }
     Text {
+      textFormat: Text.PlainText
       id: qText
       width: head.width - (mark.visible ? mark.width + head.spacing : 0)
       text: cb.question
@@ -122,6 +123,7 @@ Item {
       fontSize: 12
     }
     Text {
+      textFormat: Text.PlainText
       id: lineText
       anchors.verticalCenter: parent.verticalCenter
       width: Math.min(implicitWidth, detailText.room

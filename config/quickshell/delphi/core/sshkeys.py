@@ -431,6 +431,9 @@ def use(host, key, user=None, replace=False, agent=True):
     passphrase kept by the agent once given."""
     user = USERS.get(host.lower(), "") if user is None else user
     _checked(host, user)
+    # a line break in the key's path would be a line of its own in the config
+    if re.search(r"[\r\n]", str(key or "")):
+        raise GitError(["ssh"], 1, "that key's path has a line break in it")
     p = plan_host(_read_config(), host, user, key, agent=agent, replace=replace)
     if p["state"] in ("added", "updated"):
         _write_config(p["lines"])

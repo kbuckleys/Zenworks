@@ -23,6 +23,9 @@ Item {
   // a relative address is a file beside the Markdown that names it (plato's
   // preview hands its directory in, NotesView.base); `addr` is what is shown
   property string base: ""
+  // from a server that is not the forge's: shown as a line to load it,
+  // fetched only once that is clicked (NotesView, D.mediaOwnHost)
+  property bool held: false
   readonly property string addr: med.base === "" || med.url === "" || /^[a-z][a-z0-9+.-]*:/i.test(med.url)
     ? med.url
     : Strings.fileUrl(med.url.charAt(0) === "/" ? med.url : med.base + "/" + med.decoded(med.url))
@@ -35,7 +38,8 @@ Item {
   // the file shown: the local one, or the cached copy once it is in
   property string file: med.local ? med.addr : ""
   property bool failed: !med.local && !med.web
-  readonly property bool loading: !med.local && med.file === "" && !med.failed
+  readonly property bool waiting: med.held && med.web && med.file === "" && !med.failed
+  readonly property bool loading: !med.local && med.file === "" && !med.failed && !med.waiting
   readonly property int maxH: 520
 
   // the frame's own size, kept to the notes' width and maxH
@@ -46,7 +50,7 @@ Item {
   readonly property real boxW: med.k > 0 ? med.natW * med.k : (med.kind === "video" ? Math.min(med.width, 640) : 0)
   readonly property real boxH: med.k > 0 ? med.natH * med.k : (med.kind === "video" ? Math.min(med.width, 640) * 9 / 16 : 0)
 
-  height: med.failed || med.loading ? 34 : med.boxH
+  height: med.failed || med.loading || med.waiting ? 34 : med.boxH
 
   // ── THE FETCH: once per address, kept in the cache ──
   // named by the address; its extension kept, so the player knows the
@@ -58,9 +62,31 @@ Item {
   readonly property string cacheFile: med.local ? ""
     : Paths.cacheDir() + "/delphi/media/" + Qt.md5(med.addr) + med.ext
   // the one fetch the suite has (morpheus/Net.fetch): http(s) only, kept
-  Component.onCompleted: if (med.web)
+  Component.onCompleted: if (med.web && !med.held) med.fetch()
+  function load() { med.held = false; med.fetch(); }
+  function fetch() {
     Net.fetch(med.addr, med.cacheFile, { timeout: 300, maxBytes: med.kind === "video" ? 300000000 : 40000000 },
-      (ok) => { if (!med) return; if (ok) med.file = Strings.fileUrl(med.cacheFile); else med.failed = true; })
+      (ok) => { if (!med) return; if (ok) med.file = Strings.fileUrl(med.cacheFile); else med.failed = true; });
+  }
+
+  // from elsewhere: where from, and a link that loads it
+  Text {
+    visible: med.waiting
+    anchors.verticalCenter: parent.verticalCenter
+    width: parent.width
+    elide: Text.ElideRight
+    textFormat: Text.StyledText
+    text: (med.kind === "video" ? "A video" : "A picture") + " from " + Strings.escapeHtml(med.hostOf(med.addr))
+      + " — <a href=\"load\">load it</a>"
+    color: Zenon.accentMuted
+    linkColor: Zenon.link
+    font.family: Zenon.face
+    font.weight: Zenon.weight
+    font.pixelSize: Zenon.px(14)
+    onLinkActivated: med.load()
+    HoverHandler { cursorShape: parent.hoveredLink !== "" ? Qt.PointingHandCursor : Qt.ArrowCursor }
+  }
+  function hostOf(u) { const m = /^\w+:\/\/(?:[^@\/?#]*@)?([^:\/?#]+)/.exec(String(u)); return m ? m[1] : String(u); }
 
 
   // loading, or not to be had
@@ -141,6 +167,7 @@ Item {
         text: ""
         color: Zenon.white
         font.family: Zenon.glyphFace
+        font.weight: Zenon.weight
         font.pixelSize: Zenon.px(22)
       }
     }
@@ -154,10 +181,12 @@ Item {
       width: 30; height: 30; radius: 15
       color: Zenon.shade(0.55)
       Text {
+        textFormat: Text.PlainText
         anchors.centerIn: parent
         text: vidMute.muted ? "" : ""
         color: Zenon.white
         font.family: Zenon.glyphFace
+        font.weight: Zenon.weight
         font.pixelSize: Zenon.px(13)
       }
       MouseArea { anchors.fill: parent; onClicked: vidMute.muted = !vidMute.muted }

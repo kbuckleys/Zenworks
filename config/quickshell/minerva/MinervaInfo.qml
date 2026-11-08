@@ -38,7 +38,7 @@ Column {
     color: Zenon.ink
     font.family: info.mgr ? info.mgr.serifFace : Zenon.face
     font.pixelSize: Zenon.px(22)
-    font.weight: Font.DemiBold
+    font.weight: Zenon.titleWeight
   }
   Text {
     textFormat: Text.PlainText
@@ -46,6 +46,7 @@ Column {
     text: info.book ? info.book.author : ""
     color: Zenon.accentMuted
     font.family: Zenon.face
+    font.weight: Zenon.weight
     font.pixelSize: Zenon.px(15)
   }
   Item { width: 1; height: 4; visible: !!info.book }
@@ -94,7 +95,7 @@ Column {
           text: modelData[1]
           color: Zenon.ink
           font.family: Zenon.face
-          font.weight: Font.DemiBold
+          font.weight: Zenon.titleWeight
           font.pixelSize: Zenon.px(20)
         }
         Text {
@@ -102,6 +103,7 @@ Column {
           text: modelData[0]
           color: Zenon.accentMuted
           font.family: Zenon.face
+          font.weight: Zenon.weight
           font.pixelSize: Zenon.px(12)
         }
       }
@@ -140,6 +142,7 @@ Column {
       text: "two weeks ago"
       color: Zenon.accentMuted
       font.family: Zenon.face
+      font.weight: Zenon.weight
       font.pixelSize: Zenon.px(11)
     }
     Text {
@@ -148,6 +151,7 @@ Column {
       text: "today"
       color: Zenon.accentMuted
       font.family: Zenon.face
+      font.weight: Zenon.weight
       font.pixelSize: Zenon.px(11)
     }
   }

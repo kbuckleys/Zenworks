@@ -74,6 +74,7 @@ Item {
       : "From the moment you stop. Drag a marker to move it; into Never to turn it off."
     color: tl.dimColor
     font.family: tl.face
+    font.weight: Zenon.weight
     font.pixelSize: Zenon.px(12)
   }
 
@@ -143,6 +144,7 @@ Item {
         text: "Never"
         color: tl.dimColor
         font.family: tl.face
+        font.weight: Zenon.weight
         font.pixelSize: Zenon.px(11)
       }
     }
@@ -161,6 +163,7 @@ Item {
           text: index === 0 ? "0" : tl.words(index * tl.tick)
           color: tl.dimColor
           font.family: tl.face
+          font.weight: Zenon.weight
           font.pixelSize: Zenon.px(11)
         }
       }
@@ -218,6 +221,7 @@ Item {
               text: mark.modelData.glyph
               color: mark.ink
               font.family: Zenon.glyphFace
+              font.weight: Zenon.weight
               font.pixelSize: Zenon.px(13)
             }
             Text {
@@ -226,7 +230,7 @@ Item {
               text: mark.modelData.label + " · " + tl.words(mark.s)
               color: Zenon.ink
               font.family: tl.face
-              font.weight: Font.DemiBold
+              font.weight: Zenon.titleWeight
               font.pixelSize: Zenon.px(12)
             }
           }

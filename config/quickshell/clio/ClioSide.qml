@@ -162,6 +162,7 @@ Item {
           text: Clio.shown ? "" : ""
           color: Zenon.accentMuted
           font.family: Zenon.glyphFace
+          font.weight: Zenon.weight
           font.pixelSize: Zenon.px(12)
           MouseArea { anchors.fill: parent; anchors.margins: -6; onClicked: Clio.toggle() }
         }

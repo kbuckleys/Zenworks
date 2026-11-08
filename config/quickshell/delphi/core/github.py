@@ -197,18 +197,20 @@ def logout(login=None):
 
 
 
+def _headers(tok):
+    """What every GitHub request carries — one place, so a version bump or a
+    new header is not three edits apart (audit 2026-11-07)."""
+    return {"Authorization": "Bearer " + tok, "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28", "User-Agent": "delphi"}
+
+
 def call(method, path, body=None, tok=None, raw=False, again=False, waited=None):
     if tok is None:
         tok, _ = token()
     if not tok:
         raise ForgeError("not signed in to GitHub", 401)
     url = path if path.startswith("http") else API + path
-    return rest.request(method, url, {
-        "Authorization": "Bearer " + tok,
-        "Accept": "application/vnd.github+json",
-        "X-GitHub-Api-Version": "2022-11-28",
-        "User-Agent": "delphi",
-    }, body, raw, again, waited, who="GitHub")
+    return rest.request(method, url, _headers(tok), body, raw, again, waited, who="GitHub")
 
 
 def _paged(path, tok, limit=1000):
@@ -410,7 +412,7 @@ def upload(full, files, message, branch=None, emit=None, cancel=None):
         call("POST", f"/repos/{full}/git/refs",
              {"ref": f"refs/heads/{branch}", "sha": c["sha"]}, tok=tok)
     else:
-        call("PATCH", f"/repos/{full}/git/refs/heads/{branch}", {"sha": c["sha"]}, tok=tok, again=True)
+        call("PATCH", f"/repos/{full}/git/refs/heads/{rest.ref(branch)}", {"sha": c["sha"]}, tok=tok, again=True)
     return {"sha": c["sha"], "branch": branch, "url": c.get("html_url"), "created": new_ref}
 
 
@@ -418,7 +420,7 @@ def _head_of(full, branch, tok):
     # the commit a branch is on, or None when there is no such branch (or no
     # branch at all: an empty repository answers 409)
     try:
-        return call("GET", f"/repos/{full}/git/ref/heads/{branch}", tok=tok)["object"]["sha"]
+        return call("GET", f"/repos/{full}/git/ref/heads/{rest.ref(branch)}", tok=tok)["object"]["sha"]
     except ForgeError as e:
         if e.status in (404, 409):
             return None
@@ -492,10 +494,10 @@ def thread(full, number, pull=False):
                 return None
             raise
     with ThreadPoolExecutor(4) as ex:
-        fi = ex.submit(call, "GET", f"/repos/{full}/issues/{number}", None, tok)
-        fc = ex.submit(_paged, f"/repos/{full}/issues/{number}/comments", tok)
-        fp = ex.submit(maybe, f"/repos/{full}/pulls/{number}")
-        fr = ex.submit(maybe, f"/repos/{full}/pulls/{number}/reviews", True)
+        fi = ex.submit(call, "GET", f"/repos/{full}/issues/{rest.num(number)}", None, tok)
+        fc = ex.submit(_paged, f"/repos/{full}/issues/{rest.num(number)}/comments", tok)
+        fp = ex.submit(maybe, f"/repos/{full}/pulls/{rest.num(number)}")
+        fr = ex.submit(maybe, f"/repos/{full}/pulls/{rest.num(number)}/reviews", True)
         i, comments, p, reviews = fi.result(), fc.result(), fp.result(), fr.result()
     pull = "pull_request" in i
     out = _row(i, pull)
@@ -522,13 +524,13 @@ def thread(full, number, pull=False):
 
 
 def comment(full, number, body, pull=False):
-    c = call("POST", f"/repos/{full}/issues/{number}/comments", {"body": body})
+    c = call("POST", f"/repos/{full}/issues/{rest.num(number)}/comments", {"body": body})
     return {"author": _who(c.get("user")), "body": c.get("body") or "",
             "when": c.get("created_at"), "kind": "comment"}
 
 
 def set_state(full, number, open, pull=False):
-    r = call("PATCH", f"/repos/{full}/issues/{number}",
+    r = call("PATCH", f"/repos/{full}/issues/{rest.num(number)}",
              {"state": "open" if open else "closed"})
     return {"state": r.get("state")}
 
@@ -548,7 +550,7 @@ def open_pull(full, head, base, title, body="", draft=False):
 
 
 def merge(full, number, method="merge"):
-    r = call("PUT", f"/repos/{full}/pulls/{number}/merge", {"merge_method": method})
+    r = call("PUT", f"/repos/{full}/pulls/{rest.num(number)}/merge", {"merge_method": method})
     return {"merged": bool(r.get("merged")), "sha": r.get("sha")}
 
 
@@ -609,7 +611,7 @@ def create_release(full, tag, target, name, body="", draft=False, prerelease=Fal
 def checks(full, sha):
     tok, _ = token()
     runs = []
-    cr = call("GET", f"/repos/{full}/commits/{sha}/check-runs?per_page=100", tok=tok)
+    cr = call("GET", f"/repos/{full}/commits/{rest.seg(sha)}/check-runs?per_page=100", tok=tok)
     for r in cr.get("check_runs") or []:
         st = r.get("conclusion") if r.get("status") == "completed" else r.get("status")
         # an Actions check run is its job: its log and its re-run are here
@@ -618,7 +620,7 @@ def checks(full, sha):
                      "url": r.get("html_url") or r.get("details_url") or "",
                      "started": r.get("started_at"), "finished": r.get("completed_at"),
                      "job": r.get("id") if actions else None})
-    cs = call("GET", f"/repos/{full}/commits/{sha}/status", tok=tok)
+    cs = call("GET", f"/repos/{full}/commits/{rest.seg(sha)}/status", tok=tok)
     for s in cs.get("statuses") or []:
         runs.append({"name": s.get("context") or "", "state": rest.ci_word(s.get("state")),
                      "url": s.get("target_url") or "", "started": s.get("created_at"),
@@ -634,8 +636,7 @@ def job_log(full, job):
     """an Actions job's log, readable: { lines }"""
     tok, _ = token()
     t = rest.text(f"{API}/repos/{full}/actions/jobs/{int(job)}/logs",
-                  {"Authorization": "Bearer " + tok, "Accept": "application/vnd.github+json",
-                   "X-GitHub-Api-Version": "2022-11-28", "User-Agent": "delphi"}, who="GitHub")
+                  _headers(tok), who="GitHub")
     return {"lines": rest.log_lines(t)}
 
 
@@ -735,13 +736,13 @@ def add_signing_key(key, title="delphi"):
 
 
 def update_release(full, id, tag, name, body="", draft=False, prerelease=False):
-    return _rel(call("PATCH", f"/repos/{full}/releases/{id}",
+    return _rel(call("PATCH", f"/repos/{full}/releases/{rest.num(id)}",
                      {"tag_name": tag, "name": name or tag, "body": body,
                       "draft": bool(draft), "prerelease": bool(prerelease)}))
 
 
 def delete_release(full, id, tag=""):
-    call("DELETE", f"/repos/{full}/releases/{id}")
+    call("DELETE", f"/repos/{full}/releases/{rest.num(id)}")
     return {}
 
 
@@ -756,8 +757,7 @@ def media_upload(full, rel, path):
     url = (f"https://uploads.github.com/repos/{full}/releases/{rel['id']}/assets?name="
            + urllib.parse.quote(name, safe=""))
     try:
-        rest.request("POST", url, {"Authorization": "Bearer " + tok, "Accept": "application/vnd.github+json",
-                                   "X-GitHub-Api-Version": "2022-11-28", "User-Agent": "delphi"},
+        rest.request("POST", url, _headers(tok),
                      payload=data, ctype=rest.media_type(path), who="GitHub")
     except ForgeError as e:
         # 422: one of that name is attached already — the same content
@@ -797,7 +797,7 @@ def add_ssh_key(key, title="delphi"):
 
 def delete_ssh_key(id):
     try:
-        call("DELETE", f"/user/keys/{id}")
+        call("DELETE", f"/user/keys/{rest.num(id)}")
     except ForgeError as e:
         _key_scope(e, "remove")
     return {}

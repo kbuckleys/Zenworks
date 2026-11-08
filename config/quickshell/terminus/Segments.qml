@@ -75,7 +75,7 @@ Item {
   property string hot: ""
   property var heldAt: null
   property int buttons: Qt.LeftButton
-  property int weight: Font.Bold
+  property int weight: Zenon.titleWeight
   // the words' family, "" for the suite's (alexandria's languages, each
   // named in the face it is looking at)
   property string face: ""
@@ -287,6 +287,7 @@ Item {
         }
         // the part a menu is open on (terminus' HeldRing)
         HeldRing {
+          id: partRing
           x: 1
           y: 1
           width: parent.width - 2
@@ -384,6 +385,7 @@ Item {
           acceptedButtons: segs.buttons
           onTapped: (ev, button) => {
             if (!one.ok) return;
+            if (button === Qt.MiddleButton) partRing.flash();
             segs.pressed(one.modelData[0], one, button, ev.position.x, ev.position.y);
             if (button === Qt.LeftButton) segs.chose(one.modelData[0]);
           }

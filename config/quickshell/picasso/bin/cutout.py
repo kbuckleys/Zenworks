@@ -198,7 +198,8 @@ def infer(sess, name, im):
     t = np.expand_dims(t.transpose((2, 0, 1)), 0).astype(np.float32)
     pred = sess.run(None, {sess.get_inputs()[0].name: t})[0][:, 0, :, :]
     ma, mi = np.max(pred), np.min(pred)
-    return np.squeeze((pred - mi) / (ma - mi))
+    # a flat prediction (one color, nothing told apart) is no cut-out, not NaN
+    return np.squeeze((pred - mi) / max(ma - mi, 1e-6))
 
 
 def rembg_mask(pred, name, size):

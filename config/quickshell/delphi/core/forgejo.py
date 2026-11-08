@@ -31,10 +31,6 @@ FORGE_ID = "codeberg"
 NAME = "Codeberg"
 
 
-def have_cli():
-    return False
-
-
 def token():
     # the keyring, or delphi's own file where there is no keyring (tokenstore)
     c = tokenstore.get(HOST)
@@ -43,16 +39,21 @@ def token():
     return None, None
 
 
+def _headers(tok):
+    """What every request here carries; signed in, the token too."""
+    h = {"User-Agent": "delphi", "Accept": "application/json"}
+    if tok:
+        h["Authorization"] = "token " + tok
+    return h
+
+
 def call(method, path, body=None, tok=None, raw=False, again=False, waited=None, anon=False):
     if tok is None:
         tok, _ = token()
     if not tok and not anon:
         raise ForgeError(f"not signed in to {HOST}", 401)
     url = path if path.startswith("http") else API + path
-    h = {"User-Agent": "delphi", "Accept": "application/json"}
-    if tok:
-        h["Authorization"] = "token " + tok
-    return rest.request(method, url, h, body, raw, again, waited, who=NAME)
+    return rest.request(method, url, _headers(tok), body, raw, again, waited, who=NAME)
 
 
 def _paged(path, tok, limit=1000, anon=False):
@@ -159,7 +160,7 @@ def _tree(full, ref, tok):
     """{path: blob sha} of every file on a branch, or None when there is no
     such branch (an empty repository has none)."""
     try:
-        head = call("GET", f"/repos/{full}/branches/{ref}", tok=tok)["commit"]["id"]
+        head = call("GET", f"/repos/{full}/branches/{rest.ref(ref)}", tok=tok)["commit"]["id"]
     except ForgeError as e:
         if e.status in (404, 409):
             return None
@@ -299,22 +300,22 @@ def issues(full, state="open"):
 
 def thread(full, number, pull=False):
     tok, _ = token()
-    i = call("GET", f"/repos/{full}/issues/{number}", tok=tok, anon=not tok)
+    i = call("GET", f"/repos/{full}/issues/{rest.num(number)}", tok=tok, anon=not tok)
     pull = pull or bool(i.get("pull_request"))
     out = _row(i, pull)
     out["body"] = i.get("body") or ""
     said = [{"author": _who(c.get("user")), "body": c.get("body") or "", "when": c.get("created_at"),
              "kind": "comment"}
-            for c in _paged(f"/repos/{full}/issues/{number}/comments", tok, anon=not tok)]
+            for c in _paged(f"/repos/{full}/issues/{rest.num(number)}/comments", tok, anon=not tok)]
     if pull:
-        p = call("GET", f"/repos/{full}/pulls/{number}", tok=tok, anon=not tok)
+        p = call("GET", f"/repos/{full}/pulls/{rest.num(number)}", tok=tok, anon=not tok)
         out.update(_row(p, True))
         out["body"] = p.get("body") or out["body"]
         out.update(mergeable=p.get("mergeable"), mergeState="", commits=0,
                    additions=p.get("additions") or 0, deletions=p.get("deletions") or 0,
                    files=p.get("changed_files") or 0, sameRepo=out.get("headRepo") == full)
         try:
-            for v in _paged(f"/repos/{full}/pulls/{number}/reviews", tok, anon=not tok):
+            for v in _paged(f"/repos/{full}/pulls/{rest.num(number)}/reviews", tok, anon=not tok):
                 if v.get("state") in ("APPROVED", "REQUEST_CHANGES") or v.get("body"):
                     said.append({"author": _who(v.get("user")), "body": v.get("body") or "",
                                  "when": v.get("submitted_at"),
@@ -327,13 +328,13 @@ def thread(full, number, pull=False):
 
 
 def comment(full, number, body, pull=False):
-    c = call("POST", f"/repos/{full}/issues/{number}/comments", {"body": body})
+    c = call("POST", f"/repos/{full}/issues/{rest.num(number)}/comments", {"body": body})
     return {"author": _who(c.get("user")), "body": c.get("body") or "", "when": c.get("created_at"),
             "kind": "comment"}
 
 
 def set_state(full, number, open, pull=False):
-    r = call("PATCH", f"/repos/{full}/issues/{number}", {"state": "open" if open else "closed"})
+    r = call("PATCH", f"/repos/{full}/issues/{rest.num(number)}", {"state": "open" if open else "closed"})
     return {"state": r.get("state")}
 
 
@@ -349,7 +350,7 @@ def open_pull(full, head, base, title, body="", draft=False):
 
 
 def merge(full, number, method="merge"):
-    call("POST", f"/repos/{full}/pulls/{number}/merge",
+    call("POST", f"/repos/{full}/pulls/{rest.num(number)}/merge",
          {"Do": {"merge": "merge", "squash": "squash", "rebase": "rebase"}.get(method, "merge")})
     return {"merged": True, "sha": None}
 
@@ -396,7 +397,7 @@ def create_release(full, tag, target, name, body="", draft=False, prerelease=Fal
 # statuses: the combined status lists each.
 def checks(full, sha):
     tok, _ = token()
-    cs = call("GET", f"/repos/{full}/commits/{sha}/status", tok=tok, anon=not tok)
+    cs = call("GET", f"/repos/{full}/commits/{rest.seg(sha)}/status", tok=tok, anon=not tok)
     runs = [{"name": s.get("context") or "", "state": rest.ci_word(s.get("status") or s.get("state")),
              "url": s.get("target_url") or "", "started": s.get("created_at"),
              "finished": s.get("updated_at")} for s in (cs or {}).get("statuses") or []]
@@ -490,13 +491,13 @@ def add_signing_key(key, title="delphi"):
 
 
 def update_release(full, id, tag, name, body="", draft=False, prerelease=False):
-    return _rel(call("PATCH", f"/repos/{full}/releases/{id}",
+    return _rel(call("PATCH", f"/repos/{full}/releases/{rest.num(id)}",
                      {"tag_name": tag, "name": name or tag, "body": body,
                       "draft": bool(draft), "prerelease": bool(prerelease)}))
 
 
 def delete_release(full, id, tag=""):
-    call("DELETE", f"/repos/{full}/releases/{id}")
+    call("DELETE", f"/repos/{full}/releases/{rest.num(id)}")
     return {}
 
 
@@ -509,7 +510,7 @@ def media_upload(full, rel, path):
     name = rest.media_name(path, data)
     form, ctype = rest.multipart("attachment", name, data, rest.media_type(path))
     rest.request("POST", f"{API}/repos/{full}/releases/{rel['id']}/assets?name=" + urllib.parse.quote(name, safe=""),
-                 {"User-Agent": "delphi", "Accept": "application/json", "Authorization": "token " + tok},
+                 _headers(tok),
                  payload=form, ctype=ctype, who=NAME)
     return (f"https://{HOST}/{full}/releases/download/"
             f"{urllib.parse.quote(rel['tag'], safe='')}/{urllib.parse.quote(name, safe='')}")
@@ -533,5 +534,5 @@ def add_ssh_key(key, title="delphi"):
 
 
 def delete_ssh_key(id):
-    call("DELETE", f"/user/keys/{id}")
+    call("DELETE", f"/user/keys/{rest.num(id)}")
     return {}

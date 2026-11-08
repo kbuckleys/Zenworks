@@ -100,8 +100,8 @@ FocusScope {
       visible: body.bars.length > 0
       width: parent.width
       height: startWord.implicitHeight
-      Text { id: startWord; text: "start"; color: Zenon.muted; font.family: Zenon.face; font.pixelSize: Zenon.px(11) }
-      Text { anchors.right: parent.right; text: "end"; color: Zenon.muted; font.family: Zenon.face; font.pixelSize: Zenon.px(11) }
+      Text { id: startWord; text: "start"; color: Zenon.accentMuted; font.family: Zenon.face; font.weight: Zenon.weight; font.pixelSize: Zenon.px(11) }
+      Text { anchors.right: parent.right; text: "end"; color: Zenon.accentMuted; font.family: Zenon.face; font.weight: Zenon.weight; font.pixelSize: Zenon.px(11) }
     }
 
     // while it runs

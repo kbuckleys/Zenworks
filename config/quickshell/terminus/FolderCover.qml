@@ -72,7 +72,6 @@ Item {
     if (token === 0) { wait.restart(); return; }
     cover.lease = token;
     cover.asked = cover.key;
-    scan.dir = cover.path;
     scan.command = ["sh", "-c", Covers.scanCommand(cover.path, Strings.shellQuote)];
     scan.running = true;
   }
@@ -103,7 +102,6 @@ Item {
 
   Process {
     id: scan
-    property string dir: ""
     stdout: StdioCollector {
       id: scanOut
       onStreamFinished: {

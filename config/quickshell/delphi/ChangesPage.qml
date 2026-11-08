@@ -58,10 +58,20 @@ Item {
     return Object.assign({}, st, { staged: st.staged.filter(has), unstaged: st.unstaged.filter(has),
                                    untracked: st.untracked.filter(has), conflicts: st.conflicts.filter(has) });
   }
+  // staged paths and, for a rename among them, its old path too: unstaging
+  // the new one alone left the old one's deletion staged (audit 11-07, as
+  // the marked rows have it since 10-28d)
+  function withFroms(paths) {
+    const st = pg.win ? pg.win.st : null;
+    const want = new Set(paths);
+    const out = paths.slice();
+    for (const e of (st ? st.staged : [])) if (e.from && want.has(e.path)) out.push(e.from);
+    return Array.from(new Set(out));
+  }
   function stageShown(sec) {
     const st = pg.shownSt;
     if (!st) return;
-    const paths = sec === "staged" ? st.staged.map((e) => e.path)
+    const paths = sec === "staged" ? pg.withFroms(st.staged.map((e) => e.path))
       : st.unstaged.map((e) => e.path).concat(st.untracked.map((e) => e.path));
     if (paths.length === 0) return;
     pg.win.act(sec === "staged" ? "unstage" : "stage", { paths: paths },
@@ -257,12 +267,20 @@ Item {
     const f = pg.file;
     if (!f) return;
     if (f.isDir) {
-      if (f.area === "staged") pg.win.act("unstage", { paths: f.paths }, { said: "Unstaged " + f.count + " in " + f.name });
+      if (f.area === "staged") pg.win.act("unstage", { paths: pg.withFroms(f.paths) }, { said: "Unstaged " + f.count + " in " + f.name });
       else if (f.area !== "conflict") pg.win.act("stage", { paths: f.paths }, { said: "Staged " + f.count + " in " + f.name });
       return;
     }
     if (f.area === "staged") pg.win.act("unstage", { paths: f.from ? [f.path, f.from] : [f.path] }, {});
     else if (f.area !== "conflict") pg.win.act("stage", { paths: [f.path] }, {});
+  }
+  // the shown diff's `index` line: the core refuses a part chosen against
+  // a diff the file has since moved away from (it would pick other lines)
+  function diffToken(path) {
+    for (const g of pg.diffFiles)
+      if (g.new === path || g.old === path)
+        for (const h of (g.header || [])) if (h.indexOf("index ") === 0) return h;
+    return "";
   }
   function stageAll() { pg.win.act("stageAll", {}, { said: "Staged everything" }); }
   function unstageAll() { pg.win.act("unstageAll", {}, { said: "Unstaged everything" }); }
@@ -272,7 +290,7 @@ Item {
     const chosen = oneLine ? diff.chosenLine() : diff.chosen();
     if (!f || !chosen) return;
     const op = f.area === "staged" ? "unstageLines" : "stageLines";
-    const args = { path: f.path, chosen: chosen };
+    const args = { path: f.path, chosen: chosen, token: pg.diffToken(f.path) };
     if (f.area === "untracked") args.untracked = true;
     pg.win.act(op, args, { then: () => { diff.anchor = -1; } });
   }
@@ -318,7 +336,7 @@ Item {
     if (part) {
       pg.win.confirm({ question: diff.ranged ? "Discard these lines?" : "Discard this hunk?", glyph: "", ink: Zenon.red,
         detail: "Your edit to " + f.name + " there is undone in the file.", verb: "Discard",
-        then: () => pg.win.act("discardLines", { path: f.path, chosen: part }, {}) });
+        then: () => pg.win.act("discardLines", { path: f.path, chosen: part, token: pg.diffToken(f.path) }, {}) });
       return;
     }
     pg.win.confirm({ question: "Discard your changes to " + f.name + "?", glyph: "", ink: Zenon.red,
@@ -342,7 +360,7 @@ Item {
     if (!f || f.area === "conflict") return;
     const tracked = f.isDir ? !pg.allUntracked(f) : !(f.kind === "untracked" || f.area === "untracked");
     const name = f.isDir ? f.path + "/" : f.path;
-    const pattern = "/" + (f.isDir ? f.path.replace(/\/+$/, "") + "/" : f.path);
+    const pattern = "/" + D.globLiteral(f.isDir ? f.path.replace(/\/+$/, "") + "/" : f.path);
     const ext = !f.isDir && /\.[A-Za-z0-9]+$/.test(f.name) ? "*" + f.name.slice(f.name.lastIndexOf(".")) : "";
     if (!tracked) {
       const choices = [{ label: "In .gitignore", ink: Zenon.accent, run: () => pg.win.act("ignore", { patterns: [pattern] }, { said: name + " is ignored — commit .gitignore so it stays so" }) },
@@ -390,7 +408,16 @@ Item {
   function resolve(how) {
     const f = pg.file;
     if (!f || f.area !== "conflict") return;
-    if (how === "ours" || how === "theirs") pg.win.act("take", { path: f.path, side: how }, { said: "Took " + how + " for " + f.name });
+    // said as what the side is: in a rebase "ours" is upstream (D.sideNames)
+    const names = D.sideNames(pg.win ? pg.win.state : null);
+    // asked first: the side replaces the whole file, hand edits in it too
+    // (audit 2026-11-07)
+    if (how === "ours" || how === "theirs") {
+      pg.win.confirm({ question: "Take " + names[how].toLowerCase() + " for " + f.name + "?", glyph: "", ink: Zenon.red,
+        detail: "The whole file becomes " + names[how].toLowerCase() + ". Anything you edited in it by hand is lost.",
+        items: [f.path], verb: "Take",
+        then: () => pg.win.act("take", { path: f.path, side: how }, { said: "Took " + names[how].toLowerCase() + " for " + f.name }) });
+    }
     else pg.win.act("markResolved", { paths: [f.path] }, { said: f.name + " resolved" });
   }
 
@@ -418,6 +445,7 @@ Item {
       if (pg.win && ok) pg.lastSubject = String(m || "").split("\n")[0];
     });
   }
+  // the subject read again when HEAD moves
   readonly property string headOid: pg.win && pg.win.branch && pg.win.branch.oid ? pg.win.branch.oid : ""
   onHeadOidChanged: pg.readSubject()
   onWinChanged: Qt.callLater(pg.readSubject)
@@ -529,16 +557,13 @@ Item {
     anchors.bottom: parent.bottom
     width: pg.win && pg.win.splits.changes ? pg.win.splits.changes : Math.round(Math.min(440, Math.max(320, pg.width * 0.32)))
 
-    BulkField {
+    SearchBox {
       id: changeFilter
       anchors.left: parent.left
       anchors.right: parent.right
       anchors.top: parent.top
       anchors.margins: 10
-      height: 30
-      textSize: Zenon.px(14)
-      ghost: "  Filter changes  ( / )"
-      clearable: true
+      ghost: "Filter changes  ( / )"
       onTextChanged: pg.query = changeFilter.text.trim()
       onAccepted: { pg.area = "list"; pg.win.focusKeys(); }
       Keys.onEscapePressed: { changeFilter.text = ""; pg.win.focusKeys(); }
@@ -586,6 +611,7 @@ Item {
             ink: frow.r.id === "conflict" ? Zenon.red : Zenon.accentMuted
           }
           Text {
+            textFormat: Text.PlainText
             visible: !!frow.r.head && frow.r.count > 0 && frow.r.id !== "conflict"
             anchors.right: parent.right
             anchors.rightMargin: 16
@@ -644,6 +670,7 @@ Item {
           onOpened: { pg.moveTo(frow.index); if (frow.r.isDir) pg.setOpen(frow.r, !frow.r.expanded); else pg.toggle(); }
           // how many files a directory holds
           Text {
+            textFormat: Text.PlainText
             visible: !!frow.r.isDir
             anchors.right: parent.right
             anchors.rightMargin: 12
@@ -679,7 +706,7 @@ Item {
       anchors.right: parent.right
       anchors.bottom: parent.bottom
       height: 196
-      Rectangle { width: parent.width; height: 1; color: Zenon.border }
+      Hairline { width: parent.width }
 
       MessageWell {
         id: msgWell
@@ -829,7 +856,7 @@ Item {
       text: "All committed"
       color: Zenon.ink
       font.family: Zenon.face
-      font.weight: Font.Bold
+      font.weight: Zenon.titleWeight
       font.pixelSize: Zenon.px(17)
     }
     Text {
@@ -845,6 +872,7 @@ Item {
       font.pixelSize: Zenon.px(14)
     }
     Text {
+      textFormat: Text.PlainText
       width: parent.width
       horizontalAlignment: Text.AlignHCenter
       wrapMode: Text.Wrap
@@ -913,6 +941,7 @@ Item {
       text: ""
       color: Zenon.red
       font.family: Zenon.glyphFace
+      font.weight: Zenon.weight
       font.pixelSize: Zenon.px(40)
     }
     Text {
@@ -923,7 +952,7 @@ Item {
       text: pg.file ? pg.file.name + " — " + pg.file.how : ""
       color: Zenon.ink
       font.family: Zenon.face
-      font.weight: Font.Bold
+      font.weight: Zenon.titleWeight
       font.pixelSize: Zenon.px(18)
     }
     Text {

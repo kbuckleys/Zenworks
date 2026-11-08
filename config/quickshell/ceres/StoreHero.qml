@@ -142,7 +142,7 @@ ClippingRectangle {
         text: hero.app ? hero.app.name : ""
         color: Zenon.white
         font.family: Zenon.face
-        font.weight: Font.Bold
+        font.weight: Zenon.titleWeight
         font.pixelSize: Zenon.px(32)
       }
       Text {

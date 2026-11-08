@@ -88,7 +88,7 @@ Item {
         text: bb.shownText
         color: bb.busyInk
         font.family: Zenon.face
-        font.weight: Font.Bold
+        font.weight: Zenon.titleWeight
         font.pixelSize: Zenon.px(15)
       }
     }

@@ -47,10 +47,21 @@ Item {
   // a row picked in a branch's card
   signal subChosen(int branch, int index)
 
+  // and, fitted, never wider than this (0: no cap) — CardMenu's screen
+  property int maxWidth: 0
   readonly property int cardW: Math.max(core.minWidth, core.fitW)
   // the one measure (MenuFit), again on every opening (see CardMenu)
   MenuFit { id: measure; model: core.model; again: core.open }
-  readonly property int fitW: core.fit ? measure.cardW : core.cardWidth
+  readonly property int fitW: !core.fit ? core.cardWidth
+    : core.maxWidth > 0 ? Math.min(core.maxWidth, measure.cardW) : measure.cardW
+
+  // the card's own shape, for the surface that knows it (CardBody)
+  property alias hinged: body.hinged
+  property alias onRight: body.onRight
+  property alias squareEdge: body.squareEdge
+  property alias still: body.still
+  readonly property alias card: body.card
+  function rowHeight(m) { return body.rowHeight(m); }
 
   readonly property int contentH: {
     let h = 2;   // the border, top and bottom: the rows run edge to edge

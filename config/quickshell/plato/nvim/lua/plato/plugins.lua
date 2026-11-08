@@ -153,7 +153,7 @@ function M.load()
   local have = vim.fn.filereadable(marker) == 1 and vim.fn.readfile(marker)[1] or nil
   if have ~= want then
     local pins = {}
-    pcall(function() pins = vim.json.decode(table.concat(vim.fn.readfile(lock), "\n")).plugins end)
+    pcall(function() pins = vim.json.decode(table.concat(vim.fn.readfile(lock), "\n")).plugins or {} end)
     for _, sp in ipairs(specs) do
       local name = M.nameOf(sp.src)
       local d = dir .. name
@@ -192,7 +192,7 @@ function M.loadOne(name)
       M.configure(name)
       for _, b in ipairs(vim.api.nvim_list_bufs()) do
         if vim.api.nvim_buf_is_loaded(b) and vim.bo[b].filetype ~= "" then
-          vim.api.nvim_exec_autocmds("FileType", { buffer = b, modeline = false })
+          vim.api.nvim_exec_autocmds("FileType", { buf = b, modeline = false })
         end
       end
       return true

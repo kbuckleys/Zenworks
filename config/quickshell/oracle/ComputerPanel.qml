@@ -55,7 +55,7 @@ Item {
   FontMetrics {
     id: keyFm
     font.family: pc.face
-    font.weight: Font.DemiBold
+    font.weight: Zenon.titleWeight
     font.pixelSize: Zenon.px(14)
   }
   readonly property real keyNeed: {
@@ -211,6 +211,7 @@ Item {
             text: pc.c ? pc.c.glyph : ""
             color: pc.highlight
             font.family: Zenon.glyphFace
+            font.weight: Zenon.weight
             font.pixelSize: Zenon.px(58)
           }
           // ARCH IS DRAWN, NOT TYPED. Nerd Fonts' Arch logo (U+F303) carries
@@ -242,10 +243,11 @@ Item {
             text: pc.c ? pc.c.title : ""
             color: pc.highlight
             font.family: pc.face
-            font.weight: Font.DemiBold
+            font.weight: Zenon.titleWeight
             font.pixelSize: Zenon.px(19)
           }
           Text {
+            textFormat: Text.PlainText
             visible: !!(pc.c && pc.c.model)
             width: Math.min(implicitWidth, Math.max(0, colsRow.width - logo.width - 18 - headSide.width - 24))
             elide: Text.ElideRight
@@ -265,11 +267,9 @@ Item {
       width: body.width
       spacing: 4
 
-      Rectangle {
+      Hairline {
         visible: pc.shown
         width: facts.width
-        height: 1
-        color: Zenon.border
       }
 
       // the columns, each as wide as what it shows, centered together
@@ -318,7 +318,7 @@ Item {
                       text: fact.modelData.k
                       color: pc.highlight
                       font.family: pc.face
-                      font.weight: Font.DemiBold
+                      font.weight: Zenon.titleWeight
                       font.pixelSize: Zenon.px(14)
                       // level with the bar's figure, not its top edge
                       topPadding: fact.hasBar ? (bar.height - contentHeight) / 2 : 0

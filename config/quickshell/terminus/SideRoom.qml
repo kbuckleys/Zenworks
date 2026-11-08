@@ -124,18 +124,18 @@ Item {
   }
   Process {
     id: proc
-    command: ["sh", "-c", "hyprctl -j activewindow; echo '@@mons'; hyprctl -j monitors"]
+    command: Room.PROBE
     stdout: StdioCollector {
       id: out
       onStreamFinished: {
         if (!room.pending) return;
         // asked for a state since toggled out of
         if (room.forShown !== room.shown) { room.pending = false; return; }
-        const parts = out.text.split("@@mons");
-        let w = null, mons = null;
-        try { w = JSON.parse(parts[0]); mons = JSON.parse(parts[1]); } catch (e) { room.release(); return; }
         // the focused window is the one toggled; anything else is not ours
-        if (!w || w.class !== "org.quickshell" || w.title !== room.window.title) { room.release(); return; }
+        // (Room.parseProbe)
+        const got = Room.parseProbe(out.text, room.window.title);
+        if (!got) { room.release(); return; }
+        const w = got.win, mons = got.mons;
         room.pending = false;
         layout.note(w);
         const r = Room.make(w, mons, room.wantW, 16, room.minW, room.edge);

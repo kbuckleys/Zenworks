@@ -35,7 +35,7 @@ Rectangle {
 
   visible: flare.glow > 0.003
   opacity: flare.glow
-  color: flare.wash ? Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.18) : "transparent"
+  color: flare.wash ? Zenon.alpha(Zenon.accent, 0.18) : "transparent"
   border.width: 3
   border.color: Zenon.accent
 

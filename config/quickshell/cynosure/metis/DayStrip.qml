@@ -18,9 +18,9 @@ Item {
 
   implicitHeight: 46
 
-  readonly property color night: Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.10)
-  readonly property color dawn: Qt.rgba(Zenon.yellow.r, Zenon.yellow.g, Zenon.yellow.b, 0.45)
-  readonly property color day: Qt.rgba(Zenon.sand.r, Zenon.sand.g, Zenon.sand.b, 0.55)
+  readonly property color night: Zenon.alpha(Zenon.accent, 0.10)
+  readonly property color dawn: Zenon.alpha(Zenon.yellow, 0.45)
+  readonly property color day: Zenon.alpha(Zenon.sand, 0.55)
 
   Rectangle {
     id: bar
@@ -87,7 +87,7 @@ Item {
           + String(mark.modelData.min % 60).padStart(2, "0")
         color: mark.index === 0 ? Zenon.keyInk : Zenon.accent
         font.family: Zenon.face
-        font.weight: Font.Bold
+        font.weight: Zenon.titleWeight
         font.pixelSize: Zenon.px(11)
         font.features: { "tnum": 1 }
       }

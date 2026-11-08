@@ -296,7 +296,8 @@ FloatingWindow {
       // installed: the servers turned on again (plugins.lsp) and the file
       // read again, so the new ones attach, format and check it
       const asked = Ceres.install(pkgs, why, (ok) => {
-        if (ok) nvim.cmd("lua require('plato.plugins').lsp() | silent! edit");
+        // `:lua` takes a `|` as Lua: the edit is its own command (audit 11-07)
+        if (ok) nvim.cmd("lua require('plato.plugins').lsp(); vim.cmd('silent! edit')");
       });
       if (!asked) toasts.take({ kind: "wmsg", text: "Ceres is busy — ask again when it is done" });
     }
@@ -417,9 +418,9 @@ FloatingWindow {
       // plato's own verbs on the tree's menu, after Open
       extraItems: [
         { text: "Open in a split", icon: "\u{F0E4F}", hint: "ctrl w v", when: "file",
-          run: (p) => { nvim.cmd("lua vim.cmd.vsplit(vim.fn.fnameescape(" + JSON.stringify(p) + "))"); editor.forceActiveFocus(); } },
+          run: (p) => { nvim.cmd("lua vim.cmd.vsplit(vim.fn.fnameescape(" + win.luaStr(p) + "))"); editor.forceActiveFocus(); } },
         { text: "Open below", icon: "\u{F0E4E}", hint: "ctrl w s", when: "file",
-          run: (p) => { nvim.cmd("lua vim.cmd.split(vim.fn.fnameescape(" + JSON.stringify(p) + "))"); editor.forceActiveFocus(); } },
+          run: (p) => { nvim.cmd("lua vim.cmd.split(vim.fn.fnameescape(" + win.luaStr(p) + "))"); editor.forceActiveFocus(); } },
         { text: "Search in here", icon: "\u{F0349}",
           run: (p, isDir) => picker.openGrepIn(isDir ? p : p.slice(0, p.lastIndexOf("/"))) },
       ]
@@ -694,6 +695,8 @@ FloatingWindow {
           item.body = Qt.binding(() => win.mdText);
           item.base = Qt.binding(() => win.mdBase);
           item.empty = "Nothing written yet";
+          // a file you are writing: its pictures load as they always have
+          item.loadAll = true;
           item.textSize = Qt.binding(() => Zenon.px(16));
         }
       }
@@ -931,7 +934,7 @@ FloatingWindow {
                 anchors.leftMargin: -10
                 anchors.rightMargin: -10
                 radius: Zenon.windowRadius
-                color: entryPress.pressed ? Zenon.wash(0.05) : "transparent"
+                color: entryPress.pressed ? Zenon.pressWash(0.12) : "transparent"
               }
               Row {
                 anchors.verticalCenter: parent.verticalCenter
@@ -954,7 +957,7 @@ FloatingWindow {
                   anchors.verticalCenter: parent.verticalCenter
                   font.family: Zenon.face
                   font.pixelSize: Zenon.px(15)
-                  font.weight: 600
+                  font.weight: Zenon.titleWeight
                   color: Zenon.white
                   text: entry.name
                 }
@@ -966,6 +969,7 @@ FloatingWindow {
                   font.weight: Zenon.weight
                   font.pixelSize: Zenon.px(13)
                   color: Zenon.accentMuted
+                  textFormat: Text.PlainText
                   text: entry.project
                     ? win.tidyPath(entry.path) + "  ·  " + entry.modelData.files
                       + (entry.modelData.files === 1 ? " file" : " files") + "  ·  " + entry.modelData.ago
@@ -1069,7 +1073,7 @@ FloatingWindow {
       y: tabs.height
       width: parent.width
       height: parent.height - tabs.height
-      color: Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.05)
+      color: Zenon.alpha(Zenon.accent, 0.05)
       border.width: 1
       border.color: Zenon.accent
       radius: Zenon.radiusControl
@@ -1345,21 +1349,30 @@ FloatingWindow {
       sidebar.openRows(item.mapToItem(null, 0, item.height), rows, () => propsSheet.takeKeys())
   }
 
+  // A STRING INTO A `:lua` LINE, as a Lua literal. JSON.stringify was it:
+  // its \uXXXX for a control character is no escape LuaJIT knows ("invalid
+  // escape sequence", the command lost). Backslash, quote and controls go
+  // as Lua's own \ddd; everything else, UTF-8 included, as it is.
+  function luaStr(s) {
+    return '"' + String(s).replace(/[\\"\x00-\x1f\x7f]/g,
+      (c) => "\\" + String(c.charCodeAt(0)).padStart(3, "0")) + '"';
+  }
+
   // z=: what the word could be, and what to do with it (spell.lua)
   function spellMenu(ev) {
     const word = String(ev.word || "");
-    const lua = (fn, w) => "lua require('plato.spell')." + fn + "(" + JSON.stringify(w) + ")";
+    const lua = (fn, w) => "lua require('plato.spell')." + fn + "(" + win.luaStr(w) + ")";
     const rows = st._list(ev.items).map((w) => ({ label: w, detail: "", cmd: lua("use", w) }));
     rows.push({ label: "Add “" + word + "” to the dictionary", detail: "zg",
-                cmd: "lua require('plato.spell').add(" + JSON.stringify(word) + ", true)" });
+                cmd: "lua require('plato.spell').add(" + win.luaStr(word) + ", true)" });
     rows.push({ label: "Ignore “" + word + "” this session", detail: "zG",
-                cmd: "lua require('plato.spell').add(" + JSON.stringify(word) + ", false)" });
+                cmd: "lua require('plato.spell').add(" + win.luaStr(word) + ", false)" });
     picker.openMenu("Spelling of “" + word + "”", "\u{F04C6}", rows);
   }
 
   function showPlugins() { pluginPanel.open(); }
   function loadPlugin(name) {
-    nvim.cmd("lua require('plato.plugins').loadOne(" + JSON.stringify(name) + ")");
+    nvim.cmd("lua require('plato.plugins').loadOne(" + win.luaStr(name) + ")");
   }
   function sendKeys(k) { nvim.input(k); }
   // A parser this window's engine offered and was told to build
@@ -1387,7 +1400,7 @@ FloatingWindow {
     }
   }
   function parsersAdded(langs) {
-    nvim.cmd("lua require('plato.plugins').parsersAdded(vim.json.decode(" + JSON.stringify(JSON.stringify(langs)) + "))");
+    nvim.cmd("lua require('plato.plugins').parsersAdded(vim.json.decode(" + win.luaStr(JSON.stringify(langs)) + "))");
   }
 
   LeaderCard {

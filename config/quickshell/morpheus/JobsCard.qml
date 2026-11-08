@@ -184,6 +184,7 @@ Rectangle {
               rightPadding: 8
             }
             Text {
+              textFormat: Text.PlainText
               id: jobWhat
               text: jobRow.model.what
               width: Math.min(implicitWidth, jobRowLabel.hasTo
@@ -201,7 +202,7 @@ Rectangle {
               text: "\uDB85\uDFB7"
               leftPadding: 8
               rightPadding: 8
-              color: Zenon.muted
+              color: Zenon.accentMuted
               font.family: Zenon.face
               font.weight: Zenon.weight
               font.pixelSize: Zenon.px(14)
@@ -217,6 +218,7 @@ Rectangle {
               font.pixelSize: Zenon.px(14)
             }
             Text {
+              textFormat: Text.PlainText
               id: jobTo
               visible: jobRowLabel.hasTo
               text: jobRow.model.to || ""
@@ -264,7 +266,7 @@ Rectangle {
           color: jobRow.model.state === "done" ? Zenon.green
             : jobRow.model.cancelled ? Zenon.muted : Zenon.accent
           font.family: Zenon.face
-          font.weight: Font.Bold
+          font.weight: Zenon.titleWeight
           font.pixelSize: Zenon.px(14)
         }
 

@@ -54,6 +54,7 @@ Column {
     }
   }
   Text {
+    textFormat: Text.PlainText
     visible: cr.runs.length > cr.most
     text: "And " + (cr.runs.length - cr.most) + " more"
     color: Zenon.accentMuted

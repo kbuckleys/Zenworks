@@ -24,7 +24,7 @@
 #     rfkill: { wifi: { soft, hard } | null, bt: … },
 #     vpn: [{ name, uuid, type, active, managed }],
 #     display: { backlight: [{ name, cur, max }], ddcutil, i2c,
-#                hyprsunset, sunsetRunning } }
+#                hyprsunset } }
 #
 # Standard library only, every command on a short timeout: a probe that
 # hangs is a panel that never fills.
@@ -259,7 +259,6 @@ def main():
             "ddcutil": shutil.which("ddcutil") is not None,
             "i2c": i2c,
             "hyprsunset": shutil.which("hyprsunset") is not None,
-            "sunsetRunning": run(["pgrep", "-x", "hyprsunset"]) != "",
         },
     }))
 

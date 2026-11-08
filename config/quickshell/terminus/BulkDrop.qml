@@ -209,7 +209,7 @@ Item {
     menuWidth: listFit.cardW
     // PRESSED, DARKENED as every button in the suite (user, 2026-10-17)
     pressed: dropPress.pressed
-    restColor: Qt.rgba(Zenon.white.r, Zenon.white.g, Zenon.white.b, 0.05)
+    restColor: Zenon.alpha(Zenon.white, 0.05)
     lit: drop.activeFocus
     chevronInk: Zenon.white
     chevronSize: drop.textSize - 2

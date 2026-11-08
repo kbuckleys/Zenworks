@@ -156,7 +156,7 @@ function M.toggle(kind, cmd)
     end
   end
   local ok, err = pcall(M.open, cmd, kind)
-  if not ok then vim.notify((tostring(err):gsub("^.-:%d+: ", "")), vim.log.levels.ERROR) end
+  if not ok then require("plato.util").fail(err) end
   require("plato.view").schedule(true)
 end
 

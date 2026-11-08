@@ -22,7 +22,7 @@ Text {
   textFormat: root.styled ? Text.StyledText : Text.PlainText
   color: root.textColor
   font.family: root.numeric ? Zenon.clockFamily : Zenon.face
-  font.weight: Font.Bold
+  font.weight: Zenon.titleWeight
   font.pixelSize: root.numeric ? Zenon.clockSize : Zenon.textSize
   // TABULAR DIGITS: every digit the same width, so a reading that ticks
   // from 9% to 10% or 1.1 to 0.9 MB/s does not shove its neighbors along.

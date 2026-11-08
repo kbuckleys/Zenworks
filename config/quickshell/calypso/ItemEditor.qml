@@ -37,6 +37,9 @@ Item {
   readonly property var info: ed.win ? ed.win.mgr.platformInfo(ed.acct.kind) : null
   readonly property alias flick: flick
   property bool dirty: false
+  // a saved item's secrets stay as they are where the platform's tool
+  // cannot take them safely (Proton Pass)
+  readonly property bool secretsFixed: !!ed.st && ed.st.id !== "" && C.can(ed.info, "secretsFixed")
   // a list of the editor's rows rebuilt (a website or a field added or
   // taken away): its own counter, so the Repeaters build from the state anew
   property int shape: 0
@@ -177,6 +180,7 @@ Item {
               label: modelData.label
               hint: modelData.hint || ""
               secret: !!modelData.secret
+              fixed: !!modelData.secret && ed.secretsFixed
               known: !!slot && slot.known
               gen: !!modelData.gen
               totp: !!modelData.totp
@@ -268,6 +272,7 @@ Item {
                 ruled: index > 0
                 labelEditable: true
                 secret: !!c && c.hidden
+                fixed: ed.secretsFixed && !!c && c.hidden && c.ref !== ""
                 known: !!c && c.known
                 hideToggle: true
                 removable: true
@@ -294,6 +299,8 @@ Item {
               onClicked: { ed.st.custom.push({ ref: "", label: "", value: "", known: true, hidden: false }); ed.rebuild(); } }
           }
           Text {
+            // a hidden one would go on pass-cli's argv too
+            visible: !ed.secretsFixed
             text: "  Add a hidden field"
             color: Zenon.accent
             font.family: Zenon.face

@@ -55,7 +55,7 @@ Item {
   // through the shell's Font size (Zenon.px); the listing hands over a size
   // already zoomed, and says `scaled: false`
   property bool scaled: true
-  property int fontWeight: Font.Medium
+  property int fontWeight: Zenon.weight
   property var segments: []
   readonly property real span: Math.max(0, Math.min(1, bar.frac))
   // Does the fill's edge land on the written figure? A couple of pixels
@@ -71,7 +71,7 @@ Item {
     anchors.fill: parent
     visible: bar.bars
     radius: bar.barRadius
-    color: Qt.rgba(Zenon.white.r, Zenon.white.g, Zenon.white.b, 0.07)
+    color: Zenon.alpha(Zenon.white, 0.07)
   }
 
   // the stretches, one after another unless one says where it starts, and

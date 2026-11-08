@@ -17,9 +17,19 @@
 // and every pass over the schema has to skip both. One predicate rather than
 // a growing list of `type !== "action" && type !== "info"` in six places.
 .pragma library
+.import "../morpheus/quote.js" as Quote
 // ONE COPY FOR THE WHOLE SHELL: without the pragma every component that
 // imports this file evaluated all 1,700 lines of it again — 30 ms of each
 // oracle page change (qmlprofiler, 2026-10-09). It needs nothing of QML's.
+
+// the banner every Lua file Oracle writes opens with
+const ZEN_HEAD = [
+  "-- ┌─┐┌─┐┌┐┌┬ ┬┌─┐┬─┐┬┌─┌─┐",
+  "-- ┌─┘├┤ │││││││ │├┬┘├┴┐└─┐",
+  "-- └─┘└─┘┘└┘└┴┘└─┘┴└─┴ ┴└─┘",
+  "-- https://github.com/kbuckleys/",
+  "",
+];
 
 function stored(spec) {
   return spec.type !== "action" && spec.type !== "info" && spec.type !== "arrange" && spec.type !== "sample";
@@ -181,14 +191,15 @@ function sourcesSummary(v) {
 // ── themes ────────────────────────────────────────────────────────────────
 // What oracle's Theme row offers, from one line per file in themes/: the
 // file's stem, a tab, the file itself flattened onto the line. Zenon first
-// and always, because it is the shell's own and is not a file. A file that
+// and always, because it is the shell's own and is not a file (the two Follows sit above it, see the
+// rank below). A file that
 // is not JSON is still offered under its stem — Zenon fills in for it when
 // worn, and leaving it out would hide the theme you are trying to fix.
-// Follow Background second: not a file either, but a theme made from the
+// Follow Background: not a file either, but a theme made from the
 // background (picasso/FollowBackground), marked with its glyph (U+F0E09,
 // Buck's pick).
 const FOLLOW = { value: "follow", label: "Follow Background  \u{F0E09}" };
-// Follow Daytime third: the Day theme by daylight, the Night theme after
+// Follow Daytime: the Day theme by daylight, the Night theme after
 // dark (Zenon.daylight, chronos/SunClock)
 const SUN = { value: "sun", label: "Follow Daytime  \u{F522}" };
 
@@ -201,6 +212,27 @@ function themeSwatch(colors) {
   return sw.some((v) => v !== "") ? sw : null;
 }
 
+// A theme's inks for its list row (user, 2026-11-07: the name on the left,
+// the colors on the right, as About this computer's bar has them): its
+// ground, then red, sand, yellow, green, accent, blue, magenta and pink.
+// themeInks reads a file's colors ("" where one is missing or not a color);
+// themeInksFor fills the gaps from `base` (Zenon's own) and answers for Zenon
+// and Follow Background too. Follow Daytime is two themes: null, its glyph says it.
+const THEME_INKS = ["ground", "red", "sand", "yellow", "green", "accent", "blue", "magenta", "pink"];
+function themeInks(colors) {
+  const ok = (v) => typeof v === "string" && /^#([0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(v) ? v : "";
+  if (!colors || typeof colors !== "object") return null;
+  const out = THEME_INKS.map((k) => ok(colors[k]) || (k === "accent" ? ok(colors.cyan) : ""));
+  return out.some((v) => v !== "") ? out : null;
+}
+function themeInksFor(opt, base, followColors) {
+  if (!opt || opt.value === "sun") return null;
+  const b = base || {};
+  const own = opt.value === "zenon" ? null : opt.value === "follow" ? themeInks(followColors) : opt.inks || null;
+  if (opt.value !== "zenon" && !own) return null;
+  return THEME_INKS.map((k, i) => (own && own[i]) || b[k] || "");
+}
+
 function themeOptions(text) {
   const out = [{ value: "zenon", label: "Zenon" }, FOLLOW, SUN];
   for (const line of String(text || "").split("\n")) {
@@ -211,6 +243,7 @@ function themeOptions(text) {
     let label = stem;
     let custom = false;
     let swatch = null;
+    let inks = null;
     try {
       const t = JSON.parse(line.slice(tab + 1));
       if (t && typeof t.name === "string" && t.name.trim() !== "") label = t.name.trim();
@@ -225,6 +258,7 @@ function themeOptions(text) {
       // it (user, 2026-10-27: dark from light at a glance); a color the
       // file leaves out is Zenon's, filled in where it is drawn
       swatch = themeSwatch(t && t.colors);
+      inks = themeInks(t && t.colors);
     } catch (e) {
       label = stem + " \u00b7 broken";
     }
@@ -232,13 +266,16 @@ function themeOptions(text) {
     // Delete may remove from the list — never a shipped theme
     const o = custom ? { value: stem, label: label, custom: true } : { value: stem, label: label };
     if (swatch) o.swatch = swatch;
+    if (inks) o.inks = inks;
     // which side it is, for Cynosure's "dark mode" / "light mode" (Cynosure.themeSide)
     if (label.indexOf("\u{F19E2}") >= 0) o.light = true;
     out.push(o);
   }
   // Zenon's light side straight under Zenon, ahead of the two Follows
-  const rank = (o) => o.value === "zenon" ? 0 : o.value === "zenon-light" ? 0.5
-    : o.value === "follow" ? 1 : o.value === "sun" ? 2 : 3;
+  // the two Follows first, Follow Daytime then Follow Background (user,
+  // 2026-11-07), then Zenon with its light side under it, then the rest
+  const rank = (o) => o.value === "sun" ? 0 : o.value === "follow" ? 1
+    : o.value === "zenon" ? 2 : o.value === "zenon-light" ? 2.5 : 3;
   out.sort((x, y) => rank(x) - rank(y) || x.label.localeCompare(y.label));
   return out;
 }
@@ -1405,11 +1442,7 @@ function ruleLine(output, fields) {
 // through untouched so that undocking never erases a screen's setup.
 function renderMonitorRules(entries, kept, extra) {
   const lines = [
-    "-- ┌─┐┌─┐┌┐┌┬ ┬┌─┐┬─┐┬┌─┌─┐",
-    "-- ┌─┘├┤ │││││││ │├┬┘├┴┐└─┐",
-    "-- └─┘└─┘┘└┘└┴┘└─┘┴└─┴ ┴└─┘",
-    "-- https://github.com/kbuckleys/",
-    "",
+    ...ZEN_HEAD,
     "-- MONITORS",
     "-- Written by oracle's Display section, and read back by it: change a",
     "-- screen there or here, either way works. Rules name a monitor by its",
@@ -1537,7 +1570,7 @@ function normalize(rects) {
 // to mark, and comes back as plain (escaped) text.
 function markMatch(text, query, ink) {
   const src = String(text || "");
-  const esc = (x) => x.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const esc = Quote.escapeHtml;
   const words = String(query || "").trim().toLowerCase().split(/\s+/).filter((w) => w !== "");
   if (words.length === 0) return esc(src);
   const lower = src.toLowerCase();
@@ -1884,11 +1917,7 @@ function renderDefaultsLua(values) {
   const pad = (k) => k + " ".repeat(Math.max(0, 12 - k.length));
   const line = (k) => "\t" + pad(k) + " = " + luaString(v[k] === undefined ? "" : v[k]) + ",";
   const lines = [
-    "-- ┌─┐┌─┐┌┐┌┬ ┬┌─┐┬─┐┬┌─┌─┐",
-    "-- ┌─┘├┤ │││││││ │├┬┘├┴┐└─┐",
-    "-- └─┘└─┘┘└┘└┴┘└─┘┴└─┴ ┴└─┘",
-    "-- https://github.com/kbuckleys/",
-    "",
+    ...ZEN_HEAD,
     "-- DEFAULTS",
     "-- Written by oracle's Default apps section, and read back by it: change",
     "-- one there or here, either way works.",
@@ -2224,11 +2253,7 @@ function renderInputLua(values) {
   const width = Math.max.apply(null, known.map((k) => k.length));
   const line = (k, val) => "\t" + k + " ".repeat(Math.max(0, width - k.length)) + " = " + luaValue(val) + ",";
   const lines = [
-    "-- ┌─┐┌─┐┌┐┌┬ ┬┌─┐┬─┐┬┌─┌─┐",
-    "-- ┌─┘├┤ │││││││ │├┬┘├┴┐└─┐",
-    "-- └─┘└─┘┘└┘└┴┘└─┘┴└─┴ ┴└─┘",
-    "-- https://github.com/kbuckleys/",
-    "",
+    ...ZEN_HEAD,
     "-- INPUT",
     "-- Written by oracle's Input section, and read back by it: change one",
     "-- there or here, either way works. base.lua hands these to hyprland's",
@@ -2469,11 +2494,7 @@ function parseWakeLua(text) {
 }
 function renderWakeLua(by) {
   return [
-    "-- ┌─┐┌─┐┌┐┌┬ ┬┌─┐┬─┐┬┌─┌─┐",
-    "-- ┌─┘├┤ │││││││ │├┬┘├┴┐└─┐",
-    "-- └─┘└─┘┘└┘└┴┘└─┘┴└─┴ ┴└─┘",
-    "-- https://github.com/kbuckleys/",
-    "",
+    ...ZEN_HEAD,
     "-- WAKE",
     "-- Written by oracle's Display section (Wake by), and read back by it.",
     "-- What turns screens that were turned off, idle or by a bind, back on:",
@@ -2576,11 +2597,7 @@ function parseImLua(text) {
 }
 function renderImLua(on) {
   return [
-    "-- ┌─┐┌─┐┌┐┌┬ ┬┌─┐┬─┐┬┌─┌─┐",
-    "-- ┌─┘├┤ │││││││ │├┬┘├┴┐└─┐",
-    "-- └─┘└─┘┘└┘└┴┘└─┘┴└─┴ ┴└─┘",
-    "-- https://github.com/kbuckleys/",
-    "",
+    ...ZEN_HEAD,
     "-- INPUT METHODS",
     "-- Written by oracle's Input section (Input methods), and read back by it.",
     "-- true: fcitx5 starts at login and apps are told to use it. Which",
@@ -2660,8 +2677,41 @@ function imItems(items, layout, im, on) {
   return [kb].concat(rest);
 }
 
-function renderImProfile(layout, items) {
+// `old`: the profile as it is. Given, only group 0's layout, default and
+// items are rewritten; its other keys, each kept item's own lines (a
+// per-item Layout=), other groups and the group order stay as fcitx5's
+// configtool left them — rebuilt from nothing, they were lost on every
+// switch here (audit 2026-11-07).
+function renderImProfile(layout, items, old) {
   const its = items && items.length ? items : ["keyboard-" + layout];
+  if (old && String(old).trim() !== "") {
+    const secs = parseIni(old);
+    const g0 = secs.find((s) => s.name === "Groups/0");
+    if (g0) {
+      const kept = {};
+      for (const s of secs) {
+        if (!/^Groups\/0\/Items\/\d+$/.test(s.name)) continue;
+        const n = iniValue(s.lines, "Name");
+        if (n) kept[n] = s.lines.filter((l) => !/^\s*Name\s*=/.test(l));
+      }
+      const set = (lines, key, value) => {
+        const at = lines.findIndex((l) => { const m = /^\s*([^#=][^=]*?)\s*=/.exec(l); return m && m[1] === key; });
+        if (at >= 0) lines[at] = key + "=" + value; else lines.push(key + "=" + value);
+      };
+      set(g0.lines, "Default Layout", layout);
+      set(g0.lines, "DefaultIM", its[its.length - 1]);
+      const out = [];
+      for (const s of secs) {
+        if (/^Groups\/0\/Items\/\d+$/.test(s.name)) continue;
+        out.push(s);
+        if (s === g0)
+          its.forEach((n, i) => out.push({ name: "Groups/0/Items/" + i,
+            lines: ["Name=" + n].concat(kept[n] && kept[n].some((l) => l.trim() !== "") ? kept[n] : ["Layout="]) }));
+      }
+      if (!out.some((s) => s.name === "GroupOrder")) out.push({ name: "GroupOrder", lines: ["0=Default"] });
+      return renderIni(out);
+    }
+  }
   const lines = [
     "[Groups/0]",
     "Name=Default",
@@ -2764,11 +2814,7 @@ function renderEffectsLua(fx) {
   const val = (v) => typeof v === "boolean" ? (v ? "true" : "false")
     : typeof v === "number" ? String(v) : JSON.stringify(String(v));
   return [
-    "-- ┌─┐┌─┐┌┐┌┬ ┬┌─┐┬─┐┬┌─┌─┐",
-    "-- ┌─┘├┤ │││││││ │├┬┘├┴┐└─┐",
-    "-- └─┘└─┘┘└┘└┴┘└─┘┴└─┴ ┴└─┘",
-    "-- https://github.com/kbuckleys/",
-    "",
+    ...ZEN_HEAD,
     "-- EFFECTS",
     "-- Written by oracle (Look's Window shadows, Motion's Window animations,",
     "-- the window rows under Windows), and read back by it; base.lua lays",
@@ -3335,11 +3381,7 @@ function renderHyprLua(values, known) {
     return "\t" + lhs + " ".repeat(Math.max(0, width - lhs.length)) + " = " + r + ",";
   };
   const lines = [
-    "-- ┌─┐┌─┐┌┐┌┬ ┬┌─┐┬─┐┬┌─┌─┐",
-    "-- ┌─┘├┤ │││││││ │├┬┘├┴┐└─┐",
-    "-- └─┘└─┘┘└┘└┴┘└─┘┴└─┴ ┴└─┘",
-    "-- https://github.com/kbuckleys/",
-    "",
+    ...ZEN_HEAD,
     "-- HYPRLAND",
     "-- Written by oracle, and read back by it: change one there or here,",
     "-- either way works. Each is hyprland's own setting by its own name",
@@ -3426,13 +3468,6 @@ function luaRecord(rec, order) {
 function luaRecordsFile(head, records, order) {
   return head.concat(["", "return {"], records.map((r) => luaRecord(r, order)), ["}", ""]).join("\n");
 }
-const ZEN_HEAD = [
-  "-- ┌─┐┌─┐┌┐┌┬ ┬┌─┐┬─┐┬┌─┌─┐",
-  "-- ┌─┘├┤ │││││││ │├┬┘├┴┐└─┐",
-  "-- └─┘└─┘┘└┘└┴┘└─┘┴└─┴ ┴└─┘",
-  "-- https://github.com/kbuckleys/",
-  "",
-];
 
 // ── WINDOW RULES ──
 // Windows' "Window rules" (2026-10-22): how an app's windows open — float,
@@ -3685,11 +3720,7 @@ function startupName(command) {
 // are dropped, so a bind taken out of binds.lua takes its override with it
 function renderKeysLua(values, binds) {
   const lines = [
-    "-- ┌─┐┌─┐┌┐┌┬ ┬┌─┐┬─┐┬┌─┌─┐",
-    "-- ┌─┘├┤ │││││││ │├┬┘├┴┐└─┐",
-    "-- └─┘└─┘┘└┘└┴┘└─┘┴└─┴ ┴└─┘",
-    "-- https://github.com/kbuckleys/",
-    "",
+    ...ZEN_HEAD,
     "-- KEYS",
     "-- Written by oracle's Shortcuts section, and read back by it: change one",
     "-- there or here, either way works. Only the binds moved off the keys",
@@ -3712,11 +3743,7 @@ function renderKeysLua(values, binds) {
 // so the same choice twice is the same file and nothing is written again.
 function renderHyperLua(file, key, sig) {
   const lines = [
-    "-- ┌─┐┌─┐┌┐┌┬ ┬┌─┐┬─┐┬┌─┌─┐",
-    "-- ┌─┘├┤ │││││││ │├┬┘├┴┐└─┐",
-    "-- └─┘└─┘┘└┘└┴┘└─┘┴└─┴ ┴└─┘",
-    "-- https://github.com/kbuckleys/",
-    "",
+    ...ZEN_HEAD,
     "-- HYPER KEY",
     "-- Written by oracle's Shortcuts: one key held as Ctrl+Alt+Shift+Super.",
     "-- `file` is your layout with that key changed (oracle/hyper.py), which",
@@ -4064,10 +4091,21 @@ function sanitizeBundleFile(rel, text, binds) {
 }
 // The commands an import would have run for you, for the sheet to show
 // before it is taken: every startup app, and the default apps that are a
-// command rather than a desktop id. [{ what, command, off }]
+// command rather than a desktop id, and every hot corner command (audit
+// 11-07: those came in unseen). [{ what, command, off }]
 function bundleCommands(files) {
   const out = [];
   const f = files || {};
+  if (typeof f["oracle.json"] === "string") {
+    let j = null;
+    try { j = JSON.parse(f["oracle.json"]); } catch (e) { j = null; }
+    const corners = { TL: "Top left", TR: "Top right", BL: "Bottom left", BR: "Bottom right" };
+    if (j && typeof j === "object")
+      for (const c in corners) {
+        const cmd = String(j["hotCorner" + c + "Cmd"] || "").trim();
+        if (cmd !== "") out.push({ what: "Hot corner · " + corners[c], command: cmd, off: j["hotCorner" + c] !== "command" });
+      }
+  }
   if (typeof f["hypr/startup.lua"] === "string")
     for (const a of parseStartupLua(f["hypr/startup.lua"]))
       out.push({ what: "At login" + (a.name ? " · " + a.name : ""), command: a.command, off: !a.on });

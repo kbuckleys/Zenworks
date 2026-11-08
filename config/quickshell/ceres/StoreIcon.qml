@@ -54,7 +54,7 @@ Item {
       text: ic.app ? ic.app.name.charAt(0).toUpperCase() : ""
       color: Zenon.accent
       font.family: Zenon.face
-      font.weight: Font.Bold
+      font.weight: Zenon.titleWeight
       font.pixelSize: Math.round(ic.size * 0.46)
     }
   }

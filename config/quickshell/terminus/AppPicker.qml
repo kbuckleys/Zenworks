@@ -225,18 +225,17 @@ Item {
     picker.open = true;
     // the card is still invisible on the frame that opens it, and an
     // invisible item refuses active focus without saying so
-    appClaim.tries = 0;
-    appClaim.restart();
+    appClaim.begin();
   }
 
-  Timer {
+  FocusRetry {
     id: appClaim
     interval: 30
-    repeat: true
-    property int tries: 0
-    onTriggered: {
-      if (!picker.open || appClaim.tries++ > 20) { appClaim.stop(); return; }
-      if (picker.activeFocus) { appClaim.stop(); return; }
+    checkFirst: true
+    maxAsks: 20
+    live: picker.open
+    took: picker.activeFocus
+    onPlace: {
       picker.forceActiveFocus();
     }
   }
@@ -271,7 +270,7 @@ Item {
   function choose(app) {
     // The flash lives on the lower list's rows; from the summary above it
     // there is nothing to flash, so the launch goes straight through.
-    if (picker.onHandler) { picker.pendingApp = app; picker.launch(); return; }
+    if (picker.onHandler || (picker.handlers || []).indexOf(app) >= 0) { picker.pendingApp = app; picker.launch(); return; }
     if (!appFlash.fire(picker.hitIndex)) return;
     picker.pendingApp = app;
   }
@@ -358,6 +357,10 @@ Item {
                  : (handlerHov.hovered ? Zenon.menuHi : "transparent")
           }
           HoverHandler { id: handlerHov }
+          MouseArea {
+            anchors.fill: parent
+            onClicked: picker.choose(handlerRow.modelData)
+          }
 
           Text {
             textFormat: Text.PlainText
@@ -412,7 +415,6 @@ Item {
             font.weight: Zenon.weight
             font.pixelSize: Zenon.px(14)
 
-            HoverHandler { id: handlerXHov }
             MouseArea {
               id: handlerXPress
               anchors.fill: parent
@@ -492,11 +494,9 @@ Item {
 
         // the rule between the two lists (the open-with card's, above its
         // list), over every heading but the first
-        Rectangle {
+        Hairline {
           visible: appRow.head && appRow.index > 0
           width: parent.width
-          height: 1
-          color: Zenon.border
         }
         Text {
           visible: appRow.head
@@ -554,6 +554,7 @@ Item {
         // same thing and the id is what tells them apart — and it is
         // what you typed if you typed "evince".
         Text {
+          textFormat: Text.PlainText
           anchors.left: appName.right
           anchors.leftMargin: 10
           anchors.right: parent.right

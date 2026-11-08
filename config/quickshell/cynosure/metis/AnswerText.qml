@@ -33,9 +33,9 @@ Item {
   implicitWidth: row.implicitWidth
   implicitHeight: bigFm.height
 
-  FontMetrics { id: bigFm; font.family: Zenon.face; font.weight: Font.Bold; font.pixelSize: root.big }
-  FontMetrics { id: smallFm; font.family: Zenon.face; font.weight: Font.Bold; font.pixelSize: root.small }
-  FontMetrics { id: quietFm; font.family: Zenon.face; font.weight: Font.Bold; font.pixelSize: root.small - 2 }
+  FontMetrics { id: bigFm; font.family: Zenon.face; font.weight: Zenon.titleWeight; font.pixelSize: root.big }
+  FontMetrics { id: smallFm; font.family: Zenon.face; font.weight: Zenon.titleWeight; font.pixelSize: root.small }
+  FontMetrics { id: quietFm; font.family: Zenon.face; font.weight: Zenon.titleWeight; font.pixelSize: root.small - 2 }
 
   Row {
     id: row
@@ -65,7 +65,7 @@ Item {
           color: slot.ch.big ? root.ink : root.unitInk
           opacity: slot.ch.quiet ? 0.85 : 1
           font.family: Zenon.face
-          font.weight: Font.Bold
+          font.weight: Zenon.titleWeight
           font.pixelSize: slot.fm.font.pixelSize
         }
 
@@ -87,7 +87,7 @@ Item {
               text: String(index)
               color: root.ink
               font.family: Zenon.face
-              font.weight: Font.Bold
+              font.weight: Zenon.titleWeight
               font.pixelSize: root.big
             }
           }

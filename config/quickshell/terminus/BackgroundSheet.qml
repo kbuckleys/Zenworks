@@ -52,17 +52,9 @@ Item {
 
   InputShield { keepTop: term.tabStripRef.height + term.crumbBarRef.height; onClicked: bgSet.dismiss() }
 
-  Sheet {
-    // clear: the listing is cut away under it (see sheetHole)
-    ground: "transparent"
-    backdrop: term.sheetBackdrop   // the listing, frosted under the card
-    seamFrost: term.sheetSeam   // the bar's frost, carried over the seam
-    splice: true
-    onCardInkChanged: term.noteSheet("s13", cardInk, drawnX, drawnW, drawnY, drawnH)
-    onDrawnXChanged: term.noteSheet("s13", cardInk, drawnX, drawnW, drawnY, drawnH)
-    onDrawnWChanged: term.noteSheet("s13", cardInk, drawnX, drawnW, drawnY, drawnH)
-    onDrawnYChanged: term.noteSheet("s13", cardInk, drawnX, drawnW, drawnY, drawnH)
-    onDrawnHChanged: term.noteSheet("s13", cardInk, drawnX, drawnW, drawnY, drawnH)
+  TermSheet {
+    host: term
+    note: "s13"
     id: bgSheet
     leftInset: term.sideRef.width
     floating: false   // hangs from the bar, which carries its title — see barTitle

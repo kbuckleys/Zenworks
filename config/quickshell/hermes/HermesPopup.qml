@@ -254,7 +254,7 @@ LayerPopup {
     target: "Hermes"
     function toggle(): string { popup.toggle(); return "ok"; }
     function window(section: string): string { Hermes.open(section); return "ok"; }
-    function night(): string { Hermes.toggleNight(); return Hermes.nightWanted ? "on" : "off"; }
+    function night(): string { const want = !Hermes.nightWanted; Hermes.toggleNight(); return want ? "on" : "off"; }
     // a color filter by id (gray invert protan deutan tritan); the one worn
     // again, or "", turns it off
     function filter(id: string): string {
@@ -263,8 +263,12 @@ LayerPopup {
     }
     function wifi(): string {
       if (!Hermes.wifiReady) return "no wi-fi";
-      Hermes.setWifi(!Hermes.wifiOn);
-      return Hermes.wifiOn ? "off" : "on";
+      // the answer is what was asked for, taken before: read again after,
+      // it was the old state or the new one, as the radio answered in time
+      // or not (audit 11-07)
+      const want = !Hermes.wifiOn;
+      Hermes.setWifi(want);
+      return want ? "on" : "off";
     }
     // the brightness keys: `qs ipc call Hermes brightness 5` (or -5)
     function brightness(delta: string): string {
@@ -275,12 +279,14 @@ LayerPopup {
     }
     function bluetooth(): string {
       if (!Hermes.btReady && Hermes.probe.bt.installed) {
-        Hermes.setup(Hermes.probe.bt.running ? "bluetoothStop" : "bluetoothStart");
-        return Hermes.probe.bt.running ? "stopping" : "starting";
+        const stop = Hermes.probe.bt.running;
+        Hermes.setup(stop ? "bluetoothStop" : "bluetoothStart");
+        return stop ? "stopping" : "starting";
       }
       if (!Hermes.btReady) return "no bluetooth";
-      Hermes.setBluetooth(!Hermes.btOn);
-      return Hermes.btOn ? "off" : "on";
+      const want = !Hermes.btOn;
+      Hermes.setBluetooth(want);
+      return want ? "on" : "off";
     }
   }
 
@@ -469,7 +475,7 @@ LayerPopup {
           id: listHead
           width: parent.width
           height: popup.headH
-          Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Zenon.border }
+          Hairline { anchors.bottom: parent.bottom; width: parent.width }
           Text {
             id: backGlyph
             x: 16
@@ -477,6 +483,7 @@ LayerPopup {
             text: ""
             color: backPress.pressed ? Zenon.ink : Zenon.accentMuted
             font.family: Zenon.glyphFace
+            font.weight: Zenon.weight
             font.pixelSize: Zenon.px(13)
             MouseArea { id: backPress; anchors.fill: parent; anchors.margins: -10; onClicked: popup.back() }
           }

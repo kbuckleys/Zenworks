@@ -26,6 +26,7 @@ import "../morpheus"
 import "../oracle"
 import "picasso.js" as Art
 import "../morpheus/wallpalette.js" as Pal
+import "../morpheus/runjob.js" as RunJob
 
 Item {
   id: follow
@@ -64,7 +65,6 @@ Item {
 
   // path -> the histogram's text, for the session
   property var seen: ({})
-  property string asked: ""
 
   readonly property string want: follow.active ? follow.source : ""
   onWantChanged: follow.fetch()
@@ -76,9 +76,10 @@ Item {
     const solid = Art.colorOf(p);
     if (solid) { follow.make([{ hex: String(solid).toLowerCase(), n: 1 }]); return; }
     if (follow.seen[p] !== undefined) { follow.make(Pal.parseHistogram(follow.seen[p])); return; }
-    follow.asked = p;
-    histProc.running = false;
-    histProc.command = ["sh", "-c",
+    // the path goes with the run (audit 11-08): a run stopped for a newer
+    // picture still streams, and read against `asked` its histogram was
+    // worn as the new one's for the session
+    const job = { p, command: ["sh", "-c",
       "f=\"$1\"; d=\"$2\"; "
       + "k=$(printf '%s:%s' \"$f\" \"$(stat -c %Y:%s -- \"$f\" 2>/dev/null)\" | md5sum | cut -c1-32); "
       + "c=\"$d/$k.txt\"; [ -s \"$c\" ] && exec cat \"$c\"; mkdir -p \"$d\"; "
@@ -86,17 +87,22 @@ Item {
       // is a theme left as it was, not a stuck process
       + "timeout 20 magick \"$f[0]\" -resize 100x100 -colors 12 -depth 8 -format %c histogram:info:- "
       + "> \"$c.tmp\" 2>/dev/null && mv \"$c.tmp\" \"$c\" && exec cat \"$c\"",
-      "sh", p, Paths.cacheDir() + "/quickshell/follow"];
-    histProc.running = true;
+      "sh", p, Paths.cacheDir() + "/quickshell/follow"] };
+    RunJob.latest(histProc, job);
   }
 
   Process {
     id: histProc
+    property var job: null
+    property var want: null
+    onExited: RunJob.next(histProc)
     stdout: StdioCollector {
       id: histOut
       waitForEnd: true
       onStreamFinished: {
-        const p = follow.asked;
+        // a run stopped for a newer picture: partial, not kept
+        if (!RunJob.current(histProc)) return;
+        const p = histProc.job.p;
         const text = histOut.text;
         if (Pal.parseHistogram(text).length > 0) {
           const m = Object.assign({}, follow.seen);

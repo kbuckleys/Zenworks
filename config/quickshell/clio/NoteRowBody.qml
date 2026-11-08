@@ -55,6 +55,7 @@ Item {
         text: ""
         color: Zenon.yellow
         font.family: Zenon.glyphFace
+        font.weight: Zenon.weight
         font.pixelSize: Zenon.px(12)
       }
       Text {
@@ -64,7 +65,7 @@ Item {
         text: rb.note ? N.titleOf(rb.note) : ""
         color: rb.here ? Zenon.ink : Zenon.accentSoft
         font.family: Zenon.face
-        font.weight: Font.Bold
+        font.weight: Zenon.titleWeight
         font.pixelSize: Zenon.px(15)
       }
       Text {
@@ -74,6 +75,7 @@ Item {
         text: "\u{F0403}"
         color: Zenon.sand
         font.family: Zenon.glyphFace
+        font.weight: Zenon.weight
         font.pixelSize: Zenon.px(11)
       }
     }
@@ -88,7 +90,7 @@ Item {
         color: Zenon.accentMuted
         font.family: Zenon.face
         // the second line bold too (user, 2026-10-17)
-        font.weight: Font.Bold
+        font.weight: Zenon.titleWeight
         font.pixelSize: Zenon.px(13)
       }
       Text {
@@ -121,6 +123,7 @@ Item {
       Text {
         width: Math.min(implicitWidth, parent.width - (rowMarks.visible ? rowMarks.width + 10 : 0))
         elide: Text.ElideRight
+        textFormat: Text.PlainText
         text: "  " + (rb.win ? rb.win.folderName(rb.note ? rb.note.folder : "") : "")
         color: Zenon.accentMuted
         opacity: 0.8

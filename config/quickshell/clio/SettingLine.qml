@@ -23,7 +23,7 @@ Item {
     id: words
     y: line.stacked ? 0 : Math.round((line.height - height) / 2)
     width: line.stacked ? line.width : line.width - slot.width - 16
-    Text { textFormat: Text.PlainText; id: head; text: line.label; color: Zenon.ink; font.family: Zenon.face; font.weight: Font.DemiBold; font.pixelSize: Zenon.px(14) }
+    Text { textFormat: Text.PlainText; id: head; text: line.label; color: Zenon.ink; font.family: Zenon.face; font.weight: Zenon.titleWeight; font.pixelSize: Zenon.px(14) }
     Text { textFormat: Text.PlainText; visible: text !== ""; width: parent.width; wrapMode: Text.Wrap; text: line.note; color: Zenon.accentMuted; font.family: Zenon.face; font.weight: Zenon.weight; font.pixelSize: Zenon.px(12) }
   }
   Item {

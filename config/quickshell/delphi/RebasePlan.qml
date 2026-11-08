@@ -138,6 +138,7 @@ Item {
   Rectangle { anchors.fill: parent; color: Zenon.layerBg }
 
   Text {
+    textFormat: Text.PlainText
     id: note
     x: 22
     y: 14
@@ -192,11 +193,12 @@ Item {
             border.width: on ? 1 : 0
             border.color: Zenon[modelData.ink]
             Text {
+              textFormat: Text.PlainText
               anchors.centerIn: parent
               text: modelData.key
               color: parent.on ? Zenon[modelData.ink] : Zenon.accentMuted
               font.family: Zenon.faceMono
-              font.weight: Font.Bold
+              font.weight: Zenon.titleWeight
               font.pixelSize: Zenon.px(13)
             }
             MouseArea {
@@ -209,6 +211,7 @@ Item {
         }
       }
       Text {
+        textFormat: Text.PlainText
         id: sha
         anchors.left: segs.right
         anchors.leftMargin: 16
@@ -216,6 +219,7 @@ Item {
         text: D.short(srow.modelData.sha)
         color: Zenon.accentMuted
         font.family: Zenon.faceFixed
+        font.weight: Zenon.weight
         font.pixelSize: Zenon.px(14)
       }
       Text {

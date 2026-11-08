@@ -107,6 +107,7 @@ Item {
     term.searchBackCwd = s ? s.backCwd : "";
     term.searchBackSel = s ? s.backSel : "";
     term.searchBackView = s ? s.backView : null;
+    term.searchPane = s ? term.act : null;
     term.searchSpec = s && s.spec ? s.spec : null;
     // an unsaved search's collection is the tab's too: two results tabs
     // each keep the question they were asked

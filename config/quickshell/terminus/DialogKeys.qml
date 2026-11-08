@@ -8,6 +8,7 @@
 // term.<id>Ref (the window's aliases).
 
 import QtQuick
+import "../morpheus"
 import QtMultimedia
 
 Item {
@@ -24,21 +25,18 @@ Item {
   enabled: dialogKeys.anyOpen
 
   onAnyOpenChanged: {
-    if (dialogKeys.anyOpen) { dialogClaim.tries = 0; dialogClaim.restart(); }
+    if (dialogKeys.anyOpen) dialogClaim.begin();
     else term.contentRef.forceActiveFocus();
   }
 
-  Timer {
+  FocusRetry {
     id: dialogClaim
     interval: 30
-    repeat: true
-    property int tries: 0
-    onTriggered: {
-      if (!dialogKeys.anyOpen || dialogKeys.activeFocus
-          || dialogClaim.tries++ > 20) {
-        dialogClaim.stop();
-        return;
-      }
+    checkFirst: true
+    maxAsks: 20
+    live: dialogKeys.anyOpen
+    took: dialogKeys.activeFocus
+    onPlace: {
       dialogKeys.forceActiveFocus();
     }
   }

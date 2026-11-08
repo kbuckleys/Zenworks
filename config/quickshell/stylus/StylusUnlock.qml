@@ -60,6 +60,7 @@ FocusScope {
         text: "\u{F033E}"
         color: Zenon.accent
         font.family: Zenon.glyphFace
+        font.weight: Zenon.weight
         font.pixelSize: Zenon.px(18)
       }
       Text {

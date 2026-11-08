@@ -21,7 +21,7 @@ local M = {}
 local function close(win, buf, wasListed)
   if api.nvim_win_is_valid(win) then api.nvim_win_close(win, true) end
   if api.nvim_buf_is_valid(buf) then
-    for _, k in ipairs({ "q", "<Esc>", "<CR>" }) do pcall(vim.keymap.del, "n", k, { buffer = buf }) end
+    for _, k in ipairs({ "q", "<Esc>", "<CR>" }) do pcall(vim.keymap.del, "n", k, { buf = buf }) end
     vim.bo[buf].buflisted = wasListed or vim.bo[buf].modified
   end
   require("plato.view").schedule(true)
@@ -52,8 +52,8 @@ function M.open(item)
     shutDone = true
     close(win, buf, wasListed)
   end
-  vim.keymap.set("n", "q", shut, { buffer = buf, nowait = true })
-  vim.keymap.set("n", "<Esc>", shut, { buffer = buf, nowait = true })
+  vim.keymap.set("n", "q", shut, { buf = buf, nowait = true })
+  vim.keymap.set("n", "<Esc>", shut, { buf = buf, nowait = true })
   vim.keymap.set("n", "<CR>", function()
     local pos = api.nvim_win_get_cursor(win)
     wasListed = true
@@ -61,7 +61,7 @@ function M.open(item)
     vim.cmd.edit(vim.fn.fnameescape(file))
     pcall(api.nvim_win_set_cursor, 0, pos)
     vim.cmd("normal! zz")
-  end, { buffer = buf, nowait = true })
+  end, { buf = buf, nowait = true })
   -- leaving the card any other way closes it too
   api.nvim_create_autocmd("WinLeave", { once = true, callback = function()
     if api.nvim_get_current_win() == win then vim.schedule(shut) end

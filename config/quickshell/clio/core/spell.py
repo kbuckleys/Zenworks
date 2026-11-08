@@ -13,6 +13,7 @@
 # The answers are remembered per language set: a note is checked again on every
 # pause in typing, and nearly all of its words were asked about already.
 
+from collections import OrderedDict
 import glob
 import os
 import subprocess
@@ -45,12 +46,15 @@ def default_langs():
     return sorted(have)[:1]
 
 
+CACHE_MAX = 20000
+
+
 class Speller:
     def __init__(self):
         self.lock = threading.Lock()
         self.proc = None
         self.langs = None
-        self.cache = {}
+        self.cache = OrderedDict()
 
     def _start(self, langs):
         self.stop()
@@ -63,7 +67,7 @@ class Speller:
                                      stderr=subprocess.DEVNULL, text=True, encoding="utf-8", bufsize=1)
         self.proc.stdout.readline()          # the banner
         self.langs = list(langs)
-        self.cache = {}
+        self.cache = OrderedDict()
 
     def stop(self):
         if self.proc:
@@ -100,10 +104,18 @@ class Speller:
             bad = {}
             for w in words:
                 w = str(w)
-                if not w or len(w) > 60 or " " in w:
+                # one word a line to hunspell: a newline or a tab in it would
+                # put every answer after it one out of step
+                if not w or len(w) > 60 or any(c.isspace() for c in w):
                     continue
-                if w not in self.cache:
+                if w in self.cache:
+                    self.cache.move_to_end(w)
+                else:
                     self.cache[w] = self._ask(w)
+                    # the words a long session has met, the least recent let
+                    # go past CACHE_MAX (audit 11-07: it only grew)
+                    while len(self.cache) > CACHE_MAX:
+                        self.cache.popitem(last=False)
                 if self.cache[w] is not None:
                     bad[w] = self.cache[w]
             return bad

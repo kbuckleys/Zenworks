@@ -11,6 +11,7 @@
 
 import QtQuick
 import "../morpheus"
+import "../morpheus/controls" as Controls
 import "../terminus"
 import "notes.js" as N
 
@@ -23,6 +24,28 @@ Column {
   spacing: 14
   readonly property int gap: 36
   readonly property real colW: Math.floor((sb.width - 44 - sb.gap) / 2)
+  // the one open dropdown (terminus BulkDrop's host contract)
+  property var bulkOpenDrop: null
+  property real wheelStep: 120
+  // where a dropdown's list goes: the sheet's own root (the Sheet this
+  // body sits in), over its card and unclipped by it — not the window's
+  // stage, which is under the sheet (user, 2026-11-08); a click off an
+  // open list puts it away
+  readonly property Item sheetRoot: {
+    for (let p = sb.parent; p; p = p.parent) if ("cardW" in p) return p;
+    return sb;
+  }
+  Item {
+    id: dropLayer
+    parent: sb.sheetRoot
+    anchors.fill: parent
+    z: 300
+    MouseArea {
+      anchors.fill: parent
+      enabled: sb.bulkOpenDrop !== null
+      onClicked: sb.bulkOpenDrop = null
+    }
+  }
 
   // two columns: the notes (and the stickies) on the left, the journal and
   // the lock on the right
@@ -45,29 +68,40 @@ Column {
           SettingLine {
             width: sb.colW
             label: "Group notes by date"
-            Segments { options: [[true, "On"], [false, "Off"]]; current: sb.mgr ? sb.mgr.groupByDate : true; textSize: Zenon.px(12); onChose: (v) => sb.mgr.set("groupByDate", v) }
+            Controls.Check { lit: sb.mgr ? sb.mgr.groupByDate : true; onToggled: sb.mgr.set("groupByDate", !(sb.mgr ? sb.mgr.groupByDate : true)) }
           }
           SettingLine {
             width: sb.colW
             label: "Sort ticked items"
             note: "A box ticked moves under the ones still to do"
-            Segments { options: [[true, "On"], [false, "Off"]]; current: sb.mgr ? sb.mgr.sinkChecked : false; textSize: Zenon.px(12); onChose: (v) => sb.mgr.set("sinkChecked", v) }
+            Controls.Check { lit: sb.mgr ? sb.mgr.sinkChecked : false; onToggled: sb.mgr.set("sinkChecked", !(sb.mgr ? sb.mgr.sinkChecked : false)) }
           }
           SettingLine {
             width: sb.colW
             label: "Text size"
             note: "ctrl = and ctrl −"
-            Segments { options: [[0.9, "S"], [1, "M"], [1.15, "L"], [1.3, "XL"]]; current: sb.mgr ? sb.mgr.textScale : 1; textSize: Zenon.px(12); onChose: (v) => sb.mgr.set("textScale", v) }
+            // on ctrl = / ctrl −'s own tenths, and the nearest lit when a
+            // step lands between two (1.1 lit nothing: user, 2026-11-08)
+            Segments {
+              readonly property var sizes: [0.9, 1, 1.2, 1.4]
+              options: [[0.9, "S"], [1, "M"], [1.2, "L"], [1.4, "XL"]]
+              current: {
+                const s = sb.mgr ? sb.mgr.textScale : 1;
+                return sizes.reduce((a, b) => Math.abs(b - s) < Math.abs(a - s) ? b : a);
+              }
+              textSize: Zenon.px(12)
+              onChose: (v) => sb.mgr.set("textScale", v)
+            }
           }
           SettingLine {
             width: sb.colW
             label: "Templates"
             note: !sb.mgr || sb.mgr.templates.length === 0 ? "None yet — save one from a note's menu, or import one" : sb.mgr.templates.map((t) => t.name).join(", ")
-            DialogButton { visible: !!sb.mgr && !!sb.mgr.fileManager; label: "Import…"; onClicked: { sb.closed(); sb.win.importTemplate(); } }
+            DialogButton { visible: !!sb.mgr && !!sb.mgr.fileManager; label: "Import"; onClicked: { sb.closed(); sb.win.importTemplate(); } }
             DialogButton {
               id: tplBtn
               visible: !!sb.mgr && sb.mgr.templates.length > 0
-              label: "Delete…"
+              label: "Delete"
               onClicked: {
                 const p = tplBtn.mapToItem(sb.win.stageItem, 0, tplBtn.height + 4);
                 sb.win.menuRef.open(p.x, p.y, sb.mgr.templates.map((x) => ({ text: x.name, icon: "", danger: true, run: () => sb.mgr.deleteTemplate(x.id) })));
@@ -78,12 +112,12 @@ Column {
             width: sb.colW
             label: "Smart punctuation"
             note: "“Curly quotes” and — dashes as you type"
-            Segments { options: [[true, "On"], [false, "Off"]]; current: sb.mgr ? sb.mgr.smartPunct : true; textSize: Zenon.px(12); onChose: (v) => sb.mgr.set("smartPunct", v) }
+            Controls.Check { lit: sb.mgr ? sb.mgr.smartPunct : true; onToggled: sb.mgr.set("smartPunct", !(sb.mgr ? sb.mgr.smartPunct : true)) }
           }
           SettingLine {
             width: sb.colW
             label: "Stickies on the desktop"
-            Segments { options: [[true, "Shown"], [false, "Hidden"]]; current: Clio.shown; textSize: Zenon.px(12); onChose: (v) => Clio.shown = v }
+            Controls.Check { lit: Clio.shown; onToggled: Clio.shown = !Clio.shown }
           }
     }
     Column {
@@ -109,13 +143,13 @@ Column {
             width: sb.colW
             label: "Blur previews"
             note: "Entries' words and pictures frosted in the list until the pointer is on them"
-            Segments { options: [[true, "On"], [false, "Off"]]; current: sb.mgr ? sb.mgr.journalBlur : false; textSize: Zenon.px(12); onChose: (v) => sb.mgr.set("journalBlur", v) }
+            Controls.Check { lit: sb.mgr ? sb.mgr.journalBlur : false; onToggled: sb.mgr.set("journalBlur", !(sb.mgr ? sb.mgr.journalBlur : false)) }
           }
           SettingLine {
             width: sb.colW
             label: "Remind me to write"
             note: "A notification, unless something was written that day"
-            Segments { options: [[true, "On"], [false, "Off"]]; current: sb.mgr ? sb.mgr.remind : false; textSize: Zenon.px(12); onChose: (v) => sb.mgr.set("remind", v) }
+            Controls.Check { lit: sb.mgr ? sb.mgr.remind : false; onToggled: sb.mgr.set("remind", !(sb.mgr ? sb.mgr.remind : false)) }
           }
           SettingLine {
             width: sb.colW
@@ -124,7 +158,7 @@ Column {
             Row {
               spacing: Zenon.buttonGap
               DialogButton { glyph: true; label: ""; onClicked: sb.shift(-15) }
-              Text { anchors.verticalCenter: parent.verticalCenter; text: sb.mgr ? sb.mgr.remindAt : ""; color: Zenon.ink; font.family: Zenon.face; font.weight: Font.Bold; font.pixelSize: Zenon.px(15); font.features: { "tnum": 1 } }
+              Text { anchors.verticalCenter: parent.verticalCenter; text: sb.mgr ? sb.mgr.remindAt : ""; color: Zenon.ink; font.family: Zenon.face; font.weight: Zenon.titleWeight; font.pixelSize: Zenon.px(15); font.features: { "tnum": 1 } }
               DialogButton { glyph: true; label: ""; onClicked: sb.shift(15) }
             }
           }
@@ -155,7 +189,7 @@ Column {
             Row {
               spacing: Zenon.buttonGap
               DialogButton { visible: !!sb.mgr && sb.mgr.unlocked; label: "Lock now"; ink: Zenon.yellow; onClicked: sb.win.lockNow() }
-              DialogButton { label: sb.mgr && sb.mgr.hasPassword ? "Change…" : "Set…"; onClicked: { sb.closed(); sb.win.changePassword(); } }
+              DialogButton { label: sb.mgr && sb.mgr.hasPassword ? "Change" : "Set"; onClicked: { sb.closed(); sb.win.changePassword(); } }
             }
           }
           SettingLine {
@@ -171,36 +205,32 @@ Column {
             width: sb.colW
             label: "Check spelling"
             note: sb.mgr && !sb.mgr.spellInfo.have ? "Hunspell is not installed" : "A red line under a word it does not know; right click for guesses"
-            Segments { options: [[true, "On"], [false, "Off"]]; current: sb.mgr ? sb.mgr.spellOn : true; textSize: Zenon.px(12); onChose: (v) => sb.mgr.setSpellOn(v) }
+            Controls.Check { lit: sb.mgr ? sb.mgr.spellOn : true; onToggled: sb.mgr.setSpellOn(!(sb.mgr ? sb.mgr.spellOn : true)) }
           }
           SettingLine {
             width: sb.colW
             visible: !!sb.mgr && sb.mgr.spellOn
             label: "Languages"
             note: sb.mgr && sb.mgr.spellInfo.langs.length === 0 ? "No dictionaries yet" : "Words right in any one of them count as right"
-            Flow {
-              width: sb.colW * 0.55
-              spacing: 4
-              Repeater {
-                model: sb.mgr ? sb.mgr.spellInfo.langs : []
-                delegate: MoodChip {
-                  required property string modelData
-                  readonly property var inUse: sb.mgr.spellLangs.length > 0 ? sb.mgr.spellLangs : sb.mgr.spellInfo.default
-                  word: sb.langName(modelData)
-                  on: inUse.indexOf(modelData) >= 0
-                  onClicked: {
-                    const next = on ? inUse.filter((c) => c !== modelData) : inUse.concat([modelData]);
-                    if (next.length > 0) sb.mgr.setSpellLangs(next);
-                  }
-                }
-              }
+            // A DROPDOWN (user, 2026-11-08), not a chip per dictionary: one
+            // language, or every one installed at once ("*")
+            BulkDrop {
+              readonly property var langs: sb.mgr ? sb.mgr.spellInfo.langs : []
+              readonly property var inUse: !sb.mgr ? [] : sb.mgr.spellLangs.length > 0 ? sb.mgr.spellLangs : sb.mgr.spellInfo.default
+              visible: langs.length > 0
+              host: sb
+              overlay: dropLayer
+              textSize: Zenon.px(13)
+              options: langs.map((c) => [c, sb.langName(c)]).concat(langs.length > 1 ? [["*", "Every one of them"]] : [])
+              value: inUse.length === 1 ? inUse[0] : (inUse.length > 1 && langs.every((c) => inUse.indexOf(c) >= 0) ? "*" : "")
+              onPicked: (v) => sb.mgr.setSpellLangs(v === "*" ? langs.slice() : [v])
             }
           }
           SettingLine {
             width: sb.colW
             label: "More languages"
             note: "Dictionaries are packages: Ceres opens on them"
-            DialogButton { label: "Find in Ceres…"; onClicked: { sb.closed(); sb.mgr.moreLanguages(); } }
+            DialogButton { label: "Find in Ceres"; onClicked: { sb.closed(); sb.mgr.moreLanguages(); } }
           }
           SettingLine {
             width: sb.colW
@@ -209,7 +239,7 @@ Column {
             note: sb.mgr ? (sb.mgr.meta.learned || []).length + ((sb.mgr.meta.learned || []).length === 1 ? " word" : " words") + ", kept with the notebook" : ""
             DialogButton {
               id: learnedBtn
-              label: "Forget…"
+              label: "Forget"
               onClicked: {
                 const p = learnedBtn.mapToItem(sb.win.stageItem, 0, learnedBtn.height + 4);
                 sb.win.menuRef.open(p.x, p.y, (sb.mgr.meta.learned || []).slice().sort()

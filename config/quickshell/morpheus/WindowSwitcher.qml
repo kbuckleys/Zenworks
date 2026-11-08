@@ -40,6 +40,7 @@ import Quickshell.Io
 import Quickshell.Hyprland
 import Quickshell.Wayland
 import "."
+import "../terminus" as Term
 import "switcher.js" as S
 import "offspecial.js" as Off
 import "hypr.js" as Hypr
@@ -280,6 +281,8 @@ PanelWindow {
           width: sw.tileW
           height: sw.shotH + nameRow.height + 26
 
+          Term.HeldRing { anchors.fill: parent; z: 5; radius: Zenon.radiusCard; middleOf: hover }
+
           Rectangle {
             anchors.fill: parent
             radius: Zenon.radiusCard
@@ -313,6 +316,7 @@ PanelWindow {
               text: Strings.appGlyph([tile.appId, tile.win ? tile.win.title : ""]) || "\u{F05C4}"
               color: Zenon.muted
               font.family: Zenon.face
+              font.weight: Zenon.weight
               font.pixelSize: Zenon.px(36)
             }
             // WHICH WORKSPACE, when it is not this one: a badge in the
@@ -333,12 +337,13 @@ PanelWindow {
               radius: Zenon.radiusControl
               color: Zenon.shade(0.6)
               Text {
+                textFormat: Text.PlainText
                 id: wsMark
                 anchors.centerIn: parent
                 text: wsBadge.mark
                 color: Zenon.white
                 font.family: wsBadge.special ? Zenon.glyphFace : Zenon.face
-                font.weight: Font.DemiBold
+                font.weight: Zenon.titleWeight
                 font.pixelSize: Zenon.px(wsBadge.special ? 19 : 17)
                 // bolder, as the bar's (Workspaces' specialGlyph): the glyph
                 // font has one weight, so a copy one pixel right widens it
@@ -368,6 +373,7 @@ PanelWindow {
               text: Strings.appGlyph([tile.appId, tile.win ? tile.win.title : ""]) || "\u{F05C4}"
               color: tile.lit ? Zenon.accent : Zenon.accentMuted
               font.family: Zenon.face
+              font.weight: Zenon.weight
               font.pixelSize: Zenon.px(15)
             }
             Text {

@@ -90,12 +90,28 @@ Scope {
   property var opened: ({})
   signal reloaded()
 
-  function load(then) {
+  // `then` waits for the load under way when there is one (audit 11-08: it
+  // was dropped, and a quick note captured during the startup load was
+  // gone, its card already hidden); `ifIdle` is checkDisk's — an answer
+  // that lands while something of ours is being written is not taken
+  property var _loadThen: []
+  function busyWriting() {
+    const p = mgr.win ? mgr.win.paneRef : null;
+    return mgr._writing > 0 || Object.keys(mgr._pending).length > 0 || Object.keys(mgr._inflight).length > 0
+      || !!(p && (p.dirty || p.editing));
+  }
+  function load(then, ifIdle) {
+    if (then) mgr._loadThen = mgr._loadThen.concat([then]);
     if (mgr.loading) return;
     mgr.loading = true;
     mgr.call("load", {}, (ok, r, err) => {
       mgr.loading = false;
+      const thens = mgr._loadThen;
+      mgr._loadThen = [];
       if (!ok) { console.warn("clio:", err ? err.error : "load failed"); return; }
+      // edits made while it was asked: the next look takes the disk again
+      // (the backend counts it read, so the reload is owed: checkDisk)
+      if (ifIdle && thens.length <= 1 && mgr.busyWriting()) { mgr._reloadOwed = true; return; }
       const list = [];
       for (const raw of r.notes) {
         const n = N.clean(raw);
@@ -111,7 +127,7 @@ Scope {
       mgr.unlocked = r.unlocked;
       mgr.loaded = true;
       mgr.reloaded();
-      if (then) then();
+      for (const f of thens) f();
     });
   }
   // ── PAGES CHANGED ELSEWHERE ──
@@ -127,14 +143,18 @@ Scope {
     running: !!mgr.win && mgr.win.visible && mgr.loaded
     onTriggered: mgr.checkDisk()
   }
+  property bool _reloadOwed: false
   function checkDisk() {
     if (mgr.loading) return;
+    if (mgr._reloadOwed) {
+      if (mgr.busyWriting()) return;
+      mgr._reloadOwed = false;
+      mgr.load(() => mgr.diskChanged(), true);
+      return;
+    }
     mgr.call("changed", {}, (ok, r) => {
-      if (!ok || !r.changed || mgr.loading) return;
-      const p = mgr.win ? mgr.win.paneRef : null;
-      if (mgr._writing > 0 || Object.keys(mgr._pending).length || Object.keys(mgr._inflight).length
-          || p && (p.dirty || p.editing)) return;
-      mgr.load(() => mgr.diskChanged());
+      if (!ok || !r.changed || mgr.loading || mgr.busyWriting()) return;
+      mgr.load(() => mgr.diskChanged(), true);
     });
   }
   // a note's page, shown in terminus
@@ -315,6 +335,9 @@ Scope {
   // and a note of their own is the same call with no quote
   function appendQuote(book, quote, where, done, comment) {
     const go = () => {
+      // the open note's own edits first, then this told to the pane, as
+      // addTask does (audit 11-08: lost when that note was open and dirty)
+      if (mgr.win) mgr.win.commit();
       const title = "Highlights · " + book;
       const n = mgr.notes.find((x) => !(x.deleted > 0) && x.kind === "note" && !x.sealed && N.titleOf(x, "") === title);
       const add = (quote ? [N.block("quote", N.escape(quote))] : [])
@@ -324,6 +347,7 @@ Scope {
       if (n) {
         id = n.id;
         mgr.setBlocks(id, n.blocks.concat(add));
+        mgr.changedHere(id);
       } else {
         id = mgr.newNote("", [N.block("title", N.escape(title))].concat(add));
       }
@@ -417,7 +441,22 @@ Scope {
     const p = Object.assign({}, mgr._pending);
     delete p[id];
     mgr._pending = p;
-    mgr.call("remove", { id: id }, (ok, r, err) => { if (!ok) mgr.failed("Could not delete", err); });
+    // the files every other note here uses, written yet or not: one still in
+    // its beat (_pending) or in flight is not on disk, and the backend's own
+    // reading would let a picture it shares with this one go (audit 11-07)
+    mgr.call("remove", { id: id, keep: mgr.usedHere(id) }, (ok, r, err) => { if (!ok) mgr.failed("Could not delete", err); });
+  }
+  function usedHere(skip) {
+    const out = {};
+    const take = (bs) => { for (const b of bs || []) if (b && b.src) out[String(b.src)] = true; };
+    for (const n of mgr.notes) {
+      if (n.id === skip) continue;
+      take(n.blocks);
+      for (const u of n.uses || []) out[String(u)] = true;
+      take(mgr.opened[n.id]);
+    }
+    for (const id in mgr._pending) if (id !== skip) take(mgr._pending[id].blocks);
+    return Object.keys(out);
   }
   function restoreAll() { for (const n of mgr.notes.slice()) if (n.deleted > 0) mgr.restore(n.id); }
   function emptyTrash() { for (const n of mgr.notes.slice()) if (n.deleted > 0) mgr.forget(n.id); }
@@ -451,7 +490,23 @@ Scope {
   }
 
   // ── FOLDERS AND JOURNALS ───────────────────────────────────────────────
-  function writeMeta() { mgr._writing++; mgr.call("meta", { meta: mgr.meta }, (ok, r, err) => { mgr._writing--; if (!ok) mgr.failed("Could not save the containers", err); }); }
+  // ONE AT A TIME, THE NEWEST LAST (audit 11-08): each went on its own
+  // backend thread and the lock is not first come first served, so an
+  // older meta (before a quick rename) could land over the newer one
+  property bool _metaGoing: false
+  property bool _metaAgain: false
+  function writeMeta() {
+    if (mgr._metaGoing) { mgr._metaAgain = true; return; }
+    mgr._metaGoing = true;
+    mgr._metaAgain = false;
+    mgr._writing++;
+    mgr.call("meta", { meta: mgr.meta }, (ok, r, err) => {
+      mgr._writing--;
+      mgr._metaGoing = false;
+      if (!ok) mgr.failed("Could not save the containers", err);
+      if (mgr._metaAgain) mgr.writeMeta();
+    });
+  }
   // (a change of some of it: what is not named is kept as it was)
   function setMeta(m) { mgr.meta = N.cleanMeta(Object.assign({}, mgr.meta, m)); mgr.writeMeta(); }
   function addFolder(name, parent, query) {

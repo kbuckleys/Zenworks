@@ -128,7 +128,10 @@ function M.missingTools(buf)
     for _, n in ipairs(lint.linters_by_ft[ft] or {}) do
       local l = lint.linters[n]
       local cmd = type(l) == "table" and l.cmd or nil
-      if type(cmd) == "function" then cmd = cmd() end
+      if type(cmd) == "function" then
+        local ok, got = pcall(cmd)
+        cmd = ok and got or nil
+      end
       want(cmd, "checker")
     end
   end

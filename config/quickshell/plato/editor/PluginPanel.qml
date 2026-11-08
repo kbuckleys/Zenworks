@@ -304,12 +304,10 @@ PlatoSheet {
         }
       }
     }
-    Rectangle {
+    Hairline {
       anchors.bottom: parent.bottom
       x: 8
       width: parent.width - 16
-      height: 1
-      color: Zenon.border
     }
   }
 
@@ -464,7 +462,7 @@ PlatoSheet {
       verticalAlignment: TextInput.AlignVCenter
       font: panel.face
       color: Zenon.white
-      selectionColor: Qt.rgba(Zenon.magenta.r, Zenon.magenta.g, Zenon.magenta.b, 0.5)
+      selectionColor: Zenon.selBg
       cursorDelegate: Caret { field: filterField }
       clip: true
       Keys.onPressed: (event) => {

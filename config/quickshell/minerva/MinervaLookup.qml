@@ -105,13 +105,15 @@ Rectangle {
       color: Zenon.ink
       font.family: card.mgr ? card.mgr.serifFace : Zenon.face
       font.pixelSize: Zenon.px(24)
-      font.weight: Font.DemiBold
+      font.weight: Zenon.titleWeight
     }
     Text {
+      textFormat: Text.PlainText
       visible: card.mode === "define" && !!card.result && !!card.result.ipa
       text: card.result && card.result.ipa ? card.result.ipa : ""
       color: Zenon.accentMuted
       font.family: Zenon.face
+      font.weight: Zenon.weight
       font.pixelSize: Zenon.px(14)
     }
 
@@ -155,6 +157,7 @@ Rectangle {
               delegate: Text {
                 required property var modelData
                 required property int index
+                textFormat: Text.PlainText
                 width: defCol.width
                 wrapMode: Text.WordWrap
                 text: (index + 1) + ".  " + modelData.def + (modelData.example ? "\n     “" + modelData.example + "”" : "")
@@ -181,6 +184,7 @@ Rectangle {
       text: "“" + card.words + "”"
       color: Zenon.accentMuted
       font.family: card.mgr ? card.mgr.serifFace : Zenon.face
+      font.weight: Zenon.weight
       font.pixelSize: Zenon.px(14)
     }
     Text {
@@ -190,6 +194,7 @@ Rectangle {
       text: card.result && card.result.translation ? card.result.translation : ""
       color: Zenon.ink
       font.family: card.mgr ? card.mgr.serifFace : Zenon.face
+      font.weight: Zenon.weight
       font.pixelSize: Zenon.px(17)
       textFormat: Text.PlainText
     }

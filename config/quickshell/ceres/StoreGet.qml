@@ -52,7 +52,7 @@ Rectangle {
     text: get.word
     color: get.ready ? Zenon.accent : Zenon.accentMuted
     font.family: Zenon.face
-    font.weight: Font.Bold
+    font.weight: Zenon.titleWeight
     font.pixelSize: Zenon.px(get.big ? 16 : 14)
   }
 

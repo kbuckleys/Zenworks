@@ -40,6 +40,9 @@ PARU_AUR="${XDG_CACHE_HOME:-$HOME/.cache}/paru/packages.aur"
 aur_list() {
   mkdir -p "$CACHE"
   if [ "${1:-}" != force ] && [ -s "$AUR" ] && [ -z "$(find "$AUR" -mmin +4320 2>/dev/null)" ]; then return 0; fi
+  # the AUR did not answer a moment ago and there is a list to use: every search
+  # calls this, and each would otherwise wait out the 60 s again
+  if [ "${1:-}" != force ] && [ -s "$AUR" ] && [ -n "$(find "$AUR.retry" -mmin -60 2>/dev/null)" ]; then return 0; fi
   # pipefail, in a subshell of its own: without it the pipeline's status is
   # grep's, so a curl that timed out part-way or a gzip cut short still made
   # a non-empty — and incomplete — list, and it replaced the good one for
@@ -48,8 +51,10 @@ aur_list() {
        curl -fsS --max-time 60 https://aur.archlinux.org/packages.gz 2>/dev/null \
          | gunzip 2>/dev/null | grep -v '^#' ) > "$AUR.$$" && [ -s "$AUR.$$" ]; then
     mv -f "$AUR.$$" "$AUR"
+    rm -f "$AUR.retry"
   else
     rm -f "$AUR.$$"
+    touch "$AUR.retry"
     [ -s "$AUR" ] || { [ -s "$PARU_AUR" ] && cp -f "$PARU_AUR" "$AUR"; }
   fi
   return 0

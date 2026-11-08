@@ -55,7 +55,7 @@ Rectangle {
   readonly property color base: Qt.tint(Qt.tint(Zenon.ground, Zenon.layerBg), Zenon.headBg)
   // no hover tint (user, 2026-11-04): it grows under the pointer and only
   // a press colors it
-  color: tabMa.pressed ? Qt.tint(tab.base, Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.28))
+  color: tabMa.pressed ? Qt.tint(tab.base, Zenon.alpha(Zenon.accent, 0.28))
     : tab.base
   border.width: 1
   border.color: Zenon.border

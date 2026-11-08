@@ -61,7 +61,9 @@ Item {
       .concat(Oracle.themeOptions.filter((o) => o.custom).map((o) => "themes/" + o.value + ".json"));
     const files = {};
     for (const rel of rels) {
-      const t = move.readText(move.absOf(rel));
+      // oracle.json from memory: Oracle.save() just before is a write that
+      // may not have landed, and the file read back was the one before it
+      const t = rel === "oracle.json" ? Oracle.stateText() : move.readText(move.absOf(rel));
       if (t !== null && t !== "") files[rel] = t;
     }
     // each app's settings, and only those (Ora.appSettingsOf)
@@ -215,6 +217,7 @@ Item {
         Text {
           width: parent.width
           wrapMode: Text.Wrap
+          textFormat: Text.PlainText
           text: cmdBox.cmds.length === 1 ? "It runs this command" : "It runs these commands"
           color: Zenon.accentMuted
           font.family: Zenon.face
@@ -244,6 +247,7 @@ Item {
                 Text {
                   width: parent.width
                   elide: Text.ElideRight
+                  textFormat: Text.PlainText
                   text: modelData.what + (modelData.off ? " · off" : "")
                   color: Zenon.accentMuted
                   font.family: Zenon.face
@@ -253,6 +257,7 @@ Item {
                 Text {
                   width: parent.width
                   elide: Text.ElideMiddle
+                  textFormat: Text.PlainText
                   text: modelData.command
                   color: Zenon.white
                   font.family: Zenon.faceMono

@@ -21,11 +21,13 @@ Column {
   id: cal
   property var win: null
   property var entries: []
-  property var stats: ({ days: {} })
   property int year: new Date().getFullYear()
   property int month: new Date().getMonth()
   readonly property var cells: N.monthGrid(cal.year, cal.month)
-  readonly property string today: N.dayKey(Date.now())
+  // the day as it turns: past midnight the next one is filled, not the
+  // day the calendar was opened on (audit 11-07)
+  readonly property WallClock clock: WallClock {}
+  readonly property string today: N.dayKey(cal.clock.date.getTime())
   readonly property real cellW: Math.floor(cal.width / 7)
   readonly property real cellH: Math.round(Math.min(56, cal.cellW * 0.86))
   spacing: 6
@@ -69,8 +71,8 @@ Column {
     Row {
       anchors.centerIn: parent
       spacing: 2
-      Chevron { glyph: "«"; onActivated: cal.step(-12) }
-      Chevron { glyph: "‹"; onActivated: cal.step(-1) }
+      StepChevron { glyph: "«"; onActivated: cal.step(-12) }
+      StepChevron { glyph: "‹"; onActivated: cal.step(-1) }
       Item {
         width: Math.max(170, monthRow.implicitWidth + 16)
         height: 34
@@ -83,7 +85,7 @@ Column {
             text: N.MONTHS[cal.month]
             color: headMa.pressed ? Zenon.ink : Zenon.accent
             font.family: Zenon.face
-            font.weight: Font.Bold
+            font.weight: Zenon.titleWeight
             font.pixelSize: Zenon.px(17)
           }
           Text {
@@ -97,8 +99,8 @@ Column {
         }
         MouseArea { id: headMa; anchors.fill: parent; hoverEnabled: true; onClicked: cal.goToday() }
       }
-      Chevron { glyph: "›"; onActivated: cal.step(1) }
-      Chevron { glyph: "»"; onActivated: cal.step(12) }
+      StepChevron { glyph: "›"; onActivated: cal.step(1) }
+      StepChevron { glyph: "»"; onActivated: cal.step(12) }
     }
   }
 
@@ -115,7 +117,7 @@ Column {
         text: modelData
         color: index >= 5 ? Zenon.accentMuted : Zenon.accentSoft
         font.family: Zenon.face
-        font.weight: Font.Bold
+        font.weight: Zenon.titleWeight
         font.pixelSize: Zenon.px(11)
       }
     }
@@ -145,7 +147,7 @@ Column {
           radius: Zenon.radiusCard
           color: cell.isToday ? Zenon.accent
             : cell.count > 0 ? Zenon.alpha(Zenon.accent, Math.min(0.34, 0.12 + 0.08 * cell.count))
-            : dayMa.pressed ? Zenon.wash(0.08) : "transparent"
+            : dayMa.pressed ? Zenon.pressWash(0.12) : "transparent"
           // the day's picture, darkened under its number
           Image {
             anchors.fill: parent
@@ -173,7 +175,7 @@ Column {
           style: cell.pic ? Text.Raised : Text.Normal
           styleColor: Zenon.alpha(Zenon.shadowRgb, 0.5)
           font.family: Zenon.face
-          font.weight: cell.count > 0 || cell.isToday ? Font.Black : Font.DemiBold
+          font.weight: cell.count > 0 || cell.isToday ? Font.Black : Zenon.titleWeight
           font.pixelSize: Zenon.px(13)
           font.features: { "tnum": 1 }
         }
@@ -221,20 +223,4 @@ Column {
   }
 
   // chronos' chevron
-  component Chevron: Item {
-    id: chev
-    property string glyph: ""
-    signal activated()
-    width: 24
-    height: 34
-    Text {
-      anchors.centerIn: parent
-      text: chev.glyph
-      color: chevMa.pressed ? Zenon.accent : Zenon.accentMuted
-      font.family: Zenon.face
-      font.weight: Font.Bold
-      font.pixelSize: Zenon.px(17)
-    }
-    MouseArea { id: chevMa; anchors.fill: parent; hoverEnabled: true; onClicked: chev.activated() }
-  }
 }

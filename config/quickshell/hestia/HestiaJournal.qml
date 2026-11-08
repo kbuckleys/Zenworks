@@ -13,6 +13,7 @@ import Quickshell.Io
 import "../morpheus"
 import "../terminus"
 import "hestia.js" as H
+import "../morpheus/runjob.js" as RunJob
 
 Item {
   id: jp
@@ -48,19 +49,23 @@ Item {
     });
   }
   // following only makes sense for this boot
+  // each follow its own job (RunJob, audit 11-08): stop-then-start in one
+  // tick dropped the start, "Following" with nothing coming, and the old
+  // filter's last lines landed under the new one
   function follow(on) {
     jp.following = on;
-    followProc.running = false;
-    if (!on || !jp.visible || (jp.boot !== "0" && jp.boot !== "")) return;
-    followProc.command = Paths.tether(H.logArgs(jp.filters, true));
-    followProc.running = true;
+    if (!on || !jp.visible || (jp.boot !== "0" && jp.boot !== "")) { RunJob.drop(followProc); return; }
+    RunJob.latest(followProc, { command: Paths.tether(H.logArgs(jp.filters, true)) });
   }
   Process {
     id: followProc
-    stdout: SplitParser { splitMarker: "\n"; onRead: (line) => log.append(H.parseJournalLine(line)) }
+    property var job: null
+    property var want: null
+    onExited: RunJob.next(followProc)
+    stdout: SplitParser { splitMarker: "\n"; onRead: (line) => { if (RunJob.current(followProc)) log.append(H.parseJournalLine(line)); } }
   }
-  Component.onDestruction: followProc.running = false
-  onVisibleChanged: if (jp.visible) jp.load(); else followProc.running = false
+  Component.onDestruction: RunJob.drop(followProc)
+  onVisibleChanged: if (jp.visible) jp.load(); else RunJob.drop(followProc)
 
   // a unit's journal, asked for from elsewhere
   function show(unitName, scope) {
@@ -104,22 +109,20 @@ Item {
       spacing: 10
       width: parent.width
       // the unit, and the words: terminus' shared field
-      BulkField {
+      SearchBox {
         id: unitField
+        compact: true
         width: 260
-        height: 28
         ghost: "Any service"
-        clearable: true
         // the name settles before it is asked for: a service half typed is none
         onTextChanged: unitSettle.restart()
         onAccepted: if (jp.win) jp.win.refocus()
       }
-      BulkField {
+      SearchBox {
         id: wordsField
+        compact: true
         width: Math.max(200, bar.width - 260 - 10 - followBtn.width - 20)
-        height: 28
         ghost: "Words in the message"
-        clearable: true
         onTextChanged: wordsSettle.restart()
         onAccepted: if (jp.win) jp.win.refocus()
       }

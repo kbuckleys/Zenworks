@@ -137,6 +137,7 @@ Item {
       width: list.width
       height: list.rowH
       Text {
+        textFormat: Text.PlainText
         id: kind
         x: 22
         width: Zenon.px(22)
@@ -144,6 +145,7 @@ Item {
         text: pg.kindGlyph[irow.modelData.kind] || pg.kindGlyph.other
         color: irow.modelData.kind === "pull" ? Zenon.magenta : irow.modelData.kind === "issue" ? Zenon.green : Zenon.accent
         font.family: Zenon.glyphFace
+        font.weight: Zenon.weight
         font.pixelSize: Zenon.px(16)
       }
       Column {
@@ -160,7 +162,7 @@ Item {
           text: irow.modelData.title
           color: Zenon.ink
           font.family: Zenon.face
-          font.weight: Font.Bold
+          font.weight: Zenon.titleWeight
           font.pixelSize: Zenon.px(14)
         }
         Text {
@@ -176,6 +178,7 @@ Item {
         }
       }
       Text {
+        textFormat: Text.PlainText
         id: when
         anchors.right: parent.right
         anchors.rightMargin: 22

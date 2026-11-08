@@ -39,7 +39,7 @@ Rectangle {
     text: card.text
     color: Zenon.white
     font.family: Zenon.face
-    font.weight: Font.Bold
+    font.weight: Zenon.titleWeight
     font.pixelSize: Zenon.px(13)
   }
 }

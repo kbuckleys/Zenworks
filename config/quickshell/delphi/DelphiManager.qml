@@ -266,6 +266,11 @@ Scope {
       mgr.asks = mgr.asks.concat([ev]);
       return;
     }
+    // askpass gave up (timed out, or git was stopped): its card goes
+    if (ev.askGone !== undefined) {
+      mgr.asks = mgr.asks.filter((a) => a.ask !== ev.askGone);
+      return;
+    }
     if (ev.changed !== undefined) {
       mgr.changed(ev.changed, ev.what || []);
       return;

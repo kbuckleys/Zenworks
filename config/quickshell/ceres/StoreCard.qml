@@ -82,7 +82,7 @@ Item {
       text: card.app ? card.app.name : ""
       color: Zenon.white
       font.family: Zenon.face
-      font.weight: Font.Bold
+      font.weight: Zenon.titleWeight
       font.pixelSize: Zenon.px(15)
       lineHeight: 0.95
     }

@@ -138,7 +138,7 @@ Item {
         text: sl.readParts.num
         color: sl.readInk
         font.family: Zenon.clockFamily
-        font.weight: Font.Bold
+        font.weight: Zenon.titleWeight
         font.pixelSize: Zenon.px(16)
       }
     }
@@ -161,7 +161,7 @@ Item {
     anchors.verticalCenter: parent.verticalCenter
     height: 4
     radius: height / 2
-    color: Qt.rgba(Zenon.white.r, Zenon.white.g, Zenon.white.b, 0.10)
+    color: Zenon.alpha(Zenon.white, 0.10)
 
     Rectangle {
       anchors.left: parent.left

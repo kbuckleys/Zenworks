@@ -65,10 +65,19 @@ Scope {
   property var dupes: []
   property bool dupesAsked: false
   property bool dupesScanning: false
+  // asked again while comparing: once more after (audit 11-08: dropped,
+  // and a list from before a trash elsewhere stayed up)
+  property bool dupesAgain: false
   function scanDupes() {
-    if (mgr.dupesScanning) return;
+    if (mgr.dupesScanning) { mgr.dupesAgain = true; return; }
     mgr.dupesScanning = true;
-    mgr.ask(["dupes"], (t) => { mgr.dupes = H.parseDupes(t); mgr.dupesAsked = true; mgr.dupesScanning = false; });
+    mgr.dupesAgain = false;
+    mgr.ask(["dupes"], (t) => {
+      mgr.dupes = H.parseDupes(t);
+      mgr.dupesAsked = true;
+      mgr.dupesScanning = false;
+      if (mgr.dupesAgain) Qt.callLater(mgr.scanDupes);
+    });
   }
 
   // ── DOING ──────────────────────────────────────────────────────────
@@ -87,7 +96,13 @@ Scope {
       mgr.busy = "";
       let j = null;
       try { j = JSON.parse(t); } catch (e) {}
-      const moved = j && j.moved ? j.moved.length : 0, failed = j && j.failed ? j.failed : [];
+      // no answer is no success (a crash said "moved to the trash")
+      if (!j || typeof j !== "object") { mgr.said(words + " — Tidy could not say what happened", true); mgr.scan(); if (mgr.dupesAsked) mgr.scanDupes(); return; }
+      // WHAT WENT IS OUT OF THE COPIES AT ONCE (audit 11-08): the list
+      // stayed as it was until compared again, so a kept original trashed
+      // from another card left its last copy looking like a spare
+      if (Array.isArray(j.moved) && j.moved.length && mgr.dupes.length) mgr.dupes = H.withoutPaths(mgr.dupes, j.moved);
+      const moved = j.moved ? j.moved.length : 0, failed = j.failed ? j.failed : [];
       if (failed.length) mgr.said(moved + " " + done + "; " + failed.length + " could not be: " + failed[0].why, true);
       else mgr.said(words + " " + done, false);
       mgr.scan();

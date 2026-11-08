@@ -109,13 +109,7 @@ Item {
     // handed it, we know that list exactly, and matching a prefix cannot
     // be confused by any character a name is allowed to contain. Longest
     // wins, so a branch beats the cwd it sits under.
-    const dirs = term.watching();
-    let best = "";
-    for (let i = 0; i < dirs.length; ++i) {
-      const d = dirs[i];
-      if (d.length <= best.length) continue;
-      if (s.indexOf(d === "/" ? "/" : d + "/") === 0) best = d;
-    }
+    const best = dirWatch.ownerOf(s, term.watching());
     if (best === "") return;
     term.watchHits[best] = true;
     dirWatch.noteMoved(s, best);
@@ -430,15 +424,19 @@ Item {
     otherWatchProc.command = Terminus.watchArgv(dirs, true);
     otherWatchProc.running = true;
   }
-  function noteOtherHit(line) {
-    const s = String(line || "");
-    const dirs = term.otherWatching();
+  // which watched directory a reported path is in; longest wins
+  function ownerOf(path, dirs) {
     let best = "";
     for (let i = 0; i < dirs.length; ++i) {
       const d = dirs[i];
       if (d.length <= best.length) continue;
-      if (s.indexOf(d === "/" ? "/" : d + "/") === 0) best = d;
+      if (path.indexOf(d === "/" ? "/" : d + "/") === 0) best = d;
     }
+    return best;
+  }
+  function noteOtherHit(line) {
+    const s = String(line || "");
+    const best = dirWatch.ownerOf(s, term.otherWatching());
     if (best === "") return;
     term.otherHits[best] = true;
     dirWatch.noteMoved(s, best);

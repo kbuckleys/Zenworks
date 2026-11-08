@@ -78,14 +78,14 @@ Item {
   function apply(pop) {
     const s = pg.stash;
     if (!s) return;
-    pg.win.act("stashApply", { ref: s.ref, pop: pop }, { said: pop ? "Popped " + s.ref : "Applied " + s.ref,
+    pg.win.act("stashApply", { ref: s.ref, pop: pop, sha: s.sha }, { said: pop ? "Popped " + s.ref : "Applied " + s.ref,
       failed: (err) => pg.win.fail("It does not apply cleanly", "Make a branch from it instead (b): its changes, on the commit they were made on.", err) });
   }
   function drop() {
     const s = pg.stash;
     if (!s) return;
     pg.win.confirm({ question: "Drop " + s.ref + "?", glyph: "", ink: Zenon.red,
-      detail: s.message, verb: "Drop", then: () => pg.win.act("stashDrop", { ref: s.ref }, { said: "Dropped" }) });
+      detail: s.message, verb: "Drop", then: () => pg.win.act("stashDrop", { ref: s.ref, sha: s.sha }, { said: "Dropped" }) });
   }
   function branch() {
     const s = pg.stash;
@@ -93,7 +93,7 @@ Item {
     pg.win.ask({ title: "A branch from " + s.ref, glyph: "",
       detail: "Made on the commit the stash was taken on, its changes applied there, and the stash dropped.",
       fields: [{ key: "name", label: "Name", hint: "wip/what-it-was" }], verb: "Create",
-      then: (v) => pg.win.act("stashBranch", { name: v.name.trim(), ref: s.ref }, { said: "On " + v.name.trim() }) });
+      then: (v) => pg.win.act("stashBranch", { name: v.name.trim(), ref: s.ref, sha: s.sha }, { said: "On " + v.name.trim() }) });
   }
 
   function key(e) {
@@ -146,6 +146,7 @@ Item {
           font.pixelSize: Zenon.px(15)
         }
         Text {
+          textFormat: Text.PlainText
           width: parent.width
           elide: Text.ElideRight
           text: srow.modelData.ref + "  ·  " + D.ago(srow.modelData.when, Date.now())

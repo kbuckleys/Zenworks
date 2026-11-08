@@ -113,21 +113,17 @@ Rectangle {
     const d = JSON.parse(JSON.stringify(collEdit.draft));
     d.name = collEdit.searching ? saveName.text : collName.text;
     d.ink = collEdit.draft.ink || "cyan";
-    d.root = collRoot.text;
-    d.rules = [];
+    // fd's own directory means nothing: empty is here, relative is from here
+    const root = collRoot.text.trim();
+    d.root = root === "" ? term.cwd
+      : (root.charAt(0) === "/" || root.charAt(0) === "~") ? root : Terminus.joinPath(term.cwd, root);
     // The query is the first rule, written the way a collection would
-    // have spelled it — so what is run and what is saved are one thing.
-    if (collEdit.searching) {
-      if (String(d.root).trim() === "") d.root = term.cwd;
-      const q = searchQ.text.trim();
-      if (q !== "") d.rules.push(collEdit.searchKind === "grep"
-        ? { kind: "content", op: "text", value: q }
-        : { kind: "name", op: "contains", value: q });
-    }
-    for (let i = 0; i < ruleModel.count; ++i) {
-      const r = ruleModel.get(i);
-      d.rules.push({ kind: r.kind, op: r.op, value: r.value });
-    }
+    // have spelled it — so what is run and what is saved are one thing
+    // (Coll.searchRules); the rows as they stand, empty ones too.
+    if (collEdit.searching && String(d.root).trim() === "") d.root = term.cwd;
+    const rows = [];
+    for (let i = 0; i < ruleModel.count; ++i) rows.push(ruleModel.get(i));
+    d.rules = Coll.searchRules(collEdit.searchKind, collEdit.searching ? searchQ.text.trim() : "", rows, true);
     return d;
   }
 
@@ -165,8 +161,7 @@ Rectangle {
     }
     collEdit.ruleRev = collEdit.ruleRev + 1;
     collEdit.open = true;
-    collClaim.tries = 0;
-    collClaim.restart();
+    collClaim.begin();
   }
 
   // ── OPENED AS A SEARCH ────────────────────────────────────────
@@ -199,8 +194,7 @@ Rectangle {
         ruleModel.append({ kind: r.kind, op: r.op, value: String(r.value || "") });
     collEdit.ruleRev = collEdit.ruleRev + 1;
     collEdit.open = true;
-    collClaim.tries = 0;
-    collClaim.restart();
+    collClaim.begin();
   }
 
   // The rows that actually ask something, for remembering a search.
@@ -250,20 +244,17 @@ Rectangle {
   // the sheet is animating in from opacity 0 when the first request goes
   // out, and forceActiveFocus() on an item the scene has not placed yet
   // is silently dropped.
-  Timer {
+  FocusRetry {
     id: collClaim
     interval: 40
-    repeat: true
-    property int tries: 0
-    onTriggered: {
-      const first = !collEdit.searching ? collName
-        : (collEdit.naming && searchQ.text !== "" ? saveName : searchQ);
-      if (!collEdit.open || first.focused || collClaim.tries++ > 12) {
-        collClaim.stop();
-        return;
-      }
+    checkFirst: true
+    readonly property var first: !collEdit.searching ? collName
+        : (collEdit.naming && searchQ.text !== "" ? saveName : searchQ)
+    live: collEdit.open
+    took: collClaim.first.focused
+    onPlace: {
       collKeys.forceActiveFocus();
-      first.claim();
+      collClaim.first.claim();
     }
   }
 
@@ -451,17 +442,9 @@ Rectangle {
       collEdit.dismiss();
     }
 
-    Sheet {
-      // clear: the listing is cut away under it (see sheetHole)
-      ground: "transparent"
-      backdrop: term.sheetBackdrop   // the listing, frosted under the card
-      seamFrost: term.sheetSeam   // the bar's frost, carried over the seam
-      splice: true
-      onCardInkChanged: term.noteSheet("s7", cardInk, drawnX, drawnW, drawnY, drawnH)
-      onDrawnXChanged: term.noteSheet("s7", cardInk, drawnX, drawnW, drawnY, drawnH)
-      onDrawnWChanged: term.noteSheet("s7", cardInk, drawnX, drawnW, drawnY, drawnH)
-      onDrawnYChanged: term.noteSheet("s7", cardInk, drawnX, drawnW, drawnY, drawnH)
-      onDrawnHChanged: term.noteSheet("s7", cardInk, drawnX, drawnW, drawnY, drawnH)
+    TermSheet {
+      host: term
+      note: "s7"
       id: collSheet
       leftInset: term.sideRef.width
       // Every sheet comes down out of the bar now, a search and a
@@ -605,10 +588,8 @@ Rectangle {
           }
         }
 
-        Rectangle {
+        Hairline {
           width: parent.width
-          height: 1
-          color: Zenon.border
         }
 
         // ── the rules ─────────────────────────────────────────

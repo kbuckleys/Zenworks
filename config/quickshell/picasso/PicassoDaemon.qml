@@ -507,7 +507,7 @@ Variants {
           + 'key=$(printf "%s:%s" "$1" "$(stat -c %Y:%s "$1")" | md5sum | cut -c1-20); '
           + 'out="$4/$key-$2x$3.jpg"; '
           + 'if [ ! -s "$out" ]; then mkdir -p "$4" && magick "$1[0]" -auto-orient -resize "$2x$3^" -quality 93 "$out.part.jpg" '
-          + '&& mv -f "$out.part.jpg" "$out" || exit 0; fi; '
+          + '&& mv -f "$out.part.jpg" "$out" || { rm -f "$out.part.jpg"; exit 0; }; fi; '
           + 'touch -c "$out"; echo "FILE $out"; '
           // copies not shown for a month go (each use touches its own)
           + 'find "$4" -name "*.jpg" -mtime +30 -delete 2>/dev/null; exit 0',

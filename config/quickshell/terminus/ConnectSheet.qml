@@ -73,19 +73,18 @@ Rectangle {
     conn.said = why ? N.failWords(why) : "";
     conn.rev++;
     conn.open = true;
-    claim.tries = 0;
-    claim.restart();
+    claim.begin();
   }
-  Timer {
+  FocusRetry {
     id: claim
     interval: 40
-    repeat: true
-    property int tries: 0
-    onTriggered: {
-      const first = addr.text === "" ? addr : (user.text === "" && !conn.question ? user : pass);
-      if (!conn.open || first.focused || claim.tries++ > 12) { claim.stop(); return; }
+    checkFirst: true
+    readonly property var first: addr.text === "" ? addr : (user.text === "" && !conn.question ? user : pass)
+    live: conn.open
+    took: claim.first.focused
+    onPlace: {
       connKeys.forceActiveFocus();
-      first.claim();
+      claim.first.claim();
     }
   }
   function dismiss() {
@@ -105,16 +104,23 @@ Rectangle {
     if (!conn.ready) return;
     const p = { uri: conn.uri, name: name.text.trim(), user: user.text.trim(), domain: conn.isSmb ? domain.text.trim() : "" };
     const accept = conn.question;
+    const place = conn.place;
+    const keep = conn.keep;
     conn.said = "";
     conn.question = false;
     term.networkRef.connect(p, { password: pass.text, remember: conn.remember, accept: accept }, (r) => {
+      // the sheet may be up for another place by now: what was asked is
+      // answered from what was asked, and this sheet is only touched if it
+      // is still that one
+      const same = conn.open && conn.place === place;
       if (r && r.ok) {
         // an edited address replaces the old one
-        if (conn.place && conn.place.saved && !N.sameUri(conn.place.uri, p.uri)) term.networkRef.forget(conn.place.uri);
-        if (conn.keep) term.networkRef.keep(p);
-        conn.dismiss();
+        if (place && place.saved && !N.sameUri(place.uri, p.uri)) term.networkRef.forget(place.uri);
+        if (keep) term.networkRef.keep(p);
+        if (same) conn.dismiss();
         return;
       }
+      if (!same) return;
       conn.question = !!r && r.why === "question";
       conn.said = N.failWords(r);
       pass.text = "";
@@ -136,16 +142,9 @@ Rectangle {
       conn.dismiss();
     }
 
-    Sheet {
-      ground: "transparent"
-      backdrop: term.sheetBackdrop
-      seamFrost: term.sheetSeam
-      splice: true
-      onCardInkChanged: term.noteSheet("s12", cardInk, drawnX, drawnW, drawnY, drawnH)
-      onDrawnXChanged: term.noteSheet("s12", cardInk, drawnX, drawnW, drawnY, drawnH)
-      onDrawnWChanged: term.noteSheet("s12", cardInk, drawnX, drawnW, drawnY, drawnH)
-      onDrawnYChanged: term.noteSheet("s12", cardInk, drawnX, drawnW, drawnY, drawnH)
-      onDrawnHChanged: term.noteSheet("s12", cardInk, drawnX, drawnW, drawnY, drawnH)
+    TermSheet {
+      host: term
+      note: "s12"
       id: connSheet
       leftInset: term.sideRef.width
       floating: false
@@ -218,7 +217,7 @@ Rectangle {
           }
         }
 
-        Rectangle { width: parent.width; height: 1; color: Zenon.border }
+        Hairline { width: parent.width }
 
         // who you are; empty is a guest, where the server allows one
         Item {
@@ -286,13 +285,14 @@ Rectangle {
           }
         }
 
-        Rectangle { width: parent.width; height: 1; color: Zenon.border }
+        Hairline { width: parent.width }
 
         // what went wrong, or the question; and the answers
         Item {
           width: parent.width
           height: Math.max(48, saidText.implicitHeight + 20)
           Text {
+            textFormat: Text.PlainText
             id: saidText
             anchors.left: parent.left
             anchors.leftMargin: 16

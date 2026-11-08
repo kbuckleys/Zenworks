@@ -4,6 +4,7 @@
 // https://github.com/kbuckleys/
 
 .pragma library
+.import "quote.js" as Quote
 // ONE COPY FOR THE WHOLE SHELL. Without the pragma every component instance
 // that imports this file evaluated all of it again (see morpheus/icons.js).
 
@@ -301,9 +302,7 @@ function pangoFont(face, weight, px) {
   return face + (WEIGHT_WORD[w] ? " " + WEIGHT_WORD[w] : "") + " " + pt(px);
 }
 
-function xmlEsc(s) {
-  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
+function xmlEsc(s) { return Quote.escapeHtml(s); }
 
 // conf.d/50-oracle-fonts.conf: sans-serif (and system-ui) is the shell's
 // face, monospace the Monospace font — what an app gets that asks for a

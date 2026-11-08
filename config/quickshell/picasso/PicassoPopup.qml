@@ -302,7 +302,7 @@ LayerPopup {
         text: ring.label
         color: popup.headColor
         font.family: Zenon.face
-        font.weight: 600
+        font.weight: Zenon.titleWeight
         font.pixelSize: Zenon.px(14)
       }
 
@@ -684,7 +684,7 @@ LayerPopup {
               text: "\uf002"
               color: popup.highlight
               font.family: Zenon.face
-              font.weight: Font.Bold
+              font.weight: Zenon.titleWeight
               font.pixelSize: Zenon.px(18)
               verticalAlignment: Text.AlignVCenter
             }
@@ -692,10 +692,11 @@ LayerPopup {
               width: parent.width - 30
               height: parent.height
               elide: Text.ElideLeft
+              textFormat: Text.PlainText
               text: popup.query
               color: Zenon.ink
               font.family: Zenon.face
-              font.weight: 600
+              font.weight: Zenon.titleWeight
               font.pixelSize: Zenon.px(18)
               verticalAlignment: Text.AlignVCenter
             }
@@ -902,7 +903,7 @@ LayerPopup {
                 text: cell.modelData.dir ? cell.modelData.name : Art.label(cell.modelData.path)
                 color: cell.selected ? popup.highlight : popup.dimColor
                 font.family: Zenon.face
-                font.weight: cell.selected ? Font.Bold : Font.Normal
+                font.weight: cell.selected ? Zenon.titleWeight : Font.Normal
                 font.pixelSize: Zenon.px(13)
                 horizontalAlignment: Text.AlignHCenter
                 elide: Text.ElideMiddle
@@ -1052,7 +1053,7 @@ LayerPopup {
                   text: swCell.modelData.custom ? swCell.modelData.hex : swCell.modelData.name
                   color: swCell.selected ? popup.highlight : popup.dimColor
                   font.family: Zenon.face
-                  font.weight: swCell.selected ? Font.Bold : Font.Normal
+                  font.weight: swCell.selected ? Zenon.titleWeight : Font.Normal
                   font.pixelSize: Zenon.px(13)
                   elide: Text.ElideRight
                 }
@@ -1163,12 +1164,10 @@ LayerPopup {
           color: Zenon.hintFrostBg
           Behavior on height { NumberAnimation { duration: Zenon.normal; easing.type: Zenon.ease } }
 
-          Rectangle {
+          Hairline {
             anchors.top: parent.top
             anchors.left: parent.left
             anchors.right: parent.right
-            height: 1
-            color: Zenon.border
           }
 
           // ── BACK AND FORWARD, then the crumbs, at the strip's left ────
@@ -1388,7 +1387,7 @@ LayerPopup {
                   color: clearMa.pressed ? popup.highlight : popup.headColor
                   font.bold: true
                   font.family: Zenon.face
-                  font.weight: 600
+                  font.weight: Zenon.titleWeight
                   font.pixelSize: Zenon.px(15)
                   Behavior on color {
                     ColorAnimation { duration: Zenon.fast; easing.type: Zenon.ease }

@@ -156,7 +156,7 @@ CursorAnchor {
             visible: text !== ""
             color: Zenon.accent
             font.family: Zenon.face
-            font.weight: Font.Bold
+            font.weight: Zenon.titleWeight
             font.pixelSize: Zenon.px(16)
             wrapMode: Text.Wrap
           }
@@ -180,7 +180,7 @@ CursorAnchor {
             width: Math.min(implicitWidth, 380)
             text: NowPlaying.album
             visible: text !== ""
-            color: Zenon.muted
+            color: Zenon.accentMuted
             font.family: Zenon.face
             font.weight: Zenon.weight
             font.pixelSize: Zenon.px(15)
@@ -189,10 +189,8 @@ CursorAnchor {
         }
       }
 
-      Rectangle {
+      Hairline {
         width: layout.width
-        height: 1
-        color: Zenon.border
         visible: NowPlaying.active
       }
 
@@ -231,7 +229,7 @@ CursorAnchor {
         Text {
           anchors.verticalCenter: parent.verticalCenter
           text: NowPlaying.formatTime(seekBar.dragging ? seekBar.dragFrac * NowPlaying.length : NowPlaying.position)
-          color: Zenon.muted
+          color: Zenon.accentMuted
           font.family: Zenon.face
           font.weight: Zenon.weight
           font.pixelSize: Zenon.px(11)
@@ -306,7 +304,7 @@ CursorAnchor {
         Text {
           anchors.verticalCenter: parent.verticalCenter
           text: NowPlaying.formatTime(NowPlaying.length)
-          color: Zenon.muted
+          color: Zenon.accentMuted
           font.family: Zenon.face
           font.weight: Zenon.weight
           font.pixelSize: Zenon.px(11)
@@ -315,10 +313,8 @@ CursorAnchor {
         }
       }
 
-      Rectangle {
+      Hairline {
         width: layout.width
-        height: 1
-        color: Zenon.border
         visible: NowPlaying.active
       }
 
@@ -333,7 +329,7 @@ CursorAnchor {
           text: Volume.muted ? "" : ""
           color: Volume.muted ? Zenon.red : Zenon.green
           font.family: Zenon.face
-          font.weight: Font.Bold
+          font.weight: Zenon.titleWeight
           font.pixelSize: Zenon.px(16)
         }
 
@@ -355,7 +351,7 @@ CursorAnchor {
           text: Volume.muted ? "Muted" : Volume.percent + "%"
           color: Volume.muted ? Zenon.red : Zenon.white
           font.family: Zenon.face
-          font.weight: Font.Bold
+          font.weight: Zenon.titleWeight
           font.pixelSize: Zenon.px(15)
         }
       }

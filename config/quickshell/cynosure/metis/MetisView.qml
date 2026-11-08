@@ -54,7 +54,7 @@ Item {
 
   readonly property color bgColor: Zenon.layerBg
   readonly property color headColor: Zenon.accent
-  readonly property color dimColor: Zenon.muted
+  readonly property color dimColor: Zenon.accentMuted
 
   property string query: ""
   property int seq: 0
@@ -258,8 +258,8 @@ Item {
   // widest of what you typed, the result under it and the hint strip, and
   // never past the 1000 every layer shares. Measured with FontMetrics
   // calls, so nothing here reads the panel it is sizing — no loop.
-  FontMetrics { id: inFm; font.family: Zenon.face; font.weight: Font.Bold; font.pixelSize: Zenon.px(20) }
-  FontMetrics { id: exprFm; font.family: Zenon.face; font.weight: Font.Bold; font.pixelSize: Zenon.px(14) }
+  FontMetrics { id: inFm; font.family: Zenon.face; font.weight: Zenon.titleWeight; font.pixelSize: Zenon.px(20) }
+  FontMetrics { id: exprFm; font.family: Zenon.face; font.weight: Zenon.titleWeight; font.pixelSize: Zenon.px(14) }
   readonly property var hintRows: {
     if (popup.tapeMode)
       return [["↑↓", "move"], ["space", "mark"], ["return", "open"],
@@ -1022,21 +1022,11 @@ Item {
 
   // ctrl+return: on the clipboard and nothing typed — for when the answer is
   // going somewhere other than the window underneath
+  // The panel stays, as for every copy in Cynosure (user, 2026-11-08).
   function copyOnly(text) {
-    if (!text || popup.copied) return;
-    // kept by closePopup, when copiedTimer closes the panel
+    if (!text) return;
     popup.detach("printf '%s' " + Strings.shellQuote(text) + " | wl-copy >/dev/null 2>&1");
-    // nothing is typed anywhere, so without a word it looks like nothing
-    // happened: "copied" in the strip, then the panel goes
-    popup.flashText = "copied";
-    popup.copied = true;
-    copiedTimer.restart();
-  }
-
-  Timer {
-    id: copiedTimer
-    interval: 520
-    onTriggered: popup.closePopup()
+    popup.flash("Copied");
   }
 
   // a click on the answer: copied, said so, and the panel stays — you were
@@ -1390,9 +1380,9 @@ Item {
                 // transparent: inkLayer under it is the text you see
                 color: "transparent"
                 selectionColor: popup.headColor
-                selectedTextColor: Zenon.inkOnAccent
+                selectedTextColor: Zenon.white
                 font.family: Zenon.face
-                font.weight: Font.Bold
+                font.weight: Zenon.titleWeight
                 font.pixelSize: Zenon.px(20)
                 cursorVisible: activeFocus
                 cursorDelegate: Caret {
@@ -1492,7 +1482,7 @@ Item {
               width: Math.min(implicitWidth + 8, popup.width - 40)
               horizontalAlignment: Text.AlignHCenter
               font.family: Zenon.face
-              font.weight: Font.Bold
+              font.weight: Zenon.titleWeight
               font.pixelSize: Zenon.px(14)
             }
 
@@ -1512,7 +1502,7 @@ Item {
                 text: popup.shownWhich ? "Which" : popup.badWord !== "" ? "Can't read" : "Can't make sense of that"
                 color: popup.shownWhich ? Zenon.keyInk : Zenon.red
                 font.family: Zenon.face
-                font.weight: Font.Bold
+                font.weight: Zenon.titleWeight
                 font.pixelSize: Zenon.px(19)
               }
 
@@ -1533,7 +1523,7 @@ Item {
                   text: popup.badWord
                   color: parent.ink
                   font.family: Zenon.face
-                  font.weight: 600
+                  font.weight: Zenon.titleWeight
                   font.pixelSize: Zenon.px(19)
                 }
               }
@@ -1544,7 +1534,7 @@ Item {
                 text: "?"
                 color: Zenon.keyInk
                 font.family: Zenon.face
-                font.weight: Font.Bold
+                font.weight: Zenon.titleWeight
                 font.pixelSize: Zenon.px(19)
               }
             }
@@ -1887,7 +1877,7 @@ Item {
             text: bubLine.modelData.text
             color: bubLine.modelData.big ? Zenon.white : bubLine.modelData.muted ? Zenon.muted : Zenon.keyInk
             font.family: Zenon.face
-            font.weight: bubLine.modelData.big ? Font.Bold : 500
+            font.weight: bubLine.modelData.big ? Zenon.titleWeight : 500
             font.pixelSize: Zenon.px(bubLine.modelData.big ? 14 : 12)
             font.features: { "tnum": 1 }
           }

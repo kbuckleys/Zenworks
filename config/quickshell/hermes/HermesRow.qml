@@ -51,6 +51,7 @@ Item {
     text: r.glyph
     color: r.live ? Zenon.accent : Zenon.accentMuted
     font.family: Zenon.glyphFace
+    font.weight: Zenon.weight
     font.pixelSize: Zenon.px(17)
   }
   Text {
@@ -82,6 +83,7 @@ Item {
     text: H.G.lock
     color: Zenon.accentMuted
     font.family: Zenon.glyphFace
+    font.weight: Zenon.weight
     font.pixelSize: Zenon.px(12)
   }
   Text {

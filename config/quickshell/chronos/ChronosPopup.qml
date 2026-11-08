@@ -521,8 +521,8 @@ LayerPopup {
                 height: 34
                 spacing: 2
 
-                Chevron { glyph: "«"; onActivated: popup.stepYear(-1) }
-                Chevron { glyph: "‹"; onActivated: popup.stepMonth(-1) }
+                StepChevron { glyph: "«"; onActivated: popup.stepYear(-1) }
+                StepChevron { glyph: "‹"; onActivated: popup.stepMonth(-1) }
 
                 Item {
                   width: 196
@@ -539,13 +539,13 @@ LayerPopup {
                       color: headMa.pressed ? Zenon.white : Zenon.accent
                       Behavior on color { ColorAnimation { duration: Zenon.fast } }
                       font.family: popup.face
-                      font.weight: Font.Bold
+                      font.weight: Zenon.titleWeight
                       font.pixelSize: Zenon.px(19)
                     }
                     Text {
                       anchors.verticalCenter: parent.verticalCenter
                       text: String(popup.viewYear)
-                      color: Zenon.muted
+                      color: Zenon.accentMuted
                       font.family: popup.face
                       font.weight: Zenon.weight
                       font.pixelSize: Zenon.px(15)
@@ -560,8 +560,8 @@ LayerPopup {
                   }
                 }
 
-                Chevron { glyph: "›"; onActivated: popup.stepMonth(1) }
-                Chevron { glyph: "»"; onActivated: popup.stepYear(1) }
+                StepChevron { glyph: "›"; onActivated: popup.stepMonth(1) }
+                StepChevron { glyph: "»"; onActivated: popup.stepYear(1) }
               }
 
               Row {
@@ -577,7 +577,7 @@ LayerPopup {
                     text: Chr.dayShort(index)
                     color: index >= 5 ? Zenon.muted : Zenon.keyInk
                     font.family: popup.face
-                    font.weight: Font.Bold
+                    font.weight: Zenon.titleWeight
                     font.pixelSize: Zenon.px(13)
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
@@ -629,7 +629,7 @@ LayerPopup {
                         : (!dayCell.modelData.cur ? Zenon.dimInk
                         : (dayCell.weekend ? Zenon.muted : Zenon.white))
                       font.family: popup.face
-                      font.weight: dayCell.isToday ? Font.Black : Font.Bold
+                      font.weight: dayCell.isToday ? Font.Black : Zenon.titleWeight
                       font.pixelSize: Zenon.px(15)
                     }
 
@@ -687,7 +687,7 @@ LayerPopup {
                   color: popup.selIsToday ? Zenon.accent : Zenon.keyInk
                   Behavior on color { ColorAnimation { duration: Zenon.normal } }
                   font.family: popup.face
-                  font.weight: Font.Bold
+                  font.weight: Zenon.titleWeight
                   font.pixelSize: Zenon.px(13)
                 }
 
@@ -746,9 +746,9 @@ LayerPopup {
                 text: Weather.disabled ? "The forecast is switched off"
                   : (Weather.loading ? "fetching the forecast…"
                   : (Weather.error !== "" ? Weather.error : "no forecast yet"))
-                color: Zenon.muted
+                color: Zenon.accentMuted
                 font.family: popup.face
-                font.weight: Font.Bold
+                font.weight: Zenon.titleWeight
                 font.pixelSize: Zenon.px(15)
               }
               DialogButton {
@@ -788,15 +788,16 @@ LayerPopup {
                   Text {
                     anchors.verticalCenter: parent.verticalCenter
                     text: Weather.place !== "" ? Weather.place : "Here"
+                    textFormat: Text.PlainText
                     color: Zenon.accent
                     font.family: popup.face
-                    font.weight: Font.Bold
+                    font.weight: Zenon.titleWeight
                     font.pixelSize: Zenon.px(16)
                   }
                   Text {
                     anchors.verticalCenter: parent.verticalCenter
                     text: popup.age
-                    color: Zenon.muted
+                    color: Zenon.accentMuted
                     font.family: popup.face
                     font.weight: Zenon.weight
                     font.pixelSize: Zenon.px(12)
@@ -877,7 +878,7 @@ LayerPopup {
                         text: Helpers.ghostText(popup.wxTemp)
                         color: Zenon.trough(Zenon.white)
                         font.family: Zenon.clockFamily
-                        font.weight: Font.Bold
+                        font.weight: Zenon.titleWeight
                         font.pixelSize: Zenon.px(32)
                       }
                       Text {
@@ -886,7 +887,7 @@ LayerPopup {
                         text: popup.wxTemp
                         color: Zenon.white
                         font.family: Zenon.clockFamily
-                        font.weight: Font.Bold
+                        font.weight: Zenon.titleWeight
                         font.pixelSize: Zenon.px(32)
                       }
                     }
@@ -896,7 +897,7 @@ LayerPopup {
                       text: Weather.unit
                       color: Zenon.keyInk
                       font.family: popup.face
-                      font.weight: Font.Bold
+                      font.weight: Zenon.titleWeight
                       font.pixelSize: Zenon.px(15)
                     }
                     Text {
@@ -906,7 +907,7 @@ LayerPopup {
                       text: "  ↓ " + popup.wxLow
                       color: Zenon.blue
                       font.family: popup.face
-                      font.weight: Font.Bold
+                      font.weight: Zenon.titleWeight
                       font.pixelSize: Zenon.px(15)
                     }
                   }
@@ -916,14 +917,14 @@ LayerPopup {
                     text: Wx.label(popup.wxCode)
                     color: Zenon.keyInk
                     font.family: popup.face
-                    font.weight: Font.Bold
+                    font.weight: Zenon.titleWeight
                     font.pixelSize: Zenon.px(15)
                   }
 
                   Text {
                     text: popup.showingNow
                       ? Chr.longDay(popup.today) : Chr.longDay(popup.selDate)
-                    color: Zenon.muted
+                    color: Zenon.accentMuted
                     font.family: popup.face
                     font.weight: Zenon.weight
                     font.pixelSize: Zenon.px(12)
@@ -1011,7 +1012,7 @@ LayerPopup {
                   anchors.leftMargin: 12
                   anchors.top: parent.top
                   text: popup.hourEnd(0)
-                  color: Zenon.muted
+                  color: Zenon.accentMuted
                   font.family: popup.face
                   font.weight: Zenon.weight
                   font.pixelSize: Zenon.px(11)
@@ -1021,7 +1022,7 @@ LayerPopup {
                   anchors.rightMargin: 12
                   anchors.top: parent.top
                   text: popup.hourEnd(Weather.nextHours.length - 1)
-                  color: Zenon.muted
+                  color: Zenon.accentMuted
                   font.family: popup.face
                   font.weight: Zenon.weight
                   font.pixelSize: Zenon.px(11)
@@ -1030,7 +1031,7 @@ LayerPopup {
                   anchors.horizontalCenter: parent.horizontalCenter
                   anchors.bottom: parent.bottom
                   text: "Next 12 hours"
-                  color: Zenon.muted
+                  color: Zenon.accentMuted
                   font.family: popup.face
                   font.weight: Zenon.weight
                   font.pixelSize: Zenon.px(11)
@@ -1090,7 +1091,7 @@ LayerPopup {
                         : Chr.dayShort(Chr.weekIndex(dayStrip.when))
                       color: dayStrip.isToday ? Zenon.accent : Zenon.muted
                       font.family: popup.face
-                      font.weight: Font.Bold
+                      font.weight: Zenon.titleWeight
                       font.pixelSize: Zenon.px(11)
                     }
                     Text {
@@ -1108,13 +1109,13 @@ LayerPopup {
                       text: Weather.fmt(dayStrip.modelData.hi) + "°"
                       color: Zenon.white
                       font.family: popup.face
-                      font.weight: Font.Bold
+                      font.weight: Zenon.titleWeight
                       font.pixelSize: Zenon.px(13)
                     }
                     Text {
                       anchors.horizontalCenter: parent.horizontalCenter
                       text: Weather.fmt(dayStrip.modelData.lo) + "°"
-                      color: Zenon.muted
+                      color: Zenon.accentMuted
                       font.family: popup.face
                       font.weight: Zenon.weight
                       font.pixelSize: Zenon.px(11)
@@ -1133,10 +1134,8 @@ LayerPopup {
             }
           }
         }
-        Rectangle {
+        Hairline {
           width: parent.width
-          height: 1
-          color: Zenon.border
         }
 
         // ── the day's events ────────────────────────────────────────
@@ -1154,14 +1153,15 @@ LayerPopup {
             Text {
               anchors.verticalCenter: parent.verticalCenter
               text: "\u{F00F0}"
-              color: Zenon.muted
+              color: Zenon.accentMuted
               font.family: popup.face
+              font.weight: Zenon.weight
               font.pixelSize: Zenon.px(16)
             }
             Text {
               anchors.verticalCenter: parent.verticalCenter
               text: "Where should your calendar live?"
-              color: Zenon.muted
+              color: Zenon.accentMuted
               font.family: popup.face
               font.weight: Zenon.weight
               font.pixelSize: Zenon.px(13)
@@ -1202,7 +1202,7 @@ LayerPopup {
                 : popup.agendaCount() + " on " + Chr.longDay(popup.selDate)
               color: popup.agendaNote !== "" ? (popup.agendaNoteBad ? Zenon.red : Zenon.accent) : Zenon.keyInk
               font.family: popup.face
-              font.weight: Font.Bold
+              font.weight: Zenon.titleWeight
               font.pixelSize: Zenon.px(13)
             }
             // the Calendar window, on the day chosen here
@@ -1226,7 +1226,7 @@ LayerPopup {
               width: Math.min(440, parent.width * 0.55)
               height: 28
               radius: Zenon.windowRadius
-              color: Zenon.wash(0.05)
+              color: Zenon.wash(0.06)
               border.width: 1
               border.color: Zenon.border
               TextInput {
@@ -1237,9 +1237,10 @@ LayerPopup {
                 verticalAlignment: TextInput.AlignVCenter
                 clip: true
                 color: Zenon.white
-                selectionColor: Zenon.accent
-                selectedTextColor: Zenon.inkOnAccent
+                selectionColor: Zenon.selBg
+                selectedTextColor: Zenon.white
                 font.family: popup.face
+                font.weight: Zenon.weight
                 font.pixelSize: Zenon.px(13)
                 cursorDelegate: Caret { field: addField }
                 enabled: !Chronos.calBusy
@@ -1310,7 +1311,7 @@ LayerPopup {
                   text: Chr.eventTime(evRow.e)
                   color: evDot.ink
                   font.family: popup.face
-                  font.weight: Font.Bold
+                  font.weight: Zenon.titleWeight
                   font.pixelSize: Zenon.px(13)
                 }
                 Text {
@@ -1368,10 +1369,8 @@ LayerPopup {
                         anchors.right: eventList.right; anchors.top: eventList.top; anchors.bottom: eventList.bottom }
           }
         }
-        Rectangle {
+        Hairline {
           width: parent.width
-          height: 1
-          color: Zenon.border
         }
 
         // ── pomodoro, across both halves ────────────────────────────
@@ -1435,7 +1434,7 @@ LayerPopup {
                     // looking: nothing on a cell shows that it scrolls
                     Text {
                       text: "Click a timer to start or pause it \u00B7 scroll it to change its length"
-                      color: Zenon.muted
+                      color: Zenon.accentMuted
                       font.family: popup.face
                       font.weight: Zenon.weight
                       font.pixelSize: Zenon.px(11)
@@ -1517,7 +1516,7 @@ LayerPopup {
                 width: parent.width - 264
                 height: 34
                 radius: Zenon.windowRadius
-                color: Zenon.selBg
+                color: Zenon.wash(0.06)
                 border.color: Zenon.border
                 border.width: 1
 
@@ -1530,11 +1529,11 @@ LayerPopup {
                   anchors.rightMargin: 12
                   verticalAlignment: TextInput.AlignVCenter
                   color: Zenon.white
-                  selectionColor: Zenon.accent
-                  selectedTextColor: Zenon.inkOnAccent
+                  selectionColor: Zenon.selBg
+                  selectedTextColor: Zenon.white
                   selectByMouse: true
                   font.family: popup.face
-                  font.weight: Font.Bold
+                  font.weight: Zenon.titleWeight
                   font.pixelSize: Zenon.px(15)
                   // Handled as key events, not through onAccepted: that signal
                   // does not consume the keypress, so Return reached the panel
@@ -1727,7 +1726,7 @@ LayerPopup {
       color: cell.running ? cell.accent : Zenon.white
       Behavior on color { ColorAnimation { duration: Zenon.normal } }
       font.family: popup.face
-      font.weight: Font.Bold
+      font.weight: Zenon.titleWeight
       font.pixelSize: Zenon.px(13)
     }
 
@@ -1747,7 +1746,7 @@ LayerPopup {
         text: Helpers.ghostText(Chr.clock(cell.remain))
         color: Zenon.trough(cell.accent)
         font.family: Zenon.clockFamily
-        font.weight: Font.Bold
+        font.weight: Zenon.titleWeight
         font.pixelSize: Zenon.px(20)
       }
       Text {
@@ -1757,7 +1756,7 @@ LayerPopup {
         color: cell.accent
         Behavior on color { ColorAnimation { duration: Zenon.normal } }
         font.family: Zenon.clockFamily
-        font.weight: Font.Bold
+        font.weight: Zenon.titleWeight
         font.pixelSize: Zenon.px(20)
       }
     }
@@ -1781,7 +1780,7 @@ LayerPopup {
         text: (cell.t !== null ? cell.t.minutes : 0) + "m"
         color: Zenon.keyInk
         font.family: popup.face
-        font.weight: Font.Bold
+        font.weight: Zenon.titleWeight
         font.pixelSize: Zenon.px(13)
       }
       TinyButton {
@@ -1886,13 +1885,13 @@ LayerPopup {
         text: reading.text
         color: Zenon.white
         font.family: popup.face
-        font.weight: Font.Bold
+        font.weight: Zenon.titleWeight
         font.pixelSize: Zenon.px(13)
       }
       Text {
         visible: reading.hint !== ""
         text: reading.hint
-        color: Zenon.muted
+        color: Zenon.accentMuted
         font.family: popup.face
         font.weight: Zenon.weight
         font.pixelSize: Zenon.px(10)
@@ -1901,29 +1900,4 @@ LayerPopup {
   }
 
   // A month or year chevron. Big enough to hit without aiming.
-  component Chevron: Item {
-    id: chev
-    property string glyph: ""
-    signal activated()
-
-    width: 26
-    height: 34
-
-    Text {
-      anchors.centerIn: parent
-      text: chev.glyph
-      color: chevMa.pressed ? Zenon.accent : Zenon.muted
-      Behavior on color { ColorAnimation { duration: Zenon.fast } }
-      font.family: popup.face
-      font.weight: Font.Bold
-      font.pixelSize: Zenon.px(18)
-    }
-
-    MouseArea {
-      id: chevMa
-      anchors.fill: parent
-      hoverEnabled: true
-      onClicked: chev.activated()
-    }
-  }
 }

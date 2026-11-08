@@ -34,6 +34,9 @@ module.exports = {
     t.eq("a group of one is not a group", g.length, 1);
     t.eq("waste", H.dupeWaste(g), 20);
     t.eq("the oldest is kept", H.dupePicks(g), { "/b": true, "/c": true });
+    t.eq("trashed elsewhere: out of the copies", H.withoutPaths(g, ["/a"]), [{ bytes: 10, paths: [{ path: "/b", mtime: 5 }, { path: "/c", mtime: 9 }] }]);
+    t.eq("a group down to one goes", H.withoutPaths(g, ["/a", "/c"]), []);
+    t.eq("inside a directory that went", H.withoutPaths(g, ["/"]).length, 0);
     t.eq("never every copy", H.safePicks(g, { "/a": true, "/b": true, "/c": true }), { "/a": true, "/c": true });
 
     t.eq("steps", [H.pkgcacheSteps(false), H.orphanSteps(["ok-1", "bad;rm"]), H.journalSteps()],

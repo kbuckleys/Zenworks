@@ -91,15 +91,7 @@ Item {
     y: menu.below ? 0 : menu.height - pathCard.height
   }
 
-  Rectangle {
-    anchors.fill: parent
-    radius: Zenon.windowRadius
-    color: Zenon.alpha(Zenon.card, 0.97)
-    // the hairline at full strength: zenon's 0.3 border was lost against
-    // the text it floats over, and the card read as part of the page
-    border.width: 1
-    border.color: Qt.rgba(Zenon.border.r, Zenon.border.g, Zenon.border.b, 0.9)
-  }
+  CardGround {}
 
   ListView {
     id: list
@@ -130,7 +122,7 @@ Item {
         anchors.rightMargin: 2
         radius: Zenon.rad(3)
         visible: item.chosen
-        color: Qt.rgba(Zenon.green.r, Zenon.green.g, Zenon.green.b, 0.22)
+        color: Zenon.alpha(Zenon.green, 0.22)
       }
       Text {
         x: menu.cellW

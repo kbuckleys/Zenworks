@@ -424,7 +424,9 @@ Singleton {
     for (const f of fresh) seen[f] = true;
     root._loadedFamilies = seen;
     fontFilesProc.command = ["sh", "-c",
-      "for f in \"$@\"; do fc-list \"$f\" file; done", "sh"].concat(fresh);
+      "for f in \"$@\"; do fc-list \"$f\" file; done", "sh"]
+      // a family is a pattern to fc-list: its - : , = and \ escaped
+      .concat(fresh.map((f) => f.replace(/([\\:,=-])/g, "\\$1")));
     fontFilesProc.running = true;
   }
   Process {
@@ -806,7 +808,6 @@ Singleton {
   property string tzRegionPick: ""
   readonly property string tzRegion: root.tzRegionPick !== "" ? root.tzRegionPick : Ora.zoneRegion(root.timedate.zone)
   // bumped when the zone moves: what reads the time of day re-reads it
-  property int tzRevision: 0
 
   // The rows, built like the input devices': `sysTime` keeps them out of
   // oracle.json, the changed counts and every reset — they are this
@@ -864,9 +865,19 @@ Singleton {
     }
     root.timedateRun(["timedatectl", "set-timezone", zone]);
   }
+  // one at a time, the rest queued: a time zone picked while NTP was being
+  // switched (or polkit still asking) used to be dropped (audit 2026-11-07).
+  // A newer ask for the same setting replaces the older one waiting.
+  property var timedateQueue: []
   function timedateRun(cmd) {
-    if (timedateSet.running) return;
-    timedateSet.command = cmd;
+    const q = root.timedateQueue.filter((c) => c[1] !== cmd[1]);
+    root.timedateQueue = q.concat([cmd]);
+    if (!timedateSet.running) root.timedateNext();
+  }
+  function timedateNext() {
+    if (root.timedateQueue.length === 0 || timedateSet.running) return;
+    timedateSet.command = root.timedateQueue[0];
+    root.timedateQueue = root.timedateQueue.slice(1);
     timedateSet.running = true;
   }
   function readTimedate() {
@@ -880,6 +891,7 @@ Singleton {
         Quickshell.execDetached(["notify-send", "-a", "oracle", "--", "Time & date",
           "Nothing was changed: the system said no (code " + code + ")."]);
       root.readTimedate();
+      Qt.callLater(root.timedateNext);
     }
   }
   Process {
@@ -898,7 +910,6 @@ Singleton {
           root.tzRegionPick = "";
           // the shell's own Date keeps the zone it started in until told
           Date.timeZoneUpdated();
-          root.tzRevision++;
         }
         if (root.defaultsTaken) root.buildSchema();
         root.revision++;
@@ -2596,7 +2607,7 @@ Singleton {
     if (!s || !Ora.stored(s)) return;
     // Hyper going with binds on it: asked first (see hyperOffAsked)
     if (key === "hyperKey" && value === "off" && root.hyperKey !== "off" && !root._hyperOffOk
-        && root.hyperBinds().length > 0) {
+        && !root._replaying && root.hyperBinds().length > 0) {
       root.hyperOffAsked = true;
       root.revision++;
       return;
@@ -2660,10 +2671,17 @@ Singleton {
     root._beginStep();
     try { root._resetAll(); } finally { root._endStep(); }
   }
+  // oracle.json's own settings: not a screen, the clock, a default app, an
+  // input device or input method (audit 11-07: Reset all turned fcitx5 off),
+  // hyprland.lua, a bind or another hypr file — each of those keeps its own
+  function ownSpec(s) {
+    return Ora.stored(s) && !s.display && !s.sysTime && !s.appDefault && !s.input && !s.im
+      && !s.hl && !s.bindKey && !s.hyprFile;
+  }
   function _resetAll() {
     for (let i = 0; i < root.schema.length; ++i) {
       const s = root.schema[i];
-      if (Ora.stored(s) && !s.display && !s.sysTime && !s.appDefault && !s.input && !s.hl && !s.bindKey && !s.hyprFile) root.reset(s.key);
+      if (root.ownSpec(s)) root.reset(s.key);
     }
   }
 
@@ -3174,7 +3192,7 @@ Singleton {
     if (v) { root.imTurnOn(s.engine); return; }
     root.imList = Ora.imItems(root.imList, root.imLayoutNow(), s.engine.im, false);
     root.revision++;
-    root.imWrite(root.imDir + "/profile", Ora.renderImProfile(root.imLayoutNow(), root.imList), "reload");
+    root.imWrite(root.imDir + "/profile", Ora.renderImProfile(root.imLayoutNow(), root.imList, imProfileFile.text()), "reload");
   }
   // fcitx5 and an engine are installed the first time a row asks for them,
   // through Ceres (OracleManager answers imInstallAsked with imInstalled)
@@ -3208,7 +3226,7 @@ Singleton {
     const starting = !root.imOn;
     root.imOn = true;
     root.revision++;
-    root.imWrite(root.imDir + "/profile", Ora.renderImProfile(layout, root.imList),
+    root.imWrite(root.imDir + "/profile", Ora.renderImProfile(layout, root.imList, imProfileFile.text()),
       starting || fresh ? "start" : "reload");
     if (starting) {
       imFile.setText(Ora.renderImLua(true));
@@ -3535,9 +3553,12 @@ Singleton {
     watchChanges: true
     onFileChanged: reload()
     // FileView's own write never fires loaded: setWakeBy sets wakeBy itself
+    // the first read is the shell starting, not a hand edit: no reload
+    property bool seen: false
     onLoaded: {
       const by = Ora.parseWakeLua(wakeFile.text());
-      if (by !== root.wakeBy) { root.wakeBy = by; root.revision++; reloadHypr.restart(); }
+      const first = !wakeFile.seen; wakeFile.seen = true;
+      if (by !== root.wakeBy) { root.wakeBy = by; root.revision++; if (!first) reloadHypr.restart(); }
     }
     onLoadFailed: root.wakeBy = "mouse"
   }
@@ -3604,8 +3625,10 @@ Singleton {
     watchChanges: true
     onFileChanged: reload()
     // FileView's own write never fires loaded: setEffect sets the pair itself
+    property bool seen: false
     onLoaded: {
       const fx = Ora.parseEffectsLua(effectsFile.text());
+      const first = !effectsFile.seen; effectsFile.seen = true;
       let changed = false;
       for (const s of root.effectSpecs) {
         if (Ora.same(root[s.key], fx[s.fx])) continue;
@@ -3614,7 +3637,7 @@ Singleton {
       }
       if (!changed) return;
       root.revision++;
-      reloadHypr.restart();
+      if (!first) reloadHypr.restart();
     }
     onLoadFailed: { for (const s of root.effectSpecs) root[s.key] = s.hyprDefault; }
   }
@@ -3627,12 +3650,14 @@ Singleton {
     printErrors: false
     watchChanges: true
     onFileChanged: reload()
+    property bool seen: false
     onLoaded: {
       const rules = Ora.parseWindowsLua(windowsFile.text());
+      const first = !windowsFile.seen; windowsFile.seen = true;
       if (JSON.stringify(rules) === JSON.stringify(root.windowRules)) return;
       root.windowRules = rules;
       root.revision++;
-      reloadHypr.restart();
+      if (!first) reloadHypr.restart();
     }
     onLoadFailed: root.windowRules = []
   }
@@ -3669,14 +3694,16 @@ Singleton {
     printErrors: false
     watchChanges: true
     onFileChanged: reload()
+    property bool seen: false
     onLoaded: {
       const raw = Ora.parseDefaultsLua(keysFile.text());
+      const first = !keysFile.seen; keysFile.seen = true;
       const before = JSON.stringify(root.keysRaw);
       root.keysRaw = raw;
       root.syncKeyValues();
       // a hand edit lands without waiting for a login; our own write, read
       // back, is what keysRaw already said
-      if (JSON.stringify(raw) !== before) reloadHypr.restart();
+      if (!first && JSON.stringify(raw) !== before) reloadHypr.restart();
     }
     onLoadFailed: { root.keysRaw = ({}); root.syncKeyValues(); }
   }
@@ -4296,14 +4323,20 @@ Singleton {
     onTriggered: root.save()
   }
 
-  function save() {
+  // oracle.json as the settings are now — what save() writes, and what an
+  // export takes rather than reading the file back while that write may
+  // still be on its way (SettingsMove, audit 2026-11-07)
+  function stateText() {
     const vals = ({});
-    const own = root.schema.filter((s) => !s.display && !s.sysTime && !s.appDefault && !s.input && !s.hl && !s.bindKey && !s.hyprFile);
+    const own = root.schema.filter(root.ownSpec);
     for (let i = 0; i < own.length; ++i) {
       const s = own[i];
       if (Ora.stored(s)) vals[s.key] = root[s.key];
     }
-    stateFile.setText(Ora.serialize(own, vals, root.defaults));
+    return Ora.serialize(own, vals, root.defaults);
+  }
+  function save() {
+    stateFile.setText(root.stateText());
   }
 
   // Applies the file over whatever is currently held. It is not a full
@@ -4317,7 +4350,7 @@ Singleton {
 
   function load() {
     if (!Ora.parses(stateFile.text())) root.keepBroken(false);
-    const j = Ora.parse(root.schema, stateFile.text());
+    const j = Ora.parse(root.schema.filter(root.ownSpec), stateFile.text());
     // ── THE OLD KEYBOARD NAME, CARRIED OVER ──────────────────────────
     // idleKeyboardName was one device, typed in. It is now one entry of
     // idleLightDevices; parse drops keys the schema no longer has, so it
@@ -4380,7 +4413,7 @@ Singleton {
       const out = [];
       for (let i = 0; i < root.schema.length; ++i) {
         const s = root.schema[i];
-        if (!Ora.stored(s) || s.display || s.sysTime || s.appDefault || s.input || s.hl || s.bindKey || s.hyprFile || root.isDefault(s.key)) continue;
+        if (!root.ownSpec(s) || root.isDefault(s.key)) continue;
         out.push(s.key + " = " + String(root[s.key])
           + "  (default " + String(root.defaults[s.key]) + ")");
       }

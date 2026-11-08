@@ -29,7 +29,6 @@
 // one passes it (`term: root`).
 
 import QtQuick
-import "../morpheus"
 
 Item {
   // the terminus window — passed in by whoever makes one. NOT `root`:
@@ -49,7 +48,6 @@ Item {
   // the keyboard — enrolled, walked with the arrows — only drawn the other
   // way. `labels` names each option for it; a value without one is shown
   // as it is.
-  property bool segmented: false
   property var labels: ({})
   signal chose(string value)
 
@@ -80,7 +78,6 @@ Item {
   height: 34
 
   Segments {
-    visible: seg.segmented
     anchors.left: parent.left
     anchors.leftMargin: 14
     anchors.right: parent.right
@@ -94,60 +91,4 @@ Item {
     onChose: (v) => seg.chose(v)
   }
 
-  Row {
-    id: segRow
-    visible: !seg.segmented
-    anchors.left: parent.left
-    anchors.leftMargin: 14
-    anchors.right: parent.right
-    anchors.rightMargin: 14
-    anchors.verticalCenter: parent.verticalCenter
-    height: 28
-    spacing: 6
-
-    Repeater {
-      model: seg.options
-
-      delegate: Rectangle {
-        id: segBtn
-        required property var modelData
-        width: (segRow.width - 6 * Math.max(0, seg.options.length - 1))
-          / Math.max(1, seg.options.length)
-        height: 28
-        radius: Zenon.windowRadius
-        readonly property bool ok: seg.allowed === null
-          || seg.allowed.indexOf(segBtn.modelData) >= 0
-        readonly property bool on: seg.current === segBtn.modelData
-        // PRESSED, DARKENED as ClearChip and Segments are (user, 2026-10-15)
-        color: segPress.pressed && segBtn.ok ? Zenon.pressFill
-          : segBtn.on
-          ? Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.18)
-          : "transparent"
-        border.width: 1
-        border.color: segBtn.on ? Zenon.accent : Zenon.border
-        opacity: segBtn.ok ? 1 : Zenon.disabledDim
-        Behavior on color { ColorAnimation { duration: Zenon.fast } }
-
-        Text {
-          anchors.fill: parent
-          horizontalAlignment: Text.AlignHCenter
-          verticalAlignment: Text.AlignVCenter
-          text: segBtn.modelData
-          elide: Text.ElideRight
-          color: segBtn.on ? Zenon.accent : Zenon.accentKey
-          opacity: segPress.pressed ? Zenon.pressDim : 1
-          font.family: Zenon.face
-          font.weight: Zenon.weight
-          font.pixelSize: Zenon.px(14)
-        }
-
-        MouseArea {
-          id: segPress
-          anchors.fill: parent
-          enabled: segBtn.ok
-          onClicked: seg.chose(segBtn.modelData)
-        }
-      }
-    }
-  }
 }

@@ -327,12 +327,13 @@ Item {
         onLinkActivated: (link) => {
           const to = M.internalLink(link);
           if (to) bk.show(to.chapter, { frac: 0, anchor: to.anchor });
-          else if (/^(https?|mailto):/.test(link)) Qt.openUrlExternally(link);
+          else Strings.openLink(link);
         }
       }
     }
     // the end of a chapter says what comes next, and goes there on a click
     Text {
+      textFormat: Text.PlainText
       x: page.x
       y: page.y + page.height + 10
       width: page.width
@@ -343,7 +344,7 @@ Item {
       // (the ink as a colour again: through minerva.js it can come back a string)
       color: nextPress.pressed ? bk.look.ink : Zenon.alpha(Qt.lighter(bk.look.ink, 1), 0.6)
       font.family: Zenon.face
-      font.weight: 600
+      font.weight: Zenon.titleWeight
       font.pixelSize: Zenon.px(15)
       MouseArea { id: nextPress; anchors.fill: parent; anchors.margins: -10; onClicked: bk.chapterBy(1) }
     }

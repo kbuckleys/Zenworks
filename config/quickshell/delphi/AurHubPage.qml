@@ -80,12 +80,16 @@ Item {
         if (pg.newerCount > 0) pg.win.say(pg.newerCount + (pg.newerCount === 1 ? " package has" : " packages have") + " a newer version upstream");
       } });
   }
+  property int searchGen: 0
   function search(text) {
     const t = String(text || "").trim();
     if (t.length < 2) { pg.win.say("Two letters at least", true); return; }
     pg.asking = true;
+    // the newest search's answer only: an older one landing late was shown
+    // under the newer words (audit 11-07)
+    const gen = ++pg.searchGen;
     pg.win.mgr.call("aurSearch", null, { text: t }, (ok, res, err) => {
-      if (!pg) return;
+      if (!pg || gen !== pg.searchGen) return;
       pg.asking = false;
       if (!ok) { pg.win.fail("The search did not work", null, err); return; }
       pg.searched = t;
@@ -237,14 +241,13 @@ Item {
   property Component headTools: Component {
     Row {
       spacing: 10
-      BulkField {
+      SearchBox {
         id: fieldIn
+        compact: true
         visible: pg.tab === "search"
         anchors.verticalCenter: parent.verticalCenter
         width: 240
-        height: Math.round(Zenon.px(14) * 2.3)
         ghost: "Search the AUR"
-        clearable: true
         onAccepted: pg.search(fieldIn.text)
         Component.onCompleted: pg.field = fieldIn
         Component.onDestruction: if (pg && pg.field === fieldIn) pg.field = null
@@ -289,7 +292,7 @@ Item {
           text: arow.modelData.name + (arow.modelData.version ? "  " + arow.modelData.version : "")
           color: Zenon.ink
           font.family: Zenon.face
-          font.weight: Font.Bold
+          font.weight: Zenon.titleWeight
           font.pixelSize: Zenon.px(14)
         }
         Text {
@@ -305,6 +308,7 @@ Item {
         }
       }
       Text {
+        textFormat: Text.PlainText
         id: side
         anchors.right: parent.right
         anchors.rightMargin: 22

@@ -35,11 +35,12 @@ Item {
     text: diskRow.disk.target ?? ""
     color: diskRow.ink
     font.family: Zenon.face
-    font.weight: Font.Bold
+    font.weight: Zenon.titleWeight
     font.pixelSize: Zenon.px(13)
   }
 
   Text {
+    textFormat: Text.PlainText
     id: diskSource
     anchors.left: diskTarget.right
     anchors.leftMargin: 8
@@ -87,7 +88,7 @@ Item {
       + Helpers.sizeFormat(diskRow.disk.used ?? 0) + " / " + Helpers.sizeFormat(diskRow.disk.size ?? 0)
     color: diskRow.textInk
     font.family: Zenon.face
-    font.weight: Font.Bold
+    font.weight: Zenon.titleWeight
     font.pixelSize: Zenon.px(13)
   }
 

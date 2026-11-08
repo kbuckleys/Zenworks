@@ -174,14 +174,18 @@ def read_cache(path):
 
 
 def write_cache(path, cache):
-    tmp = path + ".tmp"
+    # its own name: two scans at once shared one and could rename the other's
+    tmp = "%s.%d.tmp" % (path, os.getpid())
     try:
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(tmp, "w") as f:
             json.dump(cache, f)
         os.replace(tmp, path)
     except OSError:
-        pass
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
 
 
 def idle():

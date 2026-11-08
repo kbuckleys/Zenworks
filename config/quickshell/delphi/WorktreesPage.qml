@@ -112,6 +112,7 @@ Item {
         text: ""
         color: trow.t.current ? Zenon.accent : trow.t.prunable ? Zenon.red : Zenon.accentMuted
         font.family: Zenon.glyphFace
+        font.weight: Zenon.weight
         font.pixelSize: Zenon.px(19)
       }
       Column {
@@ -122,6 +123,7 @@ Item {
         anchors.verticalCenter: parent.verticalCenter
         spacing: 3
         Text {
+          textFormat: Text.PlainText
           width: parent.width
           elide: Text.ElideRight
           text: (trow.t.branch || (trow.t.detached ? "Detached at " + D.short(trow.t.sha) : trow.t.bare ? "bare" : ""))

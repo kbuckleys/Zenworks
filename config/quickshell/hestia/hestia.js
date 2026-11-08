@@ -117,8 +117,10 @@ function actions(u) {
 // for the password), user units as you
 function actionArgs(scope, verb, unit) {
   var base = scope === "user" ? ["systemctl", "--user"] : ["systemctl"];
-  if (verb === "enable" || verb === "disable") return base.concat([verb, "--now", unit]);
-  return base.concat([verb, unit]);
+  // "--" before the unit: one typed as "-H host" is a name, never an
+  // option (audit 11-08; units also come in by IPC)
+  if (verb === "enable" || verb === "disable") return base.concat([verb, "--now", "--", unit]);
+  return base.concat([verb, "--", unit]);
 }
 function verbWords(verb, unit) {
   var n = shortName(unit);

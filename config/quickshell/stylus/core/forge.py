@@ -1475,20 +1475,40 @@ def newimage(path, size, fs="", label=""):
     except OSError as e:
         raise Fail("io", "It cannot be made there: " + (e.strerror or str(e)))
     conn = bus()
-    loop = loop_setup(conn, path)
-    objs = wait_for(conn, loop, UD + ".Block")
-    dev = text(objs[loop][UD + ".Block"].get("Device"))
-    if fs:
-        call(conn, loop, UD + ".Block", "Format", GLib.Variant("(sa{sv})", ("gpt", {})))
-        wait_for(conn, loop, UD + ".PartitionTable")
-        fopts = {"label": GLib.Variant("s", label)} if label else {}
-        if fs in ("ext4", "btrfs", "xfs", "f2fs"):
-            fopts["take-ownership"] = GLib.Variant("b", True)
-        win = fs in ("vfat", "exfat", "ntfs")
-        call(conn, loop, UD + ".PartitionTable", "CreatePartitionAndFormat",
-             GLib.Variant("(ttssa{sv}sa{sv})", (MiB, 0, "EBD0A0A2-B9E5-4433-87C0-68B6B72699C7" if win
-                                                else "0FC63DAF-8483-4772-8E79-3D69D8477DE4", label, {}, fs, fopts)))
+    try:
+        loop = loop_setup(conn, path)
+    except BaseException:
+        os.unlink(path)
+        raise
+    try:
+        objs = wait_for(conn, loop, UD + ".Block")
+        dev = text(objs[loop][UD + ".Block"].get("Device"))
+        if fs:
+            newimage_format(conn, loop, fs, label, GLib)
+    except BaseException:
+        # a half-made image is not left attached, nor kept (audit 11-08)
+        try:
+            call(conn, loop, UD + ".Loop", "Delete", GLib.Variant("(a{sv})", ({},)))
+        except Exception:
+            pass
+        try:
+            os.unlink(path)
+        except OSError:
+            pass
+        raise
     emit(ev="done", ok=True, dev=dev, path=path, why="")
+
+
+def newimage_format(conn, loop, fs, label, GLib):
+    call(conn, loop, UD + ".Block", "Format", GLib.Variant("(sa{sv})", ("gpt", {})))
+    wait_for(conn, loop, UD + ".PartitionTable")
+    fopts = {"label": GLib.Variant("s", label)} if label else {}
+    if fs in ("ext4", "btrfs", "xfs", "f2fs"):
+        fopts["take-ownership"] = GLib.Variant("b", True)
+    win = fs in ("vfat", "exfat", "ntfs")
+    call(conn, loop, UD + ".PartitionTable", "CreatePartitionAndFormat",
+         GLib.Variant("(ttssa{sv}sa{sv})", (MiB, 0, "EBD0A0A2-B9E5-4433-87C0-68B6B72699C7" if win
+                                            else "0FC63DAF-8483-4772-8E79-3D69D8477DE4", label, {}, fs, fopts)))
 
 
 # ── READING A WHOLE DRIVE ────────────────────────────────────────────────
@@ -1565,10 +1585,17 @@ def backup(dev, out, compress):
         if not comp:
             f.truncate()
         f.close()
-    except OSError as e:
+    except BaseException as e:
+        # every failure, not only OSError (a zstd error, an interrupt):
+        # no .part left, the drive closed (audit 11-08)
         f.close()
-        os.unlink(tmp)
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
         src.close()
+        if not isinstance(e, OSError):
+            raise
         why = "The disk it was saving to is full" if e.errno == errno.ENOSPC else "It could not be read: " + (e.strerror or str(e))
         raise Fail("io", why)
     meter.add(0, force=True)
@@ -1881,6 +1908,22 @@ def resize(dev, size):
     emit(ev="done", ok=True, why="")
 
 
+def opts(rest, takes, flags=()):
+    """options after the positionals, read in pairs: a typed label of
+    "--type" or "--encrypt" is a value, never taken for a flag (11-08)"""
+    o, i = {}, 0
+    while i < len(rest):
+        k = rest[i]
+        if k in takes and i + 1 < len(rest):
+            o[k] = rest[i + 1]
+            i += 2
+        else:
+            if k in flags:
+                o[k] = True
+            i += 1
+    return o
+
+
 def main():
     a = sys.argv[1:]
     signal.signal(signal.SIGTERM, on_term)
@@ -1904,9 +1947,10 @@ def main():
         elif cmd == "resizable":
             resizable()
         elif cmd == "create" and len(a) > 3:
-            opt = lambda k: a[a.index(k) + 1] if k in a[:-1] else ""
+            o = opts(a[4:], ("--fs", "--label", "--name", "--type"), ("--encrypt",))
+            opt = lambda k: o.get(k, "")
             create(a[1], a[2], a[3], opt("--fs"), opt("--label"), opt("--name"), opt("--type"),
-                   sys.stdin.readline().rstrip("\n") if "--encrypt" in a else None)
+                   sys.stdin.readline().rstrip("\n") if o.get("--encrypt") else None)
         elif cmd == "delete" and len(a) > 1:
             delete(a[1])
         elif cmd == "resize" and len(a) > 2:
@@ -1923,8 +1967,8 @@ def main():
         elif cmd == "bench" and len(a) > 1:
             bench(a[1])
         elif cmd == "newimage" and len(a) > 2:
-            opt = lambda k: a[a.index(k) + 1] if k in a[:-1] else ""
-            newimage(a[1], a[2], opt("--fs"), opt("--label"))
+            o = opts(a[3:], ("--fs", "--label"))
+            newimage(a[1], a[2], o.get("--fs", ""), o.get("--label", ""))
         elif cmd == "attach" and len(a) > 1:
             attach(a[1], "--ro" in a)
         elif cmd == "detach" and len(a) > 1:
@@ -1934,9 +1978,8 @@ def main():
         elif cmd == "backup" and len(a) > 2:
             backup(a[1], a[2], "--raw" not in a)
         elif cmd == "rename" and len(a) > 1:
-            label = a[a.index("--label") + 1] if "--label" in a[:-1] else None
-            name = a[a.index("--name") + 1] if "--name" in a[:-1] else None
-            rename(a[1], label, name)
+            o = opts(a[2:], ("--label", "--name"))
+            rename(a[1], o.get("--label"), o.get("--name"))
         elif cmd == "write" and len(a) > 2:
             rest = [x for x in a[1:] if x != "--no-verify"]
             write(rest[0], rest[1:], verify="--no-verify" not in a)

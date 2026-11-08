@@ -110,10 +110,14 @@ Item {
   // between a paste and losing the file that was already in the destination.
   Process {
     id: conflictProc
+    // asked again mid-scan: this run's answer is about the old list, and the
+    // new command runs as soon as it exits
+    property bool superseded: false
     stdout: StdioCollector {
       id: conflictOut
       waitForEnd: true
       onStreamFinished: {
+        if (conflictProc.superseded) { conflictProc.superseded = false; return; }
         const clash = Terminus.parseClashes(conflictOut.text);
         term.pasteClash = clash;
         // The mode is a plain string, not Terminus.CLASH.overwrite: a QML .js
@@ -151,7 +155,10 @@ Item {
              act: () => term.commitPaste("keep") },
            { label: "Skip", ink: Zenon.blue,
              act: () => term.commitPaste("skip") }],
-          clash);
+          clash,
+          // backing out takes the destination with it: left latched, the next
+          // paste landed in this directory instead of where you then stood
+          () => { term.pasteDest = ""; term.pasteOnly = null; term.pasteClash = []; });
       }
     }
   }
@@ -190,6 +197,7 @@ Item {
       return;
     }
     term.pasteOnly = take.length === term.pending.paths.length ? null : take;
+    conflictProc.superseded = conflictProc.running;
     conflictProc.command = Terminus.shArgv(Terminus.conflictCommand(
       take.map((p) => Terminus.basename(p)), dest));
     conflictProc.running = true;

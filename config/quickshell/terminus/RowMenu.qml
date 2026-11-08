@@ -1351,8 +1351,7 @@ PopupWindow {
             Rectangle {
               anchors.fill: parent
               visible: menuRow.chosen > 0
-              color: Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b,
-                             0.55 * menuRow.chosen)
+              color: Zenon.alpha(Zenon.accent, 0.55 * menuRow.chosen)
             }
 
             MouseArea {
@@ -1445,7 +1444,6 @@ PopupWindow {
         // See menu.subWanted — the state is out there now, and this card
         // wears it. It fills its surface, so it has no visibility of its
         // own to work out; the surface is mapped only while it is wanted.
-        readonly property bool wanted: menu.subWanted
         readonly property real shade: menu.subShade
         transformOrigin: Item.TopLeft
         scale: Zenon.menuScale(subCard.shade)
@@ -1453,25 +1451,10 @@ PopupWindow {
 
         readonly property var items: menu.subItems
 
-        readonly property real rowTop: menu.subRowTop
-
         // Both measured on menu, so the surface can size itself before this
         // card exists — see the note there.
         width: menu.subCardW
         height: menu.subCardH
-        // Flipped to the left of the parent card when there is no room on the
-        // right, for the same reason the parent card is clamped to the window.
-        // Asked ONCE, as a property, because the corners below have to agree
-        // with the placement — a card that squares the wrong edge is worse
-        // than one that squares neither.
-        // ALWAYS the right, now that the surface grows to hold it: the old
-        // test asked whether the card plus the submenu still fit inside the
-        // WINDOW, and the window has stopped being the boundary. The surface
-        // is made wide enough for both, and if that puts it off the edge of
-        // the screen the compositor slides the whole thing back — one answer,
-        // from the only party that can see the screen.
-        readonly property bool onRight: true
-
         // Flush against the parent, with the gap taken out. The two cards are
         // one surface with a rule down it, the way icarus' menus read, and two
         // pixels of window showing between them is what stopped them being it.
@@ -1622,8 +1605,7 @@ PopupWindow {
               Rectangle {
                 anchors.fill: parent
                 visible: subRow.chosen > 0
-                color: Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b,
-                               0.55 * subRow.chosen)
+                color: Zenon.alpha(Zenon.accent, 0.55 * subRow.chosen)
               }
 
               MouseArea {

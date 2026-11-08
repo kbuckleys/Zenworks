@@ -4,6 +4,7 @@
 // https://github.com/kbuckleys/
 
 .pragma library
+.import "../morpheus/quote.js" as Quote
 // ONE COPY FOR THE WHOLE SHELL. Without the pragma every component instance
 // that imports this file evaluated all of it again (see morpheus/icons.js).
 
@@ -424,7 +425,7 @@ function changedCount(a, b) {
 // already had must not stop a save that has nothing to do with it. Only
 // what the draft adds counts.
 function reviewCommand(draft) {
-  const d = "'" + String(draft).replace(/'/g, "'\\''") + "'";
+  const d = Quote.shellQuote(draft);
   return "diff -u /etc/pacman.conf " + d + "; "
     + "echo '@@was'; pacman-conf --config /etc/pacman.conf 2>&1 >/dev/null; "
     + "echo '@@now'; pacman-conf --config " + d + " 2>&1 >/dev/null; echo \"@@exit $?\"";

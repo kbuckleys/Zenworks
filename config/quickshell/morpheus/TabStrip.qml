@@ -24,6 +24,7 @@
 // bar under it, spliceInk / spliceX / spliceW (see below).
 
 import QtQuick
+import "../terminus" as Term
 
 Rectangle {
   id: tabStrip
@@ -248,6 +249,8 @@ Rectangle {
         // opened. A tab the strip has already shown is simply there; a new
         // one grows in from its slot (and, with "Animate splits and tabs"
         // off, appears).
+        Term.HeldRing { anchors.fill: parent; anchors.margins: 2; z: 5; middleOf: tabMouse }
+
         opacity: 0
         transformOrigin: Item.Left
         Component.onCompleted: {
@@ -352,18 +355,14 @@ Rectangle {
             anchors.fill: parent
             color: tabCell.lifted ? "transparent" : tabCell.color
           }
-          Rectangle {
+          Hairline {
             width: parent.cut ? parent.cutL : parent.width
-            height: 1
             visible: !tabCell.here
-            color: Zenon.border
           }
-          Rectangle {
+          Hairline {
             x: parent.cutR
             width: parent.width - parent.cutR
-            height: 1
             visible: parent.cut && !tabCell.here
-            color: Zenon.border
           }
         }
 
@@ -381,6 +380,7 @@ Rectangle {
             visible: !!tabCell.modelData.glyph
             text: tabCell.modelData.glyph || ""
             font.family: Zenon.faceMono
+            font.weight: Zenon.weight
             font.pixelSize: tabStrip.face.pixelSize
             color: tabCell.modelData.glyphInk || tabStrip.hereInk
             anchors.verticalCenter: parent.verticalCenter
@@ -391,7 +391,7 @@ Rectangle {
             visible: !!tabCell.modelData.pin
             text: tabCell.modelData.pin ? String(tabCell.modelData.pin) : ""
             font.family: Zenon.face
-            font.weight: Font.DemiBold
+            font.weight: Zenon.titleWeight
             font.pixelSize: tabStrip.face.pixelSize - 3
             color: Zenon.sand
             anchors.verticalCenter: tabLabel.verticalCenter
@@ -486,6 +486,8 @@ Rectangle {
           function stripX(m) { return tabCell.mapToItem(tabStrip, m.x, 0).x; }
 
           onPressed: (m) => {
+            // a drag released outside the cell fired no click to clear it
+            tabMouse.wasDrag = false;
             if (tabStrip.tips) tabStrip.tips.hide(tabCell);
             tabMouse.overClose = tabMouse.onClose(m);
             if (m.button !== Qt.LeftButton) return;

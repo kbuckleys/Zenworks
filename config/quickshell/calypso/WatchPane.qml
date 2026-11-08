@@ -73,6 +73,7 @@ Item {
           text: watch.total === 0 && watch.checked ? "\u{F0565}" : "\u{F0ECC}"
           color: watch.total === 0 && watch.checked ? Zenon.green : Zenon.yellow
           font.family: Zenon.glyphFace
+          font.weight: Zenon.weight
           font.pixelSize: Zenon.px(54)
         }
         Column {
@@ -83,7 +84,7 @@ Item {
               : watch.total === 0 ? "Nothing to worry about" : watch.total + (watch.total === 1 ? " item needs" : " items need") + " a look"
             color: Zenon.ink
             font.family: Zenon.face
-            font.weight: Font.Bold
+            font.weight: Zenon.titleWeight
             font.pixelSize: Zenon.px(24)
           }
           Text {
@@ -125,7 +126,7 @@ Item {
                 text: !card.open ? "—" : String(card.n)
                 color: card.n > 0 ? (Zenon[card.modelData.ink] || Zenon.ink) : Zenon.green
                 font.family: Zenon.face
-                font.weight: Font.Bold
+                font.weight: Zenon.titleWeight
                 font.pixelSize: Zenon.px(26)
                 font.features: { "tnum": 1 }
               }
@@ -134,7 +135,7 @@ Item {
                 text: card.modelData.label
                 color: Zenon.ink
                 font.family: Zenon.face
-                font.weight: Font.DemiBold
+                font.weight: Zenon.titleWeight
                 font.pixelSize: Zenon.px(15)
               }
               Text {
@@ -178,7 +179,7 @@ Item {
             text: "Breached passwords"
             color: Zenon.ink
             font.family: Zenon.face
-            font.weight: Font.DemiBold
+            font.weight: Zenon.titleWeight
             font.pixelSize: Zenon.px(15)
           }
           Text {

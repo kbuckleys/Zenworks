@@ -27,7 +27,7 @@ Rectangle {
   height: 28
   radius: Zenon.windowRadius
   // no chip behind a lit glyph (user, 2026-10-12): `on` colors the glyph
-  color: press.pressed ? Zenon.pressWash(0.14) : Zenon.wash(0.0)
+  color: press.pressed ? Zenon.pressWash(0.12) : Zenon.wash(0.0)
   Behavior on color { ColorAnimation { duration: Zenon.fast } }
 
   Text {
@@ -35,6 +35,7 @@ Rectangle {
     text: act.glyph
     color: act.on ? Zenon.accent : act.ink
     font.family: Zenon.glyphFace
+    font.weight: Zenon.weight
     font.pixelSize: Zenon.px(14)
     Behavior on color { ColorAnimation { duration: Zenon.fast } }
   }

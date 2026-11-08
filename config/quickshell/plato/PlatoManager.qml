@@ -137,6 +137,8 @@ Scope {
   FileView {
     id: usageFile
     path: Quickshell.statePath("plato-palette.json")
+    // read before the first use() writes over it with one entry (audit 11-07)
+    blockLoading: true
     printErrors: false
     onLoaded: { try { mgr.usage = JSON.parse(usageFile.text() || "{}"); } catch (e) {} }
   }

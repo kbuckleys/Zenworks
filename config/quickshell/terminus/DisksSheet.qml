@@ -122,17 +122,9 @@ Rectangle {
 
   InputShield { keepTop: term.tabStripRef.height + term.crumbBarRef.height; onClicked: disks.dismiss() }
 
-  Sheet {
-    // clear: the listing is cut away under it (see sheetHole)
-    ground: "transparent"
-    backdrop: term.sheetBackdrop   // the listing, frosted under the card
-    seamFrost: term.sheetSeam   // the bar's frost, carried over the seam
-    splice: true
-    onCardInkChanged: term.noteSheet("s6", cardInk, drawnX, drawnW, drawnY, drawnH)
-    onDrawnXChanged: term.noteSheet("s6", cardInk, drawnX, drawnW, drawnY, drawnH)
-    onDrawnWChanged: term.noteSheet("s6", cardInk, drawnX, drawnW, drawnY, drawnH)
-    onDrawnYChanged: term.noteSheet("s6", cardInk, drawnX, drawnW, drawnY, drawnH)
-    onDrawnHChanged: term.noteSheet("s6", cardInk, drawnX, drawnW, drawnY, drawnH)
+  TermSheet {
+    host: term
+    note: "s6"
     id: disksSheet
     leftInset: term.sideRef.width
     floating: false   // hangs from the bar, which carries its title — see barTitle
@@ -231,6 +223,7 @@ Rectangle {
         // says so in words rather than leaving the column blank — blank
         // reads as "not loaded yet".
         Text {
+          textFormat: Text.PlainText
           id: diskWhere
           anchors.left: diskName.right
           anchors.leftMargin: 12
@@ -283,6 +276,7 @@ Rectangle {
         }
 
         Text {
+          textFormat: Text.PlainText
           id: diskFs
           anchors.right: parent.right
           anchors.rightMargin: 16

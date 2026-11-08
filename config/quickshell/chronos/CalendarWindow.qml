@@ -625,7 +625,7 @@ FloatingWindow {
         width: cw.sideW - 28
         height: mini.implicitHeight + 20
         anchors.bottom: parent.bottom
-        Rectangle { width: parent.width; height: 1; color: Zenon.border }
+        Hairline { width: parent.width }
         // the panel's month, as the panel draws it (cal/MonthGrid)
         MonthGrid {
           id: mini
@@ -652,8 +652,7 @@ FloatingWindow {
       anchors.left: sideBox.right
       anchors.right: parent.right
       height: cw.headH
-      Rectangle { anchors.fill: parent; color: Zenon.headBg }
-      Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Zenon.border }
+      HeadGround {}
       Row {
         x: 14
         anchors.verticalCenter: parent.verticalCenter
@@ -692,13 +691,13 @@ FloatingWindow {
           font.pixelSize: Zenon.px(12)
         }
         DialogButton { glyph: true; label: "\u{F0E8E}"; visible: Chronos.accounts.length > 0; ready: !Chronos.calBusy; onClicked: cw.sync() }
-        BulkField {
+        SearchBox {
           id: searchField
+          compact: true
           anchors.verticalCenter: parent.verticalCenter
           width: Math.min(240, Math.max(140, head.width * 0.22))
           visible: Chronos.calReady
           ghost: "Search"
-          clearable: true
           onAccepted: cw.search(searchField.text)
           onCleared: cw.endSearch()
         }
@@ -731,7 +730,7 @@ FloatingWindow {
         width: parent.width
         height: titleRow.height + timeView.headH + timeView.allDayH + 1
         color: Zenon.headBg
-        Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Zenon.border }
+        Hairline { anchors.bottom: parent.bottom; width: parent.width }
       }
 
       // the month in bold, its year plain; back, today, on across from it
@@ -853,7 +852,7 @@ FloatingWindow {
             readonly property bool weekend: cell.index % 7 >= 5
             Rectangle { anchors.fill: parent; color: cw.dropIso === cell.iso ? Zenon.alpha(Zenon.accent, 0.14)
               : !cell.modelData.cur ? Zenon.wash(0.03) : cell.weekend ? Zenon.wash(0.015) : "transparent" }
-            Rectangle { width: parent.width; height: 1; color: Zenon.border; opacity: 0.6 }
+            Hairline { width: parent.width;  opacity: 0.6 }
             Rectangle { width: 1; height: parent.height; color: Zenon.border; opacity: 0.6; visible: cell.index % 7 !== 0 }
             MouseArea {
               anchors.fill: parent
@@ -883,7 +882,7 @@ FloatingWindow {
                 text: cell.modelData.d === 1 ? Chr.monthName(cell.modelData.m).slice(0, 3) + " 1" : cell.modelData.d
                 color: cell.iso === cw.todayIso ? Zenon.inkOnAccent : cell.modelData.cur ? Zenon.ink : Zenon.accentMuted
                 font.family: Zenon.face
-                font.weight: cell.iso === cw.todayIso ? Font.Bold : Zenon.weight
+                font.weight: cell.iso === cw.todayIso ? Zenon.titleWeight : Zenon.weight
                 font.pixelSize: Zenon.px(13)
               }
               MouseArea { anchors.fill: parent; onClicked: cw.goDay(new Date(cell.modelData.y, cell.modelData.m, cell.modelData.d)) }
@@ -941,7 +940,7 @@ FloatingWindow {
                 text: Chr.monthName(ym.index)
                 color: cw.at.getFullYear() === new Date().getFullYear() && ym.index === new Date().getMonth() ? Zenon.accent : Zenon.ink
                 font.family: Zenon.face
-                font.weight: Font.Bold
+                font.weight: Zenon.titleWeight
                 font.pixelSize: Zenon.px(15)
                 MouseArea { anchors.fill: parent; onClicked: { cw.at = new Date(cw.at.getFullYear(), ym.index, 1); cw.setView("month"); } }
               }
@@ -1018,7 +1017,7 @@ FloatingWindow {
                   text: dh.modelData.getDate()
                   color: dh.iso === cw.todayIso ? Zenon.inkOnAccent : Zenon.ink
                   font.family: Zenon.face
-                  font.weight: Font.Bold
+                  font.weight: Zenon.titleWeight
                   font.pixelSize: Zenon.px(15)
                 }
               }
@@ -1101,7 +1100,7 @@ FloatingWindow {
                   font.weight: Zenon.weight
                   font.pixelSize: Zenon.px(11)
                 }
-                Rectangle { x: timeView.gutter; width: parent.width - timeView.gutter; height: 1; color: Zenon.border; opacity: 0.6 }
+                Hairline { x: timeView.gutter; width: parent.width - timeView.gutter;  opacity: 0.6 }
               }
             }
             // the time now, in the gutter beside its line
@@ -1121,7 +1120,7 @@ FloatingWindow {
                 text: { cw.tick; return Chr.hhmm(new Date().getHours() * 60 + new Date().getMinutes()); }
                 color: Zenon.inkOnAccent
                 font.family: Zenon.face
-                font.weight: Font.Bold
+                font.weight: Zenon.titleWeight
                 font.pixelSize: Zenon.px(11)
               }
             }
@@ -1182,7 +1181,7 @@ FloatingWindow {
                     text: "New event  " + Chr.hhmm(drawMa.at0) + " – " + Chr.hhmm(Math.min(drawMa.at1, 1439))
                     color: Zenon.ink
                     font.family: Zenon.face
-                    font.weight: Font.DemiBold
+                    font.weight: Zenon.titleWeight
                     font.pixelSize: Zenon.px(12)
                   }
                 }
@@ -1267,7 +1266,7 @@ FloatingWindow {
           text: { const d = Chr.dateOf(section); return d ? Chr.longDay(d) + " " + d.getFullYear() : section; }
           color: section === cw.todayIso ? Zenon.accent : Zenon.accentMuted
           font.family: Zenon.face
-          font.weight: Font.Bold
+          font.weight: Zenon.titleWeight
           font.pixelSize: Zenon.px(12)
         }
         delegate: Item {
@@ -1538,12 +1537,13 @@ FloatingWindow {
           visible: sheet.why !== ""
           wrapMode: Text.WordWrap
           text: sheet.why
+          textFormat: Text.PlainText
           color: Zenon.red
           font.family: Zenon.face
           font.weight: Zenon.weight
           font.pixelSize: Zenon.px(13)
         }
-        Rectangle { width: parent.width; height: 1; color: Zenon.border }
+        Hairline { width: parent.width }
         Item {
           width: parent.width
           height: 32
@@ -1679,7 +1679,7 @@ FloatingWindow {
           font.weight: Zenon.weight
           font.pixelSize: Zenon.px(13)
         }
-        Rectangle { width: parent.width; height: 1; color: Zenon.border }
+        Hairline { width: parent.width }
         Row {
           anchors.right: parent.right
           spacing: Zenon.buttonGap
@@ -1786,7 +1786,7 @@ FloatingWindow {
             height: 34
             Column {
               anchors.verticalCenter: parent.verticalCenter
-              Text { textFormat: Text.PlainText; text: arow.modelData.name; color: Zenon.ink; font.family: Zenon.face; font.weight: Font.Bold; font.pixelSize: Zenon.px(14) }
+              Text { textFormat: Text.PlainText; text: arow.modelData.name; color: Zenon.ink; font.family: Zenon.face; font.weight: Zenon.titleWeight; font.pixelSize: Zenon.px(14) }
               Text { textFormat: Text.PlainText; text: arow.modelData.user + " · " + arow.modelData.url; color: Zenon.accentMuted; font.family: Zenon.face; font.weight: Zenon.weight; font.pixelSize: Zenon.px(12) }
             }
             DialogButton {
@@ -1805,7 +1805,7 @@ FloatingWindow {
             }
           }
         }
-        Rectangle { width: parent.width; height: 1; color: Zenon.border; visible: Chronos.accounts.length > 0 }
+        Hairline { width: parent.width;  visible: Chronos.accounts.length > 0 }
         SectionLabel { text: "Add an account" }
         Segments {
           width: parent.width
@@ -1832,12 +1832,13 @@ FloatingWindow {
           visible: accSheet.why !== ""
           wrapMode: Text.WordWrap
           text: accSheet.why
+          textFormat: Text.PlainText
           color: Zenon.red
           font.family: Zenon.face
           font.weight: Zenon.weight
           font.pixelSize: Zenon.px(13)
         }
-        Rectangle { width: parent.width; height: 1; color: Zenon.border }
+        Hairline { width: parent.width }
         Row {
           anchors.right: parent.right
           spacing: Zenon.buttonGap

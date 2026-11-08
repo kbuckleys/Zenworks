@@ -14,6 +14,7 @@
 // One face a line. family[0] / style[0]: the first of fontconfig's names is
 // the one the font calls itself in English.
 .pragma library
+.import "../morpheus/quote.js" as Quote
 // ONE COPY FOR THE WHOLE SHELL. Without the pragma every component instance
 // that imports this file — every row, tile, card and sheet — evaluated all of
 // it again; a profile caught terminus.js and icons.js costing hundreds of ms
@@ -49,7 +50,11 @@ function weightName(css) { return WEIGHT_NAMES[css] || String(css); }
 // ones it will remove (the rest belong to pacman).
 function userDirs(home) { return [home + "/.local/share/fonts/", home + "/.fonts/"]; }
 function isUserFile(file, home) {
-  return userDirs(home).some((d) => String(file).indexOf(d) === 0);
+  // a "/../" (or "/./") climbs out of the directory it names: never one of
+  // these, so never removed (audit 11-08)
+  const f = String(file);
+  if (/\/\.\.?(\/|$)/.test(f)) return false;
+  return userDirs(home).some((d) => f.indexOf(d) === 0);
 }
 function installDir(home) { return home + "/.local/share/fonts"; }
 
@@ -477,7 +482,7 @@ function searchGlyphs(ix, query, uni, nerd) {
 }
 
 // ── INSTALLING AND REMOVING ───────────────────────────────────────────────
-function quote(s) { return "'" + String(s).replace(/'/g, "'\\''") + "'"; }
+function quote(s) { return Quote.shellQuote(s); }
 
 // Copied into the user's font directory (never over a file already there:
 // a second copy gets a number) and fontconfig told. Prints each file's new

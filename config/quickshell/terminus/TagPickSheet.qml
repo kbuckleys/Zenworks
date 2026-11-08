@@ -267,17 +267,9 @@ Rectangle {
 
   InputShield { keepTop: term.tabStripRef.height + term.crumbBarRef.height; onClicked: tagPick.dismiss() }
 
-  Sheet {
-    // clear: the listing is cut away under it (see sheetHole)
-    ground: "transparent"
-    backdrop: term.sheetBackdrop   // the listing, frosted under the card
-    seamFrost: term.sheetSeam   // the bar's frost, carried over the seam
-    splice: true
-    onCardInkChanged: term.noteSheet("s8", cardInk, drawnX, drawnW, drawnY, drawnH)
-    onDrawnXChanged: term.noteSheet("s8", cardInk, drawnX, drawnW, drawnY, drawnH)
-    onDrawnWChanged: term.noteSheet("s8", cardInk, drawnX, drawnW, drawnY, drawnH)
-    onDrawnYChanged: term.noteSheet("s8", cardInk, drawnX, drawnW, drawnY, drawnH)
-    onDrawnHChanged: term.noteSheet("s8", cardInk, drawnX, drawnW, drawnY, drawnH)
+  TermSheet {
+    host: term
+    note: "s8"
     id: tagSheet
     leftInset: term.sideRef.width
     floating: false   // hangs from the bar, which carries its title — see barTitle
@@ -322,7 +314,7 @@ Rectangle {
         anchors.rightMargin: 8
         radius: Zenon.windowRadius
         color: tagPick.sel === 0
-          ? Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.16)
+          ? Zenon.alpha(Zenon.accent, 0.16)
           : "transparent"
       }
 
@@ -377,7 +369,9 @@ Rectangle {
         width: tagList.width
         height: tagSheet.rowH
 
+        HeldRing { anchors.fill: parent; z: 5; middleOf: tagMouse }
         MouseArea {
+          id: tagMouse
           anchors.fill: parent
           acceptedButtons: Qt.LeftButton | Qt.MiddleButton
           onClicked: (m) => {

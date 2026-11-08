@@ -53,7 +53,7 @@ Item {
       }
       color: Zenon.ink
       font.family: Zenon.face
-      font.weight: Font.Bold
+      font.weight: Zenon.titleWeight
       font.pixelSize: Zenon.px(17)
     }
     Text {
@@ -301,6 +301,7 @@ Item {
           text: ""
           color: Zenon.accentMuted
           font.family: Zenon.glyphFace
+          font.weight: Zenon.weight
           font.pixelSize: Zenon.px(28)
         }
       }
@@ -317,7 +318,7 @@ Item {
           text: (tile.n.pinned ? "\u{F0403} " : "") + N.titleOf(tile.n)
           color: tile.here ? Zenon.ink : Zenon.accentSoft
           font.family: Zenon.face
-          font.weight: Font.DemiBold
+          font.weight: Zenon.titleWeight
           font.pixelSize: Zenon.px(13)
         }
         Text {

@@ -129,13 +129,11 @@ Item {
 
   // see-through: lists rise out of it (the views' ScrollEdges)
   Rectangle { anchors.fill: parent; color: bar.ground; visible: !bar.floating }
-  Rectangle {
+  Hairline {
     visible: bar.rule && !bar.floating
     anchors.top: parent.top
     anchors.left: parent.left
     anchors.right: parent.right
-    height: 1
-    color: Zenon.border
   }
 
   // CENTERED AS ONE GROUP — what stands before the keys and the keys —
@@ -255,10 +253,11 @@ Item {
     visible: opacity > 0.01
     opacity: bar.note !== "" ? 1 : 0
     Behavior on opacity { NumberAnimation { duration: Zenon.fast } }
+    textFormat: Text.PlainText
     text: bar.note
     color: bar.noteInk
     font.family: Zenon.face
-    font.weight: 600
+    font.weight: Zenon.titleWeight
     font.pixelSize: Zenon.px(15)
   }
 

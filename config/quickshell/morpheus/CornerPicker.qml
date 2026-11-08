@@ -132,19 +132,19 @@ PopupWindow {
           // toasts are actually in, without claiming it was picked.
           readonly property bool followed: root.autoOn && cell.here
           readonly property color ink: cell.chosen ? Zenon.accent
-            : cell.followed ? Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.55)
-            : Qt.rgba(Zenon.muted.r, Zenon.muted.g, Zenon.muted.b, 0.7)
+            : cell.followed ? Zenon.alpha(Zenon.accent, 0.55)
+            : Zenon.alpha(Zenon.muted, 0.7)
 
           width: root.cellW
           height: root.cellH
           radius: Zenon.rad(3)
           color: cell.chosen
-            ? Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.30)
-            : (cellMa.pressed ? Zenon.wash(0.12)
+            ? Zenon.alpha(Zenon.accent, 0.30)
+            : (cellMa.pressed ? Zenon.pressWash(0.12)
                                     : Zenon.wash(0.05))
           border.width: 1
           border.color: cell.chosen ? Zenon.accent
-            : cell.followed ? Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.55)
+            : cell.followed ? Zenon.alpha(Zenon.accent, 0.55)
             : (cellMa.pressed ? Zenon.keyInk : Zenon.border)
           Behavior on color {
             ColorAnimation { duration: Zenon.fast; easing.type: Zenon.ease }
@@ -191,12 +191,10 @@ PopupWindow {
       y: root.pad * 2 + root.gridH
       height: Zenon.menuSepHeight
 
-      Rectangle {
+      Hairline {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.verticalCenter: parent.verticalCenter
-        height: 1
-        color: Zenon.border
       }
     }
 

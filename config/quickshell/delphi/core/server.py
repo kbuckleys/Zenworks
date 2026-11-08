@@ -31,11 +31,13 @@ import inspect
 import json
 import os
 import re
+import select
 import shutil
 import socket
 import subprocess
 import tempfile
 import threading
+import time
 
 import aur
 import aurnew
@@ -61,6 +63,15 @@ def snake(name):
 
 
 # ── the askpass broker ──────────────────────────────────────────────────
+def _hung_up(c):
+    """True when the other end of c has closed (a read would give b"")."""
+    try:
+        r, _, _ = select.select([c], [], [], 0)
+        return bool(r) and c.recv(1, socket.MSG_PEEK) == b""
+    except OSError:
+        return True
+
+
 class Asker:
     """A unix socket, private to this user, where bin/delphi-askpass brings
     git's and ssh's questions. Each becomes an `ask` event; the window's
@@ -110,9 +121,19 @@ class Asker:
             prompt = q.get("prompt", "")
             send({"event": dict({"ask": n, "prompt": prompt.strip()},
                                 **classify(prompt, q.get("kind", "")))})
-            ev.wait(300)
+            # Waits for the window's answer — but not past askpass's own
+            # 300 s, nor past the asker hanging up (git killed, a cancel):
+            # either way the card is taken down, not left answering nothing
+            # (audit 2026-11-07).
+            deadline = time.monotonic() + 300
+            while not ev.wait(1):
+                if time.monotonic() > deadline or _hung_up(c):
+                    break
             with self.lock:
                 ans = self.waiting.pop(n, [None, None])[1]
+            if not ev.is_set():
+                send({"event": {"askGone": n}})
+                return
             c.sendall((json.dumps({"answer": ans}) + "\n").encode())
         except (OSError, ValueError):
             pass
@@ -550,7 +571,8 @@ class Server(lines.Service):
             g = gitrun.Git(self.repo(path)[0].root if path else None)
             for k in ("name", "email"):
                 if kw.get(k):
-                    g.run(["config"] + where + [f"user.{k}", kw[k]])
+                    # "--": a value that starts with "-" is not an option
+                    g.run(["config"] + where + ["--", f"user.{k}", kw[k]])
             return {}
         if op == "aurFor":
             return aur.packages_for(kw.get("roots") or [], kw.get("urls") or [])
@@ -562,8 +584,6 @@ class Server(lines.Service):
             return aurnew.resolve(kw.get("names") or [])
         if op == "aurAvailable":
             return aurnew.available(kw.get("name", ""))
-        if op == "aurDraft":
-            return {"text": aurnew.write(kw.get("spec") or {})}
         if op == "aurCreate":
             return aurnew.create(kw.get("spec") or {}, kw.get("dest", ""))
         if op == "aurSsh":
@@ -600,6 +620,12 @@ class Server(lines.Service):
                 self.n += 1
                 sid = self.n
                 self.logs[sid] = LogSession(r, kw)
+                # a window that died between open and close leaves its
+                # session here: past 24 open, the oldest go (audit 11-07)
+                old = sorted(self.logs)[:-24]
+                gone = [self.logs.pop(k) for k in old]
+            for s in gone:
+                s.close()
             return {"session": sid}
         if op == "logPage":
             s = self.logs.get(kw["session"])
@@ -705,8 +731,6 @@ class Server(lines.Service):
                                kw.get("body", ""), kw.get("draft", False))
         if op == "Merge":
             return f.merge(kw["full"], kw["number"], kw.get("method", "merge"))
-        if op == "Checks":
-            return f.checks(kw["full"], kw["sha"])
         if op == "ChecksMany":
             return f.checks_many(kw["full"], kw["shas"])
         # a job's log and its re-run; a review; the repository's settings;
@@ -760,6 +784,8 @@ class Server(lines.Service):
         raise ForgeError(f"unknown request: {f.__name__}{op}")
 
     def close(self):
+        for r in self.repos.values():
+            r.cleanup()
         for s in self.logs.values():
             s.close()
         for w in self.watches.values():

@@ -261,7 +261,7 @@ Item {
         text: cm.city ? cm.city.city : ""
         color: wm.fgColor
         font.family: wm.face
-        font.weight: cm.pinned ? Zenon.titleWeight : Font.Medium
+        font.weight: cm.pinned ? Zenon.titleWeight : Zenon.weight
         font.pixelSize: Zenon.px(13)
         textFormat: Text.PlainText
       }

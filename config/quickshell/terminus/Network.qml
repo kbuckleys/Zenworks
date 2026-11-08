@@ -22,7 +22,6 @@
 import QtQuick
 import Quickshell
 import Quickshell.Io
-import "../morpheus"
 import "../ceres"
 import "network.js" as N
 
@@ -155,8 +154,7 @@ Item {
   function disconnect(row) {
     if (!row || net.busy !== "") return;
     // standing in it: home first, so the listing is not left on a dead path
-    if (row.path !== "" && (term.cwd === row.path || term.cwd.startsWith(row.path + "/")))
-      term.goTo(Paths.home());
+    if (row.path !== "") term.leaveMountEverywhere(row.path);
     net.busy = row.uri;
     net.run(["unmount", row.uri], "", (r) => {
       net.busy = "";

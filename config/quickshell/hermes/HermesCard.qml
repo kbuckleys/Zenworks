@@ -49,6 +49,7 @@ Rectangle {
       text: card.glyph
       color: card.glyphInk
       font.family: Zenon.glyphFace
+      font.weight: Zenon.weight
       font.pixelSize: Zenon.px(18)
     }
     Text {
@@ -70,6 +71,7 @@ Rectangle {
       anchors.rightMargin: 12
       anchors.baseline: headTitle.baseline
       elide: Text.ElideRight
+      textFormat: Text.PlainText
       text: card.note
       color: Zenon.accentMuted
       font.family: Zenon.face

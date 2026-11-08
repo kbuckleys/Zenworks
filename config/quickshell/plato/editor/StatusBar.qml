@@ -135,17 +135,13 @@ Item {
       visible: opacity > 0.01
     }
     // the top hairline, open over a spliced card
-    Rectangle {
+    Hairline {
       width: bar.spliceInk > 0.01 ? Math.max(0, Math.min(parent.width, bar.spliceX)) : parent.width
-      height: 1
-      color: Zenon.border
     }
-    Rectangle {
+    Hairline {
       x: Math.max(0, Math.min(parent.width, bar.spliceX + bar.spliceW))
       width: Math.max(0, parent.width - x)
       visible: bar.spliceInk > 0.01
-      height: 1
-      color: Zenon.border
     }
     // A LANGUAGE SERVER AT WORK: a short blue sweep along the top edge, for
     // as long as it is busy (the cog beside its name holds still)
@@ -159,9 +155,9 @@ Item {
         width: Math.max(60, parent.width * 0.16)
         gradient: Gradient {
           orientation: Gradient.Horizontal
-          GradientStop { position: 0; color: Qt.rgba(Zenon.blue.r, Zenon.blue.g, Zenon.blue.b, 0) }
+          GradientStop { position: 0; color: Zenon.alpha(Zenon.blue, 0) }
           GradientStop { position: 0.5; color: Zenon.blue }
-          GradientStop { position: 1; color: Qt.rgba(Zenon.blue.r, Zenon.blue.g, Zenon.blue.b, 0) }
+          GradientStop { position: 1; color: Zenon.alpha(Zenon.blue, 0) }
         }
         NumberAnimation on x {
           running: bar.lspBusy
@@ -269,7 +265,7 @@ Item {
     font.family: Zenon.face
     // the bar's own size and a step over (user, 2026-10-24: it was 2 under)
     font.pixelSize: bar.font.pixelSize + 1
-    font.weight: Font.DemiBold
+    font.weight: Zenon.titleWeight
     font.letterSpacing: 1.2
     color: bar.tinted ? bar.modeInk : Zenon.accentMuted
     text: bar.ed.modeName.toUpperCase()
@@ -329,6 +325,7 @@ Item {
         // unsaved: U+EA73, the glyph the user chose for it (tabs and the
         // buffer picker wear the same), as an escape so it survives editors
         font.family: bar.ed.modified ? Zenon.faceMono : bar.font.family
+        font.weight: Zenon.weight
         font.pixelSize: bar.ed.modified || bar.ed.readonly ? bar.iconSize : bar.font.pixelSize
         leftPadding: text === "" ? 0 : bar.markGap
         text: bar.ed.modified ? "\uEA73" : bar.ed.readonly ? "󰌾" : ""
@@ -578,7 +575,7 @@ Item {
       visible: bar.ed.cursors > 1
       spacing: 6
       anchors.verticalCenter: parent.verticalCenter
-      Text { anchors.verticalCenter: parent.verticalCenter; font.family: Zenon.faceMono; font.pixelSize: bar.iconSize; color: Zenon.accent; text: "\u{F05E7}" }
+      Text { anchors.verticalCenter: parent.verticalCenter; font.family: Zenon.faceMono; font.weight: Zenon.weight; font.pixelSize: bar.iconSize; color: Zenon.accent; text: "\u{F05E7}" }
       Text { anchors.verticalCenter: parent.verticalCenter; font: bar.font; color: Zenon.accent; text: bar.ed.cursors + " cursors" }
     }
     SearchCount { visible: bar.ed.search !== null }
@@ -844,14 +841,7 @@ Item {
       field.x + field.shift + beforeWord.advanceWidth - 14))
     y: -wild.height - 6
 
-    Rectangle {
-      anchors.fill: parent
-      radius: Zenon.windowRadius
-      color: Zenon.alpha(Zenon.card, 0.97)
-      // full-strength hairline, as the completion menu's (CompletionMenu)
-      border.width: 1
-      border.color: Qt.rgba(Zenon.border.r, Zenon.border.g, Zenon.border.b, 0.9)
-    }
+    CardGround {}
     ListView {
       id: wildList
       // the shell's one scroll (morpheus Elastic), a few items a notch
@@ -878,7 +868,7 @@ Item {
           anchors.rightMargin: 4
           radius: Zenon.rad(3)
           visible: wi.chosen
-          color: Qt.rgba(Zenon.yellow.r, Zenon.yellow.g, Zenon.yellow.b, 0.16)
+          color: Zenon.alpha(Zenon.yellow, 0.16)
         }
         Text {
           x: 14

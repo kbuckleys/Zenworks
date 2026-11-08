@@ -367,8 +367,6 @@ Singleton {
   property real diskWrite: 0
   property int diskUsedPct: 0
   property real diskTotal: 0       // bytes
-  property real diskUsedBytes: 0
-  property string diskTip: ""
   property var diskReadHistory: []
   property var diskWriteHistory: []
   // Every local filesystem, not only "/": what parseMounts makes of df, on
@@ -545,12 +543,7 @@ Singleton {
         const avail = parseInt(f[3], 10) || 0;
         const pct = parseInt(String(f[4]).replace("%", ""), 10) || 0;
         root.diskTotal = total;
-        root.diskUsedBytes = used;
         root.diskUsedPct = pct;
-        const gib = (b) => (b / 1073741824).toFixed(1);
-        root.diskTip = "Disk: / \u2014 " + gib(used) + " GiB used of "
-          + gib(total) + " GiB\nFree: " + gib(avail) + " GiB ("
-          + pct + "% used)";
       }
     }
   }

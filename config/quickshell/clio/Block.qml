@@ -381,7 +381,7 @@ Item {
         anchors.centerIn: parent
         visible: pic.status === Image.Error && !media.drawn
         text: "  missing picture"
-        color: Zenon.muted
+        color: Zenon.accentMuted
         font.family: Zenon.face
         font.weight: Zenon.weight
         font.pixelSize: Zenon.px(13)
@@ -415,7 +415,7 @@ Item {
       anchors.topMargin: 4
       x: media.x
       text: "\u{F03EB}  Sketch · double-click to draw"
-      color: Zenon.muted
+      color: Zenon.accentMuted
       font.family: Zenon.face
       font.weight: Zenon.weight
       font.pixelSize: Zenon.px(12)
@@ -459,7 +459,7 @@ Item {
           }
           Text {
             text: blk.b ? N.sizeText(blk.b.size) : ""
-            color: Zenon.muted
+            color: Zenon.accentMuted
             font.family: Zenon.face
             font.weight: Zenon.weight
             font.pixelSize: Zenon.px(12)

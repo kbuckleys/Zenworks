@@ -110,7 +110,7 @@ Item {
   // what a row's text becomes with its changed words lit: rich text, only for
   // the lines that have them — every other line is plain, and cheap
   function richOf(r) {
-    const esc = (t) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    const esc = (t) => Strings.escapeHtml(t)
       .replace(/\t/g, "    ").replace(/ /g, "&nbsp;");
     // the word's tint MIXED into the ground, not laid over it: rich text
     // takes a solid color (Zenon.hex drops alpha), and the 0.32 meant as a
@@ -161,7 +161,7 @@ Item {
         anchors.fill: parent
         visible: row.r.kind === "hunk"
         color: Zenon.wash(0.04)
-        Rectangle { width: parent.width; height: 1; color: Zenon.border }
+        Hairline { width: parent.width }
       }
       Rectangle {
         anchors.fill: parent
@@ -177,6 +177,7 @@ Item {
       }
 
       Text {
+        textFormat: Text.PlainText
         id: oldNum
         visible: row.r.kind === "line"
         x: 6
@@ -188,9 +189,11 @@ Item {
         color: Zenon.dimInk
         font.family: dv.codeFace
         font.features: { "tnum": 1 }
+        font.weight: Zenon.weight
         font.pixelSize: Zenon.px(13)
       }
       Text {
+        textFormat: Text.PlainText
         id: newNum
         visible: row.r.kind === "line"
         x: oldNum.x + list.numW + 4
@@ -202,6 +205,7 @@ Item {
         color: Zenon.dimInk
         font.family: dv.codeFace
         font.features: { "tnum": 1 }
+        font.weight: Zenon.weight
         font.pixelSize: Zenon.px(13)
       }
       Text {
@@ -215,7 +219,7 @@ Item {
         text: row.r.kind !== "line" || row.r.t === " " ? "" : row.r.t
         color: row.r.t === "+" ? Zenon.green : Zenon.red
         font.family: dv.codeFace
-        font.weight: Font.Bold
+        font.weight: Zenon.titleWeight
         font.pixelSize: Zenon.px(15)
       }
       Text {
@@ -240,9 +244,10 @@ Item {
         height: parent.height
         verticalAlignment: Text.AlignVCenter
         text: "No newline at end"
-        color: Zenon.muted
+        color: Zenon.accentMuted
         font.family: Zenon.face
         font.italic: true
+        font.weight: Zenon.weight
         font.pixelSize: Zenon.px(12)
       }
       Text {
@@ -254,7 +259,7 @@ Item {
         verticalAlignment: Text.AlignVCenter
         elide: Text.ElideRight
         text: row.r.kind !== "hunk" ? "" : row.r.text + (row.r.section ? "   ·   " + row.r.section : "")
-        color: Zenon.muted
+        color: Zenon.accentMuted
         font.family: Zenon.face
         font.weight: Zenon.weight
         font.pixelSize: Zenon.px(13)
@@ -271,7 +276,7 @@ Item {
           + (row.r.binary ? "   ·   binary" : row.r.status !== "modified" ? "   ·   " + row.r.status : "")
         color: Zenon.ink
         font.family: Zenon.face
-        font.weight: Font.Bold
+        font.weight: Zenon.titleWeight
         font.pixelSize: Zenon.px(14)
       }
     }

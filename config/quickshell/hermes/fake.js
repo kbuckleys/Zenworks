@@ -42,7 +42,7 @@ function scenario(name) {
       links: [wiredLink("networkd")], dns: ["1.1.1.1", "192.168.1.1"], wifiHw: false,
       bt: { hw: false, installed: false, running: false, controllers: -1 },
       rfkill: { wifi: null, bt: null }, vpn: [],
-      display: { backlight: [], ddcutil: false, i2c: false, hyprsunset: false, sunsetRunning: false }
+      display: { backlight: [], ddcutil: false, i2c: false, hyprsunset: false }
     },
     wifiOn: false, networks: [],
     bt: { present: false, name: "", enabled: false, discovering: false, discoverable: false },
@@ -80,7 +80,7 @@ function scenario(name) {
     { name: "Home", uuid: "u-home", type: "vpn", active: false, managed: true }
   ];
   s.probe.display = { backlight: [{ name: "intel_backlight", cur: 60, max: 100 }],
-                      ddcutil: true, i2c: true, hyprsunset: true, sunsetRunning: false };
+                      ddcutil: true, i2c: true, hyprsunset: true };
   s.ddc = [{ display: 1, bus: 4, connector: "DP-1", model: "DELL U2720Q", cur: 50, max: 100 }];
   s.bt = { present: true, name: "KRIG", enabled: n === "full", discovering: false, discoverable: false };
   s.wifiOn = n === "full";

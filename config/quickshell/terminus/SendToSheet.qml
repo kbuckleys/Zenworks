@@ -236,8 +236,11 @@ Rectangle {
       sendTo.crawling = true;
       sendToFind.running = false;
       sendToFind.asked = sendTo.query;
+      // tagged: set before the restart, `asked` let the killed run's
+      // answer through as this query's (audit 11-07)
+      sendToFind.seq++;
       sendToFind.command = ["sh", "-c",
-        Terminus.dirFindCommand(sendTo.query)];
+        "printf '@@" + sendToFind.seq + "\\0'; " + Terminus.dirFindCommand(sendTo.query)];
       sendToFind.running = true;
     }
   }
@@ -247,15 +250,17 @@ Rectangle {
     // the query it was asked: a killed run still hands in its partial
     // answer, which stayed listed under a shorter query (audit 2026-10-28d)
     property string asked: ""
+    property int seq: 0
     stdout: StdioCollector {
       id: sendToFound
       waitForEnd: true
       onStreamFinished: {
         if (sendToFind.asked !== sendTo.query) return;
+        const parts = sendToFound.text.split("\u0000");
+        if (parts.shift() !== "@@" + sendToFind.seq) return;
         sendTo.crawling = false;
         if (!sendTo.open) return;
         const out = [];
-        const parts = sendToFound.text.split("\u0000");
         for (let i = 0; i < parts.length; i++) {
           // fd ends a directory with a slash — see dirFindCommand.
           let p = parts[i];
@@ -845,12 +850,10 @@ Rectangle {
       visible: false
 
 
-      Rectangle {
+      Hairline {
         anchors.bottom: parent.bottom
         anchors.left: parent.left
         anchors.right: parent.right
-        height: 1
-        color: Zenon.border
       }
     }
 

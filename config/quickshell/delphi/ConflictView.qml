@@ -115,6 +115,7 @@ Item {
         Repeater {
           model: sameCol.folds ? sameCol.lines.slice(0, 2) : sameCol.lines
           delegate: Text {
+            textFormat: Text.PlainText
             required property var modelData
             width: sameCol.width
             elide: Text.ElideRight
@@ -125,6 +126,7 @@ Item {
           }
         }
         Text {
+          textFormat: Text.PlainText
           visible: sameCol.folds
           text: "···  " + (sameCol.lines.length - 4) + " lines the same  ···"
           color: Zenon.dimInk !== undefined ? Zenon.dimInk : Zenon.accentMuted
@@ -136,6 +138,7 @@ Item {
         Repeater {
           model: sameCol.folds ? sameCol.lines.slice(-2) : []
           delegate: Text {
+            textFormat: Text.PlainText
             required property var modelData
             width: sameCol.width
             elide: Text.ElideRight
@@ -168,11 +171,12 @@ Item {
             width: parent.width
             height: choiceRow.height
             Text {
+              textFormat: Text.PlainText
               anchors.verticalCenter: parent.verticalCenter
               text: (blk.how !== "" ? "  " : "") + "Conflict " + (blk.n + 1) + " of " + cv.count
               color: blk.how !== "" ? Zenon.green : Zenon.red
               font.family: Zenon.face
-              font.weight: Font.Bold
+              font.weight: Zenon.titleWeight
               font.pixelSize: Zenon.px(14)
             }
             Row {
@@ -236,6 +240,7 @@ Item {
                   text: side.modelData[3].map((l) => String(l).replace(/\r?\n$/, "")).join("\n")
                   color: Zenon.ink
                   font.family: cv.codeFace
+                  font.weight: Zenon.weight
                   font.pixelSize: Zenon.px(14)
                 }
               }
@@ -258,8 +263,9 @@ Item {
     height: cv.readable ? 56 : 0
     visible: cv.readable
     color: "transparent"
-    Rectangle { width: parent.width; height: 1; color: Zenon.border }
+    Hairline { width: parent.width }
     Text {
+      textFormat: Text.PlainText
       x: 16
       anchors.verticalCenter: parent.verticalCenter
       text: cv.chosen + " of " + cv.count + " chosen"

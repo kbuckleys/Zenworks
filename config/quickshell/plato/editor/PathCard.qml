@@ -58,13 +58,7 @@ Item {
   width: card.bodyW + card.pad * 2
   height: card.bodyH + card.captionH + card.pad * 2
 
-  Rectangle {
-    anchors.fill: parent
-    radius: Zenon.windowRadius
-    color: Zenon.alpha(Zenon.card, 0.97)
-    border.width: 1
-    border.color: Qt.rgba(Zenon.border.r, Zenon.border.g, Zenon.border.b, 0.9)
-  }
+  CardGround {}
   Item {
     x: card.pad
     y: card.pad

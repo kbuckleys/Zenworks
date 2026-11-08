@@ -175,8 +175,11 @@ class KeePass(Provider):
         return o["kp"]
 
     def write(self, kp):
-        """saved beside, then moved into place"""
-        d = os.path.dirname(self.path) or "."
+        """saved beside, then moved into place. Beside the REAL file: a
+        database linked into a synced directory keeps its link (os.replace on
+        the link swapped it for a local copy the sync never saw, audit 11-08)"""
+        real = os.path.realpath(self.path)
+        d = os.path.dirname(real) or "."
         fd, tmp = tempfile.mkstemp(prefix=".calypso-", suffix=".kdbx", dir=d)
         os.close(fd)
         try:
@@ -185,16 +188,26 @@ class KeePass(Provider):
                 os.chmod(tmp, os.stat(self.path).st_mode & 0o777)
             except OSError:
                 pass
-            os.replace(tmp, self.path)
+            os.replace(tmp, real)
         except Exception as e:
             try:
                 os.unlink(tmp)
             except OSError:
                 pass
+            # the edit was made on the cached database in place: unsaved, it
+            # must not stay on screen or ride along with the next save
+            self.forget_unsaved()
             raise VaultError("The database could not be saved: " + str(e))
         with _lock:
             if self.aid in _open:
                 _open[self.aid]["mtime"] = os.path.getmtime(self.path)
+
+    def forget_unsaved(self):
+        """the cached database back as the file has it (stale mtime makes
+        the next kp() reopen it with the kept secret and keyfile)"""
+        with _lock:
+            if self.aid in _open:
+                _open[self.aid]["mtime"] = -1
 
     def sync(self, cancel):
         self.kp()

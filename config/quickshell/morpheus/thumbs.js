@@ -92,14 +92,6 @@ const BIG = 1600;
 // mtime is the INTEGER second: `find -printf %T@` prints a fraction whose
 // digits depend on the filesystem, and two callers that disagree about the tail
 // of it disagree about every filename.
-// path | size | mtime, hashed. Size and mtime together are what makes replacing
-// a picture with a different one of the same name a different cache entry —
-// which is what lets both sides leave Qt's image cache on, since a changed file
-// is never the same URL.
-//
-// mtime is the INTEGER second: `find -printf %T@` prints a fraction whose
-// digits depend on the filesystem, and two callers that disagree about the tail
-// of it disagree about every filename.
 //
 // Written as one line per step with `;` rather than a here-document: the whole
 // script is the single-quoted argument of `sh -c`, and a here-doc inside it is
@@ -145,6 +137,11 @@ function generate(jobs, big) {
     + keyScript()
     // inside the single-quoted script: its own quotes escaped, as helper's
     + 'out=' + d.replace(/'/g, "'\\''") + '/$key' + tail + '.' + EXT + '; '
+    // ── WRITTEN BESIDE, THEN MOVED IN (audit 11-08) ───────────────
+    // every reader trusts a non-empty file under the key, so a run killed
+    // mid-write left a half picture there for good; the part file keeps
+    // the extension the writers read their format from
+    + 'tmp="${out%.*}.part$$.' + EXT + '"; '
     // ── A THUMBNAIL IN USE IS TOUCHED ──────────────────────────────
     // sweep() deletes by age, on the reasoning that anything alive gets
     // regenerated. Nothing alive ever was: an existing thumbnail was
@@ -156,13 +153,13 @@ function generate(jobs, big) {
     + 'if [ -s "$out" ]; then touch -c "$out"; else '
     + 'if [ "$0" = v ]; then '
     + 'ffmpeg -nostdin -loglevel quiet -ss 1 -i "$1" -frames:v 1 '
-    + '-vf scale=' + px + ':-1 -y "$out"; '
+    + '-vf scale=' + px + ':-1 -y "$tmp"; '
     + 'elif [ "$0" = a ]; then '
     + 'ffmpeg -nostdin -loglevel quiet -i "$1" -an -frames:v 1 '
-    + '-vf scale=' + px + ':-1 -y "$out"; '
+    + '-vf scale=' + px + ':-1 -y "$tmp"; '
     + (helper === "" ? '' :
         'elif [ "$0" = f ] || [ "$0" = d ]; then '
-        + 'python3 ' + helper.replace(/'/g, "'\\''") + ' "$0" "$1" "$out" ' + px + '; ')
+        + 'python3 ' + helper.replace(/'/g, "'\\''") + ' "$0" "$1" "$tmp" ' + px + '; ')
     + 'else '
     // ── A SOURCE WITH TRANSPARENCY IS NOT CACHED ──────────────
     // JPEG has no alpha, so it is asked first and skipped rather than
@@ -192,8 +189,8 @@ function generate(jobs, big) {
     // backgrounds, the same pixels out. Other formats ignore the hint.
     + 'magick -define jpeg:size=' + (2 * px) + 'x' + (2 * px)
     + ' "$1"[0] -auto-orient -thumbnail ' + px + 'x' + px
-    + ' -strip -quality ' + QUALITY + ' "$out"; '
-    + 'fi; fi; '
+    + ' -strip -quality ' + QUALITY + ' "$tmp"; '
+    + 'fi; [ -s "$tmp" ] && mv -f "$tmp" "$out"; rm -f "$tmp"; fi; '
     + 'test -s "$out" && printf "%s\t%s\n" "$1" "$out"'
     + "' 2>/dev/null";
 }
@@ -273,6 +270,6 @@ function sweep(days) {
   // those files are now unreachable — nothing will ever regenerate one,
   // so without this they would sit there being 133MB forever.
   return "find " + Strings.shellQuote(dir())
-    + " -maxdepth 1 -type f \\( -name '*." + EXT + "' -o -name '*.png' \\)"
+    + " -maxdepth 1 -type f \\( -name '*." + EXT + "' -o -name '*.png' -o -name '*.none' \\)"
     + " -mtime +" + d + " -delete 2>/dev/null";
 }

@@ -186,17 +186,9 @@ Rectangle {
 
   InputShield { keepTop: term.tabStripRef.height + term.crumbBarRef.height; onClicked: marks.dismiss() }
 
-  Sheet {
-    // clear: the listing is cut away under it (see sheetHole)
-    ground: "transparent"
-    backdrop: term.sheetBackdrop   // the listing, frosted under the card
-    seamFrost: term.sheetSeam   // the bar's frost, carried over the seam
-    splice: true
-    onCardInkChanged: term.noteSheet("s9", cardInk, drawnX, drawnW, drawnY, drawnH)
-    onDrawnXChanged: term.noteSheet("s9", cardInk, drawnX, drawnW, drawnY, drawnH)
-    onDrawnWChanged: term.noteSheet("s9", cardInk, drawnX, drawnW, drawnY, drawnH)
-    onDrawnYChanged: term.noteSheet("s9", cardInk, drawnX, drawnW, drawnY, drawnH)
-    onDrawnHChanged: term.noteSheet("s9", cardInk, drawnX, drawnW, drawnY, drawnH)
+  TermSheet {
+    host: term
+    note: "s9"
     id: marksSheet
     leftInset: term.sideRef.width
     floating: false   // hangs from the bar, which carries its title — see barTitle
@@ -252,8 +244,10 @@ Rectangle {
         height: marksSheet.rowH
 
         FlashOver { flash: marksFlash; index: markRow.index }
+        HeldRing { anchors.fill: parent; z: 5; middleOf: markMouse }
 
         MouseArea {
+          id: markMouse
           anchors.fill: parent
           enabled: !marksFlash.running
           acceptedButtons: Qt.LeftButton | Qt.MiddleButton
@@ -262,7 +256,7 @@ Rectangle {
             // Middle click removes it, the gesture the sidebar's rows and
             // the tab strip already use for "take this away".
             if (m.button === Qt.MiddleButton)
-              term.removeBookmark(markRow.modelData.path);
+              marks.drop();
             else marks.go(false);
           }
         }

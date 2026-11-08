@@ -198,7 +198,7 @@ vim.schedule(function()
   -- buffers opened while plugins were loading missed their FileType
   for _, b in ipairs(vim.api.nvim_list_bufs()) do
     if vim.api.nvim_buf_is_loaded(b) and vim.bo[b].filetype ~= "" then
-      vim.api.nvim_exec_autocmds("FileType", { buffer = b, modeline = false })
+      vim.api.nvim_exec_autocmds("FileType", { buf = b, modeline = false })
     end
   end
 end)

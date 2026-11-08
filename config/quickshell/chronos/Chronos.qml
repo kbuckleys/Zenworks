@@ -339,7 +339,23 @@ Singleton {
 
   function syncNow(fn) {
     root.calBusy = true;
-    root.calAsk(["sync"], (j) => { root.calBusy = false; root.reloadEvents(); if (fn) fn(j); });
+    root.syncOnce((j) => { root.calBusy = false; if (fn) fn(j); });
+  }
+  // one vdirsyncer run at a time: the timer's and a Sync now share it, not
+  // two at once on the one status database (audit 11-08)
+  property bool _syncing: false
+  property var _syncThen: []
+  function syncOnce(fn) {
+    if (fn) root._syncThen = root._syncThen.concat([fn]);
+    if (root._syncing) return;
+    root._syncing = true;
+    root.calAsk(["sync"], (j) => {
+      root._syncing = false;
+      const then = root._syncThen;
+      root._syncThen = [];
+      root.reloadEvents();
+      for (const f of then) f(j);
+    });
   }
 
   // khal through Ceres, then a config with one local calendar; done(ok)
@@ -352,7 +368,7 @@ Singleton {
     interval: Math.max(5, Oracle.calSyncMins) * 60000
     repeat: true
     running: root.calReady && root.calStatus.synced
-    onTriggered: root.calAsk(["sync"], () => root.reloadEvents())
+    onTriggered: root.syncOnce(null)
   }
   // the next days re-read every five minutes (an event added elsewhere)
   Timer { interval: 300000; repeat: true; running: root.calReady; onTriggered: root.reloadEvents() }

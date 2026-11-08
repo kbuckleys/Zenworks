@@ -108,6 +108,16 @@ module.exports = {
     t.eq("render round trip", back.items.join(" "), "keyboard-us pinyin mozc");
     t.eq("render layout", back.layout, "us");
     t.eq("newest language is the default", /DefaultIM=mozc/.test(O.renderImProfile("us", ["keyboard-us", "mozc"])), true);
+    // written over what is there, the configtool's own keeps
+    const OLD = "[Groups/0]\nName=Work\nDefault Layout=us\nDefaultIM=pinyin\n\n"
+      + "[Groups/0/Items/0]\nName=keyboard-us\nLayout=\n\n[Groups/0/Items/1]\nName=pinyin\nLayout=us-intl\n\n"
+      + "[Groups/1]\nName=Other\nDefault Layout=de\n\n[GroupOrder]\n0=Work\n1=Other\n";
+    const over = O.renderImProfile("us", ["keyboard-us", "pinyin", "mozc"], OLD);
+    t.eq("over the old: items", O.parseImProfile(over).items.join(" "), "keyboard-us pinyin mozc");
+    t.ok("over the old: group name kept", /\[Groups\/0\]\nName=Work/.test(over));
+    t.ok("over the old: an item's own layout kept", /Name=pinyin\nLayout=us-intl/.test(over));
+    t.ok("over the old: other groups and the order kept", /\[Groups\/1\]/.test(over) && /1=Other/.test(over));
+    t.ok("over the old: newest is the default", /DefaultIM=mozc/.test(over));
 
     t.eq("switch key read", O.parseImKey(CONFIG), "Control+space");
     t.eq("switch key default", O.parseImKey(""), O.IM_KEY_DEFAULT);

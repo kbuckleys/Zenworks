@@ -19,7 +19,7 @@ const fs = require("fs");
 const path = require("path");
 
 const SKIP_DIR = /^(oracle\/tests|oracle\/qmltests|themes|plato\/nvim)(\/|$)/;
-const SRC = /\b(title|summary|body|appName|artist|album|track|location|description|message|subject|label|name|path|text|preview|line|comment|author|desc|words|detail|content|snippet|caption|version|titleOf|killLabel|target|args|cwd|cmdline|procName|word)\b|\.h\b|modelData\[\d\]/i;
+const SRC = /\b(vendor|command|mount|fstype|gitBranch|said|question|detailLine|title|summary|body|appName|artist|album|track|location|description|message|subject|label|name|path|text|preview|line|comment|author|desc|words|detail|content|snippet|caption|version|titleOf|killLabel|target|args|cwd|cmdline|procName|word)\b|\.h\b|modelData\[\d\]/i;
 
 function walk(root, d, out) {
   for (const e of fs.readdirSync(path.join(root, d), { withFileTypes: true })) {
@@ -47,7 +47,8 @@ module.exports = {
             bad.push(f + ":" + (i + 1) + "  " + tx1[1].trim().slice(0, 70));
           continue;
         }
-        const m = /^(\s*)(Text|Label)\s*\{\s*$/.exec(lines[i]);
+        // `delegate: Text {` and the like too (audit 11-07: Delphi had 84 missed)
+        const m = /^(\s*)(?:[A-Za-z.]+:\s*)?(Text|Label)\s*\{\s*$/.exec(lines[i]);
         if (!m) continue;
         const close = new RegExp("^\\s{" + m[1].length + "}\\}");
         let j = i + 1;

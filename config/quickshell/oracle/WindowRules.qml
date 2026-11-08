@@ -148,6 +148,7 @@ Item {
               text: app.modelData.name
               color: wr.fgColor
               font.family: wr.face
+              font.weight: Zenon.weight
               font.pixelSize: Zenon.px(16)
             }
             Text {
@@ -231,6 +232,7 @@ Item {
                      + Strings.escapeHtml(ruleRow.r.title) + "”</font>" : "")
                 color: ruleRow.r.on ? wr.fgColor : wr.dimColor
                 font.family: wr.face
+                font.weight: Zenon.weight
                 font.pixelSize: Zenon.px(16)
               }
               Text {
@@ -333,6 +335,7 @@ Item {
                     text: "×"
                     color: wr.dimColor
                     font.family: wr.face
+                    font.weight: Zenon.weight
                     font.pixelSize: Zenon.px(15)
                   }
                   T.BulkField {

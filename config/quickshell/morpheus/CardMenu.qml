@@ -84,20 +84,15 @@ PanelWindow {
 
   // The label's width plus everything a row puts around it: the row's own
   // insets, an icon and its gap when there is one, the tail (tick or
-  // chevron) and its gap when there is one, and the card's padding.
-  readonly property int fitWidth: root.fit ? measure.rowsW : 0
+  // chevron) and its gap when there is one, and the card's padding —
   // measured again on every opening: icarus' root menu was seen live at the
   // width of its rows from before the shell's own entries joined them
-  // (user, 2026-10-19 — "Set backg…", "Display se…"), and the card is only
-  // ever seen open. One measure for every card (MenuFit).
-  MenuFit { id: measure; model: root.model; again: root.open }
-
-  // The width everything below uses.
-  readonly property int cardW: {
-    if (!root.fit) return root.cardWidth;
-    const cap = root.screen ? root.screen.width - root.edgeGap * 2 : 100000;
-    return Math.min(cap, Math.max(Zenon.menuMinWidth, root.fitWidth));
-  }
+  // (user, 2026-10-19 — "Set backg…", "Display se…"). One measure for every
+  // card (MenuFit), in the core.
+  //
+  // The width everything below uses: fitted, capped at the screen less the
+  // gap at each edge.
+  readonly property int cardW: core.cardW
 
   // A choice is reported, not acted on: a caller usually wants to put the
   // whole stack of menus away on one, and that is its decision rather than
@@ -106,43 +101,21 @@ PanelWindow {
 
   // What a submenu needs to place itself against a row of this one, and what
   // an owner needs to include this card in its focus grab.
-  readonly property alias card: body.card
-  function rowY(i) {
-    // the rows start just inside the 1px border (CardBody: edge to edge)
-    let y = 1;
-    for (let k = 0; k < i && k < root.model.length; ++k)
-      y += root.rowHeight(root.model[k]);
-    // where the row is NOW, in a card scrolled down its list
-    return y - body.scrollY;
-  }
+  readonly property alias card: core.card
+  // where the row is NOW, in a card scrolled down its list
+  function rowY(i) { return core.rowY(i); }
   // The same row every menu on this desktop uses, so a card opened on a
   // background and one opened on the desktop measure identically.
-  function rowHeight(m) {
-    return (m && m.isSeparator) ? Zenon.menuSepHeight : Zenon.menuRowHeight;
-  }
-
-  readonly property int contentH: {
-    let h = 2;   // the border, top and bottom: the rows run edge to edge
-    for (let i = 0; i < root.model.length; ++i) h += root.rowHeight(root.model[i]);
-    return h;
-  }
+  function rowHeight(m) { return core.rowHeight(m); }
+  readonly property int contentH: core.contentH
 
   // ── the arrival, as terminus' context menu does it ──────────────────
-  // 0 closed, 1 open. The opacity and the scale are both functions of this
-  // one number, and the card is kept alive through the fade OUT — a menu that
-  // vanishes on the frame you click it never shows you which row you clicked.
-  property real shade: 0
-  onOpenChanged: {
-    root.shade = root.open ? 1 : 0;
-    if (!root.open) root.closeBranch();
-    // on its current answer, once the card has its height (CardBody.reveal)
-    if (root.open) Qt.callLater(body.reveal);
-  }
-  Behavior on shade {
-    NumberAnimation { duration: Zenon.menuFade; easing.type: Easing.OutCubic }
-  }
+  // 0 closed, 1 open: the opacity and the scale both follow it, and the card
+  // is kept alive through the fade OUT — a menu that vanishes on the frame
+  // you click it never shows you which row you clicked (MenuCore).
+  readonly property alias shade: core.shade
 
-  visible: root.open || root.shade > 0.01
+  visible: core.showing
   focusable: false
   aboveWindows: true
   exclusionMode: ExclusionMode.Ignore
@@ -153,7 +126,7 @@ PanelWindow {
   // left at the arrival's 94%, and the bottom rows of a long menu sat outside
   // it: a click on them went through to the desktop, the focus grab took it
   // as a click away, and the menu closed without its row ever flashing.
-  mask: Region { x: body.card.x; y: body.card.y; width: body.card.width; height: body.card.height }
+  mask: Region { x: core.card.x; y: core.card.y; width: core.card.width; height: core.card.height }
   anchors { top: true; left: true }
 
   implicitWidth: root.cardW + Zenon.menuShadowPad * 2
@@ -230,29 +203,40 @@ PanelWindow {
   readonly property real cardX: root.margins.left + Zenon.menuShadowPad
   readonly property real cardY: root.margins.top + Zenon.menuShadowPad
 
-  // the card itself, shared with CardPopup
-  CardBody {
-    id: body
+  // the card itself, its fade and its branches: the same core CardPopup
+  // puts on its own surface
+  MenuCore {
+    id: core
     anchors.fill: parent
     pad: Zenon.menuShadowPad
     model: root.model
-    shade: root.shade
+    open: root.open
+    fit: root.fit
+    cardWidth: root.cardWidth
+    maxWidth: root.screen ? root.screen.width - root.edgeGap * 2 : 100000
+    activeIndex: root.activeIndex
     hinged: root.hinged
     onRight: root.onRight
     squareEdge: root.squareEdge
     // (a whole menu taller than the screen still scrolls, or its last rows
     // could not be reached)
     still: root.whole && (!root.screen || root.contentH <= root.screen.height - Zenon.menuShadowPad * 2)
-    // the branch whose card is open stays lit while the pointer is in it
-    activeIndex: root.branch >= 0 ? root.branch : root.activeIndex
-    onChosen: (i) => {
-      const r = root.model[i];
-      if (r && r.children) { root.openBranch(i); return; }
-      root.chosen(i);
+    // CardPopup's card hung off this surface at the row (a layer surface
+    // takes an xdg-popup as a window does), flipping to the left where the
+    // screen runs out
+    makeBranch: (rows, c, hingeY) => {
+      const comp = Qt.createComponent("CardPopup.qml");
+      if (comp.status !== Component.Ready) return null;
+      // as a card a CardPopup hangs off: its inset, its width, the row's depth
+      const hinge = { pad: Zenon.menuShadowPad, cardW: root.cardW };
+      return comp.createObject(root, { window: root, parentCard: hinge, hingeY: hingeY,
+                                       fit: true, cardWidth: root.cardWidth, model: rows });
     }
-    onHovered: (i) => { root.openBranch(i); root.hovered(i); }
+    onChosen: (i) => root.chosen(i)
+    onHovered: (i) => root.hovered(i)
     onUnhovered: (i) => root.unhovered(i)
     onSecondary: (i) => root.secondary(i)
+    onSubChosen: (b, i) => root.subChosen(b, i)
   }
 
   signal hovered(int index)
@@ -261,39 +245,12 @@ PanelWindow {
   property int activeIndex: -1
 
   // ── BRANCHES ──────────────────────────────────────────────────────────
-  // CardPopup's card hung off this surface at the row (a layer surface takes
-  // an xdg-popup as a window does), flipping to the left where the screen
-  // runs out. `child` is that card, for an owner's focus grab to list.
+  // A row with `children` opens CardPopup's card beside it (MenuCore's
+  // makeBranch, above). `child` is that card, for an owner's focus grab to
+  // list; a row picked in it comes out as subChosen.
   signal subChosen(int branch, int index)
-  property int branch: -1
-  property var child: null
-  function openBranch(i) {
-    const r = root.model[i];
-    if (!r || !r.children || r.enabled === false) { root.closeBranch(); return; }
-    if (root.branch === i && root.child) return;
-    root.closeBranch();
-    const c = Qt.createComponent("CardPopup.qml");
-    if (c.status !== Component.Ready) return;
-    // as a card a CardPopup hangs off: its inset, its width, the row's depth
-    const hinge = { pad: Zenon.menuShadowPad, cardW: root.cardW };
-    const k = c.createObject(root, { window: root, parentCard: hinge, hingeY: root.rowY(i) - 1,
-                                     fit: true, cardWidth: root.cardWidth, model: r.children });
-    if (!k) return;
-    root.branch = i;
-    root.child = k;
-    root.child.chosen.connect((j) => root.subChosen(i, j));
-    root.child.open = true;
-  }
-  function closeBranch() {
-    const k = root.child;
-    root.child = null;
-    root.branch = -1;
-    if (k) { k.open = false; k.destroy(); }
-  }
-  onModelChanged: {
-    if (!root.child) return;
-    const r = root.model[root.branch];
-    if (r && r.children) root.child.model = r.children;
-    else root.closeBranch();
-  }
+  readonly property alias branch: core.branch
+  readonly property alias child: core.child
+  function openBranch(i) { core.openBranch(i); }
+  function closeBranch() { core.closeBranch(); }
 }

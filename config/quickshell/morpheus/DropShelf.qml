@@ -39,11 +39,13 @@
 
 import QtQuick
 import Quickshell
+import Quickshell.Hyprland
 import Quickshell.Io
 import Quickshell.Wayland
 import "."
 import "shelf.js" as S
 import "icons.js" as Icons
+import "thumbs.js" as Thumbs
 // base64Of: picture data handed to MediaDrop as delphi's own drop does
 import "../delphi/delphi.js" as D
 // qualified: the drag card, as Cynosure's rows carry it
@@ -59,6 +61,51 @@ Item {
   property var items: []
   property int nextId: 1
   readonly property string dir: Paths.runtimeDir() + "/zenworks/shelf"
+
+  // ── A PICTURE'S ROW: THE SHELL'S OWN THUMBNAIL ──
+  // From the one pool Terminus and Picasso keep (morpheus/thumbs.js): one
+  // already made is found by a stat and an md5sum, with nothing decoded;
+  // one not made yet is made once, there, for all three. Each row used to
+  // decode the whole picture itself (user, 2026-11-08: "wasteful").
+  // path → the pool's file, or "-" when the pool keeps none (a picture
+  // that uses transparency): that row shows the picture itself, as before.
+  property var thumbOf: ({})
+  property var thumbAsked: ({})
+  onItemsChanged: Qt.callLater(shelf.askThumbs)
+  function askThumbs() {
+    if (thumbProc.running) return;
+    const want = shelf.items.filter((it) => it.kind === "image" && it.path
+      && shelf.thumbOf[it.path] === undefined && !shelf.thumbAsked[it.path]).map((it) => it.path);
+    if (want.length === 0) return;
+    const asked = Object.assign({}, shelf.thumbAsked);
+    want.forEach((p) => { asked[p] = true; });
+    shelf.thumbAsked = asked;
+    thumbProc.paths = want;
+    thumbProc.command = ["sh", "-c", Thumbs.generate(want.map((p) => ({ kind: "i", src: p })))];
+    thumbProc.running = true;
+  }
+  function thumbSource(it) {
+    if (it.kind !== "image") return "";
+    const t = shelf.thumbOf[it.path];
+    if (t === undefined) return "";
+    return Strings.fileUrl(Thumbs.isNone(t) ? it.path : t);
+  }
+  Process {
+    id: thumbProc
+    property var paths: []
+    property string said: ""
+    stdout: StdioCollector { onStreamFinished: thumbProc.said = this.text }
+    // streamFinished before exited (morpheus/process-exit order)
+    onExited: {
+      const made = Thumbs.parseMade(thumbProc.said);
+      const next = Object.assign({}, shelf.thumbOf);
+      // one the pool could not make (a broken file) shows itself, as before
+      for (const p of thumbProc.paths) next[p] = made[p] || Thumbs.none();
+      shelf.thumbOf = next;
+      thumbProc.said = "";
+      Qt.callLater(shelf.askThumbs);
+    }
+  }
 
   // out, and on which screen; `pinned` when asked for (Cynosure, ipc) rather
   // than reached by the pointer: it waits for the pointer to come and go
@@ -79,7 +126,10 @@ Item {
 
   function open(scr, byPointer) {
     if (!shelf.on) return;
-    shelf.screen = scr || Quickshell.screens[0] || null;
+    // no screen said (IPC): the one you are on
+    const mon = Hyprland.focusedMonitor;
+    const here = mon ? Quickshell.screens.find((x) => x.name === mon.name) : null;
+    shelf.screen = scr || here || Quickshell.screens[0] || null;
     shelf.pinned = !byPointer;
     if (!shelf.shown) { shelf.shown = true; shelf.recheck(); }
     hide.stop();
@@ -385,6 +435,7 @@ Item {
             textFormat: Text.PlainText
             color: Zenon.accent
             font.family: Zenon.face
+            font.weight: Zenon.weight
             font.pixelSize: Zenon.px(18)
           }
           Text {
@@ -523,7 +574,7 @@ Item {
             target: null
             onActiveChanged: if (active)
               shelf.offer(dragCard, row, [row.modelData], row.modelData.name, pic.glyph,
-                          row.modelData.kind === "image" ? Strings.fileUrl(row.modelData.path) : "")
+                          shelf.thumbSource(row.modelData) || (row.modelData.kind === "image" ? Strings.fileUrl(row.modelData.path) : ""))
           }
 
           Item {
@@ -539,7 +590,7 @@ Item {
               id: thumb
               anchors.fill: parent
               visible: row.modelData.kind === "image" && thumb.status === Image.Ready
-              source: row.modelData.kind === "image" ? Strings.fileUrl(row.modelData.path) : ""
+              source: shelf.thumbSource(row.modelData)
               sourceSize.width: 96
               sourceSize.height: 96
               fillMode: Image.PreserveAspectCrop
@@ -552,6 +603,7 @@ Item {
               textFormat: Text.PlainText
               color: row.modelData.kind === "text" ? Zenon.soft : Zenon.accent
               font.family: Zenon.face
+              font.weight: Zenon.weight
               font.pixelSize: Zenon.px(22)
             }
           }

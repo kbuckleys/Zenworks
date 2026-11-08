@@ -134,7 +134,6 @@ Rectangle {
   // The one open dropdown, held as a REFERENCE rather than a name: opening a
   // second while the first is up would leave two lists over each other, and
   // a null here is also how a click anywhere else puts the open one away.
-  property var bulkOpenDrop: null
   property string addWhere: "after"   // before | after
   property string fmtKind: "index"    // index | counter | date
   property string fmtWhere: "after"   // before | after
@@ -220,7 +219,7 @@ Rectangle {
   }
 
   function commit() {
-    const pairs = Terminus.bulkPairs(bulk.names, bulk.edits);
+    const pairs = Terminus.bulkPairs(bulk.names, bulk.edits, bulk.dirs);
     // Refused rather than half-applied — see bulkIssues for the rules. The
     // card disables its own button on the same test, so getting here with a
     // null means something changed underneath it.
@@ -230,7 +229,7 @@ Rectangle {
     if (pairs.length === 0) { bulk.renamed([]); return; }
     const moves = [];
     for (let i = 0; i < bulk.paths.length; ++i) {
-      const to = String(bulk.edits[i]).trim();
+      const to = Terminus.bulkTarget(bulk.names[i], bulk.edits[i]);
       if (to === bulk.names[i]) continue;
       const from = bulk.paths[i];
       moves.push([from, Terminus.joinPath(Terminus.dirname(from), to)]);
@@ -255,12 +254,17 @@ Rectangle {
   // not change — tabbing out of the pattern fields and back into the row
   // it was already on has nothing to change but still has to move the
   // caret. A counter, for the reason openPulse is one.
+  // what the card opens in: format's second stop is a switch, not a field
+  function firstField() { return bulk.mode === "format" ? fmtField : bulk.ring()[1]; }
   property int atPulse: 0
+  readonly property var dirs: bulk.paths.map((p) => Terminus.dirname(p))
 
   function focusRow(i) {
     const n = bulk.names.length;
     if (n === 0) return;
     bulk.at = Math.max(0, Math.min(n - 1, i));
+    // brought on screen first: past the cache there is no row to take the keys
+    bulkList.positionViewAtIndex(bulk.at, ListView.Contain);
     bulk.atPulse++;
   }
 
@@ -324,7 +328,7 @@ Rectangle {
   // What is wrong with each proposed name, from the same function the
   // commit gate reads — see Terminus.bulkIssues.
   readonly property var issues:
-    Terminus.bulkIssues(bulk.names, bulk.edits)
+    Terminus.bulkIssues(bulk.names, bulk.edits, bulk.dirs)
   readonly property bool sound: {
     for (let i = 0; i < bulk.issues.length; ++i)
       if (bulk.issues[i] !== "") return false;
@@ -343,17 +347,13 @@ Rectangle {
   }
 
   onOpenChanged: {
-    // Whatever was hanging open when the card went away does not come
-    // back with it.
-    bulk.bulkOpenDrop = null;
     if (!bulk.open) return;
     bulk.at = 0;
     findField.text = "";
     replField.text = "";
     addField.text = "";
     fmtField.text = "";
-    bulkClaim.tries = 0;
-    bulkClaim.restart();
+    bulkClaim.begin();
   }
 
   // Switching mode moves the caret with it. The field you are looking at
@@ -362,8 +362,7 @@ Rectangle {
     target: bulk
     function onModeChanged() {
       if (!bulk.open) return;
-      bulkClaim.tries = 0;
-      bulkClaim.restart();
+      bulkClaim.begin();
     }
   }
 
@@ -371,17 +370,13 @@ Rectangle {
   // first request goes out, and forceActiveFocus() on an item the scene
   // has not placed yet is silently dropped — the same trap the rename
   // field and the create prompt both carry a retry for.
-  Timer {
+  FocusRetry {
     id: bulkClaim
     interval: 40
-    repeat: true
-    property int tries: 0
-    onTriggered: {
-      if (!bulk.open || bulk.ring()[1].focused
-          || bulkClaim.tries++ > 12) {
-        bulkClaim.stop();
-        return;
-      }
+    checkFirst: true
+    live: bulk.open
+    took: bulk.firstField().focused
+    onPlace: {
       bulkKeys.forceActiveFocus();
       // AND THE FIND FIELD WITHIN IT. It used to be the first name row,
       // on the reasoning that a row is where you would start typing —
@@ -392,7 +387,7 @@ Rectangle {
       // The mode's first FIELD, not the mode switch above it (a Segments
       // since 2026-10-13): letters typed into a switch go nowhere, and
       // the switch is one Shift-Tab away.
-      bulk.ring()[1].claim();
+      bulk.firstField().claim();
     }
   }
 
@@ -732,10 +727,8 @@ Rectangle {
           }
         }
 
-        Rectangle {
+        Hairline {
           width: parent.width
-          height: 1
-          color: Zenon.border
         }
 
         // ── the two columns ───────────────────────────────────
@@ -824,7 +817,7 @@ Rectangle {
               Rectangle {
                 anchors.fill: parent
                 color: bulkRow.issue !== ""
-                  ? Qt.rgba(Zenon.red.r, Zenon.red.g, Zenon.red.b, 0.10)
+                  ? Zenon.alpha(Zenon.red, 0.10)
                   : "transparent"
               }
 
@@ -843,6 +836,7 @@ Rectangle {
               }
 
               Text {
+                textFormat: Text.PlainText
                 id: wasName
                 x: 46
                 width: (parent.width - 60) * 0.42
@@ -872,7 +866,7 @@ Rectangle {
                 selectionColor: Zenon.selBg
                 selectedTextColor: Zenon.white
                 font.family: Zenon.face
-                font.weight: bulkRow.moved ? Font.Bold : Font.Medium
+                font.weight: bulkRow.moved ? Zenon.titleWeight : Zenon.weight
                 font.pixelSize: Zenon.px(14)
                 clip: true
 
@@ -923,7 +917,9 @@ Rectangle {
                   }
                 }
                 Component.onCompleted: {
-                  if (bulk.at !== bulkRow.index) return;
+                  // scrolled back into view while the keys are in a field up
+                  // top: they stay there
+                  if (bulk.at !== bulkRow.index || bulk.ring().some((f) => f.focused)) return;
                   toName.forceActiveFocus();
                   const st = Terminus.stem(toName.text);
                   toName.select(0, st.length > 0 ? st.length : toName.text.length);
@@ -967,10 +963,8 @@ Rectangle {
           }
         }
 
-        Rectangle {
+        Hairline {
           width: parent.width
-          height: 1
-          color: Zenon.border
         }
 
         // ── what it will do, and the two answers ──────────────
@@ -1021,14 +1015,4 @@ Rectangle {
   // ── where the dropdowns' lists go ─────────────────────────────────────
   // Over the card; a click anywhere off an open list puts it away. Declared
   // last, so it is above the rows it hangs over.
-  Item {
-    id: dropLayer
-    anchors.fill: parent
-    z: 30
-    MouseArea {
-      anchors.fill: parent
-      enabled: bulk.bulkOpenDrop !== null
-      onClicked: bulk.bulkOpenDrop = null
-    }
-  }
 }

@@ -55,7 +55,11 @@ function normalize(typed) {
 function parse(uri) {
   const m = /^([a-z][a-z0-9+.-]*):\/\/(?:([^@/]*)@)?(\[[^\]]+\]|[^:/]+)(?::(\d+))?(\/.*)?$/i.exec(String(uri || ""));
   if (!m) return null;
-  return { scheme: m[1].toLowerCase(), user: decodeURIComponent(m[2] || ""), host: m[3],
+  let user = m[2] || "";
+  // a bare % in a typed user name is not an escape, and a throw here would
+  // take the sidebar's whole Network section with it
+  try { user = decodeURIComponent(user); } catch (e) {}
+  return { scheme: m[1].toLowerCase(), user: user, host: m[3],
            port: m[4] ? Number(m[4]) : 0, path: m[5] || "" };
 }
 
@@ -114,7 +118,7 @@ function rows(places, mounts) {
   for (const p of places) {
     let path = "";
     for (let i = 0; i < mounts.length; ++i)
-      if (sameUri(p.uri, mounts[i].uri) || (mounts[i].path !== "" && sameUri(p.uri, mounts[i].uri.replace(/\/$/, "")))) {
+      if (sameUri(p.uri, mounts[i].uri)) {
         path = mounts[i].path; used[i] = true; break;
       }
     out.push({ uri: p.uri, name: p.name, user: p.user, domain: p.domain, saved: true, path: path });

@@ -147,7 +147,8 @@ Item {
     const e = (ext && ext !== "") ? ext : ".tar.zst";
     const name = (rows.length === 1 ? Terminus.stem(rows[0].name)
                                     : Terminus.basename(term.cwd)) + e;
-    term.archivePending = { paths: rows.map((r) => r.path), name: name };
+    term.archivePending = { paths: rows.map((r) => r.path), name: name, dir: term.cwd };
+    archiveClashProc.superseded = archiveClashProc.running;
     archiveClashProc.command = ["sh", "-c",
       Terminus.archiveTargetCommand(term.cwd, name, e)];
     archiveClashProc.running = true;
@@ -157,10 +158,13 @@ Item {
   // between archiving and losing the archive that was already there.
   Process {
     id: archiveClashProc
+    // asked again mid-scan: see conflictProc
+    property bool superseded: false
     stdout: StdioCollector {
       id: archiveClashOut
       waitForEnd: true
       onStreamFinished: {
+        if (archiveClashProc.superseded) { archiveClashProc.superseded = false; return; }
         const a = term.archivePending;
         if (!a) return;
         // Empty means the name is free. Otherwise: the name that is taken,
@@ -185,7 +189,7 @@ Item {
     const a = term.archivePending;
     if (!a) return;
     term.archivePending = null;
-    term.startJob("archive", a.paths, Terminus.joinPath(term.cwd, name), "");
+    term.startJob("archive", a.paths, Terminus.joinPath(a.dir, name), "");
     term.act.marked = {};
   }
   // Paste, but leaving the file where it is. Uses the same yank buffer as a
@@ -205,15 +209,27 @@ Item {
   function rotateLook(degrees) {
     const r = term.currentRow();
     if (!r || r.isDir || !Terminus.isImage(r.name)) return;
-    rotateProc.path = r.path;
-    rotateProc.command = ["sh", "-c", Terminus.rotateCommand(r.path, degrees)];
-    rotateProc.running = true;
+    // one at a time, in order: a second press while one ran overwrote
+    // `path`, so the first exit cleared the second picture's thumbnail and
+    // its own stayed stale (audit 2026-11-07)
+    rotateProc.queue = rotateProc.queue.concat([{ path: r.path, cmd: Terminus.rotateCommand(r.path, degrees) }]);
     term.status = "Rotating\u2026";
+    if (!rotateProc.running) rotateProc.next();
   }
   Process {
     id: rotateProc
     property string path: ""
+    property var queue: []
+    function next() {
+      if (rotateProc.queue.length === 0) return;
+      const job = rotateProc.queue[0];
+      rotateProc.queue = rotateProc.queue.slice(1);
+      rotateProc.path = job.path;
+      rotateProc.command = ["sh", "-c", job.cmd];
+      rotateProc.running = true;
+    }
     onExited: (code) => {
+      Qt.callLater(rotateProc.next);
       if (code !== 0) { term.status = "Rotate failed"; return; }
       // The thumbnail is now a picture of the old orientation, and every
       // view that shows one reads it from this map — so it goes, and the
@@ -332,13 +348,7 @@ Item {
     // the card had no name for an id no longer listed and printed the
     // raw "firefox.desktop", and a double click went on opening it. The
     // next one on the list becomes the default in the same command.
-    let cmd = Terminus.removeAppCommand(id, term.openWithMime);
-    if (id === term.openWithDefault) {
-      const next = term.openWithApps.find((a) => a.id !== id);
-      if (next) cmd = "{ " + cmd + "; } && "
-        + Terminus.setDefaultAppCommand(next.id, term.openWithMime);
-    }
-    term.run(cmd);
+    term.run(Terminus.removeHandlerCommand(id, term.openWithMime, term.openWithDefault, term.openWithApps));
     term.status = "Handler removed";
     rescanTick.restart();
   }

@@ -52,11 +52,14 @@ Singleton {
           const main = kbs.find((k) => k.main) || kbs[0];
           root.on = !!(main && main.capsLock);
         } catch (e) {}
-        if (root.again) {
-          root.again = false;
-          root.read();
-        }
       }
+    }
+    // not from streamFinished: that comes first, with this still running, and
+    // read() would only have set `again` once more
+    onExited: {
+      if (!root.again) return;
+      root.again = false;
+      root.read();
     }
   }
 }

@@ -30,6 +30,7 @@ import "../morpheus/lagnotes.js" as LagNotes
 import "../ceres"
 import "../cynosure/lexi/lexi.js" as Lexicon
 import "minerva.js" as M
+import "../morpheus/runjob.js" as RunJob
 
 Scope {
   id: mgr
@@ -185,26 +186,26 @@ Scope {
     mgr.ask(["python3", "-I", Quickshell.shellDir + "/minerva/core/books.py", "comic", path,
              mgr.cacheDir + "/comic/" + Qt.md5(path)], fn);
   }
-  // each run's own callback, in order asked, and only the newest answered:
-  // one asked mid-run is queued, and the old run's hits came back labeled
-  // with the new words (audit 10-31)
+  // only the newest find answered (RunJob, audit 11-08): a find asked
+  // mid-run used to set running on a busy Process — never started, and the
+  // callback list never emptied again, so no find answered after it
   function findInBook(dir, words, fn) {
-    findProc.fns = findProc.fns.concat([fn]);
-    findProc.command = ["python3", "-I", Quickshell.shellDir + "/minerva/core/epub.py", "find", dir, words];
-    findProc.running = true;
+    RunJob.latest(findProc, { fn: fn,
+      command: ["python3", "-I", Quickshell.shellDir + "/minerva/core/epub.py", "find", dir, words] });
   }
   Process {
     id: findProc
-    property var fns: []
+    property var job: null
+    property var want: null
+    onExited: RunJob.next(findProc)
     stdout: StdioCollector {
       id: findOut
       waitForEnd: true
       onStreamFinished: {
+        if (!RunJob.current(findProc)) return;
         let j = [];
         try { j = JSON.parse(findOut.text); } catch (e) {}
-        const fn = findProc.fns.length > 0 ? findProc.fns[0] : null;
-        findProc.fns = findProc.fns.slice(1);
-        if (fn && findProc.fns.length === 0) fn(Array.isArray(j) ? j : []);
+        if (findProc.job.fn) findProc.job.fn(Array.isArray(j) ? j : []);
       }
     }
   }

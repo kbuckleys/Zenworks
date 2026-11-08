@@ -227,7 +227,7 @@ PlatoSheet {
           textFormat: Text.PlainText
           font.family: Zenon.face
           font.pixelSize: Zenon.px(14)
-          font.weight: Font.DemiBold
+          font.weight: Zenon.titleWeight
           font.letterSpacing: 1.1
           color: Zenon.accentKey
           text: String(row.modelData.label || "").toUpperCase()
@@ -260,34 +260,12 @@ PlatoSheet {
             : row.gi === sheet.sel ? Zenon.white : Zenon.alpha(Zenon.ink, 0.9)
           text: row.spec ? row.spec.label : ""
         }
-        Item {
+        RestoreChip {
           visible: row.changed
           anchors.verticalCenter: parent.verticalCenter
-          width: restoreGlyph.implicitWidth + 8
           height: rowName.height
-          Rectangle {
-            anchors.centerIn: parent
-            width: parent.width + 4
-            height: parent.width + 4
-            radius: Zenon.windowRadius
-            color: restoreMa.pressed ? Zenon.pressWash(0.14) : Zenon.wash(0)
-          }
-          Text {
-            id: restoreGlyph
-            anchors.centerIn: parent
-            text: "\uE612"
-            color: restoreMa.pressed ? Zenon.ink : Zenon.yellow
-            font.family: Zenon.glyphMono
-            font.weight: Zenon.weight
-            font.pixelSize: Zenon.px(15)
-          }
-          MouseArea {
-            id: restoreMa
-            anchors.fill: parent
-            anchors.margins: -3
-            hoverEnabled: true
-            onClicked: { if (row.spec) sheet.settings.reset(row.spec.key); query.forceActiveFocus(); }
-          }
+          ink: Zenon.yellow
+          onClicked: { if (row.spec) sheet.settings.reset(row.spec.key); query.forceActiveFocus(); }
         }
       }
 
@@ -427,7 +405,7 @@ PlatoSheet {
       font.weight: Zenon.weight
       font.pixelSize: Zenon.px(15)
       color: Zenon.white
-      selectionColor: Qt.rgba(Zenon.magenta.r, Zenon.magenta.g, Zenon.magenta.b, 0.5)
+      selectionColor: Zenon.selBg
       cursorDelegate: Caret { field: textField }
       clip: true
       Keys.onReturnPressed: sheet.endEdit(true)
@@ -505,7 +483,7 @@ PlatoSheet {
       width: 66
       horizontalAlignment: Text.AlignRight
       font.family: Zenon.face
-      font.weight: Font.Medium
+      font.weight: Zenon.weight
       font.pixelSize: Zenon.px(16)
       color: Zenon.white
       text: sl.spec ? Ora.display(sl.spec, sl.value) : ""
@@ -569,7 +547,7 @@ PlatoSheet {
       horizontalAlignment: Text.AlignHCenter
       elide: Text.ElideRight
       font.family: Zenon.face
-      font.weight: Font.Medium
+      font.weight: Zenon.weight
       font.pixelSize: Zenon.px(15)
       color: Zenon.white
       text: chip.shown
@@ -644,7 +622,7 @@ PlatoSheet {
         anchors.verticalCenter: parent.verticalCenter
         elide: Text.ElideRight
         font.family: Zenon.face
-        font.weight: Font.Medium
+        font.weight: Zenon.weight
         font.pixelSize: Zenon.px(15)
         color: Zenon.white
         text: cc.spec ? Ora.display(cc.spec, cc.value) : ""

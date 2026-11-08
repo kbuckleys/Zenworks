@@ -23,7 +23,6 @@
 //   field, grid     for focus and positionViewAtIndex
 
 import QtQuick
-import "../terminus" as Term   // qualified, for HeldRing alone
 import "../alexandria/alexandria.js" as A
 
 Item {
@@ -57,89 +56,41 @@ Item {
   onVisibleChanged: if (gg.visible) Qt.callLater(() => gg.show(gg.sel))
 
   // the search over names and codepoints
-  Rectangle {
-    id: glyphSearch
+  SearchBox {
+    id: glyphField
     anchors.left: parent.left
     anchors.right: parent.right
     anchors.top: parent.top
     anchors.margins: gg.edge
-    height: 34
-    radius: Zenon.windowRadius
-    color: Zenon.wash(0.06)
-    border.width: 1
-    border.color: Zenon.border
-    Text {
-      id: glyphLens
-      anchors.left: parent.left
-      anchors.leftMargin: 13
-      anchors.verticalCenter: parent.verticalCenter
-      text: ""
-      color: Zenon.accentMuted
-      font.family: Zenon.glyphFace
-      font.pixelSize: Zenon.px(13)
+    ghost: gg.placeholder
+    trailRoom: glyphCount.width + 10
+    Component.onCompleted: glyphField.text = gg.query
+    // set, not bound: the × and the text would each have broken a binding
+    Connections {
+      target: gg
+      function onQueryChanged() { if (glyphField.text !== gg.query) glyphField.text = gg.query; }
     }
-    TextInput {
-      id: glyphField
-      // the shell's breathing caret, as every field wears
-      cursorDelegate: Caret { field: glyphField }
-      anchors.left: glyphLens.right
-      anchors.leftMargin: 9
-      anchors.right: glyphCount.left
-      anchors.rightMargin: 10
-      anchors.verticalCenter: parent.verticalCenter
-      text: gg.query
-      onTextChanged: if (gg.query !== text) gg.query = text
-      color: Zenon.ink
-      selectionColor: Zenon.alpha(Zenon.accent, 0.4)
-      font.family: Zenon.face
-      font.weight: Zenon.weight
-      font.pixelSize: Zenon.px(15)
-      clip: true
-      Keys.onPressed: (e) => { if (gg.navKey && gg.navKey(e)) e.accepted = true; }
-      Text {
-        textFormat: Text.PlainText
-        visible: glyphField.text === ""
-        anchors.verticalCenter: parent.verticalCenter
-        text: gg.placeholder
-        color: Zenon.accentMuted
-        font: glyphField.font
-        elide: Text.ElideRight
-        width: glyphField.width
-      }
-    }
+    onTextChanged: if (gg.query !== text) gg.query = text
+    keyHook: (e) => { if (gg.navKey && gg.navKey(e)) e.accepted = true; }
     Text {
       id: glyphCount
-      anchors.right: glyphClear.visible ? glyphClear.left : parent.right
-      anchors.rightMargin: glyphClear.visible ? 10 : 14
+      anchors.right: parent.right
+      anchors.rightMargin: glyphField.chipRoom
       anchors.verticalCenter: parent.verticalCenter
-      text: gg.index.count === gg.total ? gg.total + " glyphs"
-        : gg.index.count + " of " + gg.total
+      text: gg.index.count === gg.total ? gg.total + " glyphs" : gg.index.count + " of " + gg.total
       color: Zenon.accentMuted
       font.family: Zenon.face
       font.weight: Zenon.weight
       font.features: { "tnum": 1 }
       font.pixelSize: Zenon.px(12)
     }
-    ClearChip {
-      id: glyphClear
-      size: Zenon.px(15)
-      shown: glyphField.text !== ""
-      anchors.right: parent.right
-      anchors.rightMargin: 9
-      anchors.verticalCenter: parent.verticalCenter
-      // the query, not the field: assigning text broke `text: gg.query`
-      onClicked: { gg.query = ""; glyphField.forceActiveFocus(); }
-    }
-    // focused for typing: terminus' held ring (user, 2026-10-11 — every
-    // text field wears it, its own border staying neutral)
-    Term.HeldRing { anchors.fill: parent; radius: parent.radius; z: 10; on: glyphField.activeFocus }
   }
 
   GridView {
     id: glyphGrid
     anchors.left: parent.left
     anchors.right: parent.right
-    anchors.top: glyphSearch.bottom
+    anchors.top: glyphField.bottom
     anchors.bottom: parent.bottom
     anchors.topMargin: 10
     clip: true
@@ -169,7 +120,7 @@ Item {
         anchors.fill: parent
         anchors.margins: 3
         radius: Zenon.windowRadius
-        color: gcell.here ? gg.hiFill : gMa.pressed ? Zenon.wash(0.06) : Zenon.wash(0.02)
+        color: gcell.here ? gg.hiFill : gMa.pressed ? Zenon.pressWash(0.12) : Zenon.wash(0.02)
         border.width: gcell.here ? 1 : 0
         border.color: Zenon.alpha(Zenon.accent, 0.7)
       }
@@ -183,6 +134,7 @@ Item {
         color: Zenon.ink
         font.family: gg.family
         font.styleName: gg.styleName
+        font.weight: Zenon.weight
         font.pixelSize: Math.round(gg.cell * 0.52)
       }
       Text {

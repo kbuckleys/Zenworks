@@ -70,10 +70,10 @@ Row {
         horizontalAlignment: TextInput.AlignRight
         text: String(tools.at + 1)
         color: Zenon.ink
-        selectionColor: Zenon.accent
-        selectedTextColor: Zenon.inkOnAccent
+        selectionColor: Zenon.selBg
+        selectedTextColor: Zenon.white
         font.family: Zenon.face
-        font.weight: Font.Bold
+        font.weight: Zenon.titleWeight
         font.pixelSize: Zenon.px(14)
         validator: IntValidator { bottom: 1; top: Math.max(1, tools.count) }
         cursorDelegate: Caret { field: placeField }

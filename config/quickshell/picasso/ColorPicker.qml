@@ -187,7 +187,7 @@ Item {
       width: 110
       height: picker.rowH
       radius: Zenon.windowRadius
-      color: Zenon.wash(0.05)
+      color: Zenon.wash(0.06)
       border.width: 1
       border.color: Zenon.border
 
@@ -202,7 +202,7 @@ Item {
         // replaced stopped following the drags after the first Return
         Component.onCompleted: field.text = picker.shown
         color: Zenon.white
-        selectionColor: Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.4)
+        selectionColor: Zenon.alpha(Zenon.accent, 0.4)
         font.family: Zenon.face
         font.weight: Zenon.weight
         font.pixelSize: picker.textSize

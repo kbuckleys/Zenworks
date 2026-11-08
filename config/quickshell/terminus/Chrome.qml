@@ -19,8 +19,6 @@ Column {
   // the terminus window (`term`, never `root` — see terminus-split notes)
   property var term: null
   readonly property alias gridA: gridA
-  readonly property alias searchBar: searchBar
-  readonly property alias liveField: liveField
   function liveSearch() { liveInline.begin(); }
   readonly property alias jobsToggle: jobsToggle
   readonly property alias gridB: gridB
@@ -37,14 +35,11 @@ Column {
   readonly property alias colA: colA
   readonly property alias colB: colB
   readonly property alias colC: colC
-  readonly property alias colHeads: colHeads
   readonly property alias crumbBar: crumbBar
   readonly property alias dropHint: dropHint
-  readonly property alias facts: facts
   readonly property alias filterField: filterField
   readonly property alias miller: miller
   readonly property alias millerBox: millerBox
-  readonly property alias previewBody: previewBody
   readonly property alias portalBar: portalBar
   readonly property alias crumbSegs: crumbSegs
   readonly property alias previewPane: previewPane
@@ -55,6 +50,31 @@ Column {
   readonly property alias textScroll: textScroll
   anchors.fill: parent
   // Beside the sidebar rather than over it — see `side`.
+
+  // ── THE BAR'S TWO FIELDS: the inline filter and search as you type ──
+  // the same lens before them and the same accent words (2026-11-08)
+  component BarLens: Text {
+    anchors.verticalCenter: parent.verticalCenter
+    text: "\uF002"
+    color: Zenon.accent
+    font.family: Zenon.face
+    font.weight: Zenon.weight
+    font.pixelSize: Zenon.px(15)
+  }
+  component BarField: TextInput {
+    id: barField
+    anchors.verticalCenter: parent.verticalCenter
+    // the caret the field's OWN, as the search bar's: a second one drawn at
+    // contentWidth is in the wrong place once the caret is not at the end
+    cursorDelegate: Caret { field: barField }
+    color: Zenon.accent
+    selectionColor: Zenon.selBg
+    selectedTextColor: Zenon.white
+    font.family: Zenon.face
+    font.weight: Zenon.weight
+    font.pixelSize: Zenon.px(17)
+    clip: true
+  }
   anchors.leftMargin: side.width
 
   // ── tabs ──────────────────────────────────────────────────────
@@ -197,7 +217,7 @@ Column {
       y: 2
       height: tabStrip.height - 4
       radius: Zenon.windowRadius
-      color: Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.10)
+      color: Zenon.alpha(Zenon.accent, 0.10)
       border.width: 1
       border.color: Zenon.accent
       Behavior on x { NumberAnimation { duration: Zenon.fast; easing.type: Zenon.ease } }
@@ -542,6 +562,7 @@ Column {
                               searchChip.ink.b, 0.32)
 
         Text {
+          textFormat: Text.PlainText
           id: chipText
           anchors.centerIn: parent
           // THE MARK OF THE THING IT IS SHOWING. A magnifier was right
@@ -689,26 +710,11 @@ Column {
       visible: term.query !== "" || filterField.activeFocus
       opacity: crumbBar.chromeInk
 
-      Text {
-        anchors.verticalCenter: parent.verticalCenter
-        text: "\uF002"
-        color: Zenon.accent
-        font.family: Zenon.face
-        font.weight: Zenon.weight
-        font.pixelSize: Zenon.px(15)
-      }
+      BarLens {}
 
-      TextInput {
+      BarField {
         id: filterField
-        anchors.verticalCenter: parent.verticalCenter
         width: Math.max(8, Math.min(260, contentWidth + 2))
-        color: Zenon.accent
-        selectionColor: Zenon.accent
-        selectedTextColor: Zenon.inkOnAccent
-        font.family: Zenon.face
-        font.weight: Zenon.weight
-        font.pixelSize: Zenon.px(17)
-        clip: true
         // Only a CHANGED query moves the cursor to the top. Switching panes
         // writes the arriving pane's own query into this field, and that
         // reset its cursor to row 0 every time you crossed over.
@@ -727,14 +733,13 @@ Column {
           e.accepted = true;
           term.contentRef.forceActiveFocus();
         }
+        Keys.onEnterPressed: (e) => {
+          e.accepted = true;
+          term.contentRef.forceActiveFocus();
+        }
         Keys.onUpPressed: (e) => { e.accepted = true; term.moveSel(-1); }
         Keys.onDownPressed: (e) => { e.accepted = true; term.moveSel(1); }
 
-        // The caret, since a bare TextInput on a bar has no frame to say
-        // where the keyboard is — and the field's OWN, for the reason the
-        // search bar's carries: a second one drawn at contentWidth is in
-        // the wrong place as soon as the caret is not at the end.
-        cursorDelegate: Caret { field: filterField }
       }
       // the filter cleared in one press, as Esc does (terminus/ClearChip)
       ClearChip {
@@ -802,30 +807,17 @@ Column {
 
       Timer { id: liveTyped; interval: 160; onTriggered: liveInline.run() }
 
-      Text {
-        anchors.verticalCenter: parent.verticalCenter
-        text: "\uF002"
-        color: Zenon.accent
-        font.family: Zenon.face
-        font.weight: Zenon.weight
-        font.pixelSize: Zenon.px(15)
-      }
+      BarLens {}
 
-      TextInput {
+      BarField {
         id: liveField
-        anchors.verticalCenter: parent.verticalCenter
         width: Math.max(120, Math.min(260, contentWidth + 2))
-        color: Zenon.accent
-        selectionColor: Zenon.accent
-        selectedTextColor: Zenon.inkOnAccent
-        font.family: Zenon.face
-        font.weight: Zenon.weight
-        font.pixelSize: Zenon.px(17)
-        clip: true
         onTextChanged: if (activeFocus) liveTyped.restart()
         onActiveFocusChanged: if (!activeFocus && text.trim() === "") liveInline.open = false
         Keys.onEscapePressed: (e) => { e.accepted = true; liveInline.leave(true); }
-        Keys.onReturnPressed: (e) => {
+        Keys.onReturnPressed: (e) => liveField.finish(e)
+        Keys.onEnterPressed: (e) => liveField.finish(e)
+        function finish(e) {
           e.accepted = true;
           liveTyped.stop();
           liveInline.run();
@@ -841,7 +833,6 @@ Column {
           color: Zenon.accentMuted
           font: liveField.font
         }
-        cursorDelegate: Caret { field: liveField }
       }
 
       ClearChip {
@@ -1086,6 +1077,7 @@ Column {
       // cannot carry. Silent outside a repository — the mode being on is
       // not a promise that there is a repository to report on.
       Text {
+        textFormat: Text.PlainText
         anchors.verticalCenter: parent.verticalCenter
         visible: term.git && term.gitBranch !== ""
         text: "\uE725  " + term.gitBranch   // nf-dev-git_branch
@@ -1230,6 +1222,7 @@ Column {
           }
 
           Text {
+            textFormat: Text.PlainText
             anchors.verticalCenter: parent.verticalCenter
             // COUNTED OFF `names`, not off `paths`. They are the same length
             // for a copy and a move, and for `go` the subject is a name with
@@ -2514,6 +2507,27 @@ Column {
       // belongs to the pane, so it holds still while the columns move.
       x: millerBox.x + term.midCol.x + term.midCol.width - width
     }
+    // the outer columns scroll under the wheel too (Selecting.wheelTarget)
+    ScrollRail {
+      owner: term
+      target: term.parCol.view
+      on: term.viewMode === "columns" && term.parCol.width > 0
+      anchors.top: millerBox.top
+      anchors.topMargin: 2
+      anchors.bottom: millerBox.bottom
+      anchors.bottomMargin: 2
+      x: millerBox.x + term.parCol.x + term.parCol.width - width
+    }
+    ScrollRail {
+      owner: term
+      target: term.preCol.view
+      on: term.viewMode === "columns"
+      anchors.top: millerBox.top
+      anchors.topMargin: 2
+      anchors.bottom: millerBox.bottom
+      anchors.bottomMargin: 2
+      x: millerBox.x + term.preCol.x + term.preCol.width - width
+    }
 
     // ── the second pane ─────────────────────────────────────────
     // Deliberately plain. It shows a directory, a cursor and its columns,
@@ -2707,7 +2721,7 @@ Column {
       // Not while a directory is the target: two things lit at once says
       // the drop is going to both.
       visible: dropHint.containsDrag && term.dropDir === ""
-      color: Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.07)
+      color: Zenon.alpha(Zenon.accent, 0.07)
       border.width: 1
       border.color: Zenon.border
       z: 8
@@ -2849,7 +2863,7 @@ Column {
       width: band.held.width
       height: band.held.height
       radius: Zenon.windowRadius
-      color: Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.12)
+      color: Zenon.alpha(Zenon.accent, 0.12)
       border.width: 1
       border.color: Zenon.border
       z: 5
@@ -3130,12 +3144,10 @@ Column {
     // The neutral seam every other strip in this window uses. An accent rule
     // here was the loudest line on the surface, for a bar that is already
     // tinted and already says what it is.
-    Rectangle {
+    Hairline {
       anchors.top: parent.top
       anchors.left: parent.left
       anchors.right: parent.right
-      height: 1
-      color: Zenon.border
     }
 
     Row {
@@ -3163,7 +3175,7 @@ Column {
           text: term.portalTitle
           color: Zenon.white
           font.family: Zenon.face
-          font.weight: Font.Bold
+          font.weight: Zenon.titleWeight
           font.pixelSize: Zenon.px(15)
         }
       }
@@ -3217,7 +3229,7 @@ Column {
         height: 24
         radius: Zenon.windowRadius
         width: Math.min(saveWhereRow.implicitWidth + 16, saveBox.width * 0.42)
-        color: Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.10)
+        color: Zenon.alpha(Zenon.accent, 0.10)
         clip: true
         Row {
           id: saveWhereRow
@@ -3235,6 +3247,7 @@ Column {
             font.pixelSize: Zenon.px(12)
           }
           Text {
+            textFormat: Text.PlainText
             anchors.verticalCenter: parent.verticalCenter
             width: Math.min(implicitWidth, saveBox.width * 0.42 - 40)
             elide: Text.ElideLeft
@@ -3277,7 +3290,7 @@ Column {
           }
           color: Zenon.yellow
           font.family: Zenon.face
-          font.weight: Font.Bold
+          font.weight: Zenon.titleWeight
           font.pixelSize: Zenon.px(12)
         }
         MouseArea {
@@ -3298,9 +3311,9 @@ Column {
           + (saveNumber.visible ? saveNumber.width + 6 : 0)
         verticalAlignment: TextInput.AlignVCenter
         color: Zenon.white
-        selectionColor: Zenon.accent
+        selectionColor: Zenon.selBg
         // dark on the accent selection — white on it was barely there
-        selectedTextColor: Zenon.inkOnAccent
+        selectedTextColor: Zenon.white
         font.family: Zenon.face
         font.weight: Zenon.weight
         font.pixelSize: Zenon.px(14)

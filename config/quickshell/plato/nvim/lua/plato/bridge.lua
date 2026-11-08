@@ -280,7 +280,7 @@ function methods.bufClose(p)
   -- leaves the git status as the whole editor
   if not vim.bo[p.id].modified or p.force then require("plato.confine").drop(p.id) end
   local ok, err = pcall(vim.cmd.bdelete, { args = { tostring(p.id) }, bang = p.force == true })
-  if not ok then vim.notify(tostring(err):gsub("^.-(E%d+)", "%1"), vim.log.levels.ERROR) end
+  if not ok then require("plato.util").fail(err) end
   return ok
 end
 
@@ -315,14 +315,23 @@ end
 -- tab, unsaved, in the same language. With nothing selected, the line the
 -- cursor is on. The selection is left behind (back to normal mode) in the
 -- buffer it came from.
-function methods.fork()
+-- what fork and selection take: the visual selection's lines (and visual
+-- mode left), or the cursor's line — with the first and last line numbers
+local function picked()
   local mode = api.nvim_get_mode().mode
-  local visual = mode == "v" or mode == "V" or mode == "\22"
-  local lines = visual
-    and vim.fn.getregion(vim.fn.getpos("v"), vim.fn.getpos("."), { type = mode })
-    or { api.nvim_get_current_line() }
+  if mode == "v" or mode == "V" or mode == "\22" then
+    local a, b = vim.fn.getpos("v"), vim.fn.getpos(".")
+    local lines = vim.fn.getregion(a, b, { type = mode })
+    api.nvim_feedkeys(vim.keycode("<Esc>"), "nx", false)
+    return lines, math.min(a[2], b[2]), math.max(a[2], b[2])
+  end
+  local l = api.nvim_win_get_cursor(0)[1]
+  return { api.nvim_get_current_line() }, l, l
+end
+
+function methods.fork()
+  local lines = picked()
   local ft = vim.bo.filetype
-  if visual then api.nvim_feedkeys(vim.keycode("<Esc>"), "nx", false) end
   vim.cmd.enew()
   api.nvim_buf_set_lines(0, 0, -1, false, lines)
   vim.bo.filetype = ft
@@ -452,8 +461,8 @@ function methods.renamed(p)
     if name == from then new = to
     elseif name:sub(1, #from + 1) == from .. "/" then new = to .. name:sub(#from + 1) end
     if new then
-      api.nvim_buf_set_name(b, new)
-      if not vim.bo[b].modified then
+      -- a name another buffer holds is E95: that one stays as it was
+      if pcall(api.nvim_buf_set_name, b, new) and not vim.bo[b].modified then
         api.nvim_buf_call(b, function() vim.cmd("silent! edit") end)
       end
     end
@@ -466,9 +475,7 @@ end
 -- line like any error, rather than lost.
 function methods.cmd(p)
   local ok, err = pcall(vim.cmd, p.cmd)
-  if not ok then
-    vim.notify((tostring(err):gsub("^.-:%d+: ", "")), vim.log.levels.ERROR)
-  end
+  if not ok then require("plato.util").fail(err) end
   view.schedule()
   return ok
 end
@@ -626,8 +633,13 @@ function methods.colorAt()
     if (n == 3 or n == 6 or n == 8) and col >= a - 1 and col <= b - 1 then
       local hex = line:sub(a + 1, b)
       if n == 3 then hex = hex:gsub("(%x)", "%1%1") end
-      return { buf = buf, line = row, s = a - 1, e = b, hex = hex:sub(1, 6),
-               alpha = n == 8 and line:sub(b - 1, b) or "", was = line:sub(a, b) }
+      -- QML writes #aarrggbb, alpha first (as view.lua's colorCodes reads
+      -- it): read that way here too, and written back that way (setColor)
+      local first = n == 8 and vim.bo[buf].filetype == "qml"
+      return { buf = buf, line = row, s = a - 1, e = b,
+               hex = first and hex:sub(3, 8) or hex:sub(1, 6),
+               alpha = n == 8 and (first and hex:sub(1, 2) or hex:sub(7, 8)) or "",
+               alphaFirst = first, was = line:sub(a, b) }
     end
     from = b + 1
   end
@@ -643,7 +655,9 @@ function methods.setColor(p)
   -- the old bytes then landed in unrelated text (audit 10-31)
   local now = api.nvim_buf_get_lines(buf, r, r + 1, false)[1] or ""
   if p.was and now:sub(p.s + 1, p.e) ~= p.was then return false end
-  pcall(api.nvim_buf_set_text, buf, r, p.s, r, p.e, { tostring(p.hex or "") })
+  local out = tostring(p.hex or "")
+  if p.alphaFirst then out = out:gsub("^#(%x%x%x%x%x%x)(%x%x)$", "#%2%1") end
+  pcall(api.nvim_buf_set_text, buf, r, p.s, r, p.e, { out })
   view.schedule(true)
   return true
 end
@@ -652,18 +666,7 @@ end
 -- visual selection covers, or the cursor's line, with the file and the line
 -- numbers they came from. Visual mode is left, as fork leaves it.
 function methods.selection()
-  local mode = api.nvim_get_mode().mode
-  local visual = mode == "v" or mode == "V" or mode == "\22"
-  local lines, l1, l2
-  if visual then
-    local a, b = vim.fn.getpos("v"), vim.fn.getpos(".")
-    lines = vim.fn.getregion(a, b, { type = mode })
-    l1, l2 = math.min(a[2], b[2]), math.max(a[2], b[2])
-    api.nvim_feedkeys(vim.keycode("<Esc>"), "nx", false)
-  else
-    l1 = api.nvim_win_get_cursor(0)[1]
-    l2, lines = l1, { api.nvim_get_current_line() }
-  end
+  local lines, l1, l2 = picked()
   return { lines = lines, file = api.nvim_buf_get_name(0), l1 = l1, l2 = l2, ft = vim.bo.filetype }
 end
 

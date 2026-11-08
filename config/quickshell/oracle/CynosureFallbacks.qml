@@ -72,6 +72,7 @@ Item {
             text: Cy.fallbackGlyph(way.modelData.glyph)
             color: way.modelData.on ? cf.fgColor : cf.dimColor
             font.family: cf.face
+            font.weight: Zenon.weight
             font.pixelSize: Zenon.px(15)
           }
           Text {
@@ -85,6 +86,7 @@ Item {
             text: way.modelData.name
             color: way.modelData.on ? cf.fgColor : cf.dimColor
             font.family: cf.face
+            font.weight: Zenon.weight
             font.pixelSize: Zenon.px(16)
           }
           Text {
@@ -96,6 +98,7 @@ Item {
             text: way.modelData.sub
             color: cf.dimColor
             font.family: cf.face
+            font.weight: Zenon.weight
             font.pixelSize: Zenon.px(13)
           }
           Row {

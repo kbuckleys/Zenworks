@@ -245,7 +245,7 @@ FloatingWindow {
       if (rows.some((r) => got[r.path] > 0)) Qt.callLater(win.needShapes);
     });
   }
-  onAllRowsChanged: Qt.callLater(win.needShapes)
+  onAllRowsChanged: { Qt.callLater(win.needShapes); touchLater.restart(); }
   // a folder (d) not laid out yet, with shapes to read: hold it until they
   // are in (see shapesReady). Asked by the listing, which knows the folder
   // before win.dir does.
@@ -525,7 +525,9 @@ FloatingWindow {
           const w = parseInt(m[1], 10), h = parseInt(m[2], 10), o = parseInt(m[3] || "1", 10);
           // turned by its EXIF, as autoTransform shows it
           next[natProc.forPath] = o >= 5 && o <= 8 ? { w: h, h: w } : { w: w, h: h };
-        } else if (win.img) {
+        } else if (win.img && natProc.forPath === win.path) {
+          // (only while it is still the picture shown: a step on since
+          // would record the next one's decode under this path, 11-08)
           // no answer: the decode's own size, so the picture still shows
           next[natProc.forPath] = { w: win.img.implicitWidth, h: win.img.implicitHeight };
         }
@@ -1037,44 +1039,56 @@ FloatingWindow {
     win.dupes = null;
   }
 
+  // ONE LISTING AT A TIME (audit 11-08): each run carries its own job
+  // { dirOf, refresh, command }, and a quick hop stops the run in flight
+  // (which still streams, read against its own job and dropped)
   function list() {
-    listProc.refresh = false;
-    win.listArgs();
+    listProc.want = Object.assign(win.listArgs(), { refresh: false });
+    if (listProc.running) listProc.running = false;
+    else win.listNext();
+  }
+  function listNext() {
+    const job = listProc.want;
+    listProc.want = null;
+    listProc.job = job;
+    if (!job) return;
+    listProc.command = job.command;
     listProc.running = true;
   }
   // The same listing again, quietly — the directory changed under the window
   // (see the watch). The picture shown stays shown, and nothing is reset.
   function refresh() {
-    if (win.want === "" || listProc.running) { win.refreshAgain = listProc.running; return; }
-    listProc.refresh = true;
-    win.listArgs();
-    listProc.running = true;
+    if (win.want === "" || listProc.running || listProc.want) { win.refreshAgain = listProc.running; return; }
+    listProc.want = Object.assign(win.listArgs(), { refresh: true });
+    win.listNext();
   }
   property bool refreshAgain: false
   function listArgs() {
-    if (win.picked.length > 0) {
-      listProc.dirOf = "";
-      listProc.command = Terminus.statArgv(win.picked);
-    } else {
-      // A picture opens its directory; anything else asked for is taken to BE
-      // the directory — the launcher only ever hands over pictures, and a
-      // directory is what `picasso-view ~/Pictures` means.
-      const b = Terminus.basename(win.want);
-      const d = Terminus.isImage(b) || Terminus.isVideo(b) ? Terminus.dirname(win.want) : win.want;
-      listProc.dirOf = d;
-      listProc.command = ["sh", "-c", Terminus.listCommand(d)];
-    }
+    if (win.picked.length > 0) return { dirOf: "", command: Terminus.statArgv(win.picked) };
+    // A picture opens its directory; anything else asked for is taken to BE
+    // the directory — the launcher only ever hands over pictures, and a
+    // directory is what `picasso-view ~/Pictures` means.
+    const b = Terminus.basename(win.want);
+    const d = Terminus.isImage(b) || Terminus.isVideo(b) ? Terminus.dirname(win.want) : win.want;
+    return { dirOf: d, command: ["sh", "-c", Terminus.listCommand(d)] };
   }
 
   Process {
     id: listProc
-    property string dirOf: ""
-    property bool refresh: false
-    onRunningChanged: if (!running && win.refreshAgain) { win.refreshAgain = false; Qt.callLater(win.refresh); }
+    property var job: null
+    property var want: null
+    onExited: {
+      if (listProc.want) { win.listNext(); return; }
+      listProc.job = null;
+      if (win.refreshAgain) { win.refreshAgain = false; Qt.callLater(win.refresh); }
+    }
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
-        const t = String(text || ""), d = listProc.dirOf;
+        const job = listProc.job;
+        // stopped for a newer listing: not this one's answer
+        if (!job || listProc.want) return;
+        const t = String(text || ""), d = job.dirOf;
         const all = d !== "" ? Terminus.parseListing(t, d) : Terminus.parseStat(t);
         let rows = all.filter((r) => !r.isDir && !r.isHidden && (Terminus.isImage(r.name) || Terminus.isVideo(r.name)));
         // the .xmp files beside them, where other programs keep their tags
@@ -1089,12 +1103,11 @@ FloatingWindow {
           rows.sort((a, b) => win.picked.indexOf(a.path) - win.picked.indexOf(b.path));
         else rows = win.sorted(rows);
         win.allRows = rows;
-        if (!listProc.refresh) win.holdForShapes(d);
+        if (!job.refresh) win.holdForShapes(d);
         win.readTags();
         if (win.wantsTimes) win.needMeta(() => win.resort());
         // a refresh: the same directory, read again — only what changed moves
-        if (listProc.refresh) {
-          listProc.refresh = false;
+        if (job.refresh) {
           if (win.sigOf(dirs) !== win.sigOf(win.directories)) win.directories = dirs;
           win.setRows(win.filtered(rows));
           return;
@@ -1393,7 +1406,12 @@ FloatingWindow {
   property string lastMode: "view"
   function thumbUrl(p) {
     const t = win.thumbs[p];
-    return t && t !== "-" ? "file://" + t : "";
+    if (t && t !== "-") return "file://" + t;
+    // known only through the index (the tiles' own answer, win.onDisk):
+    // the fly-out and drag card had none (audit 11-08)
+    const i = t === undefined ? V.indexOfPath(win.allRows, p) : -1;
+    const s = i >= 0 ? win.onDisk(win.allRows[i]) : "";
+    return s !== "" ? "file://" + s : "";
   }
   // where a picture of this shape will be shown, fitted, in the stage
   function guessRect(ratio) {
@@ -1515,22 +1533,36 @@ FloatingWindow {
   // made, and through the ThumbKeeper/cacheBuffer already decoded. Read
   // again on each directory, not watched (terminus' reason: every window
   // writes it).
-  property var thumbIndex: ({})
-  FileView {
-    id: thumbIndexFile
-    path: Thumbs.indexPath()
-    blockLoading: true
-    printErrors: false
-    onTextChanged: {
-      let o = null;
-      try { o = JSON.parse(String(thumbIndexFile.text() || "{}")); } catch (e) { o = null; }
-      win.thumbIndex = (o && typeof o === "object" && !Array.isArray(o)) ? o : ({});
-    }
-  }
+  ThumbIndex { id: thumbIndexFile }
+  readonly property var thumbIndex: thumbIndexFile.map
   onDirChanged: thumbIndexFile.reload()
+  // ── WHAT IS USED IS TOUCHED (audit 11-08) ──────────────────────────
+  // the pool's sweep deletes by age, and an index hit ran nothing, so a
+  // directory browsed here for a month lost every thumbnail Terminus made
+  // for it; once a listing and the index are in, their files are touched
+  onThumbIndexChanged: touchLater.restart()
+  Timer { id: touchLater; interval: 1500; onTriggered: win.touchHits() }
+  function touchHits() {
+    const files = [];
+    for (const r of win.allRows) {
+      const s = win.onDisk(r);
+      if (s !== "") files.push(s);
+    }
+    for (let i = 0; i < files.length; i += 400)
+      Quickshell.execDetached(["touch", "-c", "--"].concat(files.slice(i, i + 400)));
+  }
+  // and one that would not open anyway is made again, past the index
+  property var missed: ({})
+  function thumbMiss(r) {
+    if (!r || !r.path || win.missed[r.path]) return;
+    const m = Object.assign({}, win.missed);
+    m[r.path] = true;
+    win.missed = m;
+    win.wantThumb(r.path);
+  }
   // the index's answer for a row, or "" (also for "there will be none")
   function onDisk(r) {
-    if (!r || !r.path || typeof r.size !== "number") return "";
+    if (!r || !r.path || typeof r.size !== "number" || win.missed[r.path]) return "";
     const s = Thumbs.indexHit(win.thumbIndex, r.path, r.size, r.mtime);
     return s !== "" && !Thumbs.isNone(s) ? s : "";
   }
@@ -2000,9 +2032,10 @@ FloatingWindow {
     }
   }
 
-  function copyImage() {
-    if (win.path === "") return;
-    win.run(["sh", "-c", "wl-copy < \"$1\"", "sh", win.path]);
+  function copyImage(p) {
+    p = p || win.path;
+    if (p === "") return;
+    win.run(["sh", "-c", "wl-copy < \"$1\"", "sh", p]);
     win.say("Copied to the clipboard");
   }
   function copyPath() {
@@ -2312,9 +2345,10 @@ FloatingWindow {
   // ── without what the camera wrote ─────────────────────────────────────
   // The time, the camera and — the one that matters — where it was taken,
   // dropped from a copy that is going to somebody else.
-  function copyClean() {
-    if (win.path === "") return;
-    win.run(["sh", "-c", 'magick -- "$1[0]" -auto-orient -strip png:- | wl-copy --type image/png', "sh", win.path],
+  function copyClean(p) {
+    p = p || win.path;
+    if (p === "") return;
+    win.run(["sh", "-c", 'magick -- "$1[0]" -auto-orient -strip png:- | wl-copy --type image/png', "sh", p],
       (code) => win.say(code === 0 ? "copied, without its metadata" : "could not copy it"));
   }
   function saveClean(ps) {
@@ -2545,7 +2579,7 @@ FloatingWindow {
     const done = (code) => win.say(code === 0 ? "the text is on the clipboard"
       : code === 127 ? "reading text needs tesseract — pacman -S tesseract tesseract-data-eng"
       : code === 3 ? "no text found" : "could not read it", code === 127 ? 9000 : 3000);
-    const ocr = (png) => win.run(["sh", "-c", V.ocrCommand(png), "sh", png], done);
+    const ocr = (png) => win.run(["sh", "-c", V.ocrCommand(), "sh", png], done);
     win.say("Reading…", 30000);
     if (win.crop && win.fallback === "") {
       win.grabEdit((tmp) => { if (tmp === "") win.say("Could not render the selection"); else ocr(tmp); });
@@ -2575,6 +2609,9 @@ FloatingWindow {
     dragCard.label = win.some(ps);
     dragCard.count = ps.length;
     item.Drag.hotSpot = Qt.point(16, dragCard.height / 2);
+    if (ps.length > 1)
+      dragCard.flock((it) => it.objectName === "dragCell" && !!it.modelData && ps.indexOf(it.modelData.path) >= 0,
+        item.mapToItem(null, item.width / 2, item.height / 2));
     dragCard.picture((url) => {
       item.Drag.imageSource = url;
       item.Drag.active = true;
@@ -2646,7 +2683,9 @@ FloatingWindow {
   property var bakeRaw: null
 
   function grabEdit(then) {
-    if (win.fallback !== "" || bakeLoader.active) return;
+    if (win.fallback !== "") return;
+    // said, not dropped: Copy pressed while a save bakes did nothing (11-08)
+    if (bakeLoader.active) { win.say("Still saving \u2014 try again in a moment"); return; }
     win.bakeRaw = then;
     bakeLoader.active = true;
   }
@@ -2656,7 +2695,7 @@ FloatingWindow {
   property bool saving: false
   function bake(dest, then) {
     if (win.fallback !== "") { win.say("This is a preview copy — the original cannot be edited here"); return; }
-    if (bakeLoader.active) return;
+    if (bakeLoader.active) { win.say("Still saving \u2014 try again in a moment"); return; }
     win.bakeDest = dest;
     win.bakeThen = then;
     win.saving = true;
@@ -2673,7 +2712,7 @@ FloatingWindow {
     const dest = win.bakeDest, then = win.bakeThen;
     bakeLoader.active = false;
     if (tmp === "") { win.saving = false; win.say("Could not render the edit"); if (then) then(false); return; }
-    win.run(["sh", "-c", 'magick "$1" -quality 92 "$2" && rm -f "$1"', "sh", tmp, dest], (code) => {
+    win.run(["sh", "-c", 'magick "$1" -quality 92 "$2"; s=$?; rm -f "$1"; exit $s', "sh", tmp, dest], (code) => {
       win.saving = false;
       if (code !== 0) { win.say("Could not save to " + dest); if (then) then(false); return; }
       win.say("Saved · " + dest.replace(Paths.home(), "~"));
@@ -3066,8 +3105,8 @@ FloatingWindow {
     signal alt()
     width: 34; height: 34; radius: Zenon.windowRadius
     opacity: tool.live ? 1 : Zenon.disabledDim
-    color: tool.on ? Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.20)
-      : (toolMa.pressed ? Zenon.wash(0.06) : "transparent")
+    color: tool.on ? Zenon.alpha(Zenon.accent, 0.20)
+      : (toolMa.pressed ? Zenon.pressWash(0.12) : "transparent")
     border.width: tool.on ? 1 : 0
     border.color: Zenon.accent
     Text {
@@ -3148,8 +3187,8 @@ FloatingWindow {
     // so the bar and the card read as one piece.
     readonly property real cutX: win.sheetHangs && win.sheetInk > 0.01 ? win.holeX : bar.width
     readonly property real cutW: win.sheetHangs && win.sheetInk > 0.01 ? win.holeW : 0
-    Rectangle { anchors.bottom: parent.bottom; width: bar.cutX; height: 1; color: Zenon.border }
-    Rectangle { anchors.bottom: parent.bottom; x: bar.cutX + bar.cutW; width: Math.max(0, bar.width - x); height: 1; color: Zenon.border }
+    Hairline { anchors.bottom: parent.bottom; width: bar.cutX }
+    Hairline { anchors.bottom: parent.bottom; x: bar.cutX + bar.cutW; width: Math.max(0, bar.width - x) }
 
     // the picture under it, frosted: under the bar's ground, which tints it
     // (see `canvas`)
@@ -3230,13 +3269,14 @@ FloatingWindow {
       Text {
         width: parent.width
         // in the gallery, the bar is about the directory; otherwise the picture
+        textFormat: Text.PlainText
         text: win.mode === "map" ? "Where they were taken"
           : win.mode === "gallery"
           ? (win.picked.length > 0 ? "Picked pictures" : (Terminus.basename(win.dir) || "/"))
           : (win.row ? win.row.name : (win.rows.length === 0 ? "" : "…"))
         color: Zenon.white
         font.family: Zenon.face
-        font.weight: 600
+        font.weight: Zenon.titleWeight
         font.pixelSize: Zenon.px(14)
         elide: Text.ElideMiddle
       }
@@ -3246,6 +3286,7 @@ FloatingWindow {
         Text {
           anchors.fill: parent
           // while the search is typed in, what it understands
+          textFormat: Text.PlainText
           text: filterField.activeFocus && win.note === ""
             ? "Words, #tag, \u2605, is:video is:picture is:marked is:directory  \u00b7  return keeps it, esc clears it"
             : win.note !== "" ? win.note
@@ -3338,7 +3379,7 @@ FloatingWindow {
         height: 34
         radius: Zenon.windowRadius
         clip: true
-        color: searchPill.busy ? Zenon.wash(0.07) : (pillPress.pressed ? Zenon.wash(0.06) : Zenon.wash(0))
+        color: searchPill.busy ? Zenon.wash(0.07) : (pillPress.pressed ? Zenon.pressWash(0.12) : Zenon.wash(0))
         Behavior on color { ColorAnimation { duration: Zenon.fast } }
         border.width: searchPill.busy ? 1 : 0
         border.color: Zenon.border
@@ -3373,8 +3414,8 @@ FloatingWindow {
           anchors.verticalCenter: parent.verticalCenter
           visible: searchPill.busy
           color: Zenon.white
-          selectionColor: Zenon.accent
-          selectedTextColor: Zenon.inkOnAccent
+          selectionColor: Zenon.selBg
+          selectedTextColor: Zenon.white
           font.family: Zenon.face
           font.weight: Zenon.weight
           font.pixelSize: Zenon.px(13)
@@ -3754,8 +3795,8 @@ FloatingWindow {
           width: parent.width
           height: Math.min(56, parent.height * 0.12)
           gradient: Gradient {
-            GradientStop { position: 0.0; color: Qt.rgba(Zenon.sand.r, Zenon.sand.g, Zenon.sand.b, 0.30) }
-            GradientStop { position: 1.0; color: Qt.rgba(Zenon.sand.r, Zenon.sand.g, Zenon.sand.b, 0) }
+            GradientStop { position: 0.0; color: Zenon.alpha(Zenon.sand, 0.30) }
+            GradientStop { position: 1.0; color: Zenon.alpha(Zenon.sand, 0) }
           }
         }
       }
@@ -3774,6 +3815,7 @@ FloatingWindow {
           Working { anchors.verticalCenter: parent.verticalCenter; running: making.on; ink: Zenon.sand }
           Text {
             anchors.verticalCenter: parent.verticalCenter
+            textFormat: Text.PlainText
             text: win.makeWhat
             color: Zenon.white
             font.family: Zenon.face
@@ -3805,7 +3847,7 @@ FloatingWindow {
         text: (win.fitted ? "Fit  ·  " : "") + Math.round(win.shownZoom) + "%"
         color: Zenon.white
         font.family: Zenon.face
-        font.weight: 600
+        font.weight: Zenon.titleWeight
         font.pixelSize: Zenon.px(16)
       }
     }
@@ -4411,6 +4453,7 @@ FloatingWindow {
         anchors.leftMargin: 8
         anchors.rightMargin: 8
         verticalAlignment: Text.AlignVCenter
+        textFormat: Text.PlainText
         text: !twin.crow ? "" : win.showsMade
           ? twin.crow.name + "   \u00b7   " + (win.made.saved ? "saved to " + Terminus.dirname(win.made.saved).replace(Paths.home(), "~") : "not saved")
           : twin.crow.name + "   \u00b7   shift+\u2190 \u2192   tab swaps"
@@ -4590,6 +4633,7 @@ FloatingWindow {
       model: grid.pool
       delegate: Item {
         id: cell
+        objectName: "dragCell"
         // the slot; `gi` is the item it draws now
         required property int index
         readonly property int gi: grid.giOf(cell.index)
@@ -4676,7 +4720,7 @@ FloatingWindow {
         Drag.active: false
         Drag.dragType: Drag.Automatic
         Drag.supportedActions: Qt.CopyAction
-        Drag.onDragFinished: (action) => { cell.Drag.active = false; }
+        Drag.onDragFinished: (action) => { cell.Drag.active = false; dragCard.landed(action); }
         DragHandler {
           target: null
           // from the picture itself; off it, a drag is the box (see gband)
@@ -4774,11 +4818,12 @@ FloatingWindow {
             elide: Text.ElideRight
             color: Zenon.white
             font.family: Zenon.face
-            font.weight: cell.here ? Font.Bold : Font.DemiBold
+            font.weight: cell.here ? Zenon.titleWeight : Zenon.titleWeight
             font.pixelSize: Zenon.px(14)
           }
           Thumb {
             id: pic
+            onMissed: win.thumbMiss(cell.modelData)
             HoverHandler {
               onHoveredChanged: {
                 if (hovered) win.hoverThumb = cell.gi;
@@ -4827,7 +4872,7 @@ FloatingWindow {
             radius: Zenon.rad(7)
             visible: cellFlare.glow > 0.003
             opacity: cellFlare.glow
-            color: Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.18)
+            color: Zenon.alpha(Zenon.accent, 0.18)
             border.width: 3
             border.color: Zenon.accent
             Connections {
@@ -4893,7 +4938,7 @@ FloatingWindow {
           mark: win.filterWords
           color: cell.directory ? Zenon.accent : Zenon.white
           font.family: Zenon.face
-          font.weight: cell.here ? Font.Bold : Font.Medium
+          font.weight: cell.here ? Zenon.titleWeight : Zenon.weight
           font.pixelSize: Zenon.px(14)
         }
         // a folded burst: how many are under it — Enter or a click on this opens it
@@ -4912,8 +4957,8 @@ FloatingWindow {
             id: burstRow
             anchors.centerIn: parent
             spacing: 5
-            Text { text: "\uf24d"; color: Zenon.sand; font.family: Zenon.face; font.pixelSize: Zenon.px(11) }
-            Text { text: cell.burst ? cell.burst.n : ""; color: Zenon.sand; font.family: Zenon.face; font.weight: 600; font.pixelSize: Zenon.px(12) }
+            Text { text: "\uf24d"; color: Zenon.sand; font.family: Zenon.face; font.weight: Zenon.weight; font.pixelSize: Zenon.px(11) }
+            Text { text: cell.burst ? cell.burst.n : ""; color: Zenon.sand; font.family: Zenon.face; font.weight: Zenon.titleWeight; font.pixelSize: Zenon.px(12) }
           }
           MouseArea { anchors.fill: parent; anchors.margins: -4
                       onClicked: { keys.forceActiveFocus(); win.foldBurst(cell.burst.key, false); } }
@@ -4929,7 +4974,7 @@ FloatingWindow {
           radius: Zenon.radiusControl
           color: Zenon.green
           Text { id: bestText; anchors.centerIn: parent; text: "best"; color: Zenon.black
-                 font.family: Zenon.face; font.weight: 600; font.pixelSize: Zenon.px(11) }
+                 font.family: Zenon.face; font.weight: Zenon.titleWeight; font.pixelSize: Zenon.px(11) }
         }
         // A section begins here: a rule across the grid's line, and its name.
         Rectangle {
@@ -4962,7 +5007,7 @@ FloatingWindow {
               text: cell.chip ? cell.chip.text : ""
               color: cell.chip && cell.chip.kind === "dupe" ? Zenon.sand : Zenon.white
               font.family: Zenon.face
-              font.weight: 600
+              font.weight: Zenon.titleWeight
               font.pixelSize: Zenon.px(12)
             }
             Text {
@@ -5071,7 +5116,7 @@ FloatingWindow {
             text: pinned.chip ? pinned.chip.text : ""
             color: pinned.chip && pinned.chip.kind === "dupe" ? Zenon.sand : Zenon.white
             font.family: Zenon.face
-            font.weight: 600
+            font.weight: Zenon.titleWeight
             font.pixelSize: Zenon.px(12)
           }
           Text {
@@ -5159,7 +5204,7 @@ FloatingWindow {
       width: gband.held.width
       height: gband.held.height
       radius: Zenon.windowRadius
-      color: Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.12)
+      color: Zenon.alpha(Zenon.accent, 0.12)
       border.width: 1
       border.color: Zenon.border
       z: 5
@@ -5343,7 +5388,7 @@ FloatingWindow {
     HoverHandler { id: stripHover }
     visible: height > 0
     color: Zenon.headBg
-    Rectangle { anchors.top: parent.top; width: parent.width; height: 1; color: Zenon.border }
+    Hairline { anchors.top: parent.top; width: parent.width }
 
     // the picture under it, frosted (see `canvas`); two in a comparison,
     // as the bar's
@@ -5390,6 +5435,7 @@ FloatingWindow {
 
       delegate: Item {
         id: tile
+        objectName: "dragCell"
         required property var modelData
         required property int index
         readonly property bool current: tile.index === win.index
@@ -5427,6 +5473,7 @@ FloatingWindow {
         Thumb {
           anchors.fill: parent
           anchors.margins: tile.current ? 0 : 4
+          onMissed: win.thumbMiss(tile.modelData)
           path: tile.modelData.path
           // as the gallery's tiles: the index's answer at once (win.onDisk)
           readonly property string known: win.onDisk(tile.modelData)
@@ -5461,7 +5508,7 @@ FloatingWindow {
           height: 15
           radius: height / 2
           color: Zenon.accent
-          Text { anchors.centerIn: parent; text: "\uf00c"; color: Zenon.black; font.family: Zenon.face; font.pixelSize: Zenon.px(8) }
+          Text { anchors.centerIn: parent; text: "\uf00c"; color: Zenon.black; font.family: Zenon.face; font.weight: Zenon.weight; font.pixelSize: Zenon.px(8) }
         }
         Text {
           visible: Terminus.isVideo(tile.modelData.name)
@@ -5492,7 +5539,7 @@ FloatingWindow {
         Drag.active: false
         Drag.dragType: Drag.Automatic
         Drag.supportedActions: Qt.CopyAction
-        Drag.onDragFinished: (action) => { tile.Drag.active = false; }
+        Drag.onDragFinished: (action) => { tile.Drag.active = false; dragCard.landed(action); }
         DragHandler {
           target: null
           xAxis.enabled: false
@@ -5761,7 +5808,7 @@ FloatingWindow {
               width: 96
               height: 30
               radius: Zenon.windowRadius
-              color: Zenon.wash(0.04)
+              color: Zenon.wash(0.06)
               border.width: 1
               border.color: Zenon.border
               TextInput {
@@ -5774,8 +5821,8 @@ FloatingWindow {
                 text: win.outW > 0 ? String(Math.round(win.outW * win.resizeK)) : ""
                 validator: IntValidator { bottom: 1; top: 100000 }
                 color: Zenon.white
-                selectionColor: Zenon.accent
-                selectedTextColor: Zenon.inkOnAccent
+                selectionColor: Zenon.selBg
+                selectedTextColor: Zenon.white
                 font.family: Zenon.face
                 font.weight: Zenon.weight
                 font.pixelSize: Zenon.px(13)
@@ -5816,7 +5863,7 @@ FloatingWindow {
                     text: modelData.ext.toUpperCase()
                     color: Zenon.white
                     font.family: Zenon.face
-                    font.weight: 600
+                    font.weight: Zenon.titleWeight
                     font.pixelSize: Zenon.px(13)
                   }
                   Text {
@@ -6600,7 +6647,7 @@ FloatingWindow {
     case "zoomSel": win.zoomToCrop(); break;
     case "clearSel": win.crop = null; win.cropping = false; break;
     case "copy": win.copyImage(); break;
-    case "copyP": win.run(["sh", "-c", "wl-copy < \"$1\"", "sh", p]); win.say("Copied to the clipboard"); break;
+    case "copyP": win.copyImage(p); break;
     case "copyPath": win.copyPath(); break;
     case "copyPathP":
       Strings.copy(p);
@@ -6608,10 +6655,7 @@ FloatingWindow {
       break;
     case "copyFiles": win.copyFiles(ps); break;
     case "copyClean": win.copyClean(); break;
-    case "copyCleanP":
-      win.run(["sh", "-c", 'magick -- "$1[0]" -auto-orient -strip png:- | wl-copy --type image/png', "sh", p],
-        (code) => win.say(code === 0 ? "copied, without its metadata" : "could not copy it"));
-      break;
+    case "copyCleanP": win.copyClean(p); break;
     case "saveClean": win.saveClean(ps); break;
     case "ocr": win.readText(); break;
     case "colour": if (menu.pixel) { win.pixel = menu.pixel; win.copyColour(); } break;
@@ -7055,6 +7099,7 @@ FloatingWindow {
         onChose: (i) => confirm.answer(i === 0)
       }
       Text {
+        textFormat: Text.PlainText
         id: confirmQ
         visible: confirm.withField
         anchors.left: parent.left
@@ -7077,7 +7122,7 @@ FloatingWindow {
         y: 50
         height: 36
         radius: Zenon.windowRadius
-        color: Zenon.wash(0.04)
+        color: Zenon.wash(0.06)
         border.width: 1
         border.color: Zenon.border
         TextInput {
@@ -7087,8 +7132,8 @@ FloatingWindow {
           anchors.rightMargin: 10
           verticalAlignment: TextInput.AlignVCenter
           color: Zenon.white
-          selectionColor: Zenon.accent
-          selectedTextColor: Zenon.inkOnAccent
+          selectionColor: Zenon.selBg
+          selectedTextColor: Zenon.white
           font.family: Zenon.face
           font.weight: Zenon.weight
           font.pixelSize: Zenon.px(15)

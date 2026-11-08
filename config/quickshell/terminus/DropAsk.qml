@@ -110,7 +110,7 @@ PanelWindow {
     // beside focusClaim. One shot here for the common case, and a few
     // more behind it for the frame the compositor is still catching up.
     dropKeys.forceActiveFocus();
-    dropClaim.restart();
+    dropClaim.begin();
   }
 
   Process {
@@ -127,17 +127,13 @@ PanelWindow {
     }
   }
 
-  Timer {
+  FocusRetry {
     id: dropClaim
     interval: 16
-    repeat: true
-    property int tries: 0
-    onTriggered: {
-      if (!dropAsk.open || dropKeys.activeFocus || dropClaim.tries++ > 12) {
-        dropClaim.stop();
-        dropClaim.tries = 0;
-        return;
-      }
+    checkFirst: true
+    live: dropAsk.open
+    took: dropKeys.activeFocus
+    onPlace: {
       dropKeys.forceActiveFocus();
     }
   }

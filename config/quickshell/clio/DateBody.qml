@@ -59,7 +59,7 @@ Column {
       text: N.MONTHS[db.month] + " " + db.year
       color: Zenon.ink
       font.family: Zenon.face
-      font.weight: Font.Bold
+      font.weight: Zenon.titleWeight
       font.pixelSize: Zenon.px(17)
     }
     Row {
@@ -110,7 +110,7 @@ Column {
       text: N.two(db.hour) + ":" + N.two(db.minute)
       color: Zenon.ink
       font.family: Zenon.face
-      font.weight: Font.Bold
+      font.weight: Zenon.titleWeight
       font.pixelSize: Zenon.px(16)
       font.features: { "tnum": 1 }
     }

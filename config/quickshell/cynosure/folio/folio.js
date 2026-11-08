@@ -441,11 +441,14 @@ function snippetArgs(text) {
   return out;
 }
 // the snippet with what was given in its {argument}s, braces in an answer
-// kept as typed (not read as {date} and the rest)
+// kept as typed (not read as {date} and the rest); an escaped
+// {{argument}} stays as written, as snippetArgs never asked for it (11-08)
+const FILL_RE = new RegExp("\\{\\{|\\}\\}|" + ARG_RE.source, "g");
 function fillArgs(text, values) {
   const v = values || {};
   const esc = (s) => String(s).replace(/\{/g, "{{").replace(/\}/g, "}}");
-  return String(text || "").replace(ARG_RE, (m, name, def) => {
+  return String(text || "").replace(FILL_RE, (m, name, def) => {
+    if (m === "{{" || m === "}}") return m;
     const k = (name || "").trim() || "Value";
     return esc(k in v ? v[k] : def || "");
   });
@@ -456,7 +459,7 @@ function expandSnippet(text, now, clipboard) {
 // the keys that put the snippet where it was asked for: typed (wtype), then
 // the caret walked back to {cursor}; on the clipboard too
 function pasteSnippetCommand(text, back) {
-  const q = "'" + String(text).replace(/'/g, "'\\''") + "'";
+  const q = Strings.shellQuote(text);
   return "sleep 0.3 && printf '%s' " + q + " | wl-copy >/dev/null 2>&1; wtype -- " + q
     + (back > 0 ? " && for _ in $(seq " + Math.min(5000, back) + "); do wtype -k Left; done" : "");
 }

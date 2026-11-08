@@ -15,7 +15,6 @@
 import QtQuick
 import Quickshell
 import "../morpheus"
-import "../terminus"
 import "notes.js" as N
 
 Item {
@@ -77,6 +76,18 @@ Item {
     function onEdited() { pane.dirty = true; saveTimer.restart(); pane.mgr.touchLock(); }
   }
   Timer { id: saveTimer; interval: 700; onTriggered: pane.commit() }
+  // A CONFLICT, WITH EDITS STILL UNSAVED (audit 11-08): show() commits
+  // first, and those edits went over the other machine's version just put
+  // in place. They go to this machine's copy instead, named as it is.
+  function editsTo(copyId) {
+    saveTimer.stop();
+    if (!pane.dirty || !pane.note || !pane.loadedOne || copyId === "") { pane.dirty = false; return; }
+    pane.dirty = false;
+    const bs = ed.stored().map((b) => Object.assign({}, b));
+    const tail = " (this machine)";
+    if (bs.length && String(bs[0].h || "").slice(-tail.length) !== tail) bs[0].h = String(bs[0].h || "") + tail;
+    pane.mgr.setBlocks(copyId, bs);
+  }
   function commit() {
     saveTimer.stop();
     if (!pane.dirty || !pane.note || !pane.loadedOne) { pane.dirty = false; return; }
@@ -97,8 +108,7 @@ Item {
     width: parent.width
     height: pane.win ? pane.win.headH : 50
     z: 5
-    Rectangle { anchors.fill: parent; color: Zenon.headBg }
-    Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Zenon.border }
+    HeadGround {}
 
     // a note in the Trash says so, or the sticky's colors (where a note
     // lives is not said here: its row in the list says it — user, 2026-10-14)
@@ -278,7 +288,7 @@ Item {
     // the head's own ground: the note frosted under it, as under the head
     color: Zenon.headBg
     Behavior on height { NumberAnimation { duration: Zenon.fast; easing.type: Zenon.ease } }
-    Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Zenon.border }
+    Hairline { anchors.bottom: parent.bottom; width: parent.width }
     HoverHandler { id: barHover; onHoveredChanged: pane.formatHover() }
     FormatBar {
       host: formatBar.host
@@ -302,7 +312,7 @@ Item {
     z: 4
     Behavior on height { NumberAnimation { duration: Zenon.fast; easing.type: Zenon.ease } }
     Rectangle { anchors.fill: parent; color: Zenon.hintFrostBg }
-    Rectangle { anchors.top: parent.top; width: parent.width; height: 1; color: Zenon.border }
+    Hairline { anchors.top: parent.top; width: parent.width }
     Row {
       id: findRow
       readonly property real fit: Math.min(1, (findBar.width - 24) / Math.max(1, width))
@@ -310,35 +320,18 @@ Item {
       x: Math.round((findBar.width - width) / 2)
       anchors.verticalCenter: parent.verticalCenter
       spacing: Zenon.buttonGap
-      Rectangle {
+      SearchBox {
+        id: findField
+        compact: true
         width: 260
-        height: 30
-        radius: Zenon.windowRadius
-        color: Zenon.wash(0.06)
-        border.width: 1
-        border.color: Zenon.border
-        TextInput {
-          id: findField
-          anchors.fill: parent
-          anchors.leftMargin: 10
-          anchors.rightMargin: 10
-          verticalAlignment: TextInput.AlignVCenter
-          clip: true
-          cursorDelegate: Caret { field: findField }
-          color: Zenon.ink
-          selectionColor: Zenon.alpha(Zenon.accent, 0.4)
-          font.family: Zenon.face
-          font.weight: Zenon.weight
-          font.pixelSize: Zenon.px(14)
-          onTextChanged: if (pane.finding) ed.find(text)
-          Keys.onPressed: (e) => {
-            if (e.key === Qt.Key_Escape) { pane.closeFind(); e.accepted = true; }
-            else if (e.key === Qt.Key_Return || e.key === Qt.Key_Enter) { ed.findStep(e.modifiers & Qt.ShiftModifier ? -1 : 1); e.accepted = true; }
-            else if (e.key === Qt.Key_Tab) { replaceField.forceActiveFocus(); e.accepted = true; }
-          }
-          Text { visible: findField.text === ""; anchors.verticalCenter: parent.verticalCenter; text: "Find in note"; color: Zenon.accentMuted; font: findField.font }
+        ghost: "Find in note"
+        onTextChanged: if (pane.finding) ed.find(text)
+        keyHook: (e) => {
+          if (e.key === Qt.Key_Escape) { pane.closeFind(); e.accepted = true; }
+          else if (e.key === Qt.Key_Return || e.key === Qt.Key_Enter) { ed.findStep(e.modifiers & Qt.ShiftModifier ? -1 : 1); e.accepted = true; }
+          else if (e.key === Qt.Key_Tab) { replaceField.forceActiveFocus(); e.accepted = true; }
+
         }
-        HeldRing { anchors.fill: parent; radius: parent.radius; z: 10; on: findField.activeFocus }
       }
       Text {
         textFormat: Text.PlainText
@@ -352,34 +345,19 @@ Item {
       }
       DialogButton { anchors.verticalCenter: parent.verticalCenter; glyph: true; label: ""; onClicked: ed.findStep(-1) }
       DialogButton { anchors.verticalCenter: parent.verticalCenter; glyph: true; label: ""; onClicked: ed.findStep(1) }
-      Rectangle {
+      SearchBox {
+        id: replaceField
+        compact: true
         visible: !ed.readOnly
         width: 180
-        height: 30
-        radius: Zenon.windowRadius
-        color: Zenon.wash(0.06)
-        border.width: 1
-        border.color: Zenon.border
-        TextInput {
-          id: replaceField
-          anchors.fill: parent
-          anchors.leftMargin: 10
-          anchors.rightMargin: 10
-          verticalAlignment: TextInput.AlignVCenter
-          clip: true
-          cursorDelegate: Caret { field: replaceField }
-          color: Zenon.ink
-          font.family: Zenon.face
-          font.weight: Zenon.weight
-          font.pixelSize: Zenon.px(14)
-          Keys.onPressed: (e) => {
-            if (e.key === Qt.Key_Escape) { pane.closeFind(); e.accepted = true; }
-            else if (e.key === Qt.Key_Return || e.key === Qt.Key_Enter) { ed.replaceHit(replaceField.text); e.accepted = true; }
-            else if (e.key === Qt.Key_Backtab) { findField.forceActiveFocus(); e.accepted = true; }
-          }
-          Text { visible: replaceField.text === ""; anchors.verticalCenter: parent.verticalCenter; text: "Replace with"; color: Zenon.accentMuted; font: replaceField.font }
+        lens: ""
+        ghost: "Replace with"
+        keyHook: (e) => {
+          if (e.key === Qt.Key_Escape) { pane.closeFind(); e.accepted = true; }
+          else if (e.key === Qt.Key_Return || e.key === Qt.Key_Enter) { ed.replaceHit(replaceField.text); e.accepted = true; }
+          else if (e.key === Qt.Key_Backtab) { findField.forceActiveFocus(); e.accepted = true; }
+
         }
-        HeldRing { anchors.fill: parent; radius: parent.radius; z: 10; on: replaceField.activeFocus }
       }
       DialogButton { visible: !ed.readOnly; anchors.verticalCenter: parent.verticalCenter; label: "Replace all"; ready: ed.findHits.length > 0; onClicked: ed.replaceAll(replaceField.text) }
     }
@@ -491,6 +469,7 @@ Item {
       text: ""
       color: Zenon.yellow
       font.family: Zenon.glyphFace
+      font.weight: Zenon.weight
       font.pixelSize: Zenon.px(46)
     }
     Text {
@@ -499,7 +478,7 @@ Item {
       text: pane.isEntry ? "This journal is locked" : "This note is locked"
       color: Zenon.ink
       font.family: Zenon.face
-      font.weight: Font.Bold
+      font.weight: Zenon.titleWeight
       font.pixelSize: Zenon.px(20)
     }
     Text {
@@ -633,7 +612,7 @@ Item {
       Qt.callLater(() => pane.typeHere(t, true));
       return;
     }
-    it.te.insert(it.te.cursorPosition, N.escape(t));
+    it.te.insert(it.te.cursorPosition, ed.asTyped(it, t));
   }
   function lockMenu(x, y) {
     const n = pane.note;

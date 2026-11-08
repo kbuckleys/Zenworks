@@ -176,7 +176,10 @@ Item {
       items.push({ isSeparator: true });
       items.push({ text: "Follows" + (b.upstream ? "  " + b.upstream : ""), icon: "", run: () => pg.follow(b) });
       items.push({ text: "Push", icon: "", enabled: !!b.upstream || pg.win.remotes.length > 0,
-                   run: () => pg.win.act("push", b.upstream ? { remote: b.upstream.split("/")[0], branch: b.name }
+                   // to the branch it follows, under whatever name that has
+                   // there (audit 11-07: fix → origin/main made origin/fix)
+                   run: () => pg.win.act("push", b.upstream ? { remote: b.upstream.split("/")[0],
+                                                                 branch: b.name + ":" + b.upstream.slice(b.upstream.indexOf("/") + 1) }
                                                            : { remote: pg.win.remotes[0].name, branch: b.name, setUpstream: true },
                                          { label: "Pushing", network: true, said: "Pushed " + b.name }) });
       items.push({ text: "Tag it", icon: "", run: () => pg.tag(b) });
@@ -216,16 +219,13 @@ Item {
     return false;
   }
 
-  BulkField {
+  SearchBox {
     id: filter
     anchors.left: parent.left
     anchors.right: parent.right
     anchors.top: parent.top
     anchors.margins: 12
-    height: 32
-    textSize: Zenon.px(15)
-    ghost: "  Filter branches and tags  ( / )"
-    clearable: true
+    ghost: "Filter branches and tags  ( / )"
     onTextChanged: pg.query = filter.text.trim()
     onAccepted: pg.win.focusKeys()
     Keys.onEscapePressed: { filter.text = ""; pg.win.focusKeys(); }
@@ -261,6 +261,7 @@ Item {
         anchors.fill: parent
         visible: !brow.b.head
         Text {
+          textFormat: Text.PlainText
           id: bg_
           x: 24
           width: 22
@@ -268,6 +269,7 @@ Item {
           text: brow.b.kind === "tag" ? "" : brow.b.kind === "remote" ? "" : ""
           color: brow.b.current ? Zenon.accent : brow.b.kind === "tag" ? Zenon.sand : brow.b.kind === "remote" ? Zenon.blue : Zenon.green
           font.family: Zenon.glyphFace
+          font.weight: Zenon.weight
           font.pixelSize: Zenon.px(15)
         }
         Text {
@@ -281,11 +283,12 @@ Item {
           text: brow.b.name || ""
           color: brow.b.current ? Zenon.accent : Zenon.ink
           font.family: Zenon.face
-          font.weight: brow.b.current ? Font.Bold : Zenon.weight
+          font.weight: brow.b.current ? Zenon.titleWeight : Zenon.weight
           font.pixelSize: Zenon.px(15)
         }
         // how it stands against what it follows
         Text {
+          textFormat: Text.PlainText
           id: track
           anchors.left: bname.right
           anchors.leftMargin: 10
@@ -314,6 +317,7 @@ Item {
           font.pixelSize: Zenon.px(14)
         }
         Text {
+          textFormat: Text.PlainText
           id: bwhen
           anchors.right: parent.right
           anchors.rightMargin: 24

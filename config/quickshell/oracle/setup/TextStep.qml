@@ -81,7 +81,7 @@ Item {
           width: parent.width
           horizontalAlignment: Text.AlignHCenter
           text: "A small note, like a time or a path"
-          color: Zenon.muted
+          color: Zenon.accentMuted
           font.family: Zenon.face
           font.weight: Zenon.weight
           font.pixelSize: Zenon.px(13)

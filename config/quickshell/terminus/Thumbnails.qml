@@ -17,6 +17,9 @@ Item {
   id: thumbnails
   property var term: null
   readonly property alias thumbIndexSave: thumbIndexSave
+  // entries dropped as dead or stale since the last save: the merge with
+  // the file would have put them straight back (audit 11-08)
+  property var dropped: ({})
 
   FileView {
     id: thumbIndexFile
@@ -70,6 +73,7 @@ Item {
       const ix = Object.assign({}, term.thumbIndex);
       delete ix[r.path];
       term.thumbIndex = ix;
+      thumbnails.dropped[r.path] = true;
       thumbIndexSave.restart();
     }
     return false;
@@ -95,6 +99,7 @@ Item {
     if (ix[r.path] !== undefined) {
       delete ix[r.path];
       term.thumbIndex = ix;
+      thumbnails.dropped[r.path] = true;
       thumbIndexSave.restart();
     }
     if (term.thumbMissed[r.path]) return;
@@ -124,6 +129,8 @@ Item {
     let disk = null;
     try { disk = JSON.parse(String(thumbIndexFile.text() || "{}")); } catch (e) { disk = null; }
     const out = (disk && typeof disk === "object" && !Array.isArray(disk)) ? disk : ({});
+    for (const k in thumbnails.dropped) if (term.thumbIndex[k] === undefined) delete out[k];
+    thumbnails.dropped = ({});
     for (const k in term.thumbIndex) out[k] = term.thumbIndex[k];
     // Oldest first: a plain object iterates in insertion order, which is
     // close enough to least-recently-learned for a cache index.
@@ -265,6 +272,12 @@ Item {
   // cannot hold up the grid's batch behind it.
   Process {
     id: bigProc
+    property var next: null
+    onExited: {
+      const r = bigProc.next;
+      bigProc.next = null;
+      if (r) Qt.callLater(() => term.wantBig(r));
+    }
     stdout: StdioCollector {
       id: bigOut
       waitForEnd: true
@@ -284,7 +297,11 @@ Item {
       delete c[r.path];
       term.bigFile = c;
     }
-    if (term.bigFile[r.path] || bigProc.running) return;
+    if (term.bigFile[r.path]) return;
+    // one at a time; the row asked for last goes next (audit 11-07: walking
+    // blind images, only the first ever came out sharp)
+    if (bigProc.running) { bigProc.next = r; return; }
+    bigProc.next = null;
     term.bigStamp[r.path] = stamp;
     bigProc.command = ["sh", "-c",
       Thumbs.generate([{ src: r.path, kind: "f" }], true)];

@@ -157,6 +157,7 @@ Item {
               textFormat: Text.PlainText
               color: sample.highlight
               font.family: sample.face
+              font.weight: Zenon.weight
               font.pixelSize: Zenon.px(16)
             }
           }
@@ -200,7 +201,7 @@ Item {
                 : chip.spec ? Ora.display(chip.spec, Oracle[chip.key]) : ""
           color: sample.fgColor
           font.family: sample.face
-          font.weight: Font.Medium
+          font.weight: Zenon.weight
           font.pixelSize: Zenon.px(15)
         }
         MouseArea {

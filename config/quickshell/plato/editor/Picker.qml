@@ -125,7 +125,12 @@ PlatoSheet {
   property var nvimYanks: []
 
   // `at`: grep there, not in the file's project
+  // every open (and close) is a generation: a reply from nvim for an
+  // earlier one — diags, then undo at once — is dropped, not shown in the
+  // newer mode's list, and a files reply after close does not reindex
+  property int openGen: 0
   function open(mode, at) {
+    const g = ++picker.openGen;
     // the menus, and Space ?'s cheat sheet (the user asked, 2026-10-08)
     const rise = mode === "menu" || mode === "motions";
     if (rise !== picker.rising) picker.setEnd(() => { picker.rising = rise; });
@@ -135,7 +140,7 @@ PlatoSheet {
     input.text = "";
     input.forceActiveFocus();
     if (mode === "files") {
-      picker.client.request("root", {}, (r) => {
+      picker.client.request("root", {}, (r) => { if (g !== picker.openGen) return;
         picker.root = r || "";
         picker.useIndexFor(picker.root);
         picker.refresh();
@@ -144,13 +149,13 @@ PlatoSheet {
       picker.root = at;
       picker.refresh();
     } else if (mode === "grep") {
-      picker.client.request("root", {}, (r) => {
+      picker.client.request("root", {}, (r) => { if (g !== picker.openGen) return;
         picker.root = r || "";
         picker.refresh();
       });
     } else if (mode === "yanks") {
       picker.nvimYanks = [];
-      picker.client.request("yanks", {}, (list) => {
+      picker.client.request("yanks", {}, (list) => { if (g !== picker.openGen) return;
         picker.nvimYanks = picker.ed._list(list);
         picker.refresh();
       });
@@ -158,19 +163,19 @@ PlatoSheet {
       // the file's outline (symbols.lua), for the file being edited
       picker.nvimList = [];
       picker.symbolsFile = picker.ed.file.replace(/^~/, picker.home);
-      picker.client.request("symbols", {}, (list) => {
+      picker.client.request("symbols", {}, (list) => { if (g !== picker.openGen) return;
         picker.nvimList = picker.ed._list(list);
         picker.refresh();
       });
     } else if (mode === "diags" || mode === "undo" || mode === "pins") {
       picker.nvimList = [];
       const method = { diags: "diagnostics", undo: "undoList", pins: "pins" }[mode];
-      picker.client.request(method, { all: true }, (list) => {
+      picker.client.request(method, { all: true }, (list) => { if (g !== picker.openGen) return;
         picker.nvimList = picker.ed._list(list);
         picker.refresh();
       });
     } else if (mode === "commands") {
-      picker.client.request("commands", {}, (list) => {
+      picker.client.request("commands", {}, (list) => { if (g !== picker.openGen) return;
         picker.nvimCommands = picker.ed._list(list);
         picker.refresh();
       });
@@ -210,6 +215,7 @@ PlatoSheet {
   }
 
   function close() {
+    picker.openGen++;
     picker.mode = "";
     search.next = null;
     search.running = false;
@@ -361,14 +367,13 @@ PlatoSheet {
     if (picker.mode === "files" && picker.index === "") return;
     picker.gen++;
     if (picker.mode === "grep") { picker.runGrep(q); return; }
+    // only files here (grep has its own runner); a mode left while the
+    // delay ran asks nothing
+    if (picker.mode !== "files") return;
     search.query = q;
-    picker.launch(search, picker.mode === "files"
-      ? ["sh", "-c", q === ""
-          ? Artemis.browseCommand(picker.index, false, picker.scope)
-          : Artemis.filterCommand(picker.index, q, false, picker.scope)]
-      : ["sh", "-c", "cd \"$1\" && rg --vimgrep --smart-case --hidden -g '!.git'"
-          + " --max-columns 240 --max-columns-preview -- \"$2\" . 2>/dev/null | head -n 300",
-         "sh", picker.root, q]);
+    picker.launch(search, ["sh", "-c", q === ""
+      ? Artemis.browseCommand(picker.index, false, picker.scope)
+      : Artemis.filterCommand(picker.index, q, false, picker.scope)]);
   }
   // ── A NEW QUERY WHILE THE LAST ONE RUNS ────────────────────────────
   // `running = false` and then `running = true` in one go does NOT restart a
@@ -473,33 +478,20 @@ PlatoSheet {
       onStreamFinished: {
         if (search.gen !== picker.gen || !picker.shown) return;
         const lines = found.text.split("\n").filter((l) => l !== "");
-        if (picker.mode === "files") {
-          // Before anything is typed, what you open most in this project
-          // comes first — artemis' frecency, which plato's opens feed too
-          // (see accept) — and the rest of the project after it.
-          // Paths come back absolute from the whole index and relative from a
-          // project's; either way they are shown as artemis shows them, home
-          // written as ~.
-          let rows = Artemis.parseResults(lines.join("\n"))
+        // files only: grep answers through runGrep
+        if (picker.mode !== "files") return;
+        let rows = Artemis.parseResults(lines.join("\n"))
+          .map((r) => ({ path: r.path, preview: picker.tidy(r.path), isDir: false }));
+        // Before anything is typed, what you open most comes first —
+        // artemis' frecency, which plato's opens feed too (see accept).
+        if (search.query === "" && picker.finder && picker.scope === "files") {
+          const often = Artemis.freqRanked(picker.finder.freq, 400)
+            .filter((r) => !r.isDir)
             .map((r) => ({ path: r.path, preview: picker.tidy(r.path), isDir: false }));
-          // Before anything is typed, what you open most comes first —
-          // artemis' frecency, which plato's opens feed too (see accept).
-          if (search.query === "" && picker.finder && picker.scope === "files") {
-            const often = Artemis.freqRanked(picker.finder.freq, 400)
-              .filter((r) => !r.isDir)
-              .map((r) => ({ path: r.path, preview: picker.tidy(r.path), isDir: false }));
-            const seen = new Set(often.map((r) => r.path));
-            rows = often.concat(rows.filter((r) => !seen.has(r.path)));
-          }
-          picker.results = rows;
-        } else {
-          picker.results = lines.map((l) => {
-            const m = l.match(/^(.*?):(\d+):(\d+):(.*)$/);
-            if (!m) return null;
-            return { label: m[4].trim(), detail: m[1] + ":" + m[2], path: m[1],
-                     line: Number(m[2]), col: Number(m[3]) };
-          }).filter((r) => r !== null);
+          const seen = new Set(often.map((r) => r.path));
+          rows = often.concat(rows.filter((r) => !seen.has(r.path)));
         }
+        picker.results = rows;
         picker.sel = 0;
       }
     }
@@ -623,7 +615,7 @@ PlatoSheet {
       font.weight: Zenon.weight
       font.pixelSize: Zenon.px(16)
       color: Zenon.white
-      selectionColor: Qt.rgba(Zenon.magenta.r, Zenon.magenta.g, Zenon.magenta.b, 0.5)
+      selectionColor: Zenon.selBg
       cursorDelegate: Caret { field: input }
       clip: true
       onTextChanged: if (picker.shown) picker.refresh()
@@ -727,7 +719,7 @@ PlatoSheet {
         anchors.verticalCenter: parent.verticalCenter
         textFormat: Text.RichText
         font.family: Zenon.face
-        font.weight: 600
+        font.weight: Zenon.titleWeight
         font.pixelSize: Zenon.px(16)
         color: Zenon.white
         text: {
@@ -749,6 +741,7 @@ PlatoSheet {
         textFormat: Text.PlainText
         // grep's results are code, and read as code
         font.family: picker.mode === "grep" || picker.mode === "yanks" || picker.mode === "refs" ? picker.face.family : Zenon.face
+        font.weight: Zenon.weight
         font.pixelSize: picker.mode === "grep" || picker.mode === "yanks" || picker.mode === "refs" ? picker.face.pixelSize - 1 : Zenon.px(16)
         // a verb you can run in white (the user's call, 2026-10-05: terminus'
         // yellow read as a warning here); a diagnostic in its severity's;
@@ -835,7 +828,7 @@ PlatoSheet {
     picker.client.request("undoPreview", { seq: r.seq }, (diff) => {
       const now = picker.results[picker.sel];
       if (picker.mode !== "undo" || !now || now.seq !== r.seq) return;
-      const esc = (t) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      const esc = (t) => Strings.escapeHtml(t)
         .replace(/ /g, "&nbsp;");
       const lines = String(diff || "").split("\n").filter((l) => l !== "").slice(0, 200);
       if (lines.length === 0) { preview.show(key, "empty", ""); return; }

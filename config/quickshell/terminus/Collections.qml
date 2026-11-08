@@ -248,12 +248,24 @@ Item {
   Process {
     id: collProc
     property var folder: null
+    property int run: 0
+    function start(cmd) {
+      collProc.run++;
+      collProc.running = false;
+      collProc.command = ["setsid", "sh", "-c", "printf 'run" + collProc.run + "\\0'; " + cmd];
+      collProc.running = true;
+    }
     stdout: StdioCollector {
       id: collOut
       waitForEnd: true
       onStreamFinished: {
         const f = collProc.folder;
         if (!f) return;
+        // a killed run still streams, after the new folder is set: only the
+        // run that opens with this one's tag is its answer
+        const whole = String(collOut.text || "");
+        const cut = whole.indexOf("\u0000");
+        if (cut < 0 || whole.slice(0, cut) !== "run" + collProc.run) return;
         // ── fd MARKS A DIRECTORY WITH A TRAILING SLASH ────────
         // Every other path in this window is bare, and a row carrying
         // "…/nest probe/" is a different string from the same directory
@@ -266,7 +278,7 @@ Item {
         //
         // Stripped here, where fd's output stops being fd's output, rather
         // than at each of the places that would otherwise have to know.
-        let paths = String(collOut.text || "").split("\u0000")
+        let paths = whole.slice(cut + 1).split("\u0000")
           .filter((p) => p !== "")
           .map((p) => (p.length > 1 && p.charAt(p.length - 1) === "/")
             ? p.slice(0, -1) : p);
@@ -280,8 +292,8 @@ Item {
       // The one place the listing IS emptied: there is an answer now and
       // it is "nothing". See openCollection for why not before this.
       term.applyPendingRealm();
-      term.act.raw = [];
-      term.act.sel = 0;
+      term.hitPane.raw = [];
+      term.hitPane.sel = 0;
       // This return skips statProc, which is where a re-ask's aim is
       // spent — see reCollect. Nothing to land on, so let them go.
       term.wantSel = "";
@@ -311,7 +323,7 @@ Item {
       term.searchBackView = { view: term.viewMode, zoom: term.zoom,
                               thumbZoom: term.act.zoom };
     }
-    term.pendingRealm = { mode: "collection", query: f.name,
+    term.pendingRealm = { mode: "collection", query: f.name, pane: term.act,
                           id: id, folder: f };
     // applyCollectionView is part of the switch and waits with it — see
     // applyPendingRealm.
@@ -326,14 +338,12 @@ Item {
     }
 
     const cmd = Coll.command(f, Paths.home());
-    if (cmd === "") { term.status = "No rules yet"; return; }
+    if (cmd === "") { term.pendingRealm = null; term.status = "No rules yet"; return; }
     term.status = term.searchPage ? "" : "Searching\u2026";
     term.searchBegun();
     collections.killCollGroup();
     collProc.folder = f;
-    collProc.running = false;
-    collProc.command = ["setsid", "sh", "-c", cmd];
-    collProc.running = true;
+    collProc.start(cmd);
   }
   Timer {
     id: collSettle
@@ -394,9 +404,7 @@ Item {
     }
     collections.killCollGroup();
     collProc.folder = f;
-    collProc.running = false;
-    collProc.command = ["setsid", "sh", "-c", cmd];
-    collProc.running = true;
+    collProc.start(cmd);
   }
   // Escape while one is still running. A content query over a large tree is
   // seconds of rg, and a page you have already decided against must not go
@@ -437,13 +445,13 @@ Item {
     // page needs no search, but it still needs a stat of every path, and
     // that is long enough to see the columns change shape on the old rows
     // and then the rows change under them.
-    term.pendingRealm = { mode: "tag", query: name, tag: name };
+    term.pendingRealm = { mode: "tag", query: name, tag: name, pane: term.act };
     const paths = Tags.pathsWith(term.tagMarks, name);
     if (paths.length === 0) {
       // An answer, so the switch happens and the listing empties with it.
       term.applyPendingRealm();
-      term.act.raw = [];
-      term.act.sel = 0;
+      term.hitPane.raw = [];
+      term.hitPane.sel = 0;
       term.status = "Nothing tagged " + name;
       term.wantSel = "";
       term.reAt = -1;
@@ -478,6 +486,8 @@ Item {
   }
   function clearSearch() {
     if (term.searchMode === "") return;
+    // the search is the other pane's: it is that pane that goes back
+    if (term.searchPane && term.searchPane !== term.act) term.activatePane(term.searchPane.side);
     // ── LEAVING ONE IS A STEP BACK, NOT A NEW PLACE ───────────────────
     // The entry below a collection in the trail is the directory this is
     // about to restore, so walking off the end of it is exactly one step

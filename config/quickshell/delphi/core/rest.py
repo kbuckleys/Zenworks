@@ -27,6 +27,29 @@ class ForgeError(Exception):
         self.status = status
 
 
+# ── pieces of a request's path (audit 2026-11-07) ──────────────────────
+# A branch may hold # % + and the like, which in a path were another
+# request (or a 404); an id from the window is a number or nothing.
+def num(v):
+    try:
+        n = int(v)
+    except (TypeError, ValueError):
+        raise ForgeError(f"not a number: {v!r}")
+    if n < 0:
+        raise ForgeError(f"not a number: {v!r}")
+    return n
+
+
+def seg(v):
+    """One path segment: everything escaped, a / included."""
+    return urllib.parse.quote(str(v), safe="")
+
+
+def ref(v):
+    """A branch or tag where the API takes its slashes as they are."""
+    return urllib.parse.quote(str(v), safe="/")
+
+
 def device_flow(p, cancel, emit, code, url):
     """A forge CLI's device sign-in, read as it prints (gh, glab): the
     one-time code and the page it is typed into go to the window once both

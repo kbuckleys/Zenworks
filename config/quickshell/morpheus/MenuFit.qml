@@ -66,7 +66,10 @@ Item {
       let w = fit.metricsFor(r.weight).advanceWidth(String(r.text || "")) + 12 + 10;
       if (r.swatch) w += 22 + Zenon.menuIconGap;
       else if (r.icon || r.image) w += 16 + Zenon.menuIconGap;
-      if (r.hasChildren || r.children || r.mark !== undefined) w += 16 + 8;
+      // a theme's inks at the right (ThemeInks)
+      if (r.inks) w += 92 + 12;
+      // a dimmed choice (markDim) has no tick
+      if (r.hasChildren || r.children || (r.mark !== undefined && !r.markDim)) w += 16 + 8;
       // the hint on its key cap: the cap's padding round the words (KeyCap)
       if (r.hint) w += hintMetrics.advanceWidth(String(r.hint)) + Math.round(Zenon.px(12) * 1.15) + 2 + 12;
       most = Math.max(most, w);

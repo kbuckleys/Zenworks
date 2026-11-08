@@ -39,9 +39,9 @@ Item {
       spacing: 8
       Repeater {
         model: [
-          { glyph: "", ink: "yellow", value: jl.stats.streak, word: jl.stats.streak === 1 ? "day streak" : "day streak",
+          { glyph: "", ink: "yellow", value: jl.stats.streak, word: "day streak",
             tip: "Days in a row with an entry. Longest: " + jl.stats.longest },
-          { glyph: "\u{F0B64}", ink: "cyan", value: jl.stats.year, word: "this year", tip: jl.stats.total + " entries in all, on " + jl.stats.daysWritten + " days" },
+          { glyph: "\u{F0B64}", ink: "accent", value: jl.stats.year, word: "this year", tip: jl.stats.total + " entries in all, on " + jl.stats.daysWritten + " days" },
           { glyph: "\u{F09AA}", ink: "magenta", value: jl.stats.words, word: "words", tip: "Words written in this journal" }]
         delegate: Rectangle {
           id: stat
@@ -57,12 +57,12 @@ Item {
             Row {
               anchors.horizontalCenter: parent.horizontalCenter
               spacing: 6
-              Text { text: stat.modelData.glyph; color: Zenon[stat.modelData.ink]; font.family: Zenon.glyphFace; font.pixelSize: Zenon.px(15); anchors.verticalCenter: parent.verticalCenter }
+              Text { text: stat.modelData.glyph; color: Zenon[stat.modelData.ink]; font.family: Zenon.glyphFace; font.weight: Zenon.weight; font.pixelSize: Zenon.px(15); anchors.verticalCenter: parent.verticalCenter }
               Text {
                 text: stat.modelData.value >= 10000 ? (stat.modelData.value / 1000).toFixed(1) + "k" : String(stat.modelData.value)
                 color: Zenon.ink
                 font.family: Zenon.face
-                font.weight: Font.Bold
+                font.weight: Zenon.titleWeight
                 font.pixelSize: Zenon.px(18)
                 font.features: { "tnum": 1 }
               }
@@ -158,7 +158,7 @@ Item {
           text: N.promptOfDay(Date.now(), jl.promptShift)
           color: Zenon.ink
           font.family: Zenon.face
-          font.weight: Font.DemiBold
+          font.weight: Zenon.titleWeight
           font.pixelSize: Zenon.px(15)
         }
         Row {
@@ -204,7 +204,7 @@ Item {
           text: past.hits.length ? N.titleOf(past.hits[0].n, N.dateLong(past.hits[0].n.date)) : ""
           color: Zenon.ink
           font.family: Zenon.face
-          font.weight: Font.DemiBold
+          font.weight: Zenon.titleWeight
           font.pixelSize: Zenon.px(14)
         }
       }
@@ -253,7 +253,7 @@ Item {
           text: back.e ? N.titleOf(back.e, N.dateLong(back.e.date)) + (back.e.d && back.e.d.preview ? " — " + back.e.d.preview : "") : ""
           color: Zenon.ink
           font.family: Zenon.face
-          font.weight: Font.DemiBold
+          font.weight: Zenon.titleWeight
           font.pixelSize: Zenon.px(14)
         }
       }
@@ -302,7 +302,6 @@ Item {
       visible: jl.calendar
       win: jl.win
       entries: jl.all
-      stats: jl.stats
     }
     // a day chosen: said, and let go of
     Rectangle {
@@ -319,12 +318,12 @@ Item {
         text: jl.win && jl.win.day !== "" ? (() => { const p = jl.win.day.split("-"); return N.dateLong(new Date(+p[0], +p[1] - 1, +p[2]).getTime()); })() : ""
         color: Zenon.accent
         font.family: Zenon.face
-        font.weight: Font.DemiBold
+        font.weight: Zenon.titleWeight
         font.pixelSize: Zenon.px(13)
       }
       ClearChip { anchors.right: parent.right; anchors.rightMargin: 6; anchors.verticalCenter: parent.verticalCenter; size: Zenon.px(13); onClicked: jl.win.day = "" }
     }
-    Rectangle { width: jl.width; height: 1; color: Zenon.border }
+    Hairline { width: jl.width }
   }
 
   // ── THE ENTRIES ────────────────────────────────────────────────────────
@@ -370,7 +369,7 @@ Item {
         text: row.head
         color: Zenon.accentMuted
         font.family: Zenon.face
-        font.weight: Font.Bold
+        font.weight: Zenon.titleWeight
         font.pixelSize: Zenon.px(15)
       }
       EntryCard {
@@ -398,13 +397,13 @@ Item {
     anchors.centerIn: parent
     visible: jl.shut
     spacing: 12
-    Text { anchors.horizontalCenter: parent.horizontalCenter; text: ""; color: Zenon.yellow; font.family: Zenon.glyphFace; font.pixelSize: Zenon.px(40) }
+    Text { anchors.horizontalCenter: parent.horizontalCenter; text: ""; color: Zenon.yellow; font.family: Zenon.glyphFace; font.weight: Zenon.weight; font.pixelSize: Zenon.px(40) }
     Text {
       anchors.horizontalCenter: parent.horizontalCenter
       text: "This journal is locked"
       color: Zenon.ink
       font.family: Zenon.face
-      font.weight: Font.Bold
+      font.weight: Zenon.titleWeight
       font.pixelSize: Zenon.px(18)
     }
     DialogButton {

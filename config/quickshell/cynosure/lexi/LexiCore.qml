@@ -232,8 +232,10 @@ Item {
   }
 
   function onDictResolved(seq, res) {
-    if (seq !== popup.lookupSeq || !popup.shown) return;
+    if (seq !== popup.lookupSeq) return;
+    // the spinner stops even when the panel closed mid-lookup (audit 11-08)
     popup.dictLoading = false;
+    if (!popup.shown) return;
 
     const result = Lexicon.entryToResult(res);
 
@@ -293,8 +295,10 @@ Item {
   property string offerLabel: "did you mean"
 
   function onDictFailed(seq, err) {
-    if (seq !== popup.lookupSeq || !popup.shown) return;
+    if (seq !== popup.lookupSeq) return;
+    // the spinner stops even when the panel closed mid-lookup (audit 11-08)
     popup.dictLoading = false;
+    if (!popup.shown) return;
 
     // the page exists, just not in this language
     if (err && typeof err === "object" && err.kind === "lang") {

@@ -67,6 +67,14 @@ function parseDupes(text) {
       .map((p) => ({ path: p.path, mtime: num(p.mtime) })) }))
     .filter((g) => g.paths.length > 1);
 }
+// the groups with these paths gone — and a path inside a directory that
+// went; a group left with one file is no group of copies
+function withoutPaths(groups, gone) {
+  const g = (gone || []).map(String);
+  const isGone = (p) => g.some((x) => p === x || p.indexOf(x.replace(/\/$/, "") + "/") === 0);
+  return (groups || []).map((x) => ({ bytes: x.bytes, paths: x.paths.filter((p) => !isGone(p.path)) }))
+    .filter((x) => x.paths.length > 1);
+}
 // room the copies take beyond one each
 function dupeWaste(groups) {
   return (groups || []).reduce((a, g) => a + g.bytes * (g.paths.length - 1), 0);

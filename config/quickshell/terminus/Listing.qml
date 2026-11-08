@@ -117,8 +117,6 @@ Item {
     if (kind === "") return;
     const hit = term.infoCache[r.path];
     if (hit !== undefined) { term.previewInfo = hit; return; }
-    term.previewInfoFor = r.path;
-    term.previewInfoKind = kind;
     // one probe at a time; the one asked for meanwhile runs when it ends
     if (infoProc.running) { infoProc.again = true; return; }
     infoProc.infoFor = r.path;

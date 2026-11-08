@@ -165,9 +165,9 @@ function parseAsk(q) {
   if (/^(flip|toss)( a)? coin$/.test(s) || s === "coin flip" || s === "coin toss" || s === "heads or tails")
     return { kind: "coin" };
   if ((m = /^(roll )?(a |an |(\d+) ?)?(dice|die|d(\d+))$/.exec(s)) && (m[1] || m[5] || m[4] === "dice" || m[2]))
-    return { kind: "dice", n: Math.min(20, parseInt(m[3] || "1", 10)), sides: Math.min(1000, parseInt(m[5] || "6", 10)) };
+    return { kind: "dice", n: Math.max(1, Math.min(20, parseInt(m[3] || "1", 10))), sides: Math.max(1, Math.min(1000, parseInt(m[5] || "6", 10))) };
   if ((m = /^roll (\d+)?d(\d+)$/.exec(s)))
-    return { kind: "dice", n: Math.min(20, parseInt(m[1] || "1", 10)), sides: Math.min(1000, parseInt(m[2], 10)) };
+    return { kind: "dice", n: Math.max(1, Math.min(20, parseInt(m[1] || "1", 10))), sides: Math.max(1, Math.min(1000, parseInt(m[2], 10))) };
   if ((m = /^(a )?random( number| integer)?( between| from)? (-?\d+) ?(and|to|-) ?(-?\d+)$/.exec(s)))
     return { kind: "random", lo: Math.min(+m[4], +m[6]), hi: Math.max(+m[4], +m[6]) };
   if (/^(a )?random( number| integer)$/.test(s)) return { kind: "random", lo: 1, hi: 100 };
@@ -480,14 +480,45 @@ function uptimeText(secs) {
   return parts.length ? parts.join(", ") : "Less than a minute";
 }
 
-// the next meeting worth joining (2026-11-03): from cal.py's events (start
-// and end as ISO strings), the first not yet over, all-day ones aside, with
-// a call's link in its url, location or description. → { title, url } or null
+// THE UPTIME'S CARD (user, 2026-11-07: "give uptime a nice card"): from
+// /proc/uptime's first number, /proc/loadavg's first four fields and nproc,
+// one per line. The time up, large; when it started, in words; and the
+// load, the processes and the cores as facts under it. null when unread.
+function uptimeCard(text, now, h24) {
+  const lines = String(text || "").split("\n").map((l) => l.trim());
+  const secs = parseFloat(lines[0]);
+  if (!(secs >= 0)) return null;
+  const d = now || new Date();
+  const boot = new Date(d.getTime() - secs * 1000);
+  const days = Math.round((new Date(d.getFullYear(), d.getMonth(), d.getDate())
+    - new Date(boot.getFullYear(), boot.getMonth(), boot.getDate())) / 86400000);
+  const day = days === 0 ? "today" : days === 1 ? "yesterday"
+    : days < 7 ? cap(WEEKDAYS[boot.getDay()]) : cap(WEEKDAYS[boot.getDay()]) + " " + boot.getDate() + " " + MONTHS[boot.getMonth()];
+  const h = boot.getHours();
+  const at = h24 ? two(h) + ":" + two(boot.getMinutes())
+    : ((h % 12) || 12) + ":" + two(boot.getMinutes()) + (h < 12 ? " am" : " pm");
+  const facts = [];
+  const load = (lines[1] || "").split(/\s+/);
+  if (load.length >= 3 && load.slice(0, 3).every((x) => /^\d+(\.\d+)?$/.test(x)))
+    facts.push({ label: "Load", value: load.slice(0, 3).join("  ") });
+  const procs = /^(\d+)\/(\d+)$/.exec(load[3] || "");
+  if (procs) facts.push({ label: "Processes", value: procs[2] });
+  if (/^\d+$/.test(lines[2] || "")) facts.push({ label: "Cores", value: lines[2] });
+  return { big: uptimeText(secs), small: "Up since " + day + " at " + at, glyph: "\uF011", facts };
+}
+
+// the next meeting worth joining (2026-11-03): from cal.py's events (date,
+// start and end as "YYYY-MM-DD" and "HH:MM", endDate for one past midnight),
+// the first not yet over, all-day ones aside, with a call's link in its url,
+// location or description. → { title, url } or null. Its times were read
+// with Date.parse("14:00"), NaN, so every meeting was dropped (audit 11-08).
 const CALL_LINK = /https:\/\/(?:[\w-]+\.)*(?:zoom\.us|meet\.google\.com|teams\.microsoft\.com|teams\.live\.com|whereby\.com|meet\.jit\.si|webex\.com|discord\.gg|gather\.town|around\.co)\/[^\s<>"')]*/i;
 function nextMeeting(events, now) {
   const t = now.getTime();
-  const list = (events || []).filter((e) => !e.allDay && Date.parse(e.end || e.start) > t)
-    .sort((a, b) => Date.parse(a.start) - Date.parse(b.start));
+  const endMs = (e) => e.end
+    ? calMs({ date: e.endDate || e.date, start: e.end, allDay: false }) : calMs(e);
+  const list = (events || []).filter((e) => !e.allDay && e.date && endMs(e) > t)
+    .sort((a, b) => calMs(a) - calMs(b));
   for (const e of list) {
     const m = CALL_LINK.exec([e.url, e.location, e.description].filter((x) => x).join(" "));
     // a sentence's own full stop is not the link's

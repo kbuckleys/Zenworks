@@ -123,17 +123,9 @@ Rectangle {
 
   InputShield { keepTop: term.tabStripRef.height + term.crumbBarRef.height; onClicked: diskInfo.dismiss() }
 
-  Sheet {
-    // clear: the listing is cut away under it (see sheetHole)
-    ground: "transparent"
-    backdrop: term.sheetBackdrop   // the listing, frosted under the card
-    seamFrost: term.sheetSeam   // the bar's frost, carried over the seam
-    splice: true
-    onCardInkChanged: term.noteSheet("s5", cardInk, drawnX, drawnW, drawnY, drawnH)
-    onDrawnXChanged: term.noteSheet("s5", cardInk, drawnX, drawnW, drawnY, drawnH)
-    onDrawnWChanged: term.noteSheet("s5", cardInk, drawnX, drawnW, drawnY, drawnH)
-    onDrawnYChanged: term.noteSheet("s5", cardInk, drawnX, drawnW, drawnY, drawnH)
-    onDrawnHChanged: term.noteSheet("s5", cardInk, drawnX, drawnW, drawnY, drawnH)
+  TermSheet {
+    host: term
+    note: "s5"
     id: diskInfoSheet
     leftInset: term.sideRef.width
     floating: false   // hangs from the bar, which carries its title — see barTitle
@@ -245,12 +237,10 @@ Rectangle {
         items: diskInfoUse.legend.filter((l) => l.name !== "Free")
       }
 
-      Rectangle {
+      Hairline {
         anchors.bottom: parent.bottom
         anchors.left: parent.left
         anchors.right: parent.right
-        height: 1
-        color: Zenon.border
       }
     }
 
@@ -333,12 +323,10 @@ Rectangle {
       anchors.left: parent.left
       anchors.right: parent.right
       height: 52
-      Rectangle {
+      Hairline {
         anchors.top: parent.top
         anchors.left: parent.left
         anchors.right: parent.right
-        height: 1
-        color: Zenon.border
       }
       Text {
         id: diskInfoHint

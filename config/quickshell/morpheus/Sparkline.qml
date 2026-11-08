@@ -67,7 +67,7 @@ Item {
     anchors.rightMargin: 8
     visible: root.panel && root.peakFormat !== null && root.peak > 0
     text: visible ? "Peak " + root.peakFormat(root.peak) : ""
-    color: Zenon.muted
+    color: Zenon.accentMuted
     font.family: Zenon.face
     font.weight: Zenon.weight
     font.pixelSize: Zenon.px(11)

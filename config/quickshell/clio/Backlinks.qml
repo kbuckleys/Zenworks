@@ -19,14 +19,14 @@ Column {
   topPadding: 28
   spacing: 4
 
-  Rectangle { width: parent.width; height: 1; color: Zenon.border }
+  Hairline { width: parent.width }
   Text {
     topPadding: 10
     bottomPadding: 4
     text: "\u{F0339}  Linked from"
     color: Zenon.accentMuted
     font.family: Zenon.face
-    font.weight: Font.Bold
+    font.weight: Zenon.titleWeight
     font.pixelSize: Zenon.px(12)
   }
   Repeater {
@@ -37,7 +37,7 @@ Column {
       width: bl.width
       height: 34
       radius: Zenon.windowRadius
-      color: rowMa.pressed ? Zenon.wash(0.06) : "transparent"
+      color: rowMa.pressed ? Zenon.pressWash(0.12) : "transparent"
       Row {
         x: 8
         anchors.verticalCenter: parent.verticalCenter
@@ -47,6 +47,7 @@ Column {
           text: row.modelData.kind === "entry" ? "\u{F0B64}" : "\u{F11D7}"
           color: row.modelData.kind === "entry" ? Zenon.magenta : Zenon.accent
           font.family: Zenon.glyphFace
+          font.weight: Zenon.weight
           font.pixelSize: Zenon.px(14)
         }
         Text {
@@ -57,7 +58,7 @@ Column {
           text: N.titleOf(row.modelData, row.modelData.kind === "entry" ? N.dateLong(row.modelData.date) : "New note")
           color: Zenon.ink
           font.family: Zenon.face
-          font.weight: Font.DemiBold
+          font.weight: Zenon.titleWeight
           font.pixelSize: Zenon.px(14)
         }
         Text {

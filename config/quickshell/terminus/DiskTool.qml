@@ -100,6 +100,7 @@ FocusScope {
   readonly property bool done: tool.rc >= 0
 
   function reset() {
+    tool.waiting = "";
     tool.action = "check";
     tool.scope = "part";
     // the disk's own format if it can be made again, else the first that
@@ -135,13 +136,32 @@ FocusScope {
 
   // the passphrase on its way to the root script's stdin (see formatCommand)
   property string pending: ""
+  // a format held back for its tools to install; emptied when the card closes
+  // or is set up again, which calls it off
+  property string waiting: ""
+  onClosed: tool.waiting = ""
+  function formatSpec() {
+    return JSON.stringify([tool.disk ? tool.disk.path : "", tool.mode, tool.scope, tool.target,
+                           tool.encrypt, tool.block, tool.zero, tool.quick]);
+  }
   function start() {
     if (tool.running || !tool.disk) return;
+    // nothing here can check this: no command, so leave the mount alone too
+    if (tool.mode === "repair" && !tool.can) return;
     // a missing mkfs (or cryptsetup) first, through Ceres' own password
     // card and log; the format follows once it is in
     if (tool.mode === "format" && tool.needs.length > 0) {
       const want = tool.needs.slice();
+      // what was confirmed: the install takes a while and the card stays open
+      // and usable, so the answer only counts for this same format, unchanged
+      const asking = tool.formatSpec();
+      tool.waiting = asking;
       const asked = Ceres.install(want, "to format " + tool.title, (ok) => {
+        if (tool.waiting !== asking || tool.formatSpec() !== asking) {
+          tool.waiting = "";
+          return;
+        }
+        tool.waiting = "";
         if (!ok) { tool.verdict = { ok: false, line: "not formatted: " + want.join(", ") + " was not installed" }; tool.rc = 1; return; }
         const g = Object.assign({}, tool.got);
         g[tool.fmt.tool] = true;
@@ -149,7 +169,10 @@ FocusScope {
         tool.got = g;
         tool.start();
       });
-      if (!asked) tool.verdict = { ok: false, line: "Ceres is busy — try again once it is done" };
+      if (!asked) {
+        tool.waiting = "";
+        tool.verdict = { ok: false, line: "Ceres is busy — try again once it is done" };
+      }
       return;
     }
     let cmd = "";
@@ -272,6 +295,7 @@ FocusScope {
 
     // What it is, in one line.
     Text {
+      textFormat: Text.PlainText
       width: parent.width
       elide: Text.ElideRight
       text: !tool.disk ? "" : [tool.disk.fstype + (tool.disk.fsVer ? " " + tool.disk.fsVer : ""),
@@ -605,6 +629,7 @@ FocusScope {
         anchors.verticalCenter: parent.verticalCenter
       }
       Text {
+        textFormat: Text.PlainText
         anchors.verticalCenter: parent.verticalCenter
         width: body.width - 40
         wrapMode: Text.WordWrap

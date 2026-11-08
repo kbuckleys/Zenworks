@@ -67,7 +67,7 @@ Item {
                       : "A disk was plugged in"
       color: Zenon.white
       font.family: Zenon.face
-      font.weight: Font.Bold
+      font.weight: Zenon.titleWeight
       font.pixelSize: Zenon.px(17)
     }
     Text {
@@ -152,11 +152,12 @@ Item {
                : Terminus.basename(row.modelData.path))
           color: Zenon.white
           font.family: Zenon.face
-          font.weight: Font.Medium
+          font.weight: Zenon.weight
           font.pixelSize: Zenon.px(16)
         }
         // what it is and where it went — the facts you decide on
         Text {
+          textFormat: Text.PlainText
           width: parent.width
           elide: Text.ElideMiddle
           text: [row.modelData.size, row.modelData.fstype,
@@ -199,12 +200,10 @@ Item {
   }
   Scrollbar { flick: list; anchors.right: list.right; anchors.top: list.top; anchors.bottom: list.bottom }
 
-  Rectangle {
+  Hairline {
     anchors.bottom: foot.top
     anchors.left: parent.left
     anchors.right: parent.right
-    height: 1
-    color: Zenon.border
   }
 
   Item {

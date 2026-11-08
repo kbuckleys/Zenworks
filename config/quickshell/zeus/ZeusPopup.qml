@@ -25,7 +25,7 @@ LayerPopup {
   readonly property color fgColor: Zenon.white
   readonly property color headColor: Zenon.accent
   readonly property color keyColor: Zenon.keyInk
-  readonly property color dimColor: Zenon.muted
+  readonly property color dimColor: Zenon.accentMuted
   readonly property color entryColor: Zenon.pink
   readonly property color errColor: Zenon.red
 
@@ -1760,12 +1760,10 @@ LayerPopup {
                 Item { width: parent.width * 0.03; height: 1 }
               }
 
-              Rectangle {
+              Hairline {
                 anchors.bottom: parent.bottom
                 anchors.left: parent.left
                 anchors.right: parent.right
-                height: 1
-                color: Zenon.border
               }
             }
 
@@ -1863,12 +1861,10 @@ LayerPopup {
       height: popup.headerH
       clip: true
 
-      Rectangle {
+      Hairline {
         anchors.bottom: parent.bottom
         anchors.left: parent.left
         anchors.right: parent.right
-        height: 1
-        color: Zenon.border
       }
 
       Text {
@@ -1927,7 +1923,7 @@ LayerPopup {
           verticalAlignment: TextInput.AlignVCenter
           color: bar.caretInk
           selectionColor: bar.ink
-          selectedTextColor: Zenon.inkOnAccent
+          selectedTextColor: Zenon.white
           font.family: Zenon.face
           font.weight: Zenon.weight
           font.pixelSize: Zenon.px(17)
@@ -2051,7 +2047,7 @@ LayerPopup {
                     textFormat: Text.RichText
                     clip: true
                     font.family: Zenon.faceFixed
-                    font.weight: Font.Medium
+                    font.weight: Zenon.weight
                     font.pixelSize: Zenon.px(16)
                   }
 
@@ -2121,12 +2117,10 @@ LayerPopup {
               readonly property var facts: { popup.detail; popup.detailIoRate; popup.procSample;
                                              return popup.detailFacts(); }
 
-              Rectangle {
+              Hairline {
                 anchors.top: parent.top
                 anchors.left: parent.left
                 anchors.right: parent.right
-                height: 1
-                color: Zenon.border
               }
 
               EmptyState {
@@ -2149,6 +2143,7 @@ LayerPopup {
                 spacing: 2
 
                 Text {
+                  textFormat: Text.PlainText
                   width: parent.width
                   elide: Text.ElideRight
                   text: detailPane.row
@@ -2162,10 +2157,11 @@ LayerPopup {
                     : ""
                   color: popup.headColor
                   font.family: Zenon.face
-                  font.weight: 600
+                  font.weight: Zenon.titleWeight
                   font.pixelSize: Zenon.px(15)
                 }
                 Text {
+                  textFormat: Text.PlainText
                   width: parent.width
                   elide: Text.ElideRight
                   text: detailPane.row
@@ -2191,12 +2187,10 @@ LayerPopup {
                 width: 210
                 height: 64
 
-                Rectangle {
+                Hairline {
                   anchors.left: parent.left
                   anchors.right: parent.right
                   anchors.bottom: parent.bottom
-                  height: 1
-                  color: Zenon.border
                 }
                 Sparkline {
                   anchors.fill: parent
@@ -2214,7 +2208,7 @@ LayerPopup {
                   text: "CPU " + (detailPane.row ? detailPane.row.cpu + "%" : "")
                   color: Sysmon.cpuInk
                   font.family: Zenon.face
-                  font.weight: Font.Bold
+                  font.weight: Zenon.titleWeight
                   font.pixelSize: Zenon.px(11)
                 }
               }
@@ -2245,7 +2239,7 @@ LayerPopup {
                       text: parent.fact ? parent.fact.value : ""
                       color: (parent.fact && parent.fact.ink) ? parent.fact.ink : popup.fgColor
                       font.family: Zenon.face
-                      font.weight: Font.Bold
+                      font.weight: Zenon.titleWeight
                       font.pixelSize: Zenon.px(13)
                     }
                     Text {
@@ -2352,12 +2346,10 @@ LayerPopup {
                 Item { width: parent.width * 0.02; height: 1 }
               }
 
-              Rectangle {
+              Hairline {
                 anchors.bottom: parent.bottom
                 anchors.left: parent.left
                 anchors.right: parent.right
-                height: 1
-                color: Zenon.border
               }
             }
 
@@ -2383,7 +2375,7 @@ LayerPopup {
                                              : "Nothing on the wire")
                   color: popup.netError !== "" ? popup.errColor : popup.dimColor
                   font.family: Zenon.face
-                  font.weight: 600
+                  font.weight: Zenon.titleWeight
                   font.pixelSize: Zenon.px(15)
                 }
 
@@ -2402,7 +2394,7 @@ LayerPopup {
                     anchors.fill: parent
                     radius: Zenon.windowRadius
                     color: grantMa.pressed
-                      ? Qt.rgba(Zenon.green.r, Zenon.green.g, Zenon.green.b, 0.14)
+                      ? Zenon.alpha(Zenon.green, 0.14)
                       : "transparent"
                     border.width: 1
                     border.color: Zenon.border
@@ -2420,7 +2412,7 @@ LayerPopup {
                       text: "\uF023  grant access"
                       color: grantMa.pressed ? Zenon.green : popup.keyColor
                       font.family: Zenon.face
-                      font.weight: Font.Bold
+                      font.weight: Zenon.titleWeight
                       font.pixelSize: Zenon.px(12)
                       Behavior on color { ColorAnimation { duration: Zenon.fast } }
                     }
@@ -2512,16 +2504,14 @@ LayerPopup {
                         ? modelData.title + "  " + modelData.count : ""
                       color: popup.headColor
                       font.family: Zenon.face
-                      font.weight: Font.Bold
+                      font.weight: Zenon.titleWeight
                       font.pixelSize: Zenon.px(11)
                     }
 
-                    Rectangle {
+                    Hairline {
                       anchors.bottom: parent.bottom
                       anchors.left: parent.left
                       anchors.right: parent.right
-                      height: 1
-                      color: Zenon.border
                     }
                   }
 
@@ -2672,12 +2662,10 @@ LayerPopup {
                 Item { width: parent.width * soundView.wGlyph; height: 26 }
               }
 
-              Rectangle {
+              Hairline {
                 anchors.bottom: parent.bottom
                 anchors.left: parent.left
                 anchors.right: parent.right
-                height: 1
-                color: Zenon.border
               }
             }
 
@@ -2838,16 +2826,14 @@ LayerPopup {
                         ? modelData.title + "  " + modelData.count : ""
                       color: popup.headColor
                       font.family: Zenon.face
-                      font.weight: Font.Bold
+                      font.weight: Zenon.titleWeight
                       font.pixelSize: Zenon.px(11)
                     }
 
-                    Rectangle {
+                    Hairline {
                       anchors.bottom: parent.bottom
                       anchors.left: parent.left
                       anchors.right: parent.right
-                      height: 1
-                      color: Zenon.border
                     }
                   }
 
@@ -2943,7 +2929,7 @@ LayerPopup {
                           ? (routePress.pressed ? Zenon.green : popup.dimColor)
                           : Zenon.green
                         font.family: Zenon.face
-                        font.weight: soundRow.isDevice ? Font.Bold : Font.Medium
+                        font.weight: soundRow.isDevice ? Zenon.titleWeight : Zenon.weight
                         font.pixelSize: Zenon.px(13)
                       }
 
@@ -3106,7 +3092,7 @@ LayerPopup {
                         radius: Zenon.radiusControl
                         visible: profCell.switchable
                         color: profCell.lit
-                          ? Qt.rgba(Zenon.green.r, Zenon.green.g, Zenon.green.b, 0.14)
+                          ? Zenon.alpha(Zenon.green, 0.14)
                           : "transparent"
                         border.width: 1
                         border.color: profCell.lit ? Zenon.green : Zenon.border
@@ -3293,7 +3279,7 @@ LayerPopup {
                 text: "SYSTEM"
                 color: popup.headColor
                 font.family: Zenon.face
-                font.weight: 600
+                font.weight: Zenon.titleWeight
                 font.pixelSize: Zenon.px(18)
               }
 
@@ -3308,12 +3294,10 @@ LayerPopup {
                 font.pixelSize: Zenon.px(13)
               }
 
-              Rectangle {
+              Hairline {
                 anchors.bottom: parent.bottom
                 anchors.left: parent.left
                 anchors.right: parent.right
-                height: 1
-                color: Zenon.border
               }
             }
 
@@ -3539,14 +3523,12 @@ LayerPopup {
     readonly property var valuesB: popup.statValuesB(statRow.statKey)
 
 
-    Rectangle {
+    Hairline {
       anchors.bottom: parent.bottom
       anchors.left: parent.left
       anchors.leftMargin: 12
       anchors.right: parent.right
       anchors.rightMargin: 12
-      height: 1
-      color: Zenon.border
     }
 
     // ── name and current value ──────────────────────────────────────
@@ -3565,7 +3547,7 @@ LayerPopup {
         text: popup.statLabel(statRow.statKey)
         color: statRow.ink
         font.family: Zenon.face
-        font.weight: Font.Bold
+        font.weight: Zenon.titleWeight
         font.pixelSize: Zenon.px(13)
       }
 
@@ -3589,7 +3571,7 @@ LayerPopup {
             text: Helpers.ghostText(popup.statValue(statRow.statKey))
             color: Zenon.trough(statRow.ink)
             font.family: Zenon.clockFamily
-            font.weight: Font.Bold
+            font.weight: Zenon.titleWeight
             font.pixelSize: Zenon.px(24)
           }
           Text {
@@ -3599,7 +3581,7 @@ LayerPopup {
             text: popup.statValue(statRow.statKey)
             color: statRow.ink
             font.family: Zenon.clockFamily
-            font.weight: Font.Bold
+            font.weight: Zenon.titleWeight
             font.pixelSize: Zenon.px(24)
           }
         }
@@ -3610,7 +3592,7 @@ LayerPopup {
           text: popup.statUnit(statRow.statKey)
           color: popup.keyColor
           font.family: Zenon.face
-          font.weight: Font.Bold
+          font.weight: Zenon.titleWeight
           font.pixelSize: Zenon.px(13)
         }
       }
@@ -3627,12 +3609,10 @@ LayerPopup {
       height: 48
 
       // a floor and a midline, so the trace has something to be read against
-      Rectangle {
+      Hairline {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom
-        height: 1
-        color: Zenon.border
       }
       Rectangle {
         anchors.left: parent.left
@@ -3729,7 +3709,7 @@ LayerPopup {
             text: parent.fact ? parent.fact.value : ""
             color: (parent.fact && parent.fact.ink) ? parent.fact.ink : popup.fgColor
             font.family: Zenon.face
-            font.weight: Font.Bold
+            font.weight: Zenon.titleWeight
             font.pixelSize: Zenon.px(14)
           }
           Text {

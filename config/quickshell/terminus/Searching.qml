@@ -21,6 +21,7 @@ Item {
     const p = term.pendingRealm;
     if (!p) return;
     term.pendingRealm = null;
+    term.searchPane = p.pane || term.act;
     term.searchMode = p.mode;
     term.searchQuery = p.query;
     if (p.id !== undefined) term.collOpenId = p.id;
@@ -42,7 +43,7 @@ Item {
           .filter((x) => x !== "");
         if (paths.length === 0) {
           term.applyPendingRealm();
-          term.act.raw = [];
+          term.hitPane.raw = [];
           // a results page says so on its own bar (SearchBar's tally)
           term.status = term.searchPage ? "" : "No matches";
           term.searchDone();
@@ -104,8 +105,8 @@ Item {
         if (term.searchMode === "" && term.pendingRealm === null) return;
         // Everything the new realm is, in one frame with its rows.
         term.applyPendingRealm();
-        term.act.raw = rows;
-        term.act.sel = 0;
+        term.hitPane.raw = rows;
+        term.hitPane.sel = 0;
         // ── UNLESS SOMETHING ASKED FOR A ROW ────────────────────────
         // sel = 0 is right when a results page has just OPENED: the rows
         // are a set you have not seen and the first is as good as any. It
@@ -181,11 +182,7 @@ Item {
     }
     const d = Coll.blank(Date.now());
     d.root = where === "" ? term.cwd : where;
-    d.rules = [];
-    if (s.query !== "") d.rules.push(s.kind === "grep"
-      ? { kind: "content", op: "text", value: s.query }
-      : { kind: "name", op: "contains", value: s.query });
-    for (const r of rules) d.rules.push({ kind: r.kind, op: r.op, value: r.value });
+    d.rules = Coll.searchRules(s.kind, s.query, rules);
     term.searchScratch(d, s.query);
   }
   function search(mode, query) {
@@ -205,6 +202,7 @@ Item {
       term.searchBackView = { view: term.viewMode, zoom: term.zoom,
                               thumbZoom: term.act.zoom };
     }
+    term.searchPane = term.act;
     term.searchMode = mode;
     term.searchQuery = query;
     // Held, for the reason openCollection gives: an empty listing between

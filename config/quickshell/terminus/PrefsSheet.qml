@@ -74,17 +74,9 @@ Item {
   //
   // The arrival, the title on the bar, the gap it opens in the bar's own
   // edge and the blur behind it all come with the shape.
-  Sheet {
-    // clear: the listing is cut away under it (see sheetHole)
-    ground: "transparent"
-    backdrop: term.sheetBackdrop   // the listing, frosted under the card
-    seamFrost: term.sheetSeam   // the bar's frost, carried over the seam
-    splice: true
-    onCardInkChanged: term.noteSheet("s1", cardInk, drawnX, drawnW, drawnY, drawnH)
-    onDrawnXChanged: term.noteSheet("s1", cardInk, drawnX, drawnW, drawnY, drawnH)
-    onDrawnWChanged: term.noteSheet("s1", cardInk, drawnX, drawnW, drawnY, drawnH)
-    onDrawnYChanged: term.noteSheet("s1", cardInk, drawnX, drawnW, drawnY, drawnH)
-    onDrawnHChanged: term.noteSheet("s1", cardInk, drawnX, drawnW, drawnY, drawnH)
+  TermSheet {
+    host: term
+    note: "s1"
     id: prefsSheet
     leftInset: term.sideRef.width
     floating: false   // hangs from the bar, which carries its title — see barTitle
@@ -214,7 +206,6 @@ Item {
         // so it is shown refusing rather than quietly doing nothing.
         PrefSeg { term: prefs.term
           options: ["columns", "list", "grid"]
-          segmented: true
           labels: ({ columns: "Columns", list: "List", grid: "Grid" })
           current: term.viewMode
           allowed: term.viewRing
@@ -316,7 +307,6 @@ Item {
 
         PrefSeg { term: prefs.term
           options: ["last", "columns", "list", "grid"]
-          segmented: true
           labels: ({ last: "Last used", columns: "Columns", list: "List", grid: "Grid" })
           current: term.defaultView === "" ? "last" : term.defaultView
           onChose: (v) => {
@@ -395,7 +385,6 @@ Item {
             return o;
           }
           // one switch, as VIEW is (user, 2026-10-21)
-          segmented: true
           labels: ({ name: "Name", kind: "Kind", size: "Size", time: "Time", usage: "Usage", tag: "Tag" })
           current: term.sortKey
           onChose: (v) => {

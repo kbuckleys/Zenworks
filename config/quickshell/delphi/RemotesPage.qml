@@ -325,6 +325,7 @@ Item {
       width: list.width
       height: list.rowH
       Text {
+        textFormat: Text.PlainText
         id: rglyph
         x: 24
         width: 22
@@ -332,6 +333,7 @@ Item {
         text: rrow.forge ? rrow.forge.glyph : ""
         color: rrow.index === pg.sel ? Zenon.ink : Zenon.accentSoft
         font.family: Zenon.glyphFace
+        font.weight: Zenon.weight
         font.pixelSize: Zenon.px(16)
       }
       Column {
@@ -348,7 +350,7 @@ Item {
             text: rrow.r.name
             color: rrow.index === pg.sel ? Zenon.ink : Zenon.accentSoft
             font.family: Zenon.face
-            font.weight: rrow.r.name === pg.upstream ? Font.Bold : Zenon.weight
+            font.weight: rrow.r.name === pg.upstream ? Zenon.titleWeight : Zenon.weight
             font.pixelSize: Zenon.px(15)
           }
           Text {
@@ -364,6 +366,7 @@ Item {
           }
         }
         Text {
+          textFormat: Text.PlainText
           width: parent.width
           elide: Text.ElideMiddle
           text: rrow.r.fetch + (rrow.ownPush ? "   →   " + rrow.r.push : "")
@@ -375,6 +378,7 @@ Item {
       }
       // HTTPS or SSH, as a word at the row's end
       Text {
+        textFormat: Text.PlainText
         id: rway
         anchors.right: parent.right
         anchors.rightMargin: 24

@@ -45,6 +45,9 @@ RPC_INFO = "https://aur.archlinux.org/rpc/v5/info"
 AUR_GIT = "ssh://aur@aur.archlinux.org/{}.git"
 # what makepkg takes as a package name
 NAME = re.compile(r"^[a-z0-9@_+][a-z0-9@._+-]*$")
+# the file package() installs: it goes into a double-quoted path makepkg
+# runs, so only a plain file name (audit 11-07: a crate named x$(…) ran)
+BINARY = re.compile(r"^[A-Za-z0-9._+-]+$")
 
 
 class NewError(aur.AurError):
@@ -222,12 +225,12 @@ def scan(root):
         out["license"] = out["license"] or _spdx_from_manifest(p.get("license"))
         make.append("cargo")
         deps.append("gcc-libs")
-        out["binary"] = str(p.get("name") or "")
+        out["binary"] = _binary(p.get("name"))
         if (cargo.get("workspace") and not cargo.get("package")):
             note("A Cargo workspace: the binary to install is guessed — check package() in the PKGBUILD")
         bins = cargo.get("bin") or []
         if bins and isinstance(bins, list) and isinstance(bins[0], dict) and bins[0].get("name"):
-            out["binary"] = str(bins[0]["name"])
+            out["binary"] = _binary(bins[0]["name"])
     if pyproject.get("project") or pyproject.get("tool", {}).get("poetry") or setup_py is not None:
         p = pyproject.get("project") or pyproject.get("tool", {}).get("poetry") or {}
         out["systems"].append("python")
@@ -518,6 +521,12 @@ def _q(s):
     return "'" + str(s).replace("'", "'\\''") + "'"
 
 
+def _binary(v):
+    """a manifest's binary name, or "" when it is not a plain file name"""
+    s = str(v or "").strip()
+    return s if BINARY.match(s) and s not in (".", "..") else ""
+
+
 def _build_steps(system, binary):
     """prepare/build/check/package for a build system: (functions text)"""
     b = binary or "${pkgname%-git}"
@@ -722,7 +731,10 @@ def write(spec):
                   "# the directory the tarball unpacks to (the first build says if not)",
                   "_src=" + inside]
     lines.append("")
-    return "\n".join(lines) + "\n" + _build_steps(system, spec.get("binary") or "")
+    binary = str(spec.get("binary") or "").strip()
+    if binary and _binary(binary) != binary:
+        raise NewError("The binary is a plain file name: letters, digits and . _ + -")
+    return "\n".join(lines) + "\n" + _build_steps(system, binary)
 
 
 def _tarball(src, tag):
@@ -755,6 +767,8 @@ def create(spec, dest):
     text = write(spec)
     name = re.search(r"^pkgname=(.+)$", text, re.M).group(1)
     dest = os.path.abspath(os.path.expanduser(str(dest or "")))
+    if os.path.exists(dest) and not os.path.isdir(dest):
+        raise NewError(dest + " is a file, not a directory")
     if os.path.exists(dest) and os.listdir(dest):
         raise NewError(dest + " is not empty")
     os.makedirs(dest, exist_ok=True)

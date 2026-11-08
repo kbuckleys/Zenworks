@@ -49,9 +49,9 @@ Item {
     Text {
       anchors.verticalCenter: parent.verticalCenter
       text: "Names"
-      color: Zenon.muted
+      color: Zenon.accentMuted
       font.family: Zenon.face
-      font.weight: Font.Bold
+      font.weight: Zenon.titleWeight
       font.pixelSize: Zenon.px(11)
     }
     Repeater {
@@ -125,7 +125,7 @@ Item {
         text: Metis.group(row.modelData.result)
         color: row.marked ? Zenon.green : row.sel ? Zenon.accent : Zenon.keyInk
         font.family: Zenon.face
-        font.weight: Font.Bold
+        font.weight: Zenon.titleWeight
         font.pixelSize: Zenon.px(14)
         font.features: { "tnum": 1 }
       }
@@ -149,19 +149,17 @@ Item {
     width: parent.width
     height: tape.sumH
 
-    Rectangle {
+    Hairline {
       x: 16
       width: parent.width - 32
-      height: 1
-      color: Zenon.border
     }
     Text {
       x: 16
       anchors.verticalCenter: parent.verticalCenter
       text: "Σ  " + tape.markedCount + " marked"
-      color: Zenon.muted
+      color: Zenon.accentMuted
       font.family: Zenon.face
-      font.weight: Font.Bold
+      font.weight: Zenon.titleWeight
       font.pixelSize: Zenon.px(12)
     }
     Text {
@@ -171,7 +169,7 @@ Item {
       text: tape.sumBad ? "These don't add up" : Metis.group(tape.sum)
       color: tape.sumBad ? Zenon.red : Zenon.green
       font.family: Zenon.face
-      font.weight: Font.Bold
+      font.weight: Zenon.titleWeight
       font.pixelSize: Zenon.px(16)
       font.features: { "tnum": 1 }
     }

@@ -43,15 +43,7 @@ Item {
   y: Math.max(0, Math.min(card.areaH - card.height, card.f.row * card.cellH - card.pad))
   z: 10 + card.f.z
 
-  Rectangle {
-    anchors.fill: parent
-    radius: Zenon.windowRadius
-    color: Zenon.alpha(Zenon.card, 0.97)
-    // the hairline at full strength: zenon's 0.3 border was lost against
-    // the text it floats over, and the card read as part of the page
-    border.width: 1
-    border.color: Qt.rgba(Zenon.border.r, Zenon.border.g, Zenon.border.b, 0.9)
-  }
+  CardGround {}
 
   Text {
     textFormat: Text.PlainText
@@ -68,13 +60,11 @@ Item {
     color: Zenon.accentMuted
     text: card.title + (card.f.cursor ? "    q close · \u21b5 open" : "")
   }
-  Rectangle {
+  Hairline {
     visible: card.title !== ""
     y: card.headH
     x: 1
     width: card.width - 2
-    height: 1
-    color: Zenon.border
   }
 
   Item {

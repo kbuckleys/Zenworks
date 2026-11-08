@@ -66,7 +66,7 @@ Row {
       color: ck.ink
       opacity: ck.down ? Zenon.pressDim : 1
       font.family: Zenon.face
-      font.weight: Font.Bold
+      font.weight: Zenon.titleWeight
       font.pixelSize: Zenon.px(11)
     }
     // the keyboard is here

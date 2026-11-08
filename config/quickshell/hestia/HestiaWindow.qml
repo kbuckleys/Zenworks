@@ -123,31 +123,15 @@ FloatingWindow {
       anchors.left: parent.left
       anchors.right: parent.right
       height: hw.headH
-      Rectangle { anchors.fill: parent; color: Zenon.headBg }
-      Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Zenon.border }
-      Column {
+      HeadGround {}
+      // the UI name (user, 2026-10-21: "System Journal" again, after a day as
+      // "System Log"); code, IPC and directory stay "hestia". No glyph before it.
+      HeadWords {
         id: brandWords
-        // no glyph before the name (user, 2026-10-21: the big yellow one went)
-        x: 20
-        anchors.verticalCenter: parent.verticalCenter
-        spacing: 1
-        Text {
-          // the UI name (user, 2026-10-21: "System Journal" again, after a
-          // day as "System Log"); code, IPC and directory stay "hestia"
-          text: "System Journal"
-          color: Zenon.ink
-          font.family: Zenon.face
-          font.weight: Zenon.titleWeight
-          font.pixelSize: Zenon.px(17)
-        }
-        Text {
-          text: hw.counts.failed + hw.counts.looping === 0 ? "All running well"
+        title: "System Journal"
+        status: hw.counts.failed + hw.counts.looping === 0 ? "All running well"
             : [hw.counts.failed ? hw.counts.failed + " failed" : "", hw.counts.looping ? hw.counts.looping + " restarting" : ""].filter((x) => x).join(", ")
-          color: hw.counts.failed + hw.counts.looping === 0 ? Zenon.accentMuted : Zenon.red
-          font.family: Zenon.face
-          font.weight: Zenon.weight
-          font.pixelSize: Zenon.px(12)
-        }
+        statusInk: hw.counts.failed + hw.counts.looping === 0 ? Zenon.accentMuted : Zenon.red
       }
       // the five pages, with what each has to say beside its name
       Segments {

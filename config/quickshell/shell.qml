@@ -949,8 +949,7 @@ ShellRoot {
         radius: bg.radius + out
         color: "transparent"
         border.width: 1
-        border.color: Qt.rgba(Zenon.border.r, Zenon.border.g, Zenon.border.b,
-                              Zenon.border.a * modelData[1])
+        border.color: Zenon.alpha(Zenon.border, Zenon.border.a * modelData[1])
         opacity: bg.opacity * root.pillFrame
         visible: opacity > 0
         transform: Translate { y: pillLift.y }
@@ -1008,8 +1007,7 @@ ShellRoot {
       // through pillFrame, not opacity: the modules inside stay whole
       color: Zenon.alpha(Zenon.panelBg, Zenon.panelBg.a * root.pillFrame)
       // the firmer inner of the pill's two rings — see the outer one above
-      border.color: Qt.rgba(Zenon.border.r, Zenon.border.g, Zenon.border.b,
-                            Math.min(1, Zenon.border.a * 2.5) * root.pillFrame)
+      border.color: Zenon.alpha(Zenon.border, Math.min(1, Zenon.border.a * 2.5) * root.pillFrame)
       border.width: 1
       // single uniform radius so all four corners stay even during morph
       radius: root.pillRadius
@@ -1137,8 +1135,8 @@ ShellRoot {
         anchors.bottom: parent.bottom
         anchors.topMargin: bg.border.width
         anchors.bottomMargin: bg.border.width
-        x: workspacesMod.hasTray ? bg.trayGlowX : bg.specialX
-        width: (workspacesMod.hasTray ? bg.trayGlowW : bg.specialW) + 1
+        x: bg.specialX
+        width: bg.specialW + 1
         radius: bg.boxR
       }
       Rectangle {
@@ -1152,7 +1150,7 @@ ShellRoot {
         // (Workspaces) — red is the urgent flash's alone (user, 2026-10-26)
         color: workspacesMod.specialFocused
           ? Zenon.accent
-          : Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.18)
+          : Zenon.alpha(Zenon.accent, 0.18)
         Behavior on color { ColorAnimation { duration: Zenon.normal; easing.type: Zenon.ease } }
         anchors.top: parent.top
         anchors.bottom: parent.bottom
@@ -1192,8 +1190,6 @@ ShellRoot {
       // tray sunrise wash — gap-to-gap like special, but warm and at bg level
       // so it fills the 1px strip on the right that the inner Workspaces wash
       // (clipped to the module) cannot reach in tray mode
-      readonly property real trayGlowX: bg.leftHasContent ? Zenon.padBar + workspacesMod.x - Zenon.gap : bg.border.width
-      readonly property real trayGlowW: bg.leftHasContent ? workspacesMod.width + Zenon.gap * 2 : Zenon.padBar + workspacesMod.x + workspacesMod.width + Zenon.gap - bg.border.width
       Rectangle {
         id: trayGlow
         visible: workspacesMod.visible && workspacesMod.hasTray && opacity > 0.01
@@ -1204,9 +1200,9 @@ ShellRoot {
         anchors.bottom: parent.bottom
         anchors.topMargin: bg.border.width
         anchors.bottomMargin: bg.border.width
-        x: bg.trayGlowX
+        x: bg.specialX
         // 1px extra on the right so tray mode never shows a black strip right next to the divider
-        width: bg.trayGlowW + 1
+        width: bg.specialW + 1
         radius: 0
         topLeftRadius: bg.boxLeftR
         bottomLeftRadius: bg.boxLeftR
@@ -1217,7 +1213,7 @@ ShellRoot {
           orientation: Gradient.Vertical
           GradientStop { position: 0.0; color: "transparent" }
           GradientStop { position: 0.15; color: "transparent" }
-          GradientStop { position: 1.0; color: Qt.rgba(Zenon.yellow.r, Zenon.yellow.g, Zenon.yellow.b, 0.28) }
+          GradientStop { position: 1.0; color: Zenon.alpha(Zenon.yellow, 0.28) }
         }
       }
 

@@ -83,7 +83,7 @@ Item {
       label: "The diff"
       onClicked: bv.closed()
     }
-    Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Zenon.border }
+    Hairline { anchors.bottom: parent.bottom; width: parent.width }
   }
 
   ListView {
@@ -147,6 +147,7 @@ Item {
         }
       }
       Text {
+        textFormat: Text.PlainText
         id: num
         x: view.gutter
         width: Zenon.px(14) * 3
@@ -155,6 +156,7 @@ Item {
         text: String(ln.index + 1)
         color: Zenon.accentMuted
         font.family: bv.codeFace
+        font.weight: Zenon.weight
         font.pixelSize: Zenon.px(13)
       }
       Text {
@@ -168,6 +170,7 @@ Item {
         text: String(ln.modelData.text).replace(/\t/g, "    ")
         color: Zenon.ink
         font.family: bv.codeFace
+        font.weight: Zenon.weight
         font.pixelSize: Zenon.px(14)
       }
     }
@@ -176,6 +179,7 @@ Item {
   Scrollbar { flick: view; anchors.right: view.right; anchors.top: view.top; anchors.bottom: view.bottom }
   Working { anchors.centerIn: view; running: bv.loading; visible: running }
   Text {
+    textFormat: Text.PlainText
     anchors.centerIn: view
     width: view.width - 60
     visible: bv.failed !== "" && !bv.loading

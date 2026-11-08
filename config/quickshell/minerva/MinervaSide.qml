@@ -89,7 +89,7 @@ Item {
   ScrollEdge { view: pages; follow: true; chromeTop: side.chromeTop; visible: pages.visible; z: 1 }
   ScrollEdge { view: list_; follow: true; chromeTop: side.chromeTop; visible: list_.visible; z: 1 }
   // the toolbar's foot, a hairline as the head's (user, 2026-10-21)
-  Rectangle { z: 3; y: pages.y - 1; width: side.width; height: 1; color: Zenon.border }
+  Hairline { z: 3; y: pages.y - 1; width: side.width }
 
   // the tabs, as the suite's switch of pictures (terminus' Segments,
   // `words: false`): one sliding highlight, its press, its arrows, and each
@@ -124,6 +124,7 @@ Item {
           text: parent.t ? parent.t.glyph : ""
           color: parent.parent ? parent.parent.ink : Zenon.accentMuted
           font.family: Zenon.glyphFace
+          font.weight: Zenon.weight
           font.pixelSize: Zenon.px(16)
         }
         Text {
@@ -135,6 +136,7 @@ Item {
           text: parent.n > 99 ? "99+" : String(parent.n)
           color: Zenon.accentMuted
           font.family: Zenon.face
+          font.weight: Zenon.weight
           font.pixelSize: Zenon.px(10)
         }
       }
@@ -284,12 +286,13 @@ Item {
         }
         // a mark or a hit: where, then its words
         Text {
+          textFormat: Text.PlainText
           visible: side.tab !== "contents"
           text: !row.r || side.tab === "contents" ? "" : M.whereWords(side.kind, row.r.where, side.chapters)
             + (side.tab === "highlights" && row.r.note ? "  ·  in Clio" : "")
           color: Zenon.accentMuted
           font.family: Zenon.face
-          font.weight: 600
+          font.weight: Zenon.titleWeight
           font.pixelSize: Zenon.px(12)
         }
         Text {

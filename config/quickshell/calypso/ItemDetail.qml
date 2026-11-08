@@ -118,7 +118,7 @@ Item {
             text: pane.it ? pane.it.title : ""
             color: Zenon.ink
             font.family: Zenon.face
-            font.weight: Font.Bold
+            font.weight: Zenon.titleWeight
             font.pixelSize: Zenon.px(24)
           }
           Row {
@@ -129,6 +129,7 @@ Item {
               text: pane.win ? C.platform(pane.win.acctOf(pane.it).kind).glyph : ""
               color: pane.win ? (Zenon[C.platform(pane.win.acctOf(pane.it).kind).ink] || Zenon.accentMuted) : Zenon.accentMuted
               font.family: Zenon.glyphFace
+              font.weight: Zenon.weight
               font.pixelSize: Zenon.px(13)
             }
             Text {
@@ -196,6 +197,7 @@ Item {
               text: "\u{F0ECC}"
               color: Zenon[parent.parent.pr.ink] || Zenon.accentMuted
               font.family: Zenon.glyphFace
+              font.weight: Zenon.weight
               font.pixelSize: Zenon.px(15)
             }
             Text {
@@ -229,9 +231,10 @@ Item {
             width: parent.width
             horizontalAlignment: Text.AlignHCenter
             text: "In the trash" + (pane.it && pane.it.sub ? "  \u00b7  " + pane.it.sub : "")
+            textFormat: Text.PlainText
             color: Zenon.ink
             font.family: Zenon.face
-            font.weight: Font.DemiBold
+            font.weight: Zenon.titleWeight
             font.pixelSize: Zenon.px(15)
           }
           Row {
@@ -265,7 +268,7 @@ Item {
             text: "This item asks for your master password again"
             color: Zenon.ink
             font.family: Zenon.face
-            font.weight: Font.DemiBold
+            font.weight: Zenon.titleWeight
             font.pixelSize: Zenon.px(15)
           }
           PasswordField {
@@ -346,7 +349,7 @@ Item {
                 required property int index
                 width: attCol.width
                 height: 48
-                Rectangle { visible: index > 0; x: 16; width: parent.width - 32; height: 1; color: Zenon.border }
+                Hairline { visible: index > 0; x: 16; width: parent.width - 32 }
                 Text {
                   id: attGlyph
                   x: 18
@@ -354,6 +357,7 @@ Item {
                   text: "\u{F03E2}"
                   color: Zenon.accentMuted
                   font.family: Zenon.glyphFace
+                  font.weight: Zenon.weight
                   font.pixelSize: Zenon.px(15)
                 }
                 Text {
@@ -421,7 +425,7 @@ Item {
             wrapMode: TextEdit.Wrap
             text: pane.d ? pane.d.notes : ""
             color: Zenon.accentSoft
-            selectionColor: Zenon.alpha(Zenon.accent, 0.4)
+            selectionColor: Zenon.selBg
             font.family: Zenon.face
             font.weight: Zenon.weight
             font.pixelSize: Zenon.px(14)
@@ -441,7 +445,7 @@ Item {
             height: 26
             width: tagText.implicitWidth + 22
             radius: Zenon.radiusControl
-            color: tagPress.pressed ? Zenon.pressWash(0.14) : Zenon.alpha(Zenon.magenta, 0.1)
+            color: tagPress.pressed ? Zenon.pressWash(0.12) : Zenon.alpha(Zenon.magenta, 0.1)
             border.width: 1
             border.color: Zenon.alpha(Zenon.magenta, 0.35)
             Text {
@@ -500,6 +504,7 @@ Item {
       text: ""
       color: Zenon.alpha(Zenon.accentMuted, 0.35)
       font.family: Zenon.glyphFace
+      font.weight: Zenon.weight
       font.pixelSize: Zenon.px(72)
     }
     Text {

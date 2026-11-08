@@ -194,20 +194,18 @@ ListView {
       // The rule runs from the end of the words to the far edge, so the
       // heading reads as a divider with a name on it rather than as a
       // label floating over the list.
-      Rectangle {
+      Hairline {
         anchors.left: headText.right
         anchors.leftMargin: 8
         anchors.right: parent.right
         anchors.rightMargin: 12
         anchors.verticalCenter: headText.verticalCenter
-        height: 1
-        color: Zenon.border
       }
     }
 
     // where one directory's run ends and the next begins, on a grouped
     // results page (the rows stay even; see `runs`)
-    Rectangle {
+    Hairline {
       z: 2
       visible: cell.runs && cell.head !== "" && cell.index > 0
       anchors.left: parent.left
@@ -215,8 +213,6 @@ ListView {
       anchors.right: parent.right
       anchors.rightMargin: 12
       anchors.top: parent.top
-      height: 1
-      color: Zenon.border
     }
 
     EntryRow {

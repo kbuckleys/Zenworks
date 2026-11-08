@@ -48,7 +48,7 @@ Item {
       : "Arch posted " + Ceres.unreadNews.length + " news items since your last upgrade. Worth reading before this one."
     color: Zenon.yellow
     font.family: Zenon.face
-    font.weight: Font.Bold
+    font.weight: Zenon.titleWeight
     font.pixelSize: Zenon.px(15) + view.grow
   }
 
@@ -101,11 +101,11 @@ Item {
           width: parent.width - stamp.width - 16
           wrapMode: Text.Wrap
           textFormat: Text.StyledText
-          text: card.modelData.title.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+          text: Strings.escapeHtml(card.modelData.title)
             + "&nbsp;&nbsp;<font face=\"" + Zenon.glyphFace + "\" color=\"" + Zenon.link + "\">\u{F17B7}</font>"
           color: Zenon.white
           font.family: Zenon.face
-          font.weight: Font.Bold
+          font.weight: Zenon.titleWeight
           font.pixelSize: Zenon.px(15) + view.grow
         }
         Text {
@@ -134,7 +134,7 @@ Item {
           text: "New since your last upgrade"
           color: Zenon.yellow
           font.family: Zenon.face
-          font.weight: Font.Bold
+          font.weight: Zenon.titleWeight
           font.pixelSize: Zenon.px(12) + view.grow
         }
         Text {

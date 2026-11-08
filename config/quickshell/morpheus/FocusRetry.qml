@@ -13,6 +13,11 @@
 // (onPlace) and how to tell that it took (took).
 //
 // begin() starts a fresh run of asks; restart() carries on the count.
+//
+// Terminus' sheets ask the other way round (2026-11-08, from their eight
+// hand-built Timers): `checkFirst` looks at `took` before asking, so an item
+// that already holds the keys is not asked again (a field's claim() would
+// select its text anew); `maxAsks` and `interval` are each sheet's own pace.
 
 import QtQuick
 
@@ -24,6 +29,8 @@ Timer {
   // true once the right item holds the keyboard
   property bool took: false
   property int counter: 0
+  property bool checkFirst: false
+  property int maxAsks: 12
 
   // put the keyboard where it belongs, once per ask
   signal place()
@@ -41,8 +48,13 @@ Timer {
       root.stop();
       return;
     }
+    if (root.checkFirst) {
+      if (root.took || root.counter++ > root.maxAsks) { root.stop(); return; }
+      root.place();
+      return;
+    }
     root.place();
     if (root.took) root.stop();
-    if (root.counter++ > 12) root.stop();
+    if (root.counter++ > root.maxAsks) root.stop();
   }
 }

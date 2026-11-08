@@ -757,6 +757,11 @@ module.exports = {
     t.eq("snap: every place, filtered by its name or words", C.snapRows("third", "x").map((r) => r.cmd.where),
       ["left3", "center3", "right3", "left23", "right23"]);
     t.eq("snap: all of them", C.snapRows("", "").length, 24);
+    const themes = [{ value: "zenon", label: "Zenon" }, { value: "nord", label: "Nord" }, { value: "ayu-light", label: "Ayu Light  \u{F19E2}" }];
+    t.eq("theme: filtered by name, the worn one marked", C.themeRows(themes, "nord", "nor", null).map((r) => [r.cmd.value, r.worn]),
+      [["nord", true]]);
+    t.eq("theme: every row says Theme, the worn one too (it is dimmed)", C.kindName(C.themeRows(themes, "nord", "", null)[1]), "Theme");
+    t.eq("theme: is a chip", C.chipFor("themes").word, "theme");
     // what you pick for what you type; looser matching (2026-11-04)
     const apps2 = [{ kind: "app", key: "bash", text: "Bash" }, { kind: "app", key: "brave", text: "Brave Origin" },
       { kind: "app", key: "vsc", text: "Visual Studio Code" }, { kind: "app", key: "ff", text: "Firefox" }];
@@ -775,6 +780,20 @@ module.exports = {
     t.ok("picks are capped", Object.keys(many).length <= 400);
     t.eq("no layouts: says so", C.layoutRows({}, "").map((r) => r.kind), ["info"]);
     t.eq("history: your searches, filtered", C.searchRows(["def apple", "win code", "def pear"], "def").map((r) => r.text), ["def apple", "def pear"]);
+    // what was searched, not what was typed (2026-11-07)
+    t.eq("history: the start typed becomes the app picked", C.pickedLine("cla", "", { kind: "app", label: "Claude" }), "Claude");
+    t.eq("history: a theme under its chip, its marks dropped",
+      C.pickedLine("theme ", "theme", { kind: "argcmd", cmd: { kind: "theme" }, label: "Ayu Light  \u{F19E2}" }), "theme Ayu Light");
+    t.eq("history: a clip's text is never kept", C.pickedLine("cb pass", "cb", { kind: "clip", label: "hunter2" }), "cb pass");
+    t.eq("history: no row, the line", C.pickedLine(" def apple ", "def", null), "def apple");
+    const e = C.queryEntry("Claude", { glyph: "", text: "App" });
+    t.eq("history: an entry keeps its chip", [C.queryText(e), C.queryTag(e).text], ["Claude", "App"]);
+    t.eq("history: once, by its line", C.addQuery([C.queryEntry("Claude", { text: "App" })], "Claude").length, 1);
+    const hist = C.searchRows(["def apple\t\uF02D\tDictionary", "Claude\t\tApp", "plain"], "", [], []);
+    t.eq("history: chip and rest, a tag, or nothing",
+      hist.map((r) => [r.label, r.chipTag ? r.chipTag.text : null, r.text]),
+      [["apple", "Dictionary", "def apple"], ["Claude", "App", "Claude"], ["plain", null, "plain"]]);
+    t.eq("recents under a chip read a tagged entry", C.chipRecentRows(["f invoice\t\uF114\tFiles"], "f").map((r) => r.label), ["invoice"]);
     t.eq("layouts listed, the line saved as a new one",
       C.layoutRows({ coding: [1, 2], games: [1] }, "co").map((r) => r.cmd.kind + ":" + r.cmd.name), ["layoutUse:coding", "layoutSave:co"]);
     t.eq("an exact name is not saved again", C.layoutRows({ coding: [1] }, "coding").length, 1);

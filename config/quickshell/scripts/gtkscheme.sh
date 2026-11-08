@@ -86,7 +86,11 @@ else
 	want='/* The shell'"'"'s theme: colors.css is written by quickshell (morpheus/ThemeSync.qml). */
 @import url("colors.css");'
 fi
-[ -d "$cfg/gtk-3.0" ] && [ "$(cat "$user" 2>/dev/null)" != "$want" ] && printf '%s\n' "$want" > "$user"
+if [ -d "$cfg/gtk-3.0" ] && [ "$(cat "$user" 2>/dev/null)" != "$want" ]; then
+	# what was there first is kept, once, as zsh-setup.sh keeps its own
+	[ -f "$user" ] && [ ! -e "$user.before-zenworks" ] && cp -p "$user" "$user.before-zenworks"
+	printf '%s\n' "$want" > "$user"
+fi
 
 theme=
 if [ -n "$base" ]; then

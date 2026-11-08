@@ -37,6 +37,8 @@ Text {
   readonly property int glyphPx: Zenon.px(64)
   readonly property int glyphGap: 10
 
+  // plain: a filter's own words go in it ("Nothing matches “…”", 11-08)
+  textFormat: Text.PlainText
   text: filtered ? "No matches" : "Empty"
   color: Zenon.accentMuted
   font.family: Zenon.face

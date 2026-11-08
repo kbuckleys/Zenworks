@@ -78,6 +78,19 @@ def token():
     return None, None
 
 
+def _headers(tok, accept="application/json"):
+    """What every request here carries. Bearer, which GitLab takes from a
+    personal access token and an OAuth one alike — glab's browser/device
+    sign-in gives the latter, and PRIVATE-TOKEN was answered 401
+    (2026-10-11; job logs too, audit 2026-10-28d)."""
+    h = {"User-Agent": "delphi"}
+    if accept:
+        h["Accept"] = accept
+    if tok:
+        h["Authorization"] = "Bearer " + tok
+    return h
+
+
 def call(method, path, body=None, tok=None, raw=False, again=False, waited=None, anon=False):
     given = tok is not None
     src = None
@@ -87,13 +100,7 @@ def call(method, path, body=None, tok=None, raw=False, again=False, waited=None,
         raise ForgeError("not signed in to GitLab", 401)
     url = path if path.startswith("http") else API + path
     def ask(t):
-        h = {"User-Agent": "delphi", "Accept": "application/json"}
-        if t:
-            # Bearer, which GitLab takes from a personal access token and an
-            # OAuth one alike — glab's browser/device sign-in gives the latter,
-            # and PRIVATE-TOKEN was answered 401 (2026-10-11)
-            h["Authorization"] = "Bearer " + t
-        return rest.request(method, url, h, body, raw, again, waited, who=NAME)
+        return rest.request(method, url, _headers(t), body, raw, again, waited, who=NAME)
     try:
         return ask(tok)
     except ForgeError as e:
@@ -382,7 +389,7 @@ def _kind(pull):
 
 def thread(full, number, pull=False):
     tok, _ = token()
-    base = f"/projects/{_pid(full)}/{_kind(pull)}/{number}"
+    base = f"/projects/{_pid(full)}/{_kind(pull)}/{rest.num(number)}"
     r = call("GET", base, tok=tok, anon=not tok)
     out = _row(r, pull)
     out["body"] = r.get("description") or ""
@@ -408,13 +415,13 @@ def thread(full, number, pull=False):
 
 
 def comment(full, number, body, pull=False):
-    n = call("POST", f"/projects/{_pid(full)}/{_kind(pull)}/{number}/notes", {"body": body})
+    n = call("POST", f"/projects/{_pid(full)}/{_kind(pull)}/{rest.num(number)}/notes", {"body": body})
     return {"author": (n.get("author") or {}).get("username", ""), "body": n.get("body") or "",
             "when": n.get("created_at"), "kind": "comment"}
 
 
 def set_state(full, number, open, pull=False):
-    r = call("PUT", f"/projects/{_pid(full)}/{_kind(pull)}/{number}",
+    r = call("PUT", f"/projects/{_pid(full)}/{_kind(pull)}/{rest.num(number)}",
              {"state_event": "reopen" if open else "close"})
     return {"state": "open" if r.get("state") == "opened" else r.get("state")}
 
@@ -435,7 +442,7 @@ def open_pull(full, head, base, title, body="", draft=False):
 def merge(full, number, method="merge"):
     if method == "rebase":
         raise ForgeError("GitLab rebases in its own merge settings — merge or squash here")
-    r = call("PUT", f"/projects/{_pid(full)}/merge_requests/{number}/merge",
+    r = call("PUT", f"/projects/{_pid(full)}/merge_requests/{rest.num(number)}/merge",
              {"squash": method == "squash"})
     return {"merged": r.get("state") == "merged", "sha": r.get("merge_commit_sha")}
 
@@ -483,7 +490,7 @@ def create_release(full, tag, target, name, body="", draft=False, prerelease=Fal
 # statuses: one per job, external ones too).
 def checks(full, sha):
     tok, _ = token()
-    rs = call("GET", f"/projects/{_pid(full)}/repository/commits/{sha}/statuses?per_page=100", tok=tok, anon=not tok)
+    rs = call("GET", f"/projects/{_pid(full)}/repository/commits/{rest.seg(sha)}/statuses?per_page=100", tok=tok, anon=not tok)
     # a job retried reports again: the newest of each name is what stands
     seen, runs = set(), []
     for s in sorted(rs or [], key=lambda x: x.get("id") or 0, reverse=True):
@@ -506,12 +513,8 @@ def checks_many(full, shas):
 
 def job_log(full, job):
     tok, _ = token()
-    h = {"User-Agent": "delphi"}
-    if tok:
-        # Bearer, as call() sends it: glab's OAuth token is refused as
-        # PRIVATE-TOKEN (audit 2026-10-28d: job logs were a 401)
-        h["Authorization"] = "Bearer " + tok
-    t = rest.text(f"{API}/projects/{_pid(full)}/jobs/{int(job)}/trace", h, who=NAME)
+    # a job's trace is plain text, so no Accept: json
+    t = rest.text(f"{API}/projects/{_pid(full)}/jobs/{int(job)}/trace", _headers(tok, accept=None), who=NAME)
     return {"lines": rest.log_lines(t)}
 
 
@@ -619,7 +622,7 @@ def media_upload(full, rel, path):
     data = rest.read_media(path)
     form, ctype = rest.multipart("file", rest.media_name(path, data), data, rest.media_type(path))
     r = rest.request("POST", f"{API}/projects/{_pid(full)}/uploads",
-                     {"User-Agent": "delphi", "Accept": "application/json", "Authorization": "Bearer " + tok},
+                     _headers(tok),
                      payload=form, ctype=ctype, who=NAME) or {}
     where = r.get("full_path") or f"/{full}{r.get('url') or ''}"
     return f"https://{HOST}{where}"
@@ -643,5 +646,5 @@ def add_ssh_key(key, title="delphi"):
 
 
 def delete_ssh_key(id):
-    call("DELETE", f"/user/keys/{id}")
+    call("DELETE", f"/user/keys/{rest.num(id)}")
     return {}

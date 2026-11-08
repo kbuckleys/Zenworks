@@ -145,7 +145,7 @@ Item {
     // errors that explain a failure, warnings, and pacman's bars dimmed —
     // they are the progress, not the story.
     function lineHtml(l) {
-      const e = String(l).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      const e = Strings.escapeHtml(l);
       const t = String(l).trim();
       if (/^(?:==>\s*)?error:|^==> ERROR:/i.test(t))
         return "<span style='color:" + Zenon.red + "'>" + e + "</span>";
@@ -175,7 +175,7 @@ Item {
         text: "Log"
         color: Zenon.accentMuted
         font.family: Zenon.face
-        font.weight: Font.Bold
+        font.weight: Zenon.titleWeight
         font.pixelSize: Zenon.px(13) + view.grow
       }
 
@@ -222,12 +222,10 @@ Item {
 
       Timer { id: copied; interval: 1400 }
 
-      Rectangle {
+      Hairline {
         anchors.bottom: parent.bottom
         anchors.left: parent.left
         anchors.right: parent.right
-        height: 1
-        color: Zenon.border
       }
     }
 
@@ -342,7 +340,7 @@ Item {
         text: Ceres.txPhase !== "" ? Ceres.txPhase : "Working"
         color: Ceres.txCancelling ? Zenon.red : Zenon.white
         font.family: Zenon.face
-        font.weight: Font.Bold
+        font.weight: Zenon.titleWeight
         font.pixelSize: Zenon.px(15) + view.grow
       }
 
@@ -402,7 +400,7 @@ Item {
             : Ceres.txEvents.length + " / " + Math.max(Ceres.txExpected, Ceres.txEvents.length)
           color: track.total ? Zenon.white : Zenon.accentKey
           font.family: Zenon.face
-          font.weight: track.total ? Font.Bold : Font.Normal
+          font.weight: track.total ? Zenon.titleWeight : Font.Normal
           font.pixelSize: Zenon.px(14) + view.grow
         }
       }
@@ -448,7 +446,7 @@ Item {
       }
       color: view.cancelled ? Zenon.yellow : view.failed ? Zenon.red : Zenon.white
       font.family: Zenon.face
-      font.weight: Font.Bold
+      font.weight: Zenon.titleWeight
       font.pixelSize: Zenon.px(15) + view.grow
     }
 

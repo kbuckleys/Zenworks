@@ -7,8 +7,7 @@
 // TerminusWindow.qml until 2026-10-08, when it was the first piece taken
 // out of that 29,000-line file (see the note there). `root` is the terminus
 // window, so everything in here that says root.x reads what it always did;
-// `card`, `facts` and `previewBody` are the three items of the window's own
-// it measures itself against. What the window reaches back in for — the
+// what the window reaches back in for — the
 // card itself, its scroll, the player, the picture's natural size — is
 // offered as aliases.
 
@@ -24,9 +23,6 @@ import "terminus.js" as Terminus
 PanelWindow {
   id: lookLayer
   required property var root
-  property Item card: null
-  property Item facts: null
-  property Item previewBody: null
   readonly property alias look: look
   readonly property alias lookScroll: lookScroll
   // the player, once made — see playerSlot; a stand-in with its shape until
@@ -686,7 +682,7 @@ PanelWindow {
           audioOutput: AudioOutput { }
           videoOutput: lookVideo
           source: (root.looking && look.playable && look.row)
-            ? "file://" + look.row.path : ""
+            ? Strings.fileUrl(look.row.path) : ""
           // Autoplay, the way every other quick look does: you opened it to see
           // the thing, not to be asked whether you meant it.
           onSourceChanged: if (lookPlayerItem.source != "") lookPlayerItem.play()
@@ -1013,7 +1009,7 @@ PanelWindow {
             // accent ring a tile's cursor wears over a photograph — see
             // SelectCell — one pixel, the same width as everyone else's.
             color: pageCell.here
-              ? Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.22)
+              ? Zenon.alpha(Zenon.accent, 0.22)
               : Zenon.wash(0.04)
             border.width: 1
             border.color: pageCell.here ? Zenon.accent : Zenon.border
@@ -1377,7 +1373,7 @@ PanelWindow {
                 color: Zenon.accentKey
                 font.family: Zenon.face
                 font.pixelSize: Math.round(16 * root.zoom)
-                font.weight: Font.Bold
+                font.weight: Zenon.titleWeight
                 font.letterSpacing: 1.2
               }
               Text {
@@ -1729,12 +1725,10 @@ PanelWindow {
 
         // The seam every strip in this window uses. Without it the bar and
         // a dark picture above it ran together into one shape.
-        Rectangle {
+        Hairline {
           anchors.top: parent.top
           anchors.left: parent.left
           anchors.right: parent.right
-          height: 1
-          color: Zenon.border
         }
 
         // ── THE NAME LEFT, THE KEYS RIGHT ─────────────────────────
@@ -1774,7 +1768,7 @@ PanelWindow {
           text: look.row ? look.row.name : ""
           color: Zenon.white
           font.family: Zenon.face
-          font.weight: Font.Bold
+          font.weight: Zenon.titleWeight
           font.pixelSize: Zenon.px(15)
         }
 

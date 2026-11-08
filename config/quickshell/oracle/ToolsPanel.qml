@@ -159,6 +159,7 @@ Item {
               Behavior on rotation { NumberAnimation { duration: Zenon.menuFade; easing.type: Easing.OutCubic } }
               color: tp.dimColor
               font.family: Zenon.glyphFace
+              font.weight: Zenon.weight
               font.pixelSize: Zenon.px(11)
             }
             Text {
@@ -169,7 +170,7 @@ Item {
               width: Math.min(implicitWidth, r.width * 0.5)
               elide: Text.ElideRight
               textFormat: Text.StyledText
-              font.weight: r.modelData.head ? Font.Bold : Font.Normal
+              font.weight: r.modelData.head ? Zenon.titleWeight : Font.Normal
               text: {
                 const m = r.modelData;
                 if (m.head) return "<font color='" + tp.dimColor + "'>" + Strings.escapeHtml(m.name) + "</font>";
@@ -235,6 +236,7 @@ Item {
           color: tp.fgColor
           selectionColor: Zenon.alpha(tp.highlight, 0.35)
           font.family: Zenon.faceMono
+          font.weight: Zenon.weight
           font.pixelSize: Zenon.px(13)
         }
       }

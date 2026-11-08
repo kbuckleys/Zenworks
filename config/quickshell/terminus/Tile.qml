@@ -96,7 +96,7 @@ Item {
              && !term.railHover && !term.railDragging
     onActiveChanged: {
       if (!tileDrag.active) return;
-      term.beginDrag(tile.entry, tile.width / 2, tile.height / 2);
+      term.beginDrag(tile.entry, tile.width / 2, tile.height / 2, tileDrag.centroid.scenePosition);
     }
   }
 
@@ -180,6 +180,7 @@ Item {
       radius: parent.radius
     }
   }
+  Component.onDestruction: if (tileHov.hovered && term.hoverRow) term.hoverRow = false
   HoverHandler {
     id: tileHov
     onHoveredChanged: {
@@ -590,7 +591,7 @@ Item {
     color: Zenon.white
     // the accent, not selBg: the row being renamed is the selected row,
     // already filled in selBg, so the highlighted name was invisible on it
-    selectionColor: Zenon.alpha(Zenon.accent, 0.22)
+    selectionColor: Zenon.selBg
     selectedTextColor: Zenon.white
     font.family: Zenon.face
     font.weight: Zenon.weight
@@ -673,6 +674,7 @@ Item {
     z: 5
     radius: Zenon.windowRadius
     on: !!tile.term && tile.term.sideMenuAt === tile
+    middleOf: tileMouse
   }
 
   // Lit while a drag is over this directory — the grid's answer to the same
@@ -684,13 +686,14 @@ Item {
     height: Math.max(0, Math.min(parent.height - 8, tile.usedH - 4))
     z: 6
     visible: tile.dropTarget
-    color: Qt.rgba(Zenon.accent.r, Zenon.accent.g, Zenon.accent.b, 0.12)
+    color: Zenon.alpha(Zenon.accent, 0.12)
     border.width: 1
     border.color: Zenon.border
     radius: Zenon.windowRadius
   }
 
   MouseArea {
+    id: tileMouse
     anchors.fill: parent
     acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
     enabled: !tile.editing

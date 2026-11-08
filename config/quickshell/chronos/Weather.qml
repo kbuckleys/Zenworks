@@ -113,11 +113,11 @@ Singleton {
   function onLocated(text) {
     root.loading = false;
     try {
-      const j = JSON.parse(text);
-      if (j.status !== "success") throw new Error("lookup declined");
-      root.lat = j.lat;
-      root.lon = j.lon;
-      root.place = j.city && j.city !== "" ? j.city : "here";
+      const g = Wx.parseLocate(text);
+      if (!g) throw new Error("lookup declined");
+      root.lat = g.lat;
+      root.lon = g.lon;
+      root.place = g.place;
       root.error = "";
       root.savePlace();
       root.refresh();

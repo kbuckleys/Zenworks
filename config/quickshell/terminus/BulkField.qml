@@ -10,9 +10,29 @@
 import QtQuick
 import "../morpheus"
 
-Rectangle {
+FocusScope {
   id: fld
   property string ghost: ""
+  // the ground is a child now, so this is a FocusScope: forceActiveFocus and
+  // activeFocus on the field mean the input, as they would on a bare TextInput
+  property alias color: ground.color
+  property alias radius: ground.radius
+  property alias border: ground.border
+  // ── A SEARCH'S PARTS (morpheus/SearchBox, 2026-11-07) ─────────────
+  // `lens`: a glyph before the text. `keyHook`: function(event), seen before
+  // anything else here, to leave accepted. `keysTo`: items that hear every
+  // key first, as Keys.forwardTo. `refocusOnClear`: the × hands the keys back.
+  property string lens: ""
+  property var keyHook: null
+  property var keysTo: []
+  property bool refocusOnClear: false
+  // the input itself, for whatever this does not pass on
+  readonly property alias input: fldIn
+  readonly property alias selectedText: fldIn.selectedText
+  function selectAll() { fldIn.selectAll(); }
+  // what the × takes at the right end, for something laid beside it
+  readonly property real chipRoom: clearChip.visible ? clearChip.width + 12 : 8
+  readonly property real leadRoom: fld.lens !== "" ? lensMark.x + lensMark.width + 9 : 8
   // As BulkDrop has one — the two sit side by side in a row and have to
   // agree about how big the type is.
   property int textSize: 14
@@ -40,7 +60,11 @@ Rectangle {
   property var copyHook: null
   readonly property string family: fld.mono ? Zenon.faceMono : Zenon.face
   signal cleared()
-  function clear() { fldIn.text = ""; fld.cleared(); }
+  function clear() {
+    fldIn.text = "";
+    fld.cleared();
+    if (fld.refocusOnClear) fldIn.forceActiveFocus();
+  }
   // Where Tab goes from here. The card owns the ring — a field should not
   // know what is next to it.
   signal tabbed()
@@ -58,11 +82,15 @@ Rectangle {
   readonly property alias focused: fldIn.activeFocus
 
   height: Math.max(26, fld.textSize + 12)
-  radius: Zenon.radiusControl
-  color: Qt.rgba(Zenon.white.r, Zenon.white.g, Zenon.white.b, 0.05)
-  border.width: 1
-  border.color: Zenon.border
-  Behavior on border.color { ColorAnimation { duration: Zenon.fast } }
+  Rectangle {
+    id: ground
+    anchors.fill: parent
+    radius: Zenon.radiusControl
+    color: Zenon.alpha(Zenon.white, 0.05)
+    border.width: 1
+    border.color: Zenon.border
+    Behavior on border.color { ColorAnimation { duration: Zenon.fast } }
+  }
 
   // Declared FIRST, so the input above it still gets the clicks that place
   // its own caret. This one only catches the padding either side of the
@@ -74,10 +102,24 @@ Rectangle {
   }
 
   Text {
+    id: lensMark
+    visible: fld.lens !== ""
+    x: 13
+    anchors.verticalCenter: parent.verticalCenter
+    text: fld.lens
+    color: Zenon.accentMuted
+    textFormat: Text.PlainText
+    font.family: Zenon.glyphFace
+    font.weight: Zenon.weight
+    font.pixelSize: Zenon.px(13)
+  }
+
+  Text {
     anchors.fill: parent
-    anchors.leftMargin: 8
-    anchors.rightMargin: 8 + fld.trailRoom
+    anchors.leftMargin: fld.leadRoom
+    anchors.rightMargin: fld.chipRoom + fld.trailRoom
     verticalAlignment: Text.AlignVCenter
+    textFormat: Text.PlainText
     elide: Text.ElideRight
     visible: fldIn.text === ""
     text: fld.ghost
@@ -102,7 +144,7 @@ Rectangle {
     visible: fld.overflows && !fldIn.activeFocus
     text: fld.masked ? "\u2022".repeat(fldIn.text.length) : fldIn.text
     elide: fld.elide
-    color: Zenon.white
+    color: Zenon.ink
     font.family: fld.family
     font.weight: Zenon.weight
     font.pixelSize: fld.textSize
@@ -110,16 +152,17 @@ Rectangle {
 
   TextInput {
     id: fldIn
+    focus: true
     opacity: fld.overflows && !fldIn.activeFocus ? 0 : 1
 
     cursorDelegate: Caret { field: fldIn }
     anchors.fill: parent
-    anchors.leftMargin: 8
-    anchors.rightMargin: (clearChip.visible ? clearChip.width + 12 : 8) + fld.trailRoom
+    anchors.leftMargin: fld.leadRoom
+    anchors.rightMargin: fld.chipRoom + fld.trailRoom
     verticalAlignment: Text.AlignVCenter
     // masked, its own echo stays for the caret and the selection to sit on
     // but is drawn clear: SecretDots below are what shows
-    color: fld.masked ? "transparent" : Zenon.white
+    color: fld.masked ? "transparent" : Zenon.ink
     selectionColor: Zenon.selBg
     selectedTextColor: fld.masked ? "transparent" : Zenon.white
     font.family: fld.family
@@ -138,7 +181,7 @@ Rectangle {
       visible: fld.masked
       count: fld.masked ? fldIn.text.length : 0
       glyph: "\u2022"
-      ink: Zenon.white
+      ink: Zenon.ink
       family: fld.family
       size: fld.textSize
       spacing: 0
@@ -147,10 +190,15 @@ Rectangle {
       x: { fldIn.cursorRectangle; fldIn.text; fldIn.width; return fldIn.positionToRectangle(0).x; }
       y: Math.round((fldIn.height - height) / 2)
     }
-    // Before the specific handlers below, which is where Tab has to be
-    // caught: a TextInput otherwise hands it to the scene's own focus chain,
-    // which in a card full of list delegates lands somewhere arbitrary.
+    // Tab has to be caught here: a TextInput otherwise hands it to the
+    // scene's own focus chain, which in a card full of list delegates lands
+    // somewhere arbitrary. Return is here too and not in Keys.onReturnPressed:
+    // Qt runs a key's own handler BEFORE onPressed, and accepted there, the
+    // hook would never see it.
+    Keys.forwardTo: fld.keysTo
     Keys.onPressed: (e) => {
+      if (fld.keyHook) { fld.keyHook(e); if (e.accepted) return; }
+      if (e.key === Qt.Key_Return || e.key === Qt.Key_Enter) { e.accepted = true; fld.accepted(); return; }
       if (e.key === Qt.Key_Tab) { e.accepted = true; fld.tabbed(); return; }
       if (e.key === Qt.Key_Backtab) { e.accepted = true; fld.backTabbed(); return; }
       if (fld.copyHook && (e.matches(StandardKey.Copy) || e.matches(StandardKey.Cut))) {
@@ -161,8 +209,6 @@ Rectangle {
         return;
       }
     }
-    Keys.onReturnPressed: (e) => { e.accepted = true; fld.accepted(); }
-    Keys.onEnterPressed: (e) => { e.accepted = true; fld.accepted(); }
   }
   ClearChip {
     id: clearChip
@@ -175,5 +221,5 @@ Rectangle {
   }
   // focused for typing: terminus' held ring (user, 2026-10-11 — every
   // text field wears it, its own border staying neutral)
-  HeldRing { anchors.fill: parent; radius: parent.radius; z: 10; on: fldIn.activeFocus }
+  HeldRing { anchors.fill: parent; radius: fld.radius; z: 10; on: fldIn.activeFocus }
 }
