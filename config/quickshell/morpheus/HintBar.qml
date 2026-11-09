@@ -61,26 +61,42 @@ Item {
   // frosts the topmost sibling stacked under it that it overlaps (the
   // page, the list, the window's ground). ScrollEdges are passed over: they
   // hand themselves in through frostSource, which wins.
+  //
+  // AND UP THE TREE (user, 2026-11-09: "all hint pill must be frosted"): a
+  // bar alone in a wrapper of its own (terminus' which-key strip) has no
+  // sibling, and its pill was bare glass the text behind read through. Then
+  // the wrapper's siblings are tried, and its parent's, and so on — there
+  // only one that covers the whole pill, so a small overlay never stands in
+  // for the ground.
   readonly property Item frostUnder: {
-    const p = bar.parent;
-    if (!bar.floating || !p) return null;
-    const kids = p.children;
-    const me = Array.prototype.indexOf.call(kids, bar);
-    const px = bar.x + bar.pillX, py = bar.y, pw = bar.pillW, ph = bar.height;
-    let best = null, bestZ = -Infinity, bestI = -1;
-    for (let i = 0; i < kids.length; ++i) {
-      const k = kids[i];
-      if (!k || k === bar || !k.visible || k.opacity <= 0 || k.width <= 0 || k.height <= 0) continue;
-      if (k.underPill !== undefined) continue;
-      // input only (a MouseArea, an InputShield, a DropArea) draws nothing
-      // to frost (audit 11-04)
-      if (k.acceptedButtons !== undefined || (k.containsDrag !== undefined && k.keys !== undefined)) continue;
-      // stacked under the bar: a lower z, or the same z and declared before
-      if (k.z > bar.z || (k.z === bar.z && i > me)) continue;
-      if (k.x >= px + pw || k.x + k.width <= px || k.y >= py + ph || k.y + k.height <= py) continue;
-      if (k.z > bestZ || (k.z === bestZ && i > bestI)) { best = k; bestZ = k.z; bestI = i; }
+    // a source handed in wins: nothing to look for (and looking up the tree
+    // read sizes that hang off this bar — a binding loop in Hermes)
+    if (!bar.floating || !bar.parent || bar.frostSource || !bar.visible
+      || (!pill.visible && trail.width <= 0)) return null;
+    void [bar.x, bar.y, bar.pillX, bar.pillW, bar.height];
+    let child = bar;
+    for (let p = bar.parent, depth = 0; p && depth < 8; child = p, p = p.parent, ++depth) {
+      const kids = p.children;
+      const me = Array.prototype.indexOf.call(kids, child);
+      const o = bar.mapToItem(p, bar.pillX, 0);
+      const px = o.x, py = o.y, pw = bar.pillW, ph = bar.height;
+      let best = null, bestZ = -Infinity, bestI = -1;
+      for (let i = 0; i < kids.length; ++i) {
+        const k = kids[i];
+        if (!k || k === child || !k.visible || k.opacity <= 0 || k.width <= 0 || k.height <= 0) continue;
+        if (k.underPill !== undefined) continue;
+        // input only (a MouseArea, an InputShield, a DropArea) draws nothing
+        // to frost (audit 11-04)
+        if (k.acceptedButtons !== undefined || (k.containsDrag !== undefined && k.keys !== undefined)) continue;
+        // stacked under the bar: a lower z, or the same z and declared before
+        if (k.z > child.z || (k.z === child.z && i > me)) continue;
+        if (k.x >= px + pw || k.x + k.width <= px || k.y >= py + ph || k.y + k.height <= py) continue;
+        if (depth > 0 && (k.x > px || k.y > py || k.x + k.width < px + pw || k.y + k.height < py + ph)) continue;
+        if (k.z > bestZ || (k.z === bestZ && i > bestI)) { best = k; bestZ = k.z; bestI = i; }
+      }
+      if (best) return best;
     }
-    return best;
+    return null;
   }
   readonly property Item frostFrom: bar.frostSource || bar.frostUnder
   // the pill's gap to the holder's edges, the same below and to the right,
@@ -196,7 +212,17 @@ Item {
     border.width: 1
     border.color: Zenon.border
     Behavior on width { NumberAnimation { duration: Zenon.fast; easing.type: Zenon.ease } }
+    // no glass to be had (frost off in Oracle, nothing found under it): the
+    // holder's solid floor, as the buttons get, never bare see-through glass
+    Rectangle {
+      anchors.fill: parent
+      z: -1
+      radius: pill.radius
+      color: bar.frostBase
+      visible: !pillFrost.on
+    }
     Frost {
+      id: pillFrost
       anchors.fill: parent
       z: -1
       source: bar.frostFrom

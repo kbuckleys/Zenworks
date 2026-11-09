@@ -397,6 +397,13 @@ LayerPopup {
       selectionProc.running = true;
       return "ok";
     }
+    // straight into one of its panels (binds.lua's cynosureDict and the
+    // rest, unbound until given keys in Oracle); the same keys again close it
+    function panel(name: string): string {
+      const line = ({ dict: "def ", translate: "tr ", calc: "calc ",
+        clipboard: "cb ", snap: "snap " })[String(name || "")];
+      return line ? popup.toggleLine(line) : "unknown panel";
+    }
   }
   // The names the quick panels answered to before they moved in here, kept
   // so a bind or a script that calls them still lands: each one is now a
@@ -434,8 +441,8 @@ LayerPopup {
     function emoji(): string { return popup.toggleLine("em "); }
     function nerd(): string { return popup.toggleLine("nf "); }
   }
-  // open with a word already typed ("calc ", "f "): the list as that word
-  // makes it; closes if it is already what is up
+  // open with a word already in ("calc ", "f "), as its chip when it is one
+  // (lineAt): the list as that word makes it; closes if it is already up
   function toggleLine(line) {
     if (popup.shown && !popup.collapsing && popup.query === line) {
       popup.closeCynosure();
@@ -443,7 +450,7 @@ LayerPopup {
     }
     popup.openCynosure();
     popup.untake();
-    popup.setLine(line);
+    popup.lineAt(line);
     input.cursorPosition = input.text.length;
     return "ok";
   }

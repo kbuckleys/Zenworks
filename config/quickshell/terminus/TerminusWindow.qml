@@ -6311,6 +6311,9 @@ FloatingWindow {
       anchors.left: parent.left
       anchors.right: parent.right
       anchors.bottom: parent.bottom
+      // above the picker's footer, not on it: the pill sat over Save as,
+      // Cancel and Save (user, 2026-11-09)
+      anchors.bottomMargin: chrome.portalBar.height
       height: content.pending === "" ? 0 : whichBar.height
       visible: height > 0
       clip: true
@@ -6334,6 +6337,9 @@ FloatingWindow {
         wrap: true
         centered: true
         frostBase: Zenon.hintBg
+        // alone in `which`, it found nothing under it to frost and showed
+        // bare glass (user, 2026-11-09): the listing, as the status pill does
+        frostSource: chrome.bodyBox
       }
     }
 

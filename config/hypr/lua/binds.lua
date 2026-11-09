@@ -70,6 +70,13 @@ bind("browser",        "SUPER + B",          "Open the browser",               h
 bind("cynosure",       "SUPER + SPACE",      "Cynosure, the launcher",         hl.dsp.exec_cmd("qs ipc call Cynosure toggle"))
 -- and with what is highlighted (else last copied) already typed in (2026-11-02)
 bind("cynosureSel",    "SUPER + SHIFT + SPACE", "Cynosure, on the copied text", hl.dsp.exec_cmd("qs ipc call Cynosure selection"))
+-- or opened on one of its panels, the chip already in (qs ipc call Cynosure
+-- panel …); off until given a chord in oracle's Shortcuts
+bind("cynosureDict",   "",                   "Cynosure, the dictionary",       hl.dsp.exec_cmd("qs ipc call Cynosure panel dict"))
+bind("cynosureTrans",  "",                   "Cynosure, translate",            hl.dsp.exec_cmd("qs ipc call Cynosure panel translate"))
+bind("cynosureCalc",   "",                   "Cynosure, the calculator",       hl.dsp.exec_cmd("qs ipc call Cynosure panel calc"))
+bind("cynosureClip",   "",                   "Cynosure, the clipboard",        hl.dsp.exec_cmd("qs ipc call Cynosure panel clipboard"))
+bind("cynosureSnap",   "",                   "Cynosure, snap the window",      hl.dsp.exec_cmd("qs ipc call Cynosure panel snap"))
 -- held, the sheet shows until the keys come up; tapped, it stays open
 bind("keysSheet",      "SUPER + SLASH",      "Shortcuts cheat sheet",          hl.dsp.exec_cmd("qs ipc call Keys hold"), { onRelease = hl.dsp.exec_cmd("qs ipc call Keys release") })
 bind("terminus",       "SUPER + E",          "Terminus, a new window",         hl.dsp.exec_cmd("qs ipc call Terminus spawn ''"))
