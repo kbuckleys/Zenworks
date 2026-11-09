@@ -425,7 +425,7 @@ Item {
             wrapMode: TextEdit.Wrap
             text: pane.d ? pane.d.notes : ""
             color: Zenon.accentSoft
-            selectionColor: Zenon.selBg
+            selectionColor: Zenon.textSel
             font.family: Zenon.face
             font.weight: Zenon.weight
             font.pixelSize: Zenon.px(14)

@@ -277,7 +277,7 @@ Item {
       persistentSelection: true
       color: blk.b && blk.b.k === "check" && blk.b.c ? Zenon.muted : blk.kind === "quote" ? Zenon.soft : Zenon.ink
       // while finding, the match is marked yellow, as Apple's find marks it
-      selectionColor: blk.editor && blk.editor.findQuery !== "" ? Zenon.alpha(Zenon.yellow, 0.5) : Zenon.alpha(Zenon.accent, 0.32)
+      selectionColor: blk.editor && blk.editor.findQuery !== "" ? Zenon.alpha(Zenon.yellow, 0.5) : Zenon.textSel
       selectedTextColor: color
       font.family: blk.kind === "mono" ? Zenon.faceMono : (blk.editor ? blk.editor.face : Zenon.face)
       font.weight: blk.kind === "title" || blk.kind === "heading" ? Font.Bold

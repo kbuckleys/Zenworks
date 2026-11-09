@@ -1240,7 +1240,7 @@ FloatingWindow {
               text: win.sample
               wrapMode: TextInput.Wrap
               color: Zenon.ink
-              selectionColor: Zenon.alpha(Zenon.accent, 0.35)
+              selectionColor: Zenon.textSel
               font.family: win.style ? win.style.family : Zenon.face
               font.styleName: win.style ? win.style.style : ""
               font.pixelSize: win.size

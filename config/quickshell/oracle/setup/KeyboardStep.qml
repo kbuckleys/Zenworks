@@ -75,7 +75,7 @@ Item {
       anchors.margins: 12
       anchors.verticalCenter: parent.verticalCenter
       color: Zenon.white
-      selectionColor: Zenon.selBg
+      selectionColor: Zenon.textSel
       font.family: Zenon.face
       font.weight: Zenon.weight
       font.pixelSize: Zenon.px(15)

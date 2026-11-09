@@ -163,7 +163,7 @@ FocusScope {
     // masked, its own echo stays for the caret and the selection to sit on
     // but is drawn clear: SecretDots below are what shows
     color: fld.masked ? "transparent" : Zenon.ink
-    selectionColor: Zenon.selBg
+    selectionColor: Zenon.textSel
     selectedTextColor: fld.masked ? "transparent" : Zenon.white
     font.family: fld.family
     font.weight: Zenon.weight

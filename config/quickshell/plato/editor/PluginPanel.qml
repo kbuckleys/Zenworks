@@ -462,7 +462,7 @@ PlatoSheet {
       verticalAlignment: TextInput.AlignVCenter
       font: panel.face
       color: Zenon.white
-      selectionColor: Zenon.selBg
+      selectionColor: Zenon.textSel
       cursorDelegate: Caret { field: filterField }
       clip: true
       Keys.onPressed: (event) => {

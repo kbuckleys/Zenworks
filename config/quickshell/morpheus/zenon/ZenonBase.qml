@@ -597,6 +597,11 @@ QtObject {
   // see-through floor, which is what hintBg exists to prevent.
   readonly property color hintFrostBg: floor(glass(0.6))
   readonly property color selBg:     pick("selBg")
+  // SELECTED TEXT, in every field and reader (user, 2026-11-09: "too faint
+  // in both light and dark"). selBg is a row's fill, a grey at 30% of the
+  // theme's dim, and selected words barely showed on it. The accent, as
+  // macOS tints a selection, strong enough to read at a glance.
+  readonly property color textSel: alpha(accent, light ? 0.42 : 0.50)
   readonly property color keyInk:    pick("keyInk")
   // ── THE GRAYS, IN THE ACCENT (user, 2026-10-15) ─────────────────────
   // A window's chrome — section heads, the steps behind the current crumb,

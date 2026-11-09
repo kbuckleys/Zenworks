@@ -1372,7 +1372,7 @@ function onThumbsDone() {
             verticalAlignment: TextInput.AlignVCenter
             enabled: popup.editing
             color: popup.fgColor
-            selectionColor: Zenon.selBg
+            selectionColor: Zenon.textSel
             selectByMouse: true
             clip: true
             font.family: Zenon.face

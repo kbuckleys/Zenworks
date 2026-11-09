@@ -1237,7 +1237,7 @@ LayerPopup {
                 verticalAlignment: TextInput.AlignVCenter
                 clip: true
                 color: Zenon.white
-                selectionColor: Zenon.selBg
+                selectionColor: Zenon.textSel
                 selectedTextColor: Zenon.white
                 font.family: popup.face
                 font.weight: Zenon.weight
@@ -1529,7 +1529,7 @@ LayerPopup {
                   anchors.rightMargin: 12
                   verticalAlignment: TextInput.AlignVCenter
                   color: Zenon.white
-                  selectionColor: Zenon.selBg
+                  selectionColor: Zenon.textSel
                   selectedTextColor: Zenon.white
                   selectByMouse: true
                   font.family: popup.face

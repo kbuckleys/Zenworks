@@ -268,7 +268,7 @@ Item {
         wrapMode: TextEdit.WrapAnywhere
         textFormat: TextEdit.RichText
         palette.link: Zenon.link   // a link in it is the theme's (Zenon.link)
-        selectionColor: Zenon.selBg
+        selectionColor: Zenon.textSel
         selectedTextColor: Zenon.white
         color: Zenon.accentKey
         // oracle's Monospace font, as plato wears it (user, 2026-10-11)

@@ -93,7 +93,7 @@ Item {
     // `field: field` bound it to itself (a binding loop, 2026-10-15)
     cursorDelegate: Caret { field: tn.input }
     color: Zenon.white
-    selectionColor: Zenon.selBg
+    selectionColor: Zenon.textSel
     selectedTextColor: Zenon.white
     selectByMouse: true
     clip: true

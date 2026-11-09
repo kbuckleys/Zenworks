@@ -405,7 +405,7 @@ PlatoSheet {
       font.weight: Zenon.weight
       font.pixelSize: Zenon.px(15)
       color: Zenon.white
-      selectionColor: Zenon.selBg
+      selectionColor: Zenon.textSel
       cursorDelegate: Caret { field: textField }
       clip: true
       Keys.onReturnPressed: sheet.endEdit(true)

@@ -922,7 +922,7 @@ FocusScope {
       font.weight: Zenon.weight
       font.pixelSize: tree.fontSize
       color: Zenon.white
-      selectionColor: Zenon.selBg
+      selectionColor: Zenon.textSel
       cursorDelegate: Caret { field: nameField }
       clip: true
       Keys.onReturnPressed: tree.commitEdit()

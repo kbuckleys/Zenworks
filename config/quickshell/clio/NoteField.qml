@@ -73,7 +73,7 @@ Item {
       selectByMouse: true
       persistentSelection: true
       color: Zenon.white
-      selectionColor: Zenon.selBg
+      selectionColor: Zenon.textSel
       selectedTextColor: Zenon.white
       font.family: nf.face
       font.weight: nf.weight

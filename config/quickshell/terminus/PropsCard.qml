@@ -959,7 +959,7 @@ Item {
             text: parent.shown
             maximumLength: 9
             color: Zenon.accent
-            selectionColor: Zenon.selBg
+            selectionColor: Zenon.textSel
             selectedTextColor: Zenon.white
             font.family: Zenon.faceMono
             font.weight: Zenon.titleWeight

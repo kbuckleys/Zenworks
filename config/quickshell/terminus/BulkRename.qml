@@ -863,7 +863,7 @@ Rectangle {
                 text: bulk.edits[bulkRow.index] || ""
                 color: bulkRow.issue !== "" ? Zenon.red
                   : (bulkRow.moved ? Zenon.accent : Zenon.white)
-                selectionColor: Zenon.selBg
+                selectionColor: Zenon.textSel
                 selectedTextColor: Zenon.white
                 font.family: Zenon.face
                 font.weight: bulkRow.moved ? Zenon.titleWeight : Zenon.weight

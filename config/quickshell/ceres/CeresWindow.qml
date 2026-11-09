@@ -2515,7 +2515,7 @@ FloatingWindow {
                   low: 0.3
                 }
                 color: win.typing ? Zenon.white : Zenon.accentKey
-                selectionColor: Zenon.selBg
+                selectionColor: Zenon.textSel
                 selectedTextColor: Zenon.white
                 font.family: Zenon.face
                 font.weight: Zenon.weight

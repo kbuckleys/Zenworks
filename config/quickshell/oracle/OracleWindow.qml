@@ -1349,7 +1349,7 @@ FloatingWindow {
         visible: tx.editing
         verticalAlignment: TextInput.AlignVCenter
         color: popup.highlight
-        selectionColor: Zenon.selBg
+        selectionColor: Zenon.textSel
         selectedTextColor: popup.fgColor
         font.family: popup.face
         font.weight: Zenon.weight

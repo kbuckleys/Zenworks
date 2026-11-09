@@ -919,7 +919,7 @@ Variants {
                 height: 24
                 verticalAlignment: TextInput.AlignVCenter
                 color: Zenon.white
-                selectionColor: Zenon.selBg
+                selectionColor: Zenon.textSel
                 font.family: Zenon.face
                 font.weight: Zenon.weight
                 font.pixelSize: Zenon.px(14)

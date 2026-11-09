@@ -70,7 +70,7 @@ Row {
         horizontalAlignment: TextInput.AlignRight
         text: String(tools.at + 1)
         color: Zenon.ink
-        selectionColor: Zenon.selBg
+        selectionColor: Zenon.textSel
         selectedTextColor: Zenon.white
         font.family: Zenon.face
         font.weight: Zenon.titleWeight

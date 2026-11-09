@@ -101,7 +101,7 @@ Item {
       verticalAlignment: Text.AlignVCenter
       text: ptext.value
       color: Zenon.white
-      selectionColor: Zenon.selBg
+      selectionColor: Zenon.textSel
       selectedTextColor: Zenon.white
       font.family: Zenon.face
       font.weight: Zenon.weight

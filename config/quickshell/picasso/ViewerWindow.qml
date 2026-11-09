@@ -3428,7 +3428,7 @@ FloatingWindow {
           anchors.verticalCenter: parent.verticalCenter
           visible: searchPill.busy
           color: Zenon.white
-          selectionColor: Zenon.selBg
+          selectionColor: Zenon.textSel
           selectedTextColor: Zenon.white
           font.family: Zenon.face
           font.weight: Zenon.weight
@@ -5901,7 +5901,7 @@ FloatingWindow {
                 text: win.outW > 0 ? String(Math.round(win.outW * win.resizeK)) : ""
                 validator: IntValidator { bottom: 1; top: 100000 }
                 color: Zenon.white
-                selectionColor: Zenon.selBg
+                selectionColor: Zenon.textSel
                 selectedTextColor: Zenon.white
                 font.family: Zenon.face
                 font.weight: Zenon.weight
@@ -7212,7 +7212,7 @@ FloatingWindow {
           anchors.rightMargin: 10
           verticalAlignment: TextInput.AlignVCenter
           color: Zenon.white
-          selectionColor: Zenon.selBg
+          selectionColor: Zenon.textSel
           selectedTextColor: Zenon.white
           font.family: Zenon.face
           font.weight: Zenon.weight

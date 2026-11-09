@@ -202,7 +202,7 @@ Item {
         // replaced stopped following the drags after the first Return
         Component.onCompleted: field.text = picker.shown
         color: Zenon.white
-        selectionColor: Zenon.alpha(Zenon.accent, 0.4)
+        selectionColor: Zenon.textSel
         font.family: Zenon.face
         font.weight: Zenon.weight
         font.pixelSize: picker.textSize

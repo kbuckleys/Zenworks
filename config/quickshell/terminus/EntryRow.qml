@@ -928,7 +928,7 @@ Item {
         color: Zenon.white
         // the accent, not selBg: the row being renamed is the selected row,
         // already filled in selBg, so the highlighted name was invisible on it
-        selectionColor: Zenon.selBg
+        selectionColor: Zenon.textSel
         selectedTextColor: Zenon.white
         font.family: Zenon.face
         font.weight: Zenon.weight

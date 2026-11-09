@@ -234,7 +234,7 @@ Item {
           selectByMouse: true
           text: modelData
           color: tp.fgColor
-          selectionColor: Zenon.alpha(tp.highlight, 0.35)
+          selectionColor: Zenon.textSel
           font.family: Zenon.faceMono
           font.weight: Zenon.weight
           font.pixelSize: Zenon.px(13)

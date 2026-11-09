@@ -67,7 +67,7 @@ Item {
       color: Zenon.ink
       font.family: Zenon.face
       font.weight: Zenon.weight
-      selectionColor: Zenon.selBg
+      selectionColor: Zenon.textSel
       selectedTextColor: Zenon.white
       font.pixelSize: Zenon.px(14)
       cursorDelegate: Caret { field: field }

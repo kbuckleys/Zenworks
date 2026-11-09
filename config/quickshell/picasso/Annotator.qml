@@ -944,7 +944,7 @@ Item {
         font.family: Zenon.face
         font.weight: Zenon.titleWeight
         font.pixelSize: ann.textPx
-        selectionColor: Zenon.selBg
+        selectionColor: Zenon.textSel
         Rectangle {
           anchors.fill: parent
           anchors.margins: -4

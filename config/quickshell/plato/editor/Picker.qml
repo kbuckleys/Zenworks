@@ -634,7 +634,7 @@ PlatoSheet {
       font.weight: Zenon.weight
       font.pixelSize: Zenon.px(16)
       color: Zenon.white
-      selectionColor: Zenon.selBg
+      selectionColor: Zenon.textSel
       cursorDelegate: Caret { field: input }
       clip: true
       onTextChanged: if (picker.shown) picker.refresh()

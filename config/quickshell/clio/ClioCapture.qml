@@ -123,7 +123,7 @@ PanelWindow {
             width: capFlick.width
             wrapMode: TextEdit.Wrap
             color: Zenon.ink
-            selectionColor: Zenon.selBg
+            selectionColor: Zenon.textSel
             selectedTextColor: color
             font.family: cap.mgr ? cap.mgr.faceFor(cap.into === "today") : Zenon.face
             font.pixelSize: Zenon.px(16)

@@ -305,7 +305,7 @@ Item {
         textFormat: TextEdit.RichText
         wrapMode: TextEdit.Wrap
         color: bk.look.ink
-        selectionColor: Zenon.alpha(Zenon.accent, 0.45)
+        selectionColor: Zenon.textSel
         selectedTextColor: bk.look.ink
         font.family: bk.settings.serif && bk.mgr ? bk.mgr.serifFace : Zenon.face
         font.pixelSize: bk.settings.fontSize

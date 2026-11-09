@@ -68,7 +68,7 @@ Column {
     // contentWidth is in the wrong place once the caret is not at the end
     cursorDelegate: Caret { field: barField }
     color: Zenon.accent
-    selectionColor: Zenon.selBg
+    selectionColor: Zenon.textSel
     selectedTextColor: Zenon.white
     font.family: Zenon.face
     font.weight: Zenon.weight
@@ -3311,7 +3311,7 @@ Column {
           + (saveNumber.visible ? saveNumber.width + 6 : 0)
         verticalAlignment: TextInput.AlignVCenter
         color: Zenon.white
-        selectionColor: Zenon.selBg
+        selectionColor: Zenon.textSel
         // dark on the accent selection — white on it was barely there
         selectedTextColor: Zenon.white
         font.family: Zenon.face

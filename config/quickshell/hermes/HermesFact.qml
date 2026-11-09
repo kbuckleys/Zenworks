@@ -42,7 +42,7 @@ Item {
     selectByMouse: true
     wrapMode: TextEdit.Wrap
     color: Zenon.ink
-    selectionColor: Zenon.selBg
+    selectionColor: Zenon.textSel
     selectedTextColor: Zenon.white
     font.family: Zenon.face
     font.weight: Zenon.weight

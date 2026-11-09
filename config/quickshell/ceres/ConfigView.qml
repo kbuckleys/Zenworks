@@ -664,7 +664,7 @@ Item {
       clip: true
       text: fld.value
       color: Zenon.white
-      selectionColor: Zenon.alpha(Zenon.accent, 0.35)
+      selectionColor: Zenon.textSel
       font.family: Zenon.face
       font.weight: Zenon.weight
       font.pixelSize: Zenon.px(15)

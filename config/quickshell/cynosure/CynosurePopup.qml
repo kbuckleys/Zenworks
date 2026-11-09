@@ -833,8 +833,11 @@ LayerPopup {
           : popup.historyScoped ? Cynosure.searchRows(popup.queries, popup.scopeRest, popup.links, popup.scripts)
           : popup.quitScoped ? popup.quitList() : popup.layoutsScoped ? Cynosure.layoutRows(popup.layouts, popup.scopeRest)
           : lookups.scoped ? lookups.rows : null });
-    // a chip with nothing after it: what you last looked for under it, first
-    if (popup.chip && !popup.taken && input.text.trim() === "" && Oracle.cynosureRemember)
+    // a chip with nothing after it: what you last looked for under it, first;
+    // not under Themes or Snap, whose lists are short and fixed
+    // (user, 2026-11-09)
+    if (popup.chip && !popup.taken && input.text.trim() === "" && Oracle.cynosureRemember
+        && !popup.themesScoped && !popup.snapScoped)
       next.unshift(...Cynosure.chipRecentRows(popup.queries, popup.chip.word, popup.links, popup.scripts));
     // the same rows as now: the view keeps the ones it drew
     const sig = JSON.stringify(next);
@@ -4319,7 +4322,7 @@ LayerPopup {
           leftPadding: popup.pillShown ? aliasFor.width + 12 : 0
           verticalAlignment: TextInput.AlignVCenter
           color: Zenon.white
-          selectionColor: Zenon.selBg
+          selectionColor: Zenon.textSel
           selectedTextColor: Zenon.white
           font.family: Zenon.face
           font.weight: Zenon.weight
