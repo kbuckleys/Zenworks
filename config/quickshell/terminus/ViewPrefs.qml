@@ -126,7 +126,7 @@ Item {
     const z = Number(v.zoom);
     if (!isNaN(z) && z > 0) term.zoom = term.zoomClamp(z);
     const tz = Number(v.thumbZoom);
-    if (!isNaN(tz) && tz > 0) term.act.zoom = term.zoomClamp(tz);
+    if (!isNaN(tz) && tz > 0) term.act.zoom = term.thumbClamp(tz);
     // Older records have no sort in them, and a missing answer must not be
     // read as "name ascending" — that would quietly re-sort every directory
     // remembered before this existed.

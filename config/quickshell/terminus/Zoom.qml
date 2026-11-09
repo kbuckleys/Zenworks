@@ -13,11 +13,17 @@ Item {
   id: zoom
   property var term: null
 
+  // the text zoom (list, columns)
   function zoomClamp(v) {
     return Math.max(term.zoomMin, Math.min(term.zoomMax, v));
   }
+  // the grid's, which goes smaller (term.thumbZoomMin); rounded to the
+  // 0.1 notch's hundredths so steps from 0.7 land on 0.4 exactly
+  function thumbClamp(v) {
+    return Math.round(Math.max(term.thumbZoomMin, Math.min(term.zoomMax, v)) * 100) / 100;
+  }
   function zoomBy(step) {
-    if (term.viewMode === "grid") term.act.zoom = term.zoomClamp(term.thumbZoom + step);
+    if (term.viewMode === "grid") term.act.zoom = term.thumbClamp(term.thumbZoom + step);
     else term.zoom = term.zoomClamp(term.zoom + step);
     Qt.callLater(term.positionSel);
   }
@@ -32,9 +38,8 @@ Item {
   // scales its pictures, everything else scales its text, and the two are
   // deliberately independent.
   function setZoom(v) {
-    const z = term.zoomClamp(v);
-    if (term.viewMode === "grid") term.act.zoom = z;
-    else term.zoom = z;
+    if (term.viewMode === "grid") term.act.zoom = term.thumbClamp(v);
+    else term.zoom = term.zoomClamp(v);
     Qt.callLater(term.positionSel);
   }
 }

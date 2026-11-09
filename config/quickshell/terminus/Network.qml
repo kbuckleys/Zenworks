@@ -110,7 +110,7 @@ Item {
     p.running = true;
   }
 
-  // place: { uri, name, user, domain }; opts: { password, remember, accept }
+  // place: { uri, name, user, domain }; opts: { password, remember, accept: the question shown }
   function connect(place, opts, done) {
     if (net.busy !== "") return false;
     const o = opts || {};
@@ -118,7 +118,8 @@ Item {
     if (place.user) args.push("--user", place.user);
     if (place.domain) args.push("--domain", place.domain);
     if (o.remember) args.push("--remember");
-    if (o.accept) args.push("--accept");
+    // accept: the question's own words, said yes to only if gvfs asks it again
+    if (o.accept) args.push("--accept", String(o.accept));
     net.busy = place.uri;
     net.run(args, o.password || "", (r) => {
       net.busy = "";

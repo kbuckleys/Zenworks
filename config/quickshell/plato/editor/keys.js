@@ -53,7 +53,10 @@ function prefix(ctrl, alt, shift, meta) {
 }
 
 // "<" is the one printable character nvim's notation claims for itself
-function literal(ch) { return ch === "<" ? "<lt>" : ch; }
+// every "<": an input method or compose hands over several characters at
+// once, and a "<" among them was read as the start of a key name (audit
+// 2026-11-09)
+function literal(ch) { return String(ch).replace(/</g, "<lt>"); }
 
 // the event, as keys for nvim_input; "" when there is nothing to send
 function translate(event) {

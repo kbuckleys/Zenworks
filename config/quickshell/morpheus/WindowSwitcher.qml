@@ -359,9 +359,13 @@ PanelWindow {
           }
 
           // the app's glyph and the title, centered under the picture
-          // (user, 2026-10-27), the title cut short when it runs too long
+          // (user, 2026-10-27), the title cut short when it runs too long;
+          // the × after it (user, 2026-11-08: over the picture it was lost
+          // on a busy window). Above the tile's MouseArea so the × takes
+          // its own click; the texts take none, so a click there still picks.
           Row {
             id: nameRow
+            z: 1
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.top: frame.bottom
             anchors.topMargin: 8
@@ -379,13 +383,29 @@ PanelWindow {
             Text {
               textFormat: Text.PlainText
               anchors.verticalCenter: parent.verticalCenter
-              width: Math.min(implicitWidth, tile.width - 20 - glyph.implicitWidth - nameRow.spacing)
+              width: Math.min(implicitWidth, tile.width - 20 - glyph.implicitWidth - closeSlot.width - 2 * nameRow.spacing)
               text: tile.win ? tile.win.title : ""
               elide: Text.ElideRight
               color: tile.lit ? Zenon.white : Zenon.soft
               font.family: Zenon.face
               font.weight: Zenon.weight
               font.pixelSize: Zenon.px(14)
+            }
+            // close it: there while the pointer is on the tile (or on the
+            // ×). Its room is kept while it is hidden, so the title does
+            // not move as it comes and goes.
+            Item {
+              id: closeSlot
+              anchors.verticalCenter: parent.verticalCenter
+              width: closeChip.width
+              height: closeChip.height
+              ClearChip {
+                id: closeChip
+                size: Zenon.px(14)
+                shown: hover.containsMouse || onChip.hovered
+                onClicked: sw.closeAt(tile.index)
+                HoverHandler { id: onChip }
+              }
             }
           }
 
@@ -404,14 +424,6 @@ PanelWindow {
             }
           }
 
-          // close it: there while the pointer is on the tile (or on the ×)
-          ClearChip {
-            anchors { right: frame.right; top: frame.top; rightMargin: 4; topMargin: 4 }
-            size: Zenon.px(16)
-            shown: hover.containsMouse || onChip.hovered
-            onClicked: sw.closeAt(tile.index)
-            HoverHandler { id: onChip }
-          }
         }
       }
     }

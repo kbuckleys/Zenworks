@@ -66,9 +66,18 @@ Item {
   // request made mid-run waits for the run to end, each run keeps the
   // question it was actually asked, and an answer that has been overtaken is
   // used for pruning (it is still true about its own paths) but not drawn.
+  // AND A NEW QUESTION OUTDATES THE ONE STILL BEING STAT'ED. A search,
+  // tag page or collection asked while the last one's stat was running set
+  // no `next` until its own find came back, so the old stat landed first:
+  // the old query's rows under the new query, and the aim (wantSel) spent
+  // on them (audit 2026-11-08). Every question bumps statGen; a run keeps
+  // the generation it was asked under and is drawn only if it is current.
+  property int statGen: 0
+  function newQuestion() { searching.statGen++; }
   function runStat(paths, asked) {
-    if (statProc.running) { statProc.next = { paths: paths, asked: asked }; return; }
+    if (statProc.running) { statProc.next = { paths: paths, asked: asked, gen: searching.statGen }; return; }
     statProc.askedFor = asked;
+    statProc.gen = searching.statGen;
     statProc.command = Terminus.statArgv(paths);
     statProc.running = true;
   }
@@ -78,6 +87,7 @@ Item {
     // against the question. Only the tag and collection pages set it.
     property var askedFor: []
     property var next: null
+    property int gen: 0
     onExited: {
       if (!statProc.next) return;
       const n = statProc.next;
@@ -98,7 +108,7 @@ Item {
         // that for certain without going and looking.
         term.pruneTagIndex(statProc.askedFor, rows);
         // overtaken: the page it was for is no longer the one being opened
-        if (statProc.next) return;
+        if (statProc.next || statProc.gen !== searching.statGen) return;
         // left: the page was closed (Escape, a directory entered) before
         // its rows came, and they would land in the directory listing and
         // stay there (audit 2026-10-28d)
@@ -187,6 +197,9 @@ Item {
   }
   function search(mode, query) {
     if (query === "") return;
+    // a collection still running would land its answer on these results
+    term.cancelCollection();
+    searching.newQuestion();
     // WHERE YOU WERE, so Escape can put you back there.
     //
     // Results are a page of their own, not a directory: they come from all

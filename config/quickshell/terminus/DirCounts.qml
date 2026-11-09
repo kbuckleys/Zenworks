@@ -84,6 +84,17 @@ Item {
             : { all: Number(n[0]) || 0, shown: Number(n[1]) || 0, m: proc.mtimes[f[0]] };
         }
         proc.mtimes = ({});
+        // past a cap, only the directories on show now are kept: every
+        // directory ever shown in a grid stayed counted for good
+        if (Object.keys(next).length > 8000) {
+          const keep = ({});
+          for (const line of counts.want.split("\n")) {
+            const p = line.slice(0, line.lastIndexOf("\t"));
+            if (next[p] !== undefined) keep[p] = next[p];
+          }
+          counts.known = keep;
+          return;
+        }
         counts.known = next;
       }
     }

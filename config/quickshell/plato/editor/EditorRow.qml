@@ -249,6 +249,7 @@ Item {
       }
       Text {
         text: parent.visible ? row.md.lang : ""
+        textFormat: Text.PlainText   // the fence's own word, from the file
         font.family: row.face.family
         font.weight: Zenon.weight
         font.pixelSize: Math.round(row.face.pixelSize * 0.8)

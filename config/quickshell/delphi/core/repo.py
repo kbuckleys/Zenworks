@@ -243,10 +243,23 @@ def changelog_section(lines, tag):
 
 
 
+def words(op, *vals):
+    """Typed names and revisions, refused when git would read one as an
+    option: a branch called "-D" made `git branch -D feature` of "a branch
+    from feature", and a tag called "-d" deleted one (audit 2026-11-09).
+    Empty and None pass: they are left out of the command."""
+    for v in vals:
+        for x in (v if isinstance(v, (list, tuple)) else [v]):
+            if x and str(x).startswith("-"):
+                raise GitError([op], 1, f"a name cannot start with “-”: {x}")
+
+
 def glob_literal(path):
     """A path as a .gitignore pattern that matches only itself: [ ] * ? and
-    a backslash escaped (audit 11-07: "a[1].txt" also matched a1.txt)"""
-    return re.sub(r"([\\\[\]*?])", r"\\\1", str(path))
+    a backslash escaped (audit 11-07: "a[1].txt" also matched a1.txt), and
+    trailing spaces, which gitignore drops unless escaped (audit 11-09)"""
+    t = re.sub(r"([\\\[\]*?])", r"\\\1", str(path))
+    return re.sub(r" +$", lambda m: "\\ " * len(m.group(0)), t)
 
 class Repo:
     def __init__(self, path, sock=None):
@@ -282,6 +295,11 @@ class Repo:
         except OSError:
             have = ""
         lines = {l.strip() for l in have.splitlines()}
+        # a pattern is one line: a name with a line break in it wrote two,
+        # and "a\n*" ignored everything (audit 2026-11-09)
+        for p in patterns:
+            if "\n" in p or "\r" in p:
+                raise GitError(["ignore"], 1, "a name with a line break in it cannot be put in an ignore file")
         new = [p for p in patterns if p.strip() and p.strip() not in lines]
         if new:
             os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -781,6 +799,7 @@ class Repo:
         return res
 
     def branch_create(self, name, start=None, switch=True, cancel=None):
+        words("branch", name, start)
         if switch:
             a = ["switch", "-c", name] + ([start] if start else [])
         else:
@@ -790,19 +809,24 @@ class Repo:
     def branch_track(self, remote_branch, name=None, cancel=None):
         """A local branch following a remote one, switched to."""
         name = name or remote_branch.split("/", 1)[1]
+        words("switch", remote_branch, name)
         self.git.run(["switch", "-c", name, "--track", remote_branch], cancel=cancel)
 
     def switch(self, name, cancel=None, detach=False):
+        words("switch", name)
         a = ["switch"] + (["--detach"] if detach else []) + [name]
         self.git.run(a, cancel=cancel)
 
     def branch_delete(self, name, force=False, cancel=None):
+        words("branch", name)
         self.git.run(["branch", "-D" if force else "-d", name], cancel=cancel)
 
     def branch_rename(self, old, new, cancel=None):
+        words("branch", old, new)
         self.git.run(["branch", "-m", old, new], cancel=cancel)
 
     def set_upstream(self, branch, upstream, cancel=None):
+        words("branch", branch, upstream)
         if upstream:
             self.git.run(["branch", f"--set-upstream-to={upstream}", branch],
                          cancel=cancel)
@@ -810,12 +834,14 @@ class Repo:
             self.git.run(["branch", "--unset-upstream", branch], cancel=cancel)
 
     def tag_create(self, name, rev="HEAD", message=None, cancel=None):
+        words("tag", name, rev)
         a = ["tag"]
         if message:
             a += ["-a", "-m", message]
         self.git.run(a + [name, rev], cancel=cancel)
 
     def tag_delete(self, name, cancel=None):
+        words("tag", name)
         self.git.run(["tag", "-d", name], cancel=cancel)
 
     # ── remotes and the network ─────────────────────────────────────────
@@ -829,15 +855,18 @@ class Repo:
         return list(res.values())
 
     def remote_add(self, name, url, cancel=None):
+        words("remote", name, url)
         self.git.run(["remote", "add", name, url], cancel=cancel)
 
     def remote_remove(self, name, cancel=None):
+        words("remote", name)
         self.git.run(["remote", "remove", name], cancel=cancel)
 
     def remote_set_url(self, name, url, push=None, cancel=None):
         """Where `name` fetches from (and pushes to, unless it has a push
         address of its own). `push`: that address set, "" taken away so
         pushes go to `url` again, None left as it is."""
+        words("remote", name, url, push)
         self.git.run(["remote", "set-url", name, url], cancel=cancel)
         if push == "":
             self.git.run(["config", "--unset-all", f"remote.{name}.pushurl"], cancel=cancel, ok=(0, 5))
@@ -845,6 +874,7 @@ class Repo:
             self.git.run(["config", "--replace-all", f"remote.{name}.pushurl", push], cancel=cancel)
 
     def remote_rename(self, old, new, cancel=None):
+        words("remote", old, new)
         # git moves the branches that follow it (branch.*.remote) and its
         # remote-tracking refs along
         self.git.run(["remote", "rename", old, new], cancel=cancel)
@@ -1141,6 +1171,7 @@ class Repo:
         self.git.run(["stash", "drop", ref], cancel=cancel)
 
     def stash_branch(self, name, ref, sha=None, cancel=None):
+        words("stash", name, ref)
         self._stash_is(ref, sha)
         self.git.run(["stash", "branch", name, ref], cancel=cancel)
 
@@ -1178,6 +1209,7 @@ class Repo:
 
     def worktree_add(self, path, branch=None, new_branch=None, start=None,
                      cancel=None):
+        words("worktree", path, branch, new_branch, start)
         a = ["worktree", "add"]
         if new_branch:
             a += ["-b", new_branch, path] + ([start] if start else [])
@@ -1195,6 +1227,7 @@ class Repo:
 
     # ── merge, rebase, cherry-pick, revert, reset ───────────────────────
     def merge(self, rev, ff="ff", squash=False, cancel=None, emit=None):
+        words("merge", rev)
         a = ["merge", "--no-edit"]
         a.append({"ff": "--ff", "no-ff": "--no-ff", "ff-only": "--ff-only"}[ff])
         if squash:
@@ -1202,12 +1235,15 @@ class Repo:
         return self._may_conflict(a + [rev], cancel, emit)
 
     def cherry_pick(self, shas, cancel=None, emit=None):
+        words("cherry-pick", list(shas))
         return self._may_conflict(["cherry-pick"] + list(shas), cancel, emit)
 
     def revert(self, sha, cancel=None, emit=None):
+        words("revert", sha)
         return self._may_conflict(["revert", "--no-edit", sha], cancel, emit)
 
     def rebase(self, onto, cancel=None, emit=None):
+        words("rebase", onto)
         return self._may_conflict(["rebase", onto], cancel, emit)
 
     def rebase_plan(self, base, cancel=None):
@@ -1320,6 +1356,7 @@ class Repo:
                 "culprit": None, "done": False}
 
     def reset(self, rev, mode="mixed", cancel=None):
+        words("reset", rev)
         self.git.run(["reset", f"--{mode}", rev], cancel=cancel)
 
     # ── conflicts ───────────────────────────────────────────────────────

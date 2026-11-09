@@ -88,9 +88,13 @@ function parseRows(text) {
     if (line.trim() === "") continue;
     const parts = line.split("\t");
     if (parts.length !== 4) continue;
+    // "-" (scan.py): no thumbnail on purpose — read as none for every
+    // reader of `thumb`, and flagged so the scan does not ask for it again
+    const none = parts[1] === "-";
     out.push({
       path: parts[0],
-      thumb: parts[1],
+      thumb: none ? "" : parts[1],
+      none: none,
       mtime: parseFloat(parts[2]) || 0,
       size: parseInt(parts[3], 10) || 0
     });

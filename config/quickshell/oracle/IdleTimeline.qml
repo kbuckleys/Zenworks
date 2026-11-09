@@ -36,7 +36,7 @@ Item {
   // lanes top to bottom, in the order they usually come
   readonly property var marks: [
     { key: "idleKeyboardSecs", label: "Lighting off", glyph: "\u{F030C}", ink: "sand", max: 3600 },
-    { key: "idleLockSecs", label: "Lock", glyph: "\u{F033E}", ink: "cyan", max: 3600 },
+    { key: "idleLockSecs", label: "Lock", glyph: "\u{F033E}", ink: "accent", max: 3600 },
     { key: "idleScreenOffSecs", label: "Screens off", glyph: "\u{F0379}", ink: "blue", max: 7200 }
   ]
 

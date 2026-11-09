@@ -12,7 +12,17 @@
 .pragma library
 
 // "path|mtime" -> [file urls], [] for a directory with no pictures in it.
+// Every mtime is a new key, so it is capped: the oldest let go past
+// CACHE_MAX (put), else it grew for as long as the shell ran.
 var cache = ({});
+var order = [];
+var CACHE_MAX = 2000;
+
+function put(key, urls) {
+  if (cache[key] === undefined) order.push(key);
+  cache[key] = urls;
+  while (order.length > CACHE_MAX) delete cache[order.shift()];
+}
 
 // The scans out right now, as leases: token -> when it was taken. A grid of
 // forty directories arriving at once is forty finds and up to a hundred and sixty
@@ -51,8 +61,9 @@ function give(token) { if (token) delete leases[token]; }
 var EXTS = ["jpg", "jpeg", "jpe", "png", "webp", "gif", "bmp", "avif", "jxl",
             "heic", "tif", "tiff"];
 
+// NUL-separated to the reader: a picture's name may hold a newline
 function scanCommand(dir, quote) {
   const names = EXTS.map((e) => "-iname '*." + e + "'").join(" -o ");
   return "find -L " + quote(dir) + " -mindepth 1 -maxdepth 1 -type f ! -name '.*' \\( "
-    + names + " \\) -print0 2>/dev/null | sort -z | head -z -n 4 | tr '\\0' '\\n'";
+    + names + " \\) -print0 2>/dev/null | sort -z | head -z -n 4";
 }

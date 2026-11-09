@@ -23,6 +23,7 @@ import QtQuick
 import Quickshell.Io
 import "../morpheus"
 import "terminus.js" as Terminus
+import "../morpheus/runjob.js" as RunJob
 import "../morpheus/icons.js" as Icons
 
 Rectangle {
@@ -421,6 +422,7 @@ Rectangle {
     sendToFind.running = false;
     sendTo.crawling = false;
     sendTo.loadFor = "";
+    RunJob.drop(sendToProc);
   }
 
   // WHERE A TREE CAN START. The places you already told terminus you care
@@ -482,9 +484,7 @@ Rectangle {
     if (n.kids !== null) { sendTo.insert(i, n.kids); return; }
     if (sendTo.loadFor !== "") return;
     sendTo.loadFor = n.path;
-    sendToProc.running = false;
-    sendToProc.command = ["sh", "-c", Terminus.peekCommand(n.path)];
-    sendToProc.running = true;
+    RunJob.latest(sendToProc, { path: n.path, command: ["sh", "-c", Terminus.peekCommand(n.path)] });
   }
 
   function insert(i, kids) {
@@ -617,11 +617,19 @@ Rectangle {
 
   Process {
     id: sendToProc
+    // each read carries the path it was asked for (RunJob): one stopped by
+    // a dismiss still streams, and landed as the NEXT node's children
+    // after the sheet was opened again (audit 2026-11-08)
+    property var job: null
+    property var want: null
+    onExited: RunJob.next(sendToProc)
     stdout: StdioCollector {
       id: sendToOut
       waitForEnd: true
       onStreamFinished: {
-        const p = sendTo.loadFor;
+        if (!RunJob.current(sendToProc)) return;
+        const p = sendToProc.job.path;
+        if (p !== sendTo.loadFor) return;
         sendTo.loadFor = "";
         if (p === "" || !sendTo.open) return;
         // Found by PATH, not by the index that asked: the tree can have

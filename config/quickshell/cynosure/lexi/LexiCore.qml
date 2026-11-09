@@ -256,7 +256,9 @@ Item {
     // request, and this is one more round trip on a path that just made
     // a guess on your behalf.
     if (result.corrected) {
-      const asked = popup.dictQuery;
+      // what was TYPED: showDictResult has put the correction in dictQuery
+      // by now, and the runners-up were the correction's (audit 11-09)
+      const asked = popup.dictAskedAs;
       const got = String(result.title).toLowerCase();
       Lexicon.suggest(asked, 6).then((list) => {
         if (seq !== popup.lookupSeq || !popup.shown) return;
@@ -452,11 +454,14 @@ Item {
   function cardTranslate(text, to, from) {
     popup.cardWake();
     const t = String(text || "").trim();
-    const seq = ++popup.cardTrSeq;
-    if (t === "") { popup.cardTr = null; return; }
+    if (t === "") { ++popup.cardTrSeq; popup.cardTr = null; return; }
     const code = to || "en";
     const was = popup.cardTr;
+    // the same one asked again: the answer up, or the one out, stands — the
+    // seq was bumped before this and the one out was dropped, leaving the
+    // card dimmed for good (audit 2026-11-09)
     if (was && was.text === t && was.to === code && was.from === (from || null) && !was.error) return;
+    const seq = ++popup.cardTrSeq;
     const key = Lexicon.transCacheKey(code, from || null, t);
     const hit = Lexicon.cacheGet(popup.transCache, key);
     const base = { text: t, to: code, from: from || null };

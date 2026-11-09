@@ -103,7 +103,12 @@ module.exports = {
     // ── writing ───────────────────────────────────────────────────────────
     const w = T.writeTagsCommand("/home/buck/a b.txt", ["work", "red"]);
     t.ok("a path with a space is quoted", w.indexOf("'/home/buck/a b.txt'") >= 0);
-    t.ok("the value is written sorted", w.indexOf("'red,work'") >= 0);
+    t.ok("the value is written sorted, in setfattr's quoted form",
+      w.indexOf("'\"red,work\"'") >= 0);
+    t.ok("a first tag like hex is still text",
+      T.writeTagsCommand("/a", ["0x1"]).indexOf("'\"0x1\"'") >= 0);
+    t.ok("a quote or backslash in a tag is escaped for setfattr",
+      T.writeTagsCommand("/a", ['a"b\\c']).indexOf("'\"a\\\"b\\\\c\"'") >= 0);
     t.ok("and it is setfattr -n", w.indexOf("setfattr -n user.xdg.tags") === 0);
 
     // An empty list REMOVES the attribute. Storing "" would leave a file that
@@ -119,9 +124,11 @@ module.exports = {
     t.eq("nothing to write is a command that does nothing",
       T.writeManyCommand([]), "true");
     t.eq("and so is no list at all", T.writeManyCommand(null), "true");
-    t.eq("two files are two lines",
-      T.writeManyCommand([{ path: "/a", names: ["x"] },
-                          { path: "/b", names: ["y"] }]).split("\n").length, 2);
+    const two = [{ path: "/a", names: ["x"] }, { path: "/b", names: ["y"] }];
+    t.eq("two files are an if each, between the tally and its exit",
+      T.writeManyCommand(two).split("\nif ").length, 3);
+    t.eq("only the files that said ok are written",
+      T.writtenOf(two, "ok 1\n").map((e) => e.path), ["/b"]);
 
     // ── toggling across a selection ───────────────────────────────────────
     // The case a checkbox cannot say: SOME of them have it. Flipping each
@@ -224,7 +231,7 @@ module.exports = {
 
     // A tag is user text too, and it goes in as a VALUE.
     t.ok("a tag holding a quote is quoted",
-      T.writeTagsCommand("/a", ["it's"]).indexOf("'it'\\''s'") >= 0);
+      T.writeTagsCommand("/a", ["it's"]).indexOf("'\"it'\\''s\"'") >= 0);
 
     const rd = T.readTagsArgv(["/p/a b.png", "/p/c.jpg"]);
     t.eq("the files read travel as arguments", rd.slice(-2), ["/p/a b.png", "/p/c.jpg"]);

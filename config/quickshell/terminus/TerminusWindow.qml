@@ -38,6 +38,7 @@ import "../morpheus/icons.js" as Icons
 import "tags.js" as Tags
 import "collections.js" as Coll
 import "network.js" as Net
+import "../morpheus/runjob.js" as RunJob
 
 FloatingWindow {
   id: root
@@ -1507,6 +1508,7 @@ FloatingWindow {
 
 
   function runStat(paths, asked) { return searching.runStat(paths, asked); }
+  function newQuestion() { return searching.newQuestion(); }
 
 
   function search(mode, query) { return searching.search(mode, query); }
@@ -1810,8 +1812,14 @@ FloatingWindow {
   readonly property real thumbZoom: root.act.zoom
   readonly property real zoomMin: 0.7
   readonly property real zoomMax: 2.4
-  // Where the grid starts and where ctrl+0 puts it back: the smallest tile.
-  readonly property real thumbZoomDefault: root.zoomMin
+  // The grid goes smaller than the text does (user, 2026-11-08: "even
+  // smaller icons … more range"): its own floor, the same top.
+  readonly property real thumbZoomMin: 0.4
+  // Where the grid starts and where ctrl+0 puts it back — the tile it has
+  // always started at, which used to be the smallest.
+  readonly property real thumbZoomDefault: 0.7
+  // the floor of the zoom the view on screen uses (slider, bar meter)
+  readonly property real activeZoomMin: root.viewMode === "grid" ? root.thumbZoomMin : root.zoomMin
 
   // The zoom that the view on screen is actually using.
   readonly property real activeZoom: root.viewMode === "grid" ? root.thumbZoom : root.zoom
@@ -1825,6 +1833,7 @@ FloatingWindow {
   }
 
   function zoomClamp(v) { return zoom.zoomClamp(v); }
+  function thumbClamp(v) { return zoom.thumbClamp(v); }
 
   function zoomBy(step) { return zoom.zoomBy(step); }
 
@@ -2719,13 +2728,16 @@ FloatingWindow {
       // the palette drew them as two rows a few lines apart.
       ["Back",              "h",       () => root.back()],
       ["Forward",           "l",       () => root.forward()],
-      ["Up a directory",    "h",       () => root.goUp()],
+      // ← or backspace (h is Back); the same words the keymap's Parent row
+      // has, so that row claims the verb (audit 2026-11-08)
+      ["Up a directory",    "\u2190  backspace", () => root.goUp()],
       ["Rename",            "r",       () => root.beginRename()],
       ["Bulk rename",       "r",       () => root.beginBulkRename()],
       ["Duplicate",         "y d",     () => root.duplicate()],
       ["Make symlink",      "y l",     () => root.linkHere()],
-      ["Rotate left",       "[",       () => root.rotateLook(-90)],
-      ["Rotate right",      "]",       () => root.rotateLook(90)],
+      // [ and ] only rotate inside quick look; in the listing they change tabs
+      ["Rotate left",       "",        () => root.rotateLook(-90)],
+      ["Rotate right",      "",        () => root.rotateLook(90)],
       ["Extract audio",     "e",       () => root.extractAudio()],
       ["Sort by tag",       ", t",     () => root.setSort("tag")],
       ["Group headings",    ", h",     () => root.toggleGrouped()],
@@ -3825,7 +3837,7 @@ FloatingWindow {
     if (cmdPalette.open) return "Commands";
     if (marks.open) return "Bookmarks";
     if (disks.open) return "Disks";
-    if (connect.open) return connect.place ? "Connect to " + Net.label(connect.place) : "Connect to Server";
+    if (connect.open) return connect.place ? "Connect to " + Net.label(connect.place) : "Connect to server";
     if (space.open) return "Space";
     if (plug.open) return plug.rows.length > 1 ? plug.rows.length + " new disks" : "New disk";
     if (diskInfo.open) return diskInfo.cur ? diskInfo.title : "Disk";
@@ -4268,6 +4280,8 @@ FloatingWindow {
   // card. Two items, one question — the drawer stays open while the pointer
   // is over EITHER.
   property bool jobsOverGlyph: false
+  // the jobs this window started, by id: only their ending clears its status
+  property var ownJobs: ({})
 
   // A job ended, in this window or any other: whatever this window is
   // showing may be where it wrote.
@@ -4278,8 +4292,11 @@ FloatingWindow {
       if (code !== 0 && !cancelled && root.shown)
         root.warn(op === "archive" ? "archive failed"
                      : op === "extract" ? "extract failed" : "transfer failed");
-      // `status` is sticky, so "3 to copy" would outlive the copy otherwise
-      if (code === 0 && root.status !== "") root.status = "";
+      // `status` is sticky, so "3 to copy" would outlive the copy otherwise;
+      // another window's job says nothing about this window's status
+      const mine = root.ownJobs[id] === true;
+      delete root.ownJobs[id];
+      if (code === 0 && mine && root.status !== "") root.status = "";
       if (!root.shown) return;
       root.refresh();
       // a duplicate of the parent column's row lands in the parent's listing
@@ -4416,6 +4433,7 @@ FloatingWindow {
   readonly property alias tabStripRef: chrome.tabStrip
   readonly property alias chromeRef: chrome
   readonly property alias contentRef: content
+  readonly property alias appsScanRef: appsScan
   readonly property alias dropLayerRef: dropLayer
   readonly property alias plugRef: plug
   readonly property alias spaceRef: space
@@ -4850,25 +4868,26 @@ FloatingWindow {
   // ── open with ───────────────────────────────────────────────────────────
   // Filled in when the menu opens, because it costs a process and almost every
   // right-click is not about this.
-  property var openWithApps: []
+  property alias openWithApps: appsScan.apps
   // Whether the scan has ANSWERED, which is a different question from whether
   // it found anything — an empty list means "nothing handles this" only after
   // the process has been and gone, and the menu decides between a submenu and
   // a card on the strength of that distinction.
-  property bool appsScanned: false
+  property alias appsScanned: appsScan.scanned
   // The file's type, which the same scan now leads with. Kept because the
   // answer to "nothing opens this" is to register something against the TYPE,
   // and by then the file that raised the question is beside the point.
-  property string openWithMime: ""
+  property alias openWithMime: appsScan.mime
   // WHICH of them actually opens it. The registered list answers "what could
   // open this"; a default is a different claim and the properties card shows
   // it as one — buck's jpegs were defaulting to an Avahi SSH browser, which
   // the old list could show as one row among three but never as the answer.
-  property string openWithDefault: ""
+  property alias openWithDefault: appsScan.defaultId
 
-
-  // A path whose scan was asked for while another was still out.
-  property string appsAgain: ""
+  // the scan itself: terminus/OpenWithScan, the one PropsHost and Picasso
+  // use (FileOps had its own copy; audit 2026-11-08). A scan asked for
+  // while one is out waits for it there.
+  OpenWithScan { id: appsScan; run: root.run }
 
   function findApps(path) { return fileOps.findApps(path); }
 
@@ -5254,8 +5273,12 @@ FloatingWindow {
       // Dialogs are handled by dialogKeys, which takes the keyboard for as
       // long as one is up — see its own note. Nothing here may act while a
       // question is on screen.
+      // diskTool too: a Format confirmed (or cancelled) handed the keyboard
+      // to the listing behind a sheet still running, and d/p/q acted on it
+      // (audit 2026-11-08)
       if (confirm.open || props.open || prefs.open || connect.open
-          || appPick.open || sendTo.open || glyphPick.open || collEdit.open) return;
+          || appPick.open || sendTo.open || glyphPick.open || collEdit.open
+          || diskTool.open) return;
 
       // ── AND WHILE A NAME IS BEING TYPED IN THE LISTING ────────────
       // An inline rename holds the keyboard in a TextInput ON a row, and a
@@ -6538,15 +6561,22 @@ FloatingWindow {
         // once the rename is done, and only for the names it really gave:
         // moved first, a refused rename left the glyphs on names that were
         // never made (audit 2026-11-07)
-        const job = Terminus.bulkRenameApply(moves);
+        // A swap (a→b, b→a) leaves both old names there, so "is the old
+        // name gone" said a swap that went had not; the job writes down
+        // which renames landed instead, and the probe reads that back.
+        const log = (Quickshell.env("XDG_RUNTIME_DIR") || "/tmp")
+          + "/terminus-renamed." + Date.now() + "." + Math.floor(Math.random() * 1e9);
+        const job = Terminus.bulkRenameApply(moves, log);
         job.after = (code) => {
-          if (code === 0) { FileGlyphs.moved(moves); return; }
-          renameProbe.moves = moves;
-          renameProbe.command = Terminus.shArgv(Terminus.withArgs(
-            "i=0; odd=1; for a; do if [ $odd = 1 ]; then f=$a; odd=0; continue; fi; odd=1; "
-            + "{ [ -e \"$f\" ] || [ -L \"$f\" ]; } || printf '%s\\n' $i; i=$((i+1)); done",
-            [].concat.apply([], moves.map((q) => [q[0], q[1]]))));
-          renameProbe.running = true;
+          if (code === 0) {
+            FileGlyphs.moved(moves);
+            Quickshell.execDetached(["rm", "-f", "--", log]);
+            return;
+          }
+          RunJob.queued(renameProbe, {
+            moves: moves,
+            command: Terminus.shArgv(Terminus.withArgs("cat -- \"$1\" 2>/dev/null; rm -f -- \"$1\"", [log]))
+          });
         };
         root.run(job);
         root.status = "Renamed " + moves.length;
@@ -6557,11 +6587,14 @@ FloatingWindow {
     // so only those renames carry a glyph along
     Process {
       id: renameProbe
-      property var moves: []
+      property var job: null
+      property var queue: []
+      onExited: RunJob.next(renameProbe)
       stdout: StdioCollector {
         onStreamFinished: {
-          const gone = String(this.text).split("\n").filter((l) => l !== "").map(Number);
-          const landed = gone.map((i) => renameProbe.moves[i]).filter((q) => !!q);
+          const moves = renameProbe.job ? renameProbe.job.moves : [];
+          const went = String(this.text).split("\n").filter((l) => l !== "").map(Number);
+          const landed = went.map((i) => moves[i]).filter((q) => !!q);
           if (landed.length > 0) FileGlyphs.moved(landed);
         }
       }
@@ -6660,8 +6693,14 @@ FloatingWindow {
         const c = confirm.choices[i];
         confirm.open = false;
         confirm.choices = [];
-        content.forceActiveFocus();
+        confirm.handBack();
         if (c && c.act) c.act();
+      }
+      // the keyboard back to what asked: the disk sheet when a format or a
+      // repair asked from it, else the listing
+      function handBack() {
+        if (diskTool.open) diskToolClaim.restart();
+        else content.forceActiveFocus();
       }
 
       // Enter takes the FIRST choice — the primary one, listed first for that
@@ -6674,7 +6713,7 @@ FloatingWindow {
         confirm.cancelAct = null;
         confirm.open = false;
         confirm.choices = [];
-        content.forceActiveFocus();
+        confirm.handBack();
         if (undo) undo();
       }
 
@@ -7100,6 +7139,8 @@ FloatingWindow {
         const n = paths.length;
         // Only registered, from the properties card — see beginOpenWith.
         if (!openFiles) {
+          // a type that could not be named has nothing to set a default for
+          if (!mime) { root.warn("this file's type could not be named"); return; }
           root.run(Terminus.setDefaultAppCommand(app.id, mime));
           root.status = mime + " now opens with " + app.name;
           fileOps.rescanTick.restart();

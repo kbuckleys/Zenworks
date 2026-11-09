@@ -7,7 +7,7 @@
 # NETPLACES — terminus' network places, through GIO (gvfs does the work).
 #
 #   netplaces.py list                    the network mounts there are now
-#   netplaces.py mount URI [--user U] [--domain D] [--remember] [--accept]
+#   netplaces.py mount URI [--user U] [--domain D] [--remember] [--accept MESSAGE]
 #                                        the password, if any, on stdin
 #   netplaces.py unmount URI
 #
@@ -18,7 +18,9 @@
 # The password never rides on argv (ps shows argv). --remember hands it to
 # gvfs to keep in the Secret Service, so the next mount needs none. A
 # question gvfs asks (an unknown SSH host key) is not answered here: it is
-# handed back, and --accept says yes to it once the user has.
+# handed back, and --accept MESSAGE says yes to it once the user has — only
+# to that very question: a different one (another host, a changed key) is
+# handed back again.
 
 import json
 import sys
@@ -89,7 +91,7 @@ def mount(uri, user, domain, password, remember, accept):
         op.reply(Gio.MountOperationResult.HANDLED)
 
     def ask_question(op, message, choices):
-        if accept:
+        if accept and message == accept:
             op.set_choice(0)
             op.reply(Gio.MountOperationResult.HANDLED)
             return
@@ -149,10 +151,22 @@ def main(argv):
     if cmd == "list":
         listing()
     elif cmd == "mount" and len(argv) > 2:
-        args = argv[3:]
-        opt = lambda k: args[args.index(k) + 1] if k in args and args.index(k) + 1 < len(args) else ""
+        # flags and their values in order, so a user named "--accept" is a value
+        opts, args, i = {}, argv[3:], 0
+        while i < len(args):
+            k = args[i]
+            if k == "--remember":
+                opts[k] = True
+                i += 1
+            elif k in ("--user", "--domain", "--accept") and i + 1 < len(args):
+                opts[k] = args[i + 1]
+                i += 2
+            else:
+                say({"ok": False, "why": "error", "message": "unknown option: " + k})
+                return
         password = sys.stdin.readline().rstrip("\n") if not sys.stdin.isatty() else ""
-        mount(argv[2], opt("--user"), opt("--domain"), password, "--remember" in args, "--accept" in args)
+        mount(argv[2], opts.get("--user", ""), opts.get("--domain", ""), password,
+              bool(opts.get("--remember")), opts.get("--accept", ""))
     elif cmd == "unmount" and len(argv) > 2:
         unmount(argv[2])
     else:

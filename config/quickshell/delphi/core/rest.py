@@ -116,6 +116,31 @@ def _hidden(text, headers):
     return t
 
 
+class _Keep(urllib.request.HTTPRedirectHandler):
+    """Redirects to another host, or to the same one in the clear, go
+    WITHOUT the forge's sign-in: the token is the forge's, never handed to
+    whoever the forge points at. urllib's own handler copies every header on;
+    only text() had this, so every API call could carry the token off-host or
+    over http (audit 2026-11-09). Each hop is weighed against the one it
+    came from, so a token dropped once stays dropped."""
+    def redirect_request(self, req, fp, code, msg, hdrs, newurl):
+        new = super().redirect_request(req, fp, code, msg, hdrs, newurl)
+        was, to = urllib.parse.urlparse(req.full_url), urllib.parse.urlparse(newurl)
+        if new is not None and (to.netloc != was.netloc or to.scheme != "https"):
+            for k in list(new.headers):
+                if k.lower() in ("authorization", "private-token"):
+                    del new.headers[k]
+            for k in list(new.unredirected_hdrs):
+                if k.lower() in ("authorization", "private-token"):
+                    del new.unredirected_hdrs[k]
+        return new
+
+
+# for every urlopen in the backend (the forges' modules and the AUR's all
+# open through it)
+urllib.request.install_opener(urllib.request.build_opener(_Keep))
+
+
 def request(method, url, headers, body=None, raw=False, again=False, waited=None, who="the forge",
             payload=None, ctype=None):
     """One request. `again`: a write that may be sent twice —
@@ -188,24 +213,9 @@ def text(url, headers, who="the forge", tail=400000):
     redirect to another host (GitHub's logs live in blob storage, behind a
     signed address) is followed WITHOUT the forge's sign-in: the token is
     the forge's, never handed to whoever the forge points at."""
-    host = urllib.parse.urlparse(url).netloc
-
-    class Keep(urllib.request.HTTPRedirectHandler):
-        def redirect_request(self, req, fp, code, msg, hdrs, newurl):
-            new = super().redirect_request(req, fp, code, msg, hdrs, newurl)
-            to = urllib.parse.urlparse(newurl)
-            # another host, or the same one in the clear: no sign-in
-            if new is not None and (to.netloc != host or to.scheme != "https"):
-                for k in list(new.headers):
-                    if k.lower() in ("authorization", "private-token"):
-                        del new.headers[k]
-                new.unredirected_hdrs.pop("Authorization", None)
-            return new
-
-    opener = urllib.request.build_opener(Keep)
     req = urllib.request.Request(url, headers=dict(headers))
     try:
-        with opener.open(req, timeout=30) as r:
+        with urllib.request.urlopen(req, timeout=30) as r:
             data = r.read()
     except urllib.error.HTTPError as e:
         raise ForgeError(f"{who} answered {e.code}" + (": the log has expired, or the job never started" if e.code in (404, 410) else ""), e.code)

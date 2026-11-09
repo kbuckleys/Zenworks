@@ -15,6 +15,9 @@ import QtQuick
 import "."
 
 Text {
+  // headings carry app and tray names from anywhere (a tray item's title
+  // over DBus): never markup (audit 2026-11-09)
+  textFormat: Text.PlainText
   color: Zenon.accentMuted
   font.family: Zenon.face
   font.weight: Zenon.titleWeight

@@ -241,12 +241,15 @@ FloatingWindow {
     win.refreshStatus();
     win.refreshRefs();
   }
+  property int statusSeq: 0
   function refreshStatus() {
     if (win.root === "") return;
-    const r = win.root;
+    const r = win.root, seq = ++win.statusSeq;
     win.loading = true;
     win.mgr.call("status", r, {}, (ok, st, err) => {
-      win.loading = false;
+      // the newest one asked ends the loading: two overlapping, the first
+      // back cleared it while the second was still out
+      if (seq === win.statusSeq) win.loading = false;
       if (r !== win.root) return;
       if (ok) { win.st = st; win.stashCount = st.stash; win.statusEpoch++; }
       else win.fail("Could not read the status", null, err);
@@ -528,7 +531,10 @@ FloatingWindow {
   }
   // to each ticked remote in turn; one that refuses does not stop the rest
   function pushMany(names) {
-    const b = win.branch, done = [], bad = [];
+    // every step to the repository this was asked in: act() reads win.root
+    // as each one starts, and a switch mid-run pushed the next repository
+    // (audit 2026-11-09)
+    const b = win.branch, done = [], bad = [], root = win.root;
     win.pushShow(names);
     const next = (i) => {
       if (!win) return;
@@ -544,7 +550,7 @@ FloatingWindow {
       const up = !!b.upstream && b.upstream.indexOf(r + "/") === 0;
       win.act("push", up ? {} : { remote: r, branch: b.head, setUpstream: !b.upstream && i === 0 }, {
         label: "Pushing to " + r + (names.length > 1 ? "  (" + (i + 1) + " of " + names.length + ")" : ""),
-        network: true, refresh: false,
+        repo: root, network: true, refresh: false,
         then: () => { done.push(r); next(i + 1); },
         // stopped: the rest are not gone on to, and the push is over
         stopped: () => { win.pushEnd(false, true); win.refresh(); },
@@ -757,6 +763,7 @@ FloatingWindow {
   // remote has yet goes whole: said, not listed.
   //   { where, commits (null while read), more, state going|done|failed|stopped }
   property var pushing: null
+  property int pushSeq: 0
   readonly property int pushListMax: 12
   function pushShow(names) {
     const b = win.branch;
@@ -768,11 +775,13 @@ FloatingWindow {
       if (e) { since = e.name; break; }
     }
     if (since === "" && b.upstream) since = b.upstream;
+    const seq = ++win.pushSeq;
     win.pushing = { where: names.join(", "), branch: b.head, commits: since === "" ? [] : null,
-                    whole: since === "", more: 0, state: "going" };
+                    whole: since === "", more: 0, state: "going", seq: seq };
     if (since === "") return;
     win.mgr.call("changelog", win.root, { since: since, until: "HEAD" }, (ok, cs) => {
-      if (!win || !win.pushing) return;
+      // a later push's card, or none: this list is not its
+      if (!win || !win.pushing || win.pushing.seq !== seq) return;
       const list = ok && cs ? cs : [];
       win.pushing = Object.assign({}, win.pushing, {
         commits: list.slice(0, win.pushListMax), more: Math.max(0, list.length - win.pushListMax) });
@@ -961,8 +970,15 @@ FloatingWindow {
     return false;
   }
   function focusKeys() { keySink.forceActiveFocus(); }
-  // the commit message being written, kept while you look at other pages
-  property string draft: ""
+  // the commit message being written, kept while you look at other pages —
+  // one per repository: a draft written in one was the box's text in the
+  // next, and committed there (audit 2026-11-09)
+  property var drafts: ({})
+  function draftOf(root) { return win.drafts[root] || ""; }
+  function setDraft(root, text) {
+    if (root === "") return;
+    if (text === "") delete win.drafts[root]; else win.drafts[root] = text;
+  }
   // the window's one tooltip, for pages: tip(item, text, key) / untip(item)
   function tip(item, text, keys) { tips.show(item, text, keys || ""); }
   function untip(item) { tips.hide(item); }
@@ -1907,7 +1923,7 @@ FloatingWindow {
   }
   onStateChanged: {
     if (win.state && win.state.op === "bisect" && !win.bisectNow)
-      win.mgr.call("bisectRead", win.root, {}, (ok, res) => { if (ok && win) win.bisectNow = res; });
+      win.mgr.call("bisectRead", win.root, {}, ((r) => (ok, res) => { if (ok && win && win.root === r) win.bisectNow = res; })(win.root));
     if (!win.state || win.state.op !== "bisect") win.bisectNow = null;
   }
 
@@ -2099,7 +2115,10 @@ FloatingWindow {
     }
   }
   onRootChanged: {
-    if (win.root !== "") win.mgr.call("info", win.root, {}, (ok, info) => { if (ok) win.info = info; });
+    // the answer for the repository asked about: a quick A → B left A's
+    // identity on B (audit 2026-11-09)
+    const r = win.root;
+    if (r !== "") win.mgr.call("info", r, {}, (ok, info) => { if (ok && win && win.root === r) win.info = info; });
     win.checkTools();
   }
 

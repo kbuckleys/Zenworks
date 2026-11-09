@@ -589,6 +589,7 @@ Item {
       visible: height > 0
 
       Text {
+        textFormat: Text.PlainText
         anchors.left: parent.left
         anchors.leftMargin: 43
         anchors.verticalCenter: parent.verticalCenter
@@ -613,6 +614,7 @@ Item {
         ? [["↑↓", "move"], ["↵", "open"], ["del", "remove"], ["esc", "close"]]
         : [["↑↓", "move"], ["↵", "choose"], ["esc", "close"]]
       leading: Text {
+        textFormat: Text.PlainText
         anchors.verticalCenter: parent.verticalCenter
         text: picker.query !== "" ? picker.query : "Type to filter"
         color: picker.query !== "" ? Zenon.sand : Zenon.accentMuted

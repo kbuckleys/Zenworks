@@ -31,8 +31,20 @@ for name, n in pairs(vim.lsp.protocol.SymbolKind) do
 end
 
 -- nodes: { name, kind, first, last, line, col, children } — lines 1-based
-local function fromLsp(result)
+local function fromLsp(result, buf)
   local out = {}
+  -- the server's column is in ITS units (UTF-16 by default), and the cursor
+  -- takes bytes: on a line with é before the name it landed short (audit
+  -- 2026-11-09)
+  local cl = buf and vim.lsp.get_clients({ bufnr = buf, method = METHOD })[1]
+  local enc = cl and cl.offset_encoding or "utf-16"
+  local function byteCol(line, ch)
+    if not buf or not api.nvim_buf_is_valid(buf) or ch == 0 then return ch end
+    local text = api.nvim_buf_get_lines(buf, line, line + 1, false)[1]
+    if not text then return ch end
+    local ok, b = pcall(vim.str_byteindex, text, enc, ch, false)
+    return ok and b or ch
+  end
   local function walk(list, into)
     for _, s in ipairs(list or {}) do
       local r = s.range or (s.location and s.location.range)
@@ -40,7 +52,7 @@ local function fromLsp(result)
         local sel = s.selectionRange or r
         local node = { name = s.name, kind = kindName[s.kind] or "Symbol",
           first = r.start.line + 1, last = r["end"].line + 1,
-          line = sel.start.line + 1, col = sel.start.character + 1, children = {} }
+          line = sel.start.line + 1, col = byteCol(sel.start.line, sel.start.character) + 1, children = {} }
         into[#into + 1] = node
         walk(s.children, node.children)
       end
@@ -166,7 +178,7 @@ function M.refresh(buf)
   vim.lsp.buf_request_all(buf, METHOD, params(buf), function(results)
     if not api.nvim_buf_is_valid(buf) then return end
     local res = firstResult(results)
-    cache[buf] = { tick = tick, tree = res and fromLsp(res) or fromText(buf), lsp = res ~= nil }
+    cache[buf] = { tick = tick, tree = res and fromLsp(res, buf) or fromText(buf), lsp = res ~= nil }
     vim.schedule(function() require("plato.view").schedule() end)
   end)
 end
@@ -184,7 +196,7 @@ local function tree(buf, wait)
   if c and c.tick == tick then return c.tree end
   if wait and lspClient(buf) then
     local res = firstResult(vim.lsp.buf_request_sync(buf, METHOD, params(buf), 1500))
-    cache[buf] = { tick = tick, tree = res and fromLsp(res) or fromText(buf), lsp = res ~= nil }
+    cache[buf] = { tick = tick, tree = res and fromLsp(res, buf) or fromText(buf), lsp = res ~= nil }
     return cache[buf].tree
   end
   if wait then

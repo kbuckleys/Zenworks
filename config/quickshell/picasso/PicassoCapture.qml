@@ -232,7 +232,7 @@ Scope {
   function readCode(geo) {
     const tmp = Paths.runtimeDir() + "/picasso-qr-" + Date.now() + ".png";
     codeProc.command = ["sh", "-c",
-      "command -v zbarimg >/dev/null || exit 127\nsleep 0.15; timeout 10 grim -g \"$2\" \"$1\" || exit 4\n"
+      "command -v zbarimg >/dev/null || exit 127\nsleep 0.15; timeout 10 grim -g \"$2\" \"$1\" || { rm -f \"$1\"; exit 4; }\n"
       + "out=$(zbarimg -q --raw \"$1\" 2>/dev/null); rm -f \"$1\"\n[ -n \"$out\" ] || exit 3\n"
       + "printf '%s' \"$out\" | wl-copy; printf '%s' \"$out\"", "sh", tmp, geo];
     codeProc.running = true;
@@ -243,7 +243,8 @@ Scope {
     onExited: (code) => {
       cap.busy = false;
       const said = String(codeOut.text || "");
-      const say = code === 0 ? ["Code copied", said.length > 200 ? said.slice(0, 200) + "\u2026" : said]
+      // escaped: Howler draws bodies as markup, and a code is anyone's text
+      const say = code === 0 ? ["Code copied", Strings.escapeHtml(said.length > 200 ? said.slice(0, 200) + "\u2026" : said)]
         : code === 127 ? ["Reading codes needs zbar", "pacman -S zbar"]
         : code === 3 ? ["No code found", "nothing in that region reads as a QR or bar code"]
         : ["Could not read the region", "the capture failed"];

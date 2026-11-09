@@ -167,6 +167,7 @@ Item {
             onActiveFocusChanged: if (!activeFocus) hexField.text = cf.shown
           }
           Text {
+            textFormat: Text.PlainText
             text: cf.value === "" && cf.pending === "" ? "The theme's own" : "Your own"
             color: big.type
             opacity: 0.7

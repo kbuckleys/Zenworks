@@ -838,6 +838,7 @@ FloatingWindow {
     }
 
     Text {
+      textFormat: Text.PlainText
       id: reading
       anchors.right: parent.right
       anchors.verticalCenter: parent.verticalCenter
@@ -986,6 +987,7 @@ FloatingWindow {
       }
 
       Text {
+        textFormat: Text.PlainText
         id: enLabel
         anchors.left: en.hasPicto ? picto.right : parent.left
         anchors.leftMargin: en.hasPicto ? 8 + (Zenon.menuIconGap - 8) * chip.openness : chip.inset
@@ -1316,6 +1318,7 @@ FloatingWindow {
       Behavior on border.color { ColorAnimation { duration: Zenon.fast; easing.type: Zenon.ease } }
 
       Text {
+        textFormat: Text.PlainText
         anchors.fill: parent
         anchors.leftMargin: 8
         anchors.rightMargin: 8
@@ -1413,6 +1416,7 @@ FloatingWindow {
       Behavior on border.color { ColorAnimation { duration: Zenon.fast; easing.type: Zenon.ease } }
 
       Text {
+        textFormat: Text.PlainText
         anchors.left: parent.left
         anchors.leftMargin: 10
         anchors.right: pkGlyph.left
@@ -1506,6 +1510,7 @@ FloatingWindow {
     // a row that folds open says so beside its name (see foldMark in the
     // row's labels), not out here by the readout
     Text {
+      textFormat: Text.PlainText
       anchors.fill: parent
       anchors.leftMargin: fixBtn.visible ? fixBtn.width + 12 : 0
       visible: !nfo.busy
@@ -1688,6 +1693,7 @@ FloatingWindow {
       Behavior on border.color { ColorAnimation { duration: Zenon.fast; easing.type: Zenon.ease } }
 
       Text {
+        textFormat: Text.PlainText
         id: ccText
         anchors.centerIn: parent
         text: cc.value !== "" ? cc.value : Ora.display(cc.spec, "")
@@ -3010,6 +3016,7 @@ FloatingWindow {
                             }
                           }
                           Text {
+                            textFormat: Text.PlainText
                             anchors.centerIn: parent
                             text: Ora.display(stepChip.sp, stepChip.val)
                             color: popup.fgColor

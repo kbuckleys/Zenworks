@@ -153,8 +153,11 @@ function parseLexi(query) {
     return Object.assign({ mode: "trans" }, lexiTarget(m[1] || ""));
   if ((m = /^how (?:do (?:you|i)|to|would you|can i) say (.+?) in (\S+(?: \S+)?)$/i.exec(q)) && Lexicon.langFor(m[2]))
     return { mode: "trans", text: m[1].replace(/^["“]|["”]$/g, ""), from: null, to: Lexicon.langFor(m[2]) };
-  if ((m = /^(?:what(?:'?s| is) )?(.+?) in (\S+(?: \S+)?)$/i.exec(q)) && Lexicon.langFor(m[2])
-      && words(m[1]) <= LEXI_WORDS && !/\d/.test(m[1]))
+  // the bare form takes a language's NAME, not a code: "check in hi" and
+  // "files in it" were translations to Hindi and Italian (audit 11-09);
+  // "tr … in es" still takes codes
+  if ((m = /^(?:what(?:'?s| is) )?(.+?) in (\S+(?: \S+)?)$/i.exec(q)) && !/^[a-z]{2,3}(-[a-z]{2,4})?$/i.test(m[2])
+      && Lexicon.langFor(m[2]) && words(m[1]) <= LEXI_WORDS && !/\d/.test(m[1]))
     return { mode: "trans", text: m[1].replace(/^["“]|["”]$/g, ""), from: null, to: Lexicon.langFor(m[2]) };
   if ((m = /^(?:(?:what(?:'?s| is) )?(?:the )?(?:meaning|definition) of|define:?) (.+)$/i.exec(q)) && words(m[1]) <= 3)
     return { mode: "dict", word: m[1], lang: null };
@@ -492,8 +495,11 @@ function dropHotkey(list, row) {
 function hotkeyLabel(h) {
   return "Cynosure: " + String((h.row && (h.row.label || h.row.text)) || "");
 }
+// every control character as \ddd, as morpheus/hypr.js lua(): a raw \r
+// (a pasted label) ended the line Lua was reading
 function luaQuote(s) {
-  return "\"" + String(s).replace(/\\/g, "\\\\").replace(/"/g, "\\\"").replace(/\n/g, " ") + "\"";
+  return "\"" + String(s).replace(/\\/g, "\\\\").replace(/"/g, "\\\"").replace(/\n/g, " ")
+    .replace(/[\u0000-\u001f\u007f]/g, (c) => "\\" + ("00" + c.charCodeAt(0)).slice(-3)) + "\"";
 }
 function renderHotkeysLua(list) {
   const lines = [

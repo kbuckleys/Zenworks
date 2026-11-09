@@ -207,7 +207,7 @@ Rectangle {
       total: glyphPick.all.count
       cell: 56
       busy: glyphPick.waiting
-      placeholder: "Search by name or codepoint — folder, git, U+F07B"
+      placeholder: "Search by name or codepoint — file, git, U+F15B"
       navKey: glyphPick.navKey
       onQueryChanged: findDelay.restart()
       onUsed: (i) => { cells.sel = i; glyphPick.use(); }

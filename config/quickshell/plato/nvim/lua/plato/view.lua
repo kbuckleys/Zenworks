@@ -1874,9 +1874,17 @@ function M.setup(send)
   api.nvim_create_autocmd("User", { group = group, pattern = "MiniDiffUpdated",
     callback = function() M.marksGen = M.marksGen + 1 end })
   -- a different buffer, or the same one read afresh, is a different screen
+  -- — and an option, unless it is one that changes nothing drawn: plugins
+  -- set 'autocomplete' on every InsertEnter and its first key, cua sets
+  -- 'selection'/'virtualedit', and each one re-sent every row (audit
+  -- 2026-11-09)
+  local quiet = { autocomplete = true, completeopt = true, complete = true,
+    selection = true, virtualedit = true, selectmode = true, keymodel = true,
+    timeoutlen = true, ttimeoutlen = true, updatetime = true, undolevels = true }
   api.nvim_create_autocmd({ "BufEnter", "BufWinEnter", "FileType", "Syntax", "OptionSet" }, {
     group = group,
     callback = function(ev)
+      if ev.event == "OptionSet" and quiet[ev.match] then return end
       attach(ev.buf)
       if ev.event ~= "OptionSet" then hl.forget(ev.buf) end
       M.schedule(true)

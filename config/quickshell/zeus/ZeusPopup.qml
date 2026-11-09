@@ -2234,6 +2234,7 @@ LayerPopup {
                     width: parent.cellW
                     spacing: 1
                     Text {
+                      textFormat: Text.PlainText
                       width: parent.width - 8
                       elide: Text.ElideRight
                       text: parent.fact ? parent.fact.value : ""
@@ -3705,6 +3706,7 @@ LayerPopup {
           spacing: 1
 
           Text {
+            textFormat: Text.PlainText
             anchors.right: parent.right
             text: parent.fact ? parent.fact.value : ""
             color: (parent.fact && parent.fact.ink) ? parent.fact.ink : popup.fgColor

@@ -630,6 +630,7 @@ Rectangle {
           height: 40
 
           Text {
+            textFormat: Text.PlainText
             anchors.left: parent.left
             anchors.leftMargin: 16
             anchors.right: collActions.left

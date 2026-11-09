@@ -144,9 +144,12 @@ QtObject {
     return (lum(accent) + 0.05) / (lum(dk) + 0.05) >= (lum(lt) + 0.05) / (lum(accent) + 0.05) ? dk : lt;
   }
   // relative luminance (WCAG), for the choice above
+  // pick() answers a "#rrggbb" string, which has no .r/.g/.b: every lum
+  // was NaN and the choice always fell to the ground (audit 2026-11-08)
   function lum(c) {
+    const q = typeof c === "string" ? Qt.color(c) : c;
     const f = (v) => v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
-    return 0.2126 * f(c.r) + 0.7152 * f(c.g) + 0.0722 * f(c.b);
+    return 0.2126 * f(q.r) + 0.7152 * f(q.g) + 0.0722 * f(q.b);
   }
   // ── THE THEME AS PLATO'S NVIM TAKES IT ───────────────────────────────
   // The resolved colors under Zenon's slot names, as #rrggbb (nvim's have

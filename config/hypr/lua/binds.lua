@@ -291,10 +291,12 @@ bind("intoLeft",   "SUPER + SHIFT + ALT + LEFT",     "Into the group to the left
 bind("intoUp",     "SUPER + SHIFT + ALT + UP",       "Into the group above",           hl.dsp.window.move({ into_group = "u" }))
 
 -- SUPER + SHIFT + CONTROL + arrows is smart-move.lua's snap-to-edge
-bind("outRight",   "SUPER + CONTROL + ALT + RIGHT",  "Out of the group, right",        hl.dsp.window.move({ out_of_group = true }))
-bind("outDown",    "SUPER + CONTROL + ALT + DOWN",   "Out of the group, down",         hl.dsp.window.move({ out_of_group = true }))
-bind("outLeft",    "SUPER + CONTROL + ALT + LEFT",   "Out of the group, left",         hl.dsp.window.move({ out_of_group = true }))
-bind("outUp",      "SUPER + CONTROL + ALT + UP",     "Out of the group, up",           hl.dsp.window.move({ out_of_group = true }))
+-- out_of_group takes the side the window leaves by (0.57: a string; `true`
+-- is the default side, so all four did the same, audit 2026-11-08)
+bind("outRight",   "SUPER + CONTROL + ALT + RIGHT",  "Out of the group, right",        hl.dsp.window.move({ out_of_group = "r" }))
+bind("outDown",    "SUPER + CONTROL + ALT + DOWN",   "Out of the group, down",         hl.dsp.window.move({ out_of_group = "d" }))
+bind("outLeft",    "SUPER + CONTROL + ALT + LEFT",   "Out of the group, left",         hl.dsp.window.move({ out_of_group = "l" }))
+bind("outUp",      "SUPER + CONTROL + ALT + UP",     "Out of the group, up",           hl.dsp.window.move({ out_of_group = "u" }))
 
 -- off until given a chord in oracle's Shortcuts
 bind("groupDeny",  "",                               "Keep the window out of groups",  hl.dsp.window.deny_from_group())

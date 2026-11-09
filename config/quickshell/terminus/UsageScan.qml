@@ -62,7 +62,8 @@ Item {
     proc.running = true;
   }
   onMountChanged: use.run(false)
-  onActiveChanged: if (use.active) use.run(false); else proc.running = false
+  // stopped as run() stops one: what it still streams is skipped
+  onActiveChanged: if (use.active) use.run(false); else { proc.stale = proc.running; proc.running = false; }
   Component.onCompleted: use.run(false)
 
   Process {

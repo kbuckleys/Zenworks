@@ -59,6 +59,7 @@ Item {
               spacing: 6
               Text { text: stat.modelData.glyph; color: Zenon[stat.modelData.ink]; font.family: Zenon.glyphFace; font.weight: Zenon.weight; font.pixelSize: Zenon.px(15); anchors.verticalCenter: parent.verticalCenter }
               Text {
+                textFormat: Text.PlainText
                 text: stat.modelData.value >= 10000 ? (stat.modelData.value / 1000).toFixed(1) + "k" : String(stat.modelData.value)
                 color: Zenon.ink
                 font.family: Zenon.face

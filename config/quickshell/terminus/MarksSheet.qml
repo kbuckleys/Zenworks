@@ -378,6 +378,7 @@ Rectangle {
               ["ctrl a", "add"], ["del", "remove"],
               ["esc", "close"]]
       leading: Text {
+        textFormat: Text.PlainText
         anchors.verticalCenter: parent.verticalCenter
         text: marks.query !== "" ? marks.query
           : (marks.rows.length === 0 ? "nothing matches"

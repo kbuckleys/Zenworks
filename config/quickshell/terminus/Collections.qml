@@ -161,7 +161,7 @@ Item {
     }
   }
   function zoomOfPage(z) {
-    return Number(z) > 0 ? term.zoomClamp(Number(z)) : term.thumbZoomDefault;
+    return Number(z) > 0 ? term.thumbClamp(Number(z)) : term.thumbZoomDefault;
   }
   // ALWAYS applied, never skipped. Returning early when a tag had no
   // stored view left the pane in whatever the last directory was using,
@@ -316,6 +316,8 @@ Item {
   function openCollection(id) {
     const f = term.collById(id);
     if (!f) return;
+    // a stat still running for the last page is not this one's
+    term.newQuestion();
     if (term.searchMode === "") {
       const r = term.currentRow();
       term.searchBackCwd = term.cwd;
@@ -331,6 +333,8 @@ Item {
     // A directory that asks only about tags is answered from the index, with
     // no process at all — the same shortcut openTag takes.
     if (Coll.tagsOnly(f)) {
+      // a slower collection still running would land on this page
+      collections.cancelCollection();
       term.status = "\u2026";
       term.finishCollection(Coll.applyTags(f, Coll.allTagged(term.tagMarks),
                                        term.tagMarks));
@@ -371,6 +375,7 @@ Item {
     // collOpenId is -1 when nothing is open, never "" — the mode is the
     // real test and the only one needed.
     if (term.searchMode !== "collection") return;
+    term.newQuestion();
     const f = term.collById(term.collOpenId);
     if (!f) return;
     // ── ARMED ONLY ONCE THE RE-ASK IS CERTAIN ───────────────────────
@@ -398,6 +403,7 @@ Item {
     if (term.wantSel === "") term.wantSel = r ? r.path : "";
     term.reAt = term.act.sel;
     if (tagOnly) {
+      collections.cancelCollection();
       term.finishCollection(Coll.applyTags(f, Coll.allTagged(term.tagMarks),
                                            term.tagMarks));
       return;
@@ -434,6 +440,10 @@ Item {
   // other two reach after their search has come back.
   function openTag(name) {
     if (name === "") return;
+    // a collection still running would land its answer on this page, and
+    // a stat still running would too (Searching.statGen)
+    collections.cancelCollection();
+    term.newQuestion();
     if (term.searchMode === "") {
       const r = term.currentRow();
       term.searchBackCwd = term.cwd;
@@ -480,7 +490,7 @@ Item {
     const z = Number(backView.zoom);
     if (!isNaN(z) && z > 0) term.zoom = term.zoomClamp(z);
     const tz = Number(backView.thumbZoom);
-    if (!isNaN(tz) && tz > 0) term.act.zoom = term.zoomClamp(tz);
+    if (!isNaN(tz) && tz > 0) term.act.zoom = term.thumbClamp(tz);
     if (now) term.applyDepth = Math.max(0, term.applyDepth - 1);
     else Qt.callLater(() => { term.applyDepth = Math.max(0, term.applyDepth - 1); });
   }

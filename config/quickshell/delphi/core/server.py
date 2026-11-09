@@ -378,6 +378,9 @@ def hosted(kind, host):
             mod.API = base.API.replace(base.HOST, host, 1)
             mod.HOST = host
             mod.FORGE_ID = key
+            # its own name in what it says: a self-hosted Forgejo said
+            # "cannot reach Codeberg" (audit 2026-11-09)
+            mod.NAME = host
             _HOSTED[key] = mod
         return mod
 

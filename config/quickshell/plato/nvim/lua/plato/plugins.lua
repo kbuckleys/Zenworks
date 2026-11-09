@@ -89,7 +89,10 @@ function M.manifest()
   local out = {}
   if not ok or type(data) ~= "table" or type(data.plugins) ~= "table" then return out end
   for _, p in ipairs(data.plugins) do
-    if type(p) == "table" and type(p.src) == "string" and p.src ~= "" then
+    -- a name that is no directory of its own (".", "..", "") is left out:
+    -- opt/.. is the whole pack, and a stale one was deleted with "rf"
+    local nm = type(p) == "table" and type(p.src) == "string" and M.nameOf(p.src) or ""
+    if nm ~= "" and nm ~= "." and nm ~= ".." and not nm:find("^%-") then
       out[#out + 1] = { src = p.src, name = M.nameOf(p.src), enabled = p.enabled ~= false,
                         version = p.version }
     end
@@ -157,7 +160,8 @@ function M.load()
     for _, sp in ipairs(specs) do
       local name = M.nameOf(sp.src)
       local d = dir .. name
-      if vim.uv.fs_stat(d) then
+      -- never opt/ itself or above it, whatever the spec says
+      if name ~= "" and name ~= "." and name ~= ".." and vim.uv.fs_stat(d) then
         local r = vim.system({ "git", "-C", d, "rev-parse", "--verify", "-q", "HEAD" }):wait()
         local head = vim.trim(r.stdout or "")
         local pin = pins[name] and pins[name].rev

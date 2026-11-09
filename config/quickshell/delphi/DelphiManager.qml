@@ -127,8 +127,12 @@ Scope {
       for (const sha of want) {
         const k = mgr.ciKey(forge, full, sha);
         delete a[k];
-        if (ok && res[sha]) o[k] = Object.assign({ at: Date.now() }, res[sha]);
+        if (ok && res[sha]) { delete o[k]; o[k] = Object.assign({ at: Date.now() }, res[sha]); }
       }
+      // the newest 600 answers (insertion order, a fresh one moved to the
+      // end): every History page added up to 40, for the whole session
+      const keys = Object.keys(o);
+      for (let i = 0; i < keys.length - 600; ++i) delete o[keys[i]];
       mgr._ciAsking = a;
       if (ok) mgr.ci = o;
     });

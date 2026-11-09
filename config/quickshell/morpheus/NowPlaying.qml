@@ -179,6 +179,7 @@ Singleton {
       const m = Object.assign({}, root._art);
       m[u] = ok ? "file://" + file : "";
       root._art = m;
+      if (!ok) artRetry.restart();
       root._artQueue = root._artQueue.filter(x => x !== u);
       root._artBusy = false;
       Qt.callLater(root._artNext);
@@ -194,5 +195,22 @@ Singleton {
     onTriggered: root.scan()
   }
 
-  Component.onCompleted: root.scan()
+  // a failed fetch is "" (no cover) for a minute, then asked again: one
+  // offline moment as a track began left it bare until the shell restarted
+  Timer {
+    id: artRetry
+    interval: 60000
+    onTriggered: {
+      const m = {};
+      for (const k in root._art) if (root._art[k] !== "") m[k] = root._art[k];
+      root._art = m;
+    }
+  }
+
+  Component.onCompleted: {
+    root.scan();
+    // the covers' cache is pruned of what has not been fetched in 60 days
+    // (every track wrote one, and nothing took any away)
+    Quickshell.execDetached(["find", root.artDir, "-maxdepth", "1", "-type", "f", "-mtime", "+60", "-delete"]);
+  }
 }

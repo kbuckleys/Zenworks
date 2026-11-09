@@ -226,14 +226,19 @@ Item {
   function gatherIntoFolder() {
     const rows = term.acting();
     if (rows.length === 0) { term.warn("Nothing to gather"); return; }
-    const where = term.cwd;
     // The rows have to be in the directory the directory is being made in, or
     // the move is a move ACROSS directories wearing a tidy-up's clothes.
-    // Everything acting() can hand back on a plain listing already is —
-    // a results page is the case that is not, and there is no one
-    // directory to gather into there.
+    // A results page has no one directory to gather into; nor do rows
+    // marked in different expanded branches (they went into cwd/new, from
+    // wherever they were — audit 2026-11-08). Rows all in one branch are
+    // gathered there, beside them.
     if (term.searchMode !== "") {
       term.warn("Not on a results page");
+      return;
+    }
+    const where = Terminus.dirname(rows[0].path);
+    if (rows.some((r) => Terminus.dirname(r.path) !== where)) {
+      term.warn("Gather what is in one directory at a time");
       return;
     }
     const paths = rows.map((r) => r.path);

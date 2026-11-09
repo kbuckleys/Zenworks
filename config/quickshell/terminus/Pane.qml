@@ -240,6 +240,11 @@ QtObject {
   // The raw text each branch was last parsed from — see kidOut. Mutated in
   // place: nothing binds to it.
   property var kidText: ({})
+  // a branch let go of lets its text go too (it was kept for every
+  // directory ever expanded)
+  onKidsChanged: {
+    for (const k in pane.kidText) if (pane.kids[k] === undefined) delete pane.kidText[k];
+  }
 
   // Whether this pane's listing is one a tree can exist in — see the
   // note on `tree`. Asked in three places and it must be the same

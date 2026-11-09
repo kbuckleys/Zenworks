@@ -423,6 +423,20 @@ Item {
 
   // ── committing ─────────────────────────────────────────────────────────
   property bool amend: false
+  // Another repository, same page: the Loader keeps it, so amend and the
+  // box were the last repository's — Amend lit in the next one with the
+  // last one's message, and Commit rewrote ITS head (audit 2026-11-09).
+  property bool swapping: false
+  Connections {
+    target: pg.win
+    function onRepoEpochChanged() {
+      pg.amend = false;
+      pg.swapping = true;
+      msgWell.text = pg.win.draftOf(pg.win.root);
+      pg.swapping = false;
+      pg.readSubject();
+    }
+  }
   readonly property var note: D.messageNote(msgWell.text)
   // left empty, the message is written from what is staged (D.autoMessage
   // — "Add README.md and LICENSE"): git wants one, and a blank title reads
@@ -433,7 +447,8 @@ Item {
     && !!pg.win && !!pg.win.st && pg.win.st.conflicts.length === 0
   onAmendChanged: {
     if (pg.amend && msgWell.text.trim() === "") {
-      pg.win.mgr.call("lastMessage", pg.win.root, {}, (ok, m) => { if (!pg) return; if (ok && msgWell.text.trim() === "") msgWell.text = m; });
+      const root = pg.win.root;
+      pg.win.mgr.call("lastMessage", root, {}, (ok, m) => { if (!pg || !pg.win || pg.win.root !== root || !pg.amend) return; if (ok && msgWell.text.trim() === "") msgWell.text = m; });
     }
   }
   // ── taking the last commit back ──────────────────────────────────────
@@ -441,8 +456,9 @@ Item {
   property string lastSubject: ""
   function readSubject() {
     if (!pg.win || !pg.canUndo) { pg.lastSubject = ""; return; }
-    pg.win.mgr.call("lastMessage", pg.win.root, {}, (ok, m) => {
-      if (pg.win && ok) pg.lastSubject = String(m || "").split("\n")[0];
+    const root = pg.win.root;
+    pg.win.mgr.call("lastMessage", root, {}, (ok, m) => {
+      if (pg.win && ok && pg.win.root === root) pg.lastSubject = String(m || "").split("\n")[0];
     });
   }
   // the subject read again when HEAD moves
@@ -452,10 +468,14 @@ Item {
   function undoCommit() {
     if (!pg.canUndo) return;
     const b = pg.win.branch;
+    const root = pg.win.root;
     const go = () => pg.win.act("undoCommit", {}, {
+      repo: root,
       label: "Undoing the commit",
       then: (r) => {
-        // the message back in the box, unless one is being written
+        // the message back in the box, unless one is being written — and
+        // only if the box is still this repository's
+        if (!pg || !pg.win || pg.win.root !== root) { if (r && r.message && pg && pg.win && pg.win.draftOf(root) === "") pg.win.setDraft(root, r.message); return; }
         if (msgWell.text.trim() === "" && r && r.message) msgWell.text = r.message;
         pg.win.say("Commit undone — its changes are staged again");
       } });
@@ -478,10 +498,18 @@ Item {
     if (id && (id.name === "" || id.email === "")) { pg.win.askIdentity(() => pg.commit()); return; }
     const text = pg.typed ? msgWell.text : pg.autoMsg;
     const amending = pg.amend;
+    const root = pg.win.root;
     pg.win.act("commit", { message: text, amend: amending }, {
+      repo: root,
       label: "Committing",
       said: amending ? "Amended" : pg.typed ? "Committed" : "Committed — “" + text + "”",
-      then: () => { msgWell.text = ""; pg.win.draft = ""; pg.amend = false; pg.area = "list"; pg.takeFocus(); } });
+      then: () => {
+        if (!pg || !pg.win) return;
+        pg.win.setDraft(root, "");
+        // landed after a switch: the box is another repository's now
+        if (pg.win.root !== root) return;
+        msgWell.text = ""; pg.amend = false; pg.area = "list"; pg.takeFocus();
+      } });
   }
 
   // ── keys ───────────────────────────────────────────────────────────────
@@ -719,8 +747,8 @@ Item {
           : "Stage something to commit, then say what it does"
         passKeys: (e) => pg.win.key(e)
         // the draft lives on the window: a trip to History and back keeps it
-        Component.onCompleted: msgWell.text = pg.win ? pg.win.draft : ""
-        onTextChanged: if (pg.win) pg.win.draft = msgWell.text
+        Component.onCompleted: msgWell.text = pg.win ? pg.win.draftOf(pg.win.root) : ""
+        onTextChanged: if (pg.win && !pg.swapping) pg.win.setDraft(pg.win.root, msgWell.text)
         onFocusedChanged: if (msgWell.focused) pg.area = "message"
         onSubmitted: pg.commit()
         onEscaped: pg.area = "list"

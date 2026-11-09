@@ -204,7 +204,9 @@ Item {
         if (t.search.mode === "find" || t.search.mode === "grep") term.runSearch();
       }
     }
-    if (t.search) term.status = term.act.raw.length + " matches";
+    // a result page counts its matches in its own bar (as Searching leaves
+    // it): "0 matches" here was said of a search still asking again
+    if (t.search) term.status = "";
     // The tab's own view, not the destination directory's: arriving in a tab
     // is arriving back where you were, and a tab that rearranged itself on the
     // way in would not be the window you left.
@@ -359,7 +361,7 @@ Item {
         // paneZooms[0] — a new tab is single-pane, so paneL is the one
         // you land in. See root.act.
         if (!isNaN(tz) && tz > 0 && t.paneZooms && t.paneZooms.length === 2)
-          t.paneZooms = [term.zoomClamp(tz), t.paneZooms[1]];
+          t.paneZooms = [term.thumbClamp(tz), t.paneZooms[1]];
         // And the order, now that a tab carries one. Same rule as the
         // zoom: only when the destination has an answer, because a directory
         // with no record keeps the order you were already reading in.

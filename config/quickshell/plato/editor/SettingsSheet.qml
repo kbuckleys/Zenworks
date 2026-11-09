@@ -478,6 +478,7 @@ PlatoSheet {
       }
     }
     Text {
+      textFormat: Text.PlainText
       anchors.right: parent.right
       anchors.verticalCenter: parent.verticalCenter
       width: 66
@@ -614,6 +615,7 @@ PlatoSheet {
         Behavior on color { ColorAnimation { duration: Zenon.fast } }
       }
       Text {
+        textFormat: Text.PlainText
         id: ccLabel
         anchors.left: dot.right
         // open, where the rows' labels start (glyph box + menuIconGap)

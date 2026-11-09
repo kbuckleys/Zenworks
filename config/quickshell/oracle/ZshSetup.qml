@@ -147,6 +147,10 @@ Scope {
     stdout: StdioCollector {
       onStreamFinished: {
         const a = String(text).trim();
+        // answered from Oracle's row while the notification stood: a late
+        // close (or "No thanks") must not undo a setup in place or under
+        // way (audit 2026-11-08)
+        if (zsh.answer === "yes" || zsh.busy) return;
         if (a === "use") zsh.apply();
         else if (a === "no") zsh.keep("no");
         else zsh.keep(zsh.answer === "asked" ? "quiet" : "asked");

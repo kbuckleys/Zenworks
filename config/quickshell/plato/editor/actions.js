@@ -200,6 +200,10 @@ function escape(path) { return String(path).replace(/([ \t\n*?[{`$\\%#'"|!<])/g,
 // The dialog that picked the path is the say-so to overwrite (audit 11-07:
 // a file already there was E13, and nothing was written).
 function saveAsCmd(path) {
+  // a line break ends an ex line however it is escaped: what came after it
+  // ran as a command of its own (audit 2026-11-09)
+  if (/[\r\n]/.test(String(path)))
+    return "echoerr 'A name with a line break in it cannot be saved from here'";
   const p = escape(path);
   return "if bufname() ==# '' | file " + p + " | write! | else | saveas! " + p + " | endif";
 }

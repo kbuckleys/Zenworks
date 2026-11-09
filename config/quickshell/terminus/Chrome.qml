@@ -1064,9 +1064,9 @@ Column {
         anchors.verticalCenter: parent.verticalCenter
         visible: term.barZoom
         // across the whole travel, not out of some absolute maximum
-        value: (term.activeZoom - term.zoomMin)
-               / Math.max(0.0001, term.zoomMax - term.zoomMin)
-        onSeek: (f) => term.setZoom(term.zoomMin + f * (term.zoomMax - term.zoomMin))
+        value: (term.activeZoom - term.activeZoomMin)
+               / Math.max(0.0001, term.zoomMax - term.activeZoomMin)
+        onSeek: (f) => term.setZoom(term.activeZoomMin + f * (term.zoomMax - term.activeZoomMin))
         onStep: (d) => term.zoomBy(d * 0.1)
         onReset: term.zoomReset()
       }

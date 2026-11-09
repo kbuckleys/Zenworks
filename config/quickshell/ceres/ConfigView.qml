@@ -1018,6 +1018,7 @@ Item {
               onClicked: view.setOpt(orow.spec.key, parent.n - 1 < 2 ? "" : String(parent.n - 1))
             }
             Text {
+              textFormat: Text.PlainText
               width: 44
               anchors.verticalCenter: parent.verticalCenter
               horizontalAlignment: Text.AlignHCenter

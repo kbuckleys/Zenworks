@@ -35,6 +35,9 @@ Item {
   // The badge: the glyph and ink the directory would have been drawn with.
   property string glyph: ""
   property color ink: Zenon.accent
+  // the corner badge; off where the caller shows the glyph itself (picasso's
+  // gallery puts it in the name's pill)
+  property bool badge: true
   property real dim: 1
 
   property var pics: []
@@ -82,7 +85,7 @@ Item {
     // this library survives — reports exactly what a directory with no pictures
     // does, and remembered, that directory showed its glyph until its mtime
     // changed. Asking an empty directory again costs one find.
-    if (urls.length > 0) Covers.cache[key] = urls;
+    if (urls.length > 0) Covers.put(key, urls);
     Covers.give(cover.lease);
     cover.lease = 0;
     if (key === cover.key) cover.pics = urls;
@@ -105,7 +108,7 @@ Item {
     stdout: StdioCollector {
       id: scanOut
       onStreamFinished: {
-        const files = String(scanOut.text || "").split("\n").filter((f) => f !== "");
+        const files = String(scanOut.text || "").split("\u0000").filter((f) => f !== "");
         if (files.length === 0) { cover.finish(cover.asked, []); return; }
         gen.files = files;
         gen.command = ["sh", "-c",
@@ -204,8 +207,12 @@ Item {
   // The badge: the directory's glyph on a dark disc in the corner, so a cover
   // is still plainly a directory and still the directory it was — Pictures keeps
   // its picture glyph, Videos its camera.
+  // made only while drawn: a Text observes the viewport, so a hidden one in
+  // every tile of a scrolled grid was measured on every frame (2026-11-08)
+  Loader {
+    active: cover.shown && cover.badge
+    sourceComponent: Component {
   Rectangle {
-    visible: cover.shown
     opacity: cover.dim
     // A quarter of the cover at most, so a small cover in a dense grid is
     // still mostly picture; the floor is where the glyph stops being legible.
@@ -226,6 +233,8 @@ Item {
       font.family: Zenon.face
       font.weight: Zenon.weight
       font.pixelSize: Math.round(parent.width * 0.52)
+    }
+  }
     }
   }
 }

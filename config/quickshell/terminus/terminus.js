@@ -86,7 +86,7 @@ function listCommand(dir) {
 // over (an entry has six) and parseRepos picks out.
 function reposTail(dir) {
   return "; s=$?; cd " + Strings.shellQuote(listPath(dir)) + " 2>/dev/null"
-    + " && { for x in */ .[!.]*/; do [ -e \"$x.git\" ] && printf 'repo\\037%s\\036' \"${x%/}\"; done;"
+    + " && { for x in */ .[!.]*/ ..?*/; do [ -e \"$x.git\" ] && printf 'repo\\037%s\\036' \"${x%/}\"; done;"
     // and the repository the directory itself is in, git mode or not: its
     // nearest parent with a .git, a test per level, no git run
     + " d=${PWD%/}; while :; do if [ -e \"$d/.git\" ]; then printf 'top\\037%s\\036' \"${d:-/}\"; break; fi;"
@@ -2025,14 +2025,18 @@ function findCommand(dir, query) {
   // caches, Electron's Cache_Data and the rest), which held most of the hits
   // nobody meant. Patterns are relative to the root, so a search started
   // inside one of them still searches it.
-  const walk = (t) => "fd -t " + t + " -H --no-ignore " + Artemis.excludes()
+  // NUL-separated end to end (fd -0, fzf --read0 --print0, head -z): a
+  // name with a newline came back as two paths that were not there
+  // (audit 2026-11-08). So the first pass waits in a file, not in $( ),
+  // which cannot hold a NUL.
+  const walk = (t) => "fd -t " + t + " -0 -H --no-ignore " + Artemis.excludes()
     + " --color=never . " + d + " 2>/dev/null";
-  const rank = (nth, how) => " | fzf --filter " + q + " -i " + how + " -d / --nth " + nth
+  const rank = (nth, how) => " | fzf --read0 --print0 --filter " + q + " -i " + how + " -d / --nth " + nth
     + " 2>/dev/null";
   const pass = (how) => "{ " + walk("d") + rank(-2, how) + " ; " + walk("f") + rank(-1, how) + " ; }";
-  return "r=$(" + pass("-e") + " | head -n 300); "
-    + "if [ -n \"$r\" ]; then printf '%s\\n' \"$r\"; else " + pass("") + " | head -n 300; fi"
-    + " | tr '\\n' '\\0'";
+  return "t=$(mktemp) || exit 1; " + pass("-e") + " | head -z -n 300 > \"$t\"; "
+    + "if [ -s \"$t\" ]; then cat \"$t\"; else " + pass("") + " | head -z -n 300; fi; "
+    + "rm -f \"$t\"";
 }
 
 // DIRECTORIES ONLY, for the send-to sheet's filter, and the WHOLE MACHINE.
@@ -2075,10 +2079,10 @@ function findCommand(dir, query) {
 // everyone already means by typing a second word.
 function dirFindCommand(query) {
   const q = Strings.shellQuote(String(query).trim());
-  return "fd -t d -H --no-ignore --color=never --max-depth 10"
+  return "fd -t d -0 -H --no-ignore --color=never --max-depth 10"
     + " -E /proc -E /sys -E /dev -E /run . / 2>/dev/null"
-    + " | fzf --filter " + q + " 2>/dev/null"
-    + " | head -n 120 | tr '\\n' '\\0'";
+    + " | fzf --read0 --print0 --filter " + q + " 2>/dev/null"
+    + " | head -z -n 120";
 }
 
 // TWO THINGS MADE THIS TAKE A MINUTE AND A HALF, and they compounded.
@@ -3693,10 +3697,13 @@ function bulkPairs(oldNames, newNames, dirs) {
 // picked up; phase two puts an item back under its OLD name when its new one
 // is taken by a file outside the batch, and the job reports the failure.
 // The paths travel as arguments, never spliced into the script.
-function bulkRenameApply(pairs) {
-  const args = [".terminus-rename." + Date.now() + "."];
+// `log`, if given, is a file each rename that landed appends its index to
+// (0-based, a line each): which ones went, swaps included, where asking what
+// exists afterwards cannot tell a swap that went from one that went back.
+function bulkRenameApply(pairs, log) {
+  const args = [".terminus-rename." + Date.now() + ".", log || ""];
   for (const p of pairs) args.push(p[0], p[1]);
-  return withArgs("st=$1; shift\n"
+  return withArgs("st=$1; lg=$2; shift 2\n"
     // phase one: everything to a temporary name beside itself
     + "i=0; odd=1; bad=0\n"
     + "for a; do\n"
@@ -3721,6 +3728,7 @@ function bulkRenameApply(pairs) {
     + "  if [ -e \"$a\" ] || [ -L \"$a\" ] || ! mv -n -- \"$t\" \"$a\" || [ -e \"$t\" ]; then\n"
     + "    mv -n -- \"$t\" \"$f\"; fail=1\n"
     + "    printf '%s: already exists\\n' \"${a##*/}\" >&2\n"
+    + "  elif [ -n \"$lg\" ]; then printf '%s\\n' $((i-1)) >> \"$lg\"\n"
     + "  fi\n"
     + "done\n"
     + "exit $fail\n", args);
@@ -4485,6 +4493,9 @@ function inkKeyOf(e) {
   const cat = categoryOf(e.name);
   if (cat === "image") return "green";
   if (cat === "media") return "sand";
+  // a font is drawn as itself in the grid, and wears no kind ink anywhere
+  // (user, 2026-11-09)
+  if (isFont(e.name)) return "white";
   if (cat === "archive") return "yellow";
   if (isPdf(e.name)) return "blue";
   if (cat === "document") return "cyan";
@@ -4653,22 +4664,26 @@ function archiveScript(prefix, countCmd, tool, entryPat, fromStdout) {
 }
 
 function archiveJobCommand(paths, archivePath) {
-  const names = paths.map((p) => basename(p));
+  // as ./name: bsdtar (and 7z) read an argument starting with @ as an
+  // archive (a list) to take entries from, `--` or not — "@photos.zip"
+  // copied photos.zip's entries in (audit 2026-11-08). bsdtar's -s strips
+  // the ./ back off what it stores; 7z drops it itself.
+  const names = paths.map((p) => "./" + basename(p));
   const ar = Strings.shellQuote(archivePath);
   const sevenZ = /\.7z$/i.test(archivePath);
   const prefix = "cd " + Strings.shellQuote(dirname(paths[0])) + " || exit 1\n";
   // The names are relative, so a file called "-rf" reached find as an
   // option: it refused the whole list and the progress total was 0. find has
   // no `--` for its starting points; handed over on stdin, as ./name, they
-  // are only ever paths. The tools themselves take the names as they are.
-  const each = "printf './%s\\0' \"$@\" | find -files0-from -";
+  // are only ever paths (the names already carry their ./).
+  const each = "printf '%s\\0' \"$@\" | find -files0-from -";
   if (sevenZ) {
     // 7z counts files only: it has no entry of its own for a directory
     return withArgs(archiveScript(prefix, each + " -type f 2>/dev/null | wc -l",
       "7z a -bb1 -bd -- " + ar + " \"$@\"", "'+ '*", true), names);
   }
   return withArgs(archiveScript(prefix, each + " 2>/dev/null | wc -l",
-    "bsdtar -a -cvf " + ar + " -- \"$@\"", "'a '*", false), names);
+    "bsdtar -a -cvf " + ar + " -s ',^\\./,,' -- \"$@\"", "'a '*", false), names);
 }
 
 // One archive at a time, so the count means something, and into a directory of

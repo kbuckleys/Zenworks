@@ -11,6 +11,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import "terminus.js" as Terminus
+import "../morpheus/runjob.js" as RunJob
 
 Item {
   id: opening
@@ -229,7 +230,7 @@ Item {
     const z = Number(s.zoom);
     if (!isNaN(z) && z > 0) term.zoom = term.zoomClamp(z);
     const tz = Number(s.thumbZoom);
-    if (!isNaN(tz) && tz > 0) term.act.zoom = term.zoomClamp(tz);
+    if (!isNaN(tz) && tz > 0) term.act.zoom = term.thumbClamp(tz);
     if (typeof s.sidebar === "boolean") term.sidebar = s.sidebar;
     const sw = Number(s.sidebarWidth);
     if (!isNaN(sw) && sw > 0)
@@ -462,8 +463,7 @@ Item {
   // was right-clicked. A directory is entered; a file is landed on in its
   // own directory, as reveal does; anything else is said, not guessed at.
   function pastePathAndGo(base) {
-    pastePathProc.running = false;
-    pastePathProc.command = ["bash", "-c",
+    RunJob.latest(pastePathProc, { command: ["bash", "-c",
       't=$(wl-paste -n -t text 2>/dev/null | head -n1); '
       + 't="${t#"${t%%[![:space:]]*}"}"; t="${t%"${t##*[![:space:]]}"}"; '
       + 'case $t in \\"*\\") t=${t:1:-1};; \\\'*\\\') t=${t:1:-1};; esac; '
@@ -474,15 +474,19 @@ Item {
       + 'case $t in /*) ;; *) t=$1/$t;; esac; t=$(realpath -s -m -- "$t"); '
       + 'if [ -d "$t" ]; then printf "d\\t%s" "$t"; elif [ -e "$t" ]; then printf "f\\t%s" "$t"; '
       + 'else printf "x\\t%s" "$t"; fi',
-      "pastego", String(base)];
-    pastePathProc.running = true;
+      "pastego", String(base)] });
   }
   Process {
     id: pastePathProc
+    // a stopped run still streams, and its empty answer said "no path"
+    property var job: null
+    property var want: null
+    onExited: RunJob.next(pastePathProc)
     stdout: StdioCollector {
       id: pastePathOut
       waitForEnd: true
       onStreamFinished: {
+        if (!RunJob.current(pastePathProc)) return;
         const out = String(pastePathOut.text || "");
         const kind = out.slice(0, 1);
         const p = out.slice(2);

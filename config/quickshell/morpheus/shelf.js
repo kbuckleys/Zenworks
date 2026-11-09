@@ -1,4 +1,5 @@
 .pragma library
+.import "quote.js" as Quote
 // ┌─┐┌─┐┌┐┌┬ ┬┌─┐┬─┐┬┌─┌─┐
 // ┌─┘├┤ │││││││ │├┬┘├┴┐└─┐
 // └─┘└─┘┘└┘└┴┘└─┘┴└─┴ ┴└─┘
@@ -68,10 +69,6 @@ function filesIn(items, paths, isDir, nextId) {
   return out;
 }
 
-function fileUrl(p) {
-  return "file://" + String(p || "").split("/").map(encodeURIComponent).join("/");
-}
-
 // what dragging items out carries. One text item: its words. Anything else:
 // the files, as a uri-list (a text item among several goes as the file the
 // shelf wrote it to), and their paths as text for what takes only text (a
@@ -81,7 +78,7 @@ function mimeOf(list) {
   if (items.length === 1 && items[0].kind === "text")
     return { "text/plain": String(items[0].text) };
   const paths = items.map((it) => it.path).filter((p) => p);
-  return { "text/uri-list": paths.map(fileUrl).join("\r\n") + "\r\n",
+  return { "text/uri-list": paths.map((p) => Quote.fileUrl(p)).join("\r\n") + "\r\n",
            "text/plain": paths.join("\n") };
 }
 

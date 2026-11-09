@@ -179,18 +179,37 @@ function writeTagsCommand(path, names) {
   var clean = normalise(names);
   if (clean.length === 0)
     return "setfattr -x " + ATTR + " -- " + p + " 2>/dev/null || true";
+  // In setfattr's quoted text form: a bare value starting 0x or 0s is read
+  // as hex or base64, so a first tag "0x1" failed ("bad input encoding")
+  // and "0s…" was written as other bytes (audit 2026-11-08). Inside the
+  // quotes only \ and " need escaping.
+  var v = "\"" + clean.join(",").replace(/\\/g, "\\\\").replace(/"/g, "\\\"") + "\"";
   return "setfattr -n " + ATTR
-    + " -v " + Strings.shellQuote(clean.join(",")) + " -- " + p;
+    + " -v " + Strings.shellQuote(v) + " -- " + p;
 }
 
 // Several files in one shell, because tagging is nearly always done to a
 // selection. One setfattr per file — there is no batch form — but one
 // process rather than one per file.
+// Each file that took its tags says so on stdout ("ok <i>", its index in
+// `pairs`) and the exit is 1 if any did not: the exit was the LAST file's
+// alone, so the index recorded files that were never written, or dropped
+// a whole batch that mostly was (audit 2026-11-08). See writtenOf.
 function writeManyCommand(pairs) {
   if (!pairs || pairs.length === 0) return "true";
-  return pairs.map(function (e) {
-    return writeTagsCommand(e.path, e.names);
-  }).join("\n");
+  return "xf=0\n" + pairs.map(function (e, i) {
+    return "if " + writeTagsCommand(e.path, e.names) + "\nthen echo ok " + i + "\nelse xf=1\nfi";
+  }).join("\n") + "\nexit $xf";
+}
+
+// the pairs writeManyCommand's run says it wrote, from its stdout
+function writtenOf(pairs, out) {
+  var ok = Object.create(null);
+  String(out || "").split("\n").forEach(function (l) {
+    var m = /^ok (\d+)$/.exec(l);
+    if (m) ok[m[1]] = true;
+  });
+  return (pairs || []).filter(function (e, i) { return ok[i] === true; });
 }
 
 // ── XMP sidecars ───────────────────────────────────────────────────────

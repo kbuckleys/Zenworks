@@ -66,6 +66,7 @@ import "../../terminus"
 import "../../terminus/terminus.js" as Terminus
 import "../../artemis/artemis.js" as Artemis
 import "../../morpheus/icons.js" as Icons
+import "../../morpheus/runjob.js" as RunJob
 import "actions.js" as Actions
 import "hints.js" as Hints
 import "kinds.js" as Kinds
@@ -131,6 +132,10 @@ PlatoSheet {
   property int openGen: 0
   function open(mode, at) {
     const g = ++picker.openGen;
+    // the last mode's searches are over: a grep still streaming (Space /,
+    // then references opening the picker from nvim) put its lines in the
+    // references' list (audit 2026-11-09)
+    picker.settle();
     // the menus, and Space ?'s cheat sheet (the user asked, 2026-10-08)
     const rise = mode === "menu" || mode === "motions";
     if (rise !== picker.rising) picker.setEnd(() => { picker.rising = rise; });
@@ -217,12 +222,20 @@ PlatoSheet {
   function close() {
     picker.openGen++;
     picker.mode = "";
+    picker.settle();
+    picker.closed();
+  }
+  // every search stopped and its late lines dropped (a new gen)
+  function settle() {
+    picker.gen++;
+    searchDelay.stop();
+    grepTick.stop();
+    picker.grepPending = [];
     search.next = null;
     search.running = false;
     grepRun.next = null;
     grepRun.running = false;
     picker.grepBusy = false;
-    picker.closed();
   }
 
   // ── ranking what is already here ───────────────────────────────────
@@ -334,12 +347,18 @@ PlatoSheet {
     }
     picker.scope = root;
     picker.index = Quickshell.cachePath("plato-index-" + picker.hashOf(root));
-    ownIndex.command = ["sh", "-c", Artemis.indexCommand(root, picker.index)];
-    ownIndex.running = true;
+    // the newest root's: one for another root still running held the
+    // `running = true`, and this one was never built (audit 2026-11-09)
+    RunJob.latest(ownIndex, { command: ["sh", "-c", Artemis.indexCommand(root, picker.index)] });
   }
   Process {
     id: ownIndex
-    onExited: if (picker.mode === "files") picker.refresh()
+    property var job: null
+    property var want: null
+    onExited: {
+      RunJob.next(ownIndex);
+      if (!ownIndex.job && picker.mode === "files") picker.refresh();
+    }
   }
   Connections {
     target: picker.finder
@@ -650,6 +669,8 @@ PlatoSheet {
       font.weight: Zenon.weight
       font.pixelSize: Zenon.px(16)
       color: Zenon.accentMuted
+      // a directory's name, z='s word under the cursor: never markup
+      textFormat: Text.PlainText
       text: picker.mode === "menu" ? picker.menuTitle
         : picker.mode === "grep" && picker.root !== "" ? "Search in " + picker.tidy(picker.root)
         : (picker.titles[picker.mode] || "")

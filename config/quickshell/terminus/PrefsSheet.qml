@@ -233,7 +233,7 @@ Item {
         PrefSlider { term: prefs.term
           label: term.viewMode === "grid" ? "Thumbnails" : "Text size"
           value: term.activeZoom
-          from: term.zoomMin
+          from: term.activeZoomMin
           to: term.zoomMax
           neutral: term.viewMode === "grid" ? term.thumbZoomDefault : 1.0
           // the same notch ctrl+wheel over the listing uses, and the same

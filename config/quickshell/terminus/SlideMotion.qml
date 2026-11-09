@@ -410,16 +410,20 @@ Item {
   function followLink(path) {
     if (linkProc.running) return;
     linkProc.from = path;
+    linkProc.at = term.cwd;
     linkProc.command = ["readlink", "-e", "--", path];
     linkProc.running = true;
   }
   Process {
     id: linkProc
     property string from: ""
+    // where it was asked from: gone elsewhere since, the answer is not taken
+    property string at: ""
     stdout: StdioCollector {
       id: linkOut
       waitForEnd: true
       onStreamFinished: {
+        if (term.cwd !== linkProc.at) return;
         const to = String(linkOut.text || "").trim();
         // A link that will not resolve still has its own path to go to,
         // which is at least what entering it used to do.
@@ -436,8 +440,12 @@ Item {
     if (!r) return;
     const mnt = term.archBase + "/" + Qt.md5(r.path);
     if (term.archMounts[mnt] === r.path) { term.goTo(mnt); return; }
-    if (archMountProc.running) return;
+    if (archMountProc.running) {
+      term.status = "Still opening " + Terminus.basename(archMountProc.archive) + "\u2026";
+      return;
+    }
     archMountProc.mnt = mnt;
+    archMountProc.at = term.cwd;
     archMountProc.archive = r.path;
     archMountProc.kept = !!kept;
     archMountProc.command = ["sh", "-c", Terminus.mountArchiveCommand(r.path, mnt,
@@ -450,6 +458,7 @@ Item {
     property string mnt: ""
     property string archive: ""
     property bool kept: false
+    property string at: ""
     onExited: (code) => {
       if (code !== 0) {
         // Not something ratarmount can read — a format it has no backend
@@ -463,6 +472,11 @@ Item {
       const next = Object.assign({}, term.archMounts);
       next[archMountProc.mnt] = archMountProc.archive;
       term.archMounts = next;
+      // gone elsewhere while it mounted: not pulled back into it
+      if (term.cwd !== archMountProc.at) {
+        term.status = Terminus.basename(archMountProc.archive) + " is open \u2014 enter it again to look inside";
+        return;
+      }
       term.status = "";
       term.goTo(archMountProc.mnt);
     }

@@ -178,7 +178,9 @@ function generate(jobs, big) {
     // and they are the common case — no decode is spent proving it.
     + (big ? '' :
         'case "$1" in *.jpg|*.JPG|*.jpeg|*.JPEG|*.jpe|*.JPE) ;; '
-        + '*) if [ "$(magick identify -format "%[opaque]" "$1" '
+        // the first frame only: an animated one answered once per frame
+        // ("FalseFalse"), never equal to False (audit 2026-11-09)
+        + '*) if [ "$(magick identify -format "%[opaque]" "$1[0]" '
         + '2>/dev/null)" = False ]; then '
         + 'printf "%s\t' + NONE + '\n" "$1"; exit 0; fi ;; esac; ')
     // ── A JPEG IS DECODED AT THE SIZE IT IS WANTED AT ───────────────

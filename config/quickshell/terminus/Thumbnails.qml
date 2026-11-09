@@ -196,7 +196,9 @@ Item {
     stdout: SplitParser {
       splitMarker: "\n"
       onRead: (line) => {
-        const cut = line.indexOf("\t");
+        // the LAST tab: the thumbnail is a cache path with none, and a
+        // source name may hold one
+        const cut = line.lastIndexOf("\t");
         if (cut <= 0) return;
         term.thumbPending[line.slice(0, cut)] = line.slice(cut + 1);
         if (!term.thumbFlushRef.running) term.thumbFlushRef.start();
@@ -284,7 +286,14 @@ Item {
       onStreamFinished: {
         const made = Thumbs.parseMade(bigOut.text);
         const c = Object.assign({}, term.bigFile);
-        for (const k in made) c[k] = made[k];
+        for (const k in made) { delete c[k]; c[k] = made[k]; }
+        // a big render per picture looked at, for as long as the window
+        // lives: past 500 the oldest go (insertion order), their stamps too
+        const keys = Object.keys(c);
+        for (let i = 0; i < keys.length - 500; ++i) {
+          delete c[keys[i]];
+          delete term.bigStamp[keys[i]];
+        }
         term.bigFile = c;
       }
     }

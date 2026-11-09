@@ -167,9 +167,24 @@ PanelWindow {
       : steps.length > 1 ? "language and time zone" : steps[0][1] === "timedatectl" ? "time zone" : "language";
     const why = pkg !== "" ? "to read " + asst.tessLanguage + " text in pictures" + (sys !== "" ? ", and set the " + sys : "")
       : "set the " + sys;
-    if ((pkg !== "" || steps.length > 0) && Ceres.install(pkg !== "" ? [pkg] : [], why, () => asst.afterTess(), steps))
-      return;
-    asst.afterTess();
+    if (pkg === "" && steps.length === 0) { asst.afterTess(); return; }
+    if (Ceres.install(pkg !== "" ? [pkg] : [], why, () => asst.afterTess(), steps)) return;
+    // CERES BUSY (an update check, its onboarding at a first start): the
+    // picks wait for it and go once it is free. They were dropped without
+    // a word, after Done had promised them (audit 2026-11-08).
+    asst.waitCeres = true;
+  }
+  property bool waitCeres: false
+  Connections {
+    target: Ceres
+    enabled: asst.waitCeres
+    function onTxBusyChanged() { asst.ceresFree(); }
+    function onInstallingChanged() { asst.ceresFree(); }
+  }
+  function ceresFree() {
+    if (!asst.waitCeres || Ceres.txBusy || Ceres.installing) return;
+    asst.waitCeres = false;
+    Qt.callLater(asst.applySystem);
   }
   function afterTess() {
     Oracle.readTimedate();

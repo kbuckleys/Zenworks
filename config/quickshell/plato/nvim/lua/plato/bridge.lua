@@ -63,11 +63,15 @@ local function killAfter(ms, unless)
   end)
 end
 
+-- asked to quit: its eight seconds are already counting on `deadline`,
+-- and the window closing its end straight after the quit re-armed it at
+-- fifteen (audit 2026-11-09)
+local quitAsked = false
 local function armGrace(ms)
   grace:start(ms, 0, vim.schedule_wrap(function()
     if not client then M.quit() end
   end))
-  killAfter(ms + 10000, function() return client ~= nil end)
+  if not quitAsked then killAfter(ms + 10000, function() return client ~= nil end) end
 end
 local function disarmGrace()
   grace:stop()
@@ -795,7 +799,7 @@ local function onRead(err, chunk)
       -- callback: the polite exit is scheduled like every request, and a
       -- main loop that is stuck would never get to it. Asked to go, nvim goes
       -- — nicely within eight seconds, or by signal after them.
-      if ok and type(msg) == "table" and msg.method == "quit" then killAfter(8000) end
+      if ok and type(msg) == "table" and msg.method == "quit" then quitAsked = true; killAfter(8000) end
       if ok and type(msg) == "table" then dispatch(msg)
       else send({ event = "error", message = "bad request: " .. line }) end
     end

@@ -111,6 +111,7 @@ Item {
         width: parent.width - 36 - answerText.implicitWidth - 32
         anchors.verticalCenter: parent.verticalCenter
         text: row.modelData.expr
+        textFormat: Text.PlainText   // what was typed, as typed
         elide: Text.ElideRight
         color: row.sel ? Zenon.keyInk : Zenon.muted
         font.family: Zenon.face

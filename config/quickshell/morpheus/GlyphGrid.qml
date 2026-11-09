@@ -37,7 +37,7 @@ Item {
   property string styleName: ""
   property color hiFill: Zenon.alpha(Zenon.accent, 0.12)
   property bool busy: false
-  property string placeholder: "Search by name, codepoint or character — folder, U+F031, →"
+  property string placeholder: "Search by name, codepoint or character — file, U+F031, →"
   property var navKey: null
   property var zoom: null
   property real edge: 14

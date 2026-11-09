@@ -578,7 +578,7 @@ Singleton {
       onStreamFinished: {
         const rows = Art.parseRows(text);
         root.files = rows;
-        if (rows.some((r) => r.thumb === "")) {
+        if (rows.some((r) => r.thumb === "" && !r.none)) {
           makeProc.command = root.scanArgv("make");
           makeProc.running = true;
         } else root.scanning = false;

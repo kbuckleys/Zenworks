@@ -1558,6 +1558,14 @@ FloatingWindow {
     const m = Object.assign({}, win.missed);
     m[r.path] = true;
     win.missed = m;
+    // one made this session and gone since (swept, cleared): its entry held
+    // wantThumb off, and the tile decoded the original for good (audit
+    // 2026-11-09). Once per picture: `missed` stops a loop.
+    if (r.path in win.thumbs) {
+      const t = Object.assign({}, win.thumbs);
+      delete t[r.path];
+      win.thumbs = t;
+    }
     win.wantThumb(r.path);
   }
   // the index's answer for a row, or "" (also for "there will be none")
@@ -1646,7 +1654,10 @@ FloatingWindow {
         const s = String(line), head = win.watchDir + "/ ";
         if (s.indexOf(head) === 0) {
           const rest = s.slice(head.length), cut = rest.indexOf(" ");
-          if (cut > 0 && rest.slice(0, cut).indexOf("CLOSE_WRITE") >= 0)
+          // MOVED_TO too: an editor's atomic save (or a mv over it)
+          // replaces the file by rename, no CLOSE_WRITE (audit 11-09)
+          const ev = rest.slice(0, cut);
+          if (cut > 0 && (ev.indexOf("CLOSE_WRITE") >= 0 || ev.indexOf("MOVED_TO") >= 0))
             win.written[Terminus.joinPath(win.watchDir, rest.slice(cut + 1))] = true;
         }
         watchSettle.restart();
@@ -2146,7 +2157,9 @@ FloatingWindow {
     win.run(Terminus.shArgv(Terminus.restoreCommand(ps, "path")), (code) => {
       win.say(code !== 0 ? "could not bring everything back"
               : (ps.length === 1 ? Terminus.basename(ps[0]) + " is back" : ps.length + " are back"));
-      win.want = ps[0];
+      // the picture the cursor goes to — only while this window is still
+      // in the directory it came back to (audit 2026-11-09)
+      if (Terminus.dirname(ps[0]) === win.dir) win.want = ps[0];
       win.startMode = win.mode;
       win.list();
     });
@@ -2587,7 +2600,8 @@ FloatingWindow {
     }
     const tmp = Paths.runtimeDir() + "/picasso-view-ocr-" + Date.now() + ".png";
     const src = win.fallback !== "" ? win.fallback : win.path + "[0]";
-    win.run(["sh", "-c", 'magick -- "$2" "$1"', "sh", tmp, src], (code) => {
+    // a failed convert leaves no half-written page behind (audit 11-09)
+    win.run(["sh", "-c", 'magick -- "$2" "$1" || { rm -f "$1"; exit 1; }', "sh", tmp, src], (code) => {
       if (code !== 0) { win.say("Could not read it"); return; }
       ocr(tmp);
     });
@@ -4600,6 +4614,24 @@ FloatingWindow {
         const line = win.glay.lines[li];
         return line ? line.start : win.galleryItems.length;
       }
+      // ── ONLY WHAT IS IN SIGHT IS DRAWN (2026-11-08) ─────────────────
+      // The pool keeps three screens of tiles made (see `buffer`), and every
+      // one of them was drawn on every frame of a scroll — twice, since the
+      // ScrollEdge captures this content too. The ones a screen away are
+      // kept, not drawn: these are the items whose lines touch the view,
+      // the strip above it that goes under the bar (and a section chip's
+      // room), and a margin below. Whole lines, so the bounds move only when
+      // a line crosses them, not on every frame. Between two zooms (zoomK)
+      // the tiles are scaled about the middle, and everything is drawn.
+      readonly property real seenPad: (win.chrome ? bar.height : 0) + 64
+      readonly property int seenFrom: {
+        const line = win.glay.lines[V.lineAt(win.glay, grid.contentY - grid.seenPad)];
+        return line ? line.start : win.galleryItems.length;
+      }
+      readonly property int seenTo: {
+        const line = win.glay.lines[V.lineAt(win.glay, grid.contentY + grid.height + 64)];
+        return line ? line.end : win.galleryItems.length;
+      }
       // held while a folder waits for its shapes (glay empty), so the tiles
       // are kept rather than torn down and made again
       property int pool: 0
@@ -4644,7 +4676,9 @@ FloatingWindow {
         y: cell.rect ? cell.rect.y : -100000
         width: cell.rect ? cell.rect.w : 0
         height: cell.rect ? cell.rect.h : 0
+        // kept a screen away, drawn only in sight — see seenFrom
         visible: cell.live && !!cell.rect
+          && (win.zoomK !== 1 || (cell.gi >= grid.seenFrom && cell.gi < grid.seenTo))
         // a picture is a tile, its shape and nothing else; a directory keeps
         // its glyph or cover and its name, as terminus draws one
         readonly property bool tile: !cell.directory && !cell.fill
@@ -4771,55 +4805,88 @@ FloatingWindow {
             live: cell.directory && !cell.modelData.isUp
             path: cell.directory && !cell.modelData.isUp ? cell.modelData.path : ""
             stamp: cell.modelData.mtime || 0
-            glyph: dirGlyph.text
-            ink: dirGlyph.color
+            // the glyph is in the name's pill below
+            badge: false
           }
           // otherwise its glyph — terminus' own, from the shell's glyph map
           // (Downloads, Pictures, .git… each have theirs), in its ink
+          // ── BUILT ONLY WHEN SHOWN (2026-11-08) ──────────────────────
+          // Every Qt Text observes the viewport, so each one in the pool —
+          // shown or not — was measured on every frame of a scroll (~1.2 ms a
+          // frame for the pool's 4,000-odd). What a tile shows only sometimes
+          // (a directory's glyph and pill, a video's mark, the tags, a burst,
+          // "best", a section chip) is a Loader that makes it when it shows.
+          // Placed by x/y: a Loader given a size would resize what it holds.
+          Loader {
+            active: cell.directory && !dirCover.shown
+            sourceComponent: Component {
           Text {
             id: dirGlyph
-            anchors.centerIn: parent
+            x: Math.round((thumbBox.width - width) / 2)
             // a little above the middle, clear of the name along the foot
-            anchors.verticalCenterOffset: -Math.round(parent.height * 0.08)
-            visible: cell.directory && !dirCover.shown
+            y: Math.round((thumbBox.height - height) / 2 - thumbBox.height * 0.08)
             text: cell.directory ? Terminus.glyphOf(cell.modelData, Icons) : ""
             color: cell.directory ? Terminus.inkOf(cell.modelData) : Zenon.accent
             font.family: Zenon.face
             font.weight: Zenon.weight
             font.pixelSize: Math.round(win.rowH * 0.36)
           }
-          // ── ITS NAME, INSIDE IT ─────────────────────────────────────
-          // Along the foot over a soft shade, beside the cover's glyph badge
-          // (FolderCover puts it bottom-left, side·0.22 wide, side·0.06 in).
-          Rectangle {
-            visible: cell.directory && dirCover.shown
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.bottom: parent.bottom
-            height: Math.round(parent.height * 0.5)
-            radius: Zenon.windowRadius
-            gradient: Gradient {
-              // the theme's ground, so the name's ink reads on it either way
-              GradientStop { position: 0.0; color: Zenon.alpha(Zenon.ground, 0) }
-              GradientStop { position: 1.0; color: Zenon.alpha(Zenon.ground, 0.65) }
             }
           }
-          Text {
-            textFormat: Text.PlainText
-            visible: cell.directory
-            readonly property real side: parent.height
-            readonly property int inset: Math.max(3, Math.round(side * 0.06))
-            readonly property int badge: dirCover.shown ? Math.max(16, Math.round(side * 0.22)) : 0
-            x: inset + (badge > 0 ? badge + 8 : 6)
-            width: parent.width - x - inset - 4
-            y: dirCover.shown ? parent.height - inset - badge / 2 - height / 2
-                              : parent.height - height - inset - 4
-            text: cell.modelData.isUp ? "Up to " + (Terminus.basename(cell.modelData.path) || "/") : (cell.modelData.name || "")
-            elide: Text.ElideRight
-            color: Zenon.white
-            font.family: Zenon.face
-            font.weight: cell.here ? Zenon.titleWeight : Zenon.titleWeight
-            font.pixelSize: Zenon.px(14)
+          // ── ITS GLYPH AND NAME, IN A HINT PILL (user, 2026-11-08) ───
+          // Bottom centered over the tile, the floating HintBar's pill as it
+          // stands at rest (its floor, ground, rim, rounding, inset and pad);
+          // not frosted, since a live blur per tile would be drawn again on
+          // every frame of a scroll. FolderCover's corner badge is off here.
+          Loader {
+            active: cell.directory
+            sourceComponent: Component {
+          Rectangle {
+            id: dirPill
+            readonly property int inset: 5
+            readonly property int capH: Zenon.px(13) + 8
+            readonly property int pad: Math.max(2, Math.floor((Zenon.hintBarH - 2 * inset - capH) / 2))
+            width: Math.min(thumbBox.width - 2 * inset, dirPillRow.implicitWidth + 2 * pad + 12)
+            height: capH + 2 * pad
+            x: Math.round((thumbBox.width - width) / 2)
+            y: thumbBox.height - height - inset
+            radius: Zenon.windowRadius
+            color: Zenon.layerBg
+            Rectangle {
+              anchors.fill: parent
+              radius: parent.radius
+              color: Zenon.hintFrostBg
+              border.width: 1
+              border.color: Zenon.border
+            }
+            Row {
+              id: dirPillRow
+              anchors.centerIn: parent
+              spacing: 7
+              Text {
+                id: dirPillGlyph
+                anchors.verticalCenter: parent.verticalCenter
+                text: cell.directory ? Terminus.glyphOf(cell.modelData, Icons) : ""
+                color: cell.directory ? Terminus.inkOf(cell.modelData) : Zenon.accent
+                font.family: Zenon.face
+                font.weight: Zenon.weight
+                font.pixelSize: Zenon.px(14)
+              }
+              Text {
+                anchors.verticalCenter: parent.verticalCenter
+                textFormat: Text.PlainText
+                width: Math.min(implicitWidth, thumbBox.width - 2 * dirPill.inset - 2 * dirPill.pad - 12
+                                - dirPillGlyph.implicitWidth - dirPillRow.spacing)
+                text: cell.modelData.isUp ? "Up to " + (Terminus.basename(cell.modelData.path) || "/") : (cell.modelData.name || "")
+                elide: Text.ElideRight
+                color: Zenon.white
+                font.family: Zenon.face
+                font.weight: Zenon.titleWeight
+                font.pixelSize: Zenon.px(13)
+              }
+            }
+          }
+            }
           }
           Thumb {
             id: pic
@@ -4852,9 +4919,13 @@ FloatingWindow {
             pooled: true
             keeper: thumbKeeper
           }
+          Loader {
+            active: cell.tile && Terminus.isVideo(cell.modelData.name || "")
+            sourceComponent: Component {
           Text {
-            visible: !cell.directory && pic.visible && Terminus.isVideo(cell.modelData.name || "")
-            anchors.centerIn: pic
+            visible: pic.visible
+            x: Math.round(pic.x + (pic.width - width) / 2)
+            y: Math.round(pic.y + (pic.height - height) / 2)
             text: "\uf144"
             color: Zenon.white
             style: Text.Outline
@@ -4862,6 +4933,8 @@ FloatingWindow {
             font.family: Zenon.face
             font.weight: Zenon.weight
             font.pixelSize: Zenon.px(30)
+          }
+            }
           }
           // the open flare — see win.flare; terminus' tile wears the same
           Rectangle {
@@ -4890,11 +4963,14 @@ FloatingWindow {
             }
           }
           // the star, and the tags that come with a color, along its foot
+          Loader {
+            active: cell.tile && cell.tagged.length > 0
+            sourceComponent: Component {
           Row {
             x: pic.x + 6
             y: pic.y + pic.height - height - 6
             spacing: 4
-            visible: cell.tagged.length > 0 && pic.visible
+            visible: pic.visible
             Text {
               anchors.verticalCenter: parent.verticalCenter
               visible: cell.tagged.indexOf(V.FAVORITE) >= 0
@@ -4920,33 +4996,22 @@ FloatingWindow {
               }
             }
           }
+            }
+          }
         }
-        // terminus' TileName: ElideMiddle does nothing on a wrapped label, so a
-        // long name was cut off with no ellipsis and no extension
-        TileName {
-          anchors.top: thumbBox.bottom
-          anchors.topMargin: 8
-          anchors.left: parent.left
-          anchors.right: parent.right
-          anchors.margins: 8
-          horizontalAlignment: Text.AlignHCenter
-          // none now: a picture is a tile with no name (gallery.jpg), and a
-          // directory carries its name inside its tile
-          visible: false
-          name: cell.modelData.isUp ? "Up to " + (Terminus.basename(cell.modelData.path) || "/") : (cell.modelData.name || "")
-          // what the filter's words matched, lit
-          mark: win.filterWords
-          color: cell.directory ? Zenon.accent : Zenon.white
-          font.family: Zenon.face
-          font.weight: cell.here ? Zenon.titleWeight : Zenon.weight
-          font.pixelSize: Zenon.px(14)
-        }
+        // (no name under a tile: a picture is a tile with no name, gallery.jpg,
+        // and a directory carries its name in its pill. The hidden TileName
+        // that stood here went 2026-11-08: every Text in the pool is paid for
+        // on each frame of a scroll.)
         // a folded burst: how many are under it — Enter or a click on this opens it
+        Loader {
+          z: 2
+          active: !!cell.burst && !cell.burst.open
+          sourceComponent: Component {
         Rectangle {
-          visible: !!cell.burst && !cell.burst.open && pic.visible
+          visible: pic.visible
           x: thumbBox.x + pic.x + pic.width - width - 6
           y: thumbBox.y + pic.y + pic.height - height - 6
-          z: 2
           width: burstRow.implicitWidth + 12
           height: 22
           radius: Zenon.radiusControl
@@ -4963,18 +5028,25 @@ FloatingWindow {
           MouseArea { anchors.fill: parent; anchors.margins: -4
                       onClicked: { keys.forceActiveFocus(); win.foldBurst(cell.burst.key, false); } }
         }
+          }
+        }
         // the one of an alike group worth keeping
+        Loader {
+          z: 2
+          active: cell.best
+          sourceComponent: Component {
         Rectangle {
-          visible: cell.best && pic.visible
+          visible: pic.visible
           x: thumbBox.x + pic.x + pic.width - width - 6
           y: thumbBox.y + pic.y + pic.height - height - 6
-          z: 2
           width: bestText.implicitWidth + 14
           height: 20
           radius: Zenon.radiusControl
           color: Zenon.green
           Text { id: bestText; anchors.centerIn: parent; text: "best"; color: Zenon.black
                  font.family: Zenon.face; font.weight: Zenon.titleWeight; font.pixelSize: Zenon.px(11) }
+        }
+          }
         }
         // A section begins here: a rule across the grid's line, and its name.
         Rectangle {
@@ -4987,11 +5059,13 @@ FloatingWindow {
           height: 1
           color: Zenon.border
         }
+        Loader {
+          z: 4
+          active: !!cell.chip && cell.chip.text !== ""
+          sourceComponent: Component {
         Rectangle {
-          visible: !!cell.chip && cell.chip.text !== ""
           x: 4
           y: -win.sectionH + 2
-          z: 4
           width: chipRow.implicitWidth + 18
           height: 22
           radius: Zenon.radiusControl
@@ -5028,6 +5102,8 @@ FloatingWindow {
               MouseArea { id: foldMa; anchors.fill: parent; anchors.margins: -6; hoverEnabled: true
                           onClicked: { keys.forceActiveFocus(); win.foldBurst(cell.chip.burst, true); } }
             }
+          }
+        }
           }
         }
         MouseArea {
@@ -5427,8 +5503,12 @@ FloatingWindow {
       preferredHighlightEnd: width / 2 + 50
       highlightMoveDuration: Zenon.normal
       boundsBehavior: Flickable.StopAtBounds
-      leftMargin: 10
+      // fewer tiles than the strip is long stand in its middle, not from
+      // the left (user, 2026-11-08); a full strip keeps its 10px margin
+      leftMargin: Math.max(10, Math.floor((width - contentWidth) / 2))
       rightMargin: 10
+      // a strip that just stopped overflowing is put back on its new start
+      onLeftMarginChanged: if (contentWidth + leftMargin + rightMargin <= width) positionViewAtBeginning()
       // tiles a little way out of view are kept, so stepping through the
       // directory does not rebuild — and re-decode — each one it scrolls to
       cacheBuffer: 1600

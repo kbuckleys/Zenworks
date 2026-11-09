@@ -331,6 +331,7 @@ Rectangle {
       }
 
       Text {
+        textFormat: Text.PlainText
         anchors.left: parent.left
         anchors.leftMargin: 46
         anchors.verticalCenter: parent.verticalCenter
@@ -483,6 +484,7 @@ Rectangle {
              ["alt r", "rename"], ["\u2191\u2193", "move"],
              ["del", "remove"], ["esc", "close"]]
       leading: Text {
+        textFormat: Text.PlainText
         anchors.verticalCenter: parent.verticalCenter
         visible: tagPick.gripe === ""
         text: tagPick.query !== "" ? tagPick.query

@@ -21,8 +21,11 @@
 // one of them, and a .js that builds dispatches (terminus.js) can use it.
 
 // a Lua string literal: what goes between the quotes, escaped
+// (every other control character as a 3-digit decimal escape: a raw CR in a
+// title was "unfinished string" and the dispatch did nothing)
 function lua(s) {
-  return '"' + String(s ?? "").replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n") + '"';
+  return '"' + String(s ?? "").replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n")
+    .replace(/[\x00-\x09\x0b-\x1f\x7f]/g, (c) => "\\" + String(c.charCodeAt(0)).padStart(3, "0")) + '"';
 }
 
 // a window selector by exact title: "title:^(ceres)$"

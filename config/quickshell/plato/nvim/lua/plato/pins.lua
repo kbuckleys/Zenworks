@@ -54,25 +54,32 @@ function M.numbers()
 end
 
 function M.toggle()
-  local name, root, list = here()
+  local name, root = here()
   if not name then
     vim.notify("Only a file can be pinned", vim.log.levels.WARN)
     return
   end
-  local at
-  for i, p in ipairs(list) do if p == name then at = i end end
-  if at then
-    table.remove(list, at)
-    vim.notify("Unpinned " .. vim.fs.basename(name))
-  elseif #list >= MAX then
-    vim.notify("Already " .. MAX .. " pinned in this project: unpin one first", vim.log.levels.WARN)
-    return
-  else
-    list[#list + 1] = name
-    vim.notify(("Pinned %s on Alt %d"):format(vim.fs.basename(name), #list))
-  end
-  util.updateJson(path, function(all) all[root] = #list > 0 and list or nil end)
-  require("plato.view").schedule(true)
+  -- decided on the list as it is under the lock: read before it, another
+  -- engine's pin made meanwhile was written over (audit 2026-11-09)
+  local said, level
+  util.updateJson(path, function(all)
+    local list = all[root] or {}
+    local at
+    for i, p in ipairs(list) do if p == name then at = i end end
+    if at then
+      table.remove(list, at)
+      said = "Unpinned " .. vim.fs.basename(name)
+    elseif #list >= MAX then
+      said, level = "Already " .. MAX .. " pinned in this project: unpin one first", vim.log.levels.WARN
+      return
+    else
+      list[#list + 1] = name
+      said = ("Pinned %s on Alt %d"):format(vim.fs.basename(name), #list)
+    end
+    all[root] = #list > 0 and list or nil
+  end)
+  if said then vim.notify(said, level) end
+  if not level then require("plato.view").schedule(true) end
 end
 
 function M.go(n)

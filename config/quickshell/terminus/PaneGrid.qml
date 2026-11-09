@@ -65,11 +65,22 @@ GridView {
   // exactly, so there is never a ragged strip of dead space down the
   // right-hand edge, and they land near enough to the target that a
   // thumbnail is worth looking at.
-  readonly property int targetCell: Math.round(190 * pgrid.zoom)
+  // Below the grid's default (0.7, a 133 cell) the width shrinks at a
+  // third of the picture's rate: at 0.4 the cell is 114, not 76 — the
+  // names and the pictures were squeezed into each other side by side
+  // (user, 2026-11-08: "space them out horizontally a little").
+  readonly property int targetCell: pgrid.zoom >= 0.7 ? Math.round(190 * pgrid.zoom)
+                                                      : Math.round(133 - (0.7 - pgrid.zoom) * 63)
   cellWidth: Math.floor(pgrid.width
     / Math.max(1, Math.round(pgrid.width / pgrid.targetCell)))
-  // and 18 for the line under each name (Tile.detail)
-  cellHeight: Math.round(168 * pgrid.zoom) + 18
+  // and 18 for the line under each name (Tile.detail). The tile keeps a
+  // fixed 86 under its picture for the name and that line (Tile's
+  // thumbBox), so the picture is 168·zoom − 68: 50 at the grid's default
+  // 0.7. Below it the picture shrinks in proportion instead (50·zoom/0.7,
+  // the same 136 at 0.7) — on the old sum it was gone by 0.45 (user,
+  // 2026-11-08: smaller tiles than the default).
+  cellHeight: pgrid.zoom >= 0.7 ? Math.round(168 * pgrid.zoom) + 18
+                                : Math.round(50 * pgrid.zoom / 0.7) + 86
 
   // ── THE MOMENT THE LISTING GETS SHORTER ──────────────────
   // and not a frame later. positionSel is too early — it runs before
@@ -160,7 +171,9 @@ GridView {
     held: pgrid.held
     riseView: pgrid
     riseIndex: index
-    GridView.onReused: tileItem.riseReset()
+    // a reused tile that comes back as the current one reports its fit:
+    // onCurrentChanged does not fire when it was current before it went
+    GridView.onReused: { tileItem.riseReset(); if (tileItem.current) pgrid.curFit = tileItem.usedH; }
     readonly property var row: pgrid.pane.rowFor(path)
     width: pgrid.cellWidth
     height: pgrid.cellHeight

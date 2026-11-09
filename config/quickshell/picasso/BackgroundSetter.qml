@@ -121,7 +121,14 @@ Item {
       if (Picasso.wallpaperFor(card.screenNames[i]) === card.path) out.push(card.screenNames[i]);
     return out;
   }
-  function browse(delta) { if (card.index >= 0) card.stepped(delta); }
+  // stepped(delta) lands on list[index + delta]: held at the ends, as
+  // Picasso's own focus card is, never past them (a TypeError in Terminus'
+  // and the viewer's sheets before, audit 2026-11-08)
+  function browse(delta) {
+    if (card.index < 0) return;
+    const to = Math.max(0, Math.min(card.index + delta, card.list.length - 1));
+    if (to !== card.index) card.stepped(to - card.index);
+  }
   readonly property bool multi: card.screenNames.length > 1
   readonly property bool allStaged: card.stageScreens.length === card.screenNames.length
   readonly property bool spanning: card.stageSpan && card.stageScreens.length >= 2

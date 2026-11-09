@@ -36,7 +36,7 @@ Item {
   // happen per pane, or the two halves cannot differ.
   function paneHeadH(side) {
     if (!term.dual) return 0;
-    const p = side === 0 ? paneL : term.paneRRef;
+    const p = side === 0 ? term.paneLRef : term.paneRRef;
     return p.viewMode === "list" ? 22 : 0;
   }
   function listOf(side) { return term.chromeRef.listA.side === side ? term.chromeRef.listA : term.chromeRef.listB; }

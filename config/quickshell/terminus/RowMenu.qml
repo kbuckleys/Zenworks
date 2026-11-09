@@ -195,7 +195,10 @@ PopupWindow {
       // asked now rather than on every selection change: it is a process,
       // and almost every right-click is not about opening with something
       const t = menu.target;
-      term.findApps(t && !t.isDir ? t.path : "");
+      // and named, so the rescan after Open with… asks about this row,
+      // not the last Info card's file (audit 2026-11-08)
+      term.appsPath = t && !t.isDir ? t.path : "";
+      term.findApps(term.appsPath);
     }
 
     // on empty space: only the things that are about the DIRECTORY, because

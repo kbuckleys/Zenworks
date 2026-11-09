@@ -105,9 +105,11 @@ QtObject {
 
   // An Exec value for a program by its absolute path: quoted per the
   // desktop-entry spec only when it has to be, then the field code.
+  // A literal % is %% (the spec's field-code escape), quoted or not.
   function execLine(path, code) {
-    const p = /[\s"'\\$`]/.test(path)
-      ? "\"" + path.replace(/(["`$\\])/g, "\\$1") + "\"" : path;
+    const e = String(path).replace(/%/g, "%%");
+    const p = /[\s"'\\$`]/.test(e)
+      ? "\"" + e.replace(/(["`$\\])/g, "\\$1") + "\"" : e;
     return code ? p + " " + code : p;
   }
 }

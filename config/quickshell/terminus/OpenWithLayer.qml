@@ -73,31 +73,21 @@ Item {
   // ── WHAT CLAIMS THE TYPE ──────────────────────────────────────────────
   // terminus' own scan, for the card's "opens with" list and for the type a
   // choice is registered against.
-  property var apps: []
-  property string mime: ""
-  property string defaultId: ""
-
-  Process {
-    id: appsProc
-    stdout: StdioCollector {
-      id: appsOut
-      waitForEnd: true
-      onStreamFinished: {
-        layer.apps = Terminus.parseApps(appsOut.text);
-        layer.mime = Terminus.parseAppsMime(appsOut.text);
-        layer.defaultId = Terminus.parseAppsDefault(appsOut.text);
-      }
+  // OpenWithScan, the scan every other card uses (this had its own copy,
+  // whose strike left a removed default as the default; audit 2026-11-08).
+  // A change runs through assocProc, which asks again once it is done.
+  readonly property alias apps: openScan.apps
+  readonly property alias mime: openScan.mime
+  readonly property alias defaultId: openScan.defaultId
+  OpenWithScan {
+    id: openScan
+    run: (cmd) => {
+      assocProc.command = ["sh", "-c", cmd];
+      assocProc.running = true;
     }
   }
 
-  function scan(path) {
-    layer.apps = [];
-    layer.mime = "";
-    layer.defaultId = "";
-    appsProc.running = false;
-    appsProc.command = ["sh", "-c", Terminus.appsCommand(path)];
-    appsProc.running = true;
-  }
+  function scan(path) { openScan.find(path); }
 
   // Only a handler the scan listed can be struck, and a type with one did not
   // get here (gio opens with it) — but the card offers the key, so it works:
@@ -131,11 +121,8 @@ Item {
           Terminus.adoptAppCommand(app.id, mime, paths[0])]);
         layer.opened();
       }
-      onRemoveRequested: (id) => {
-        if (!id || layer.mime === "") return;
-        assocProc.command = ["sh", "-c", Terminus.removeAppCommand(id, layer.mime)];
-        assocProc.running = true;
-      }
+      // removing the default hands it on to the next one (OpenWithScan.remove)
+      onRemoveRequested: (id) => openScan.remove(id)
       // chosen() follows a dismiss too, so only a dismiss with nothing
       // pending is a cancel — see AppPicker.launch
       onDismissed: if (!layer.quiet && !picker.launching) layer.cancelled()

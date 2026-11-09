@@ -153,6 +153,15 @@ module.exports = {
       fd([{ kind: "ext", op: "is", value: "png,,," }])
         .split("-e ").length === 2);
 
+    // rules are ANDed: two extension lists are their common part
+    const both = fd([{ kind: "kind", op: "is", value: "image" },
+                     { kind: "ext", op: "is", value: "PNG, pdf" }]);
+    t.ok("kind and extension meet", both.indexOf("-e 'png'") >= 0
+      && both.indexOf("pdf") < 0 && both.indexOf("'jpg'") < 0);
+    t.eq("and lists that never meet list nothing",
+      fd([{ kind: "kind", op: "is", value: "image" },
+          { kind: "ext", op: "is", value: "pdf" }]), "true");
+
     // ── size and date become flags ────────────────────────────────────────
     t.ok("larger is +", fd([{ kind: "size", op: "larger", value: "10m" }])
       .indexOf("--size +10m") >= 0);
@@ -226,11 +235,19 @@ module.exports = {
     t.eq("and nor does one whose only rule is empty",
       T.command({ root: "/r", rules: [{ kind: "name", op: "is", value: " " }] },
         HOME), "");
-    // A tag rule counts as usable with no value, because the tag half is
-    // answered from the index rather than by fd.
-    t.ok("a tag rule alone is still a question",
+    // An empty tag rule asks nothing, like every other empty rule: it was
+    // "every tagged file" under a sentence saying "no rules yet" (audit
+    // 2026-11-08). A named tag alone is answered from the index.
+    t.eq("an empty tag rule alone asks nothing",
       T.command({ root: "/r", rules: [{ kind: "tag", op: "is", value: "" }] },
-        HOME) !== "");
+        HOME), "");
+    t.ok("nor is it a tags-only page",
+      !T.tagsOnly({ rules: [{ kind: "tag", op: "is", value: " " }] }));
+    t.ok("a named tag beside an empty one is",
+      T.tagsOnly({ rules: [{ kind: "tag", op: "is", value: "red" },
+                           { kind: "tag", op: "is", value: "" }] }));
+    t.eq("a date in a unit fd has no word for asks nothing", T.dateArg("7xyz"), "");
+    t.eq("a date in a unit fd knows is passed through", T.dateArg("10 min"), "10min");
 
     const full = T.command({ root: "~/w", rules: nameRule.concat(content) },
                            HOME);

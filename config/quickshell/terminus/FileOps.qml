@@ -280,54 +280,13 @@ Item {
     if (rows.length === 0) return;
     term.bulkRef.begin(rows.map((r) => r.name), rows.map((r) => r.path));
   }
-  Process {
-    id: appsProc
-    // a directory asked for while a file's scan was out: that answer is
-    // not the directory's, and it stuck on the directory's menu (audit
-    // 2026-10-28d)
-    property bool drop: false
-    stdout: StdioCollector {
-      id: appsOut
-      waitForEnd: true
-      onStreamFinished: {
-        if (appsProc.drop) return;
-        term.openWithApps = Terminus.parseApps(appsOut.text);
-        term.openWithMime = Terminus.parseAppsMime(appsOut.text);
-        term.openWithDefault = Terminus.parseAppsDefault(appsOut.text);
-        term.appsScanned = true;
-      }
-    }
-    // a scan asked for while this one was out — see findApps. Here, not in
-    // streamFinished: that comes BEFORE the exit, and a findApps from there
-    // still saw the process running and only queued itself again, so the
-    // rescan after a default set or a handler struck never ran (2026-11-04)
-    onExited: {
-      appsProc.drop = false;
-      if (term.appsAgain === "") return;
-      const q = term.appsAgain;
-      term.appsAgain = "";
-      term.findApps(q);
-    }
-  }
-  function findApps(path) {
-    // ── A SCAN IN FLIGHT IS WAITED FOR, NOT GIVEN UP ON ──────────────
-    // This used to empty the answer and declare it final whenever a scan
-    // was already running, so a rescan that landed during one — after a
-    // handler was added or removed — left the card with nothing, or with
-    // the state of the change before. It runs again as soon as the one in
-    // flight is done, and until then the card keeps what it has.
-    if (path && appsProc.running) { term.appsAgain = path; return; }
-    term.openWithApps = [];
-    term.openWithMime = "";
-    term.openWithDefault = "";
-    term.appsScanned = false;
-    // A directory: nothing further is coming, so the answer is in — there is
-    // nothing to open this with.
-    if (!path) { appsProc.drop = appsProc.running; term.appsAgain = ""; term.appsScanned = true; return; }
-    appsProc.drop = false;
-    appsProc.command = ["sh", "-c", Terminus.appsCommand(path)];
-    appsProc.running = true;
-  }
+  // ── A SCAN IN FLIGHT IS WAITED FOR, NOT GIVEN UP ON ──────────────
+  // A rescan that landed during one — after a handler was added or
+  // removed — used to leave the card with nothing, or with the state of
+  // the change before. OpenWithScan (term's appsScan) runs it again as
+  // soon as the one in flight is done, and until then the card keeps what
+  // it has; a directory (no path) is answered at once: nothing opens it.
+  function findApps(path) { term.appsScanRef.find(path); }
   function openWith(id, path) {
     term.run(Terminus.openWithCommand(id, path));
   }

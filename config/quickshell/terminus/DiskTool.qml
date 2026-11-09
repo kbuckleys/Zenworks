@@ -606,6 +606,8 @@ FocusScope {
         delegate: Text {
           required property var modelData
           required property int index
+          // fsck/mkfs echo labels and file names
+          textFormat: Text.PlainText
           width: logView.width
           wrapMode: Text.WrapAnywhere
           text: modelData

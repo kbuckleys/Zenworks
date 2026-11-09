@@ -207,7 +207,8 @@ Singleton {
   property string accentColor: ""
   // a new background (the main monitor's, as Follow Background reads it)
   // puts the accent back to the theme's — picasso/FollowBackground
-  property bool accentResetOnBackground: false
+  // on by default (user, 2026-11-08)
+  property bool accentResetOnBackground: true
   // The Save button: the window asks for a name (nameFollowRequested, a
   // sheet pre-filled with followSuggest — the picture's name, which
   // picasso/FollowBackground keeps here), then saveFollowRequested carries
@@ -508,7 +509,8 @@ Singleton {
   // is just worth knowing which side of the line you are on.
   // the user's own setting as the default (user, 2026-10-17)
   property real barOpacity: 0.9
-  property real panelOpacity: 0.90
+  // the user's own setting as the default, solid (user, 2026-11-08)
+  property real panelOpacity: 1.0
   // How heavy a shadow a layer casts, and a menu. They are deliberately two
   // numbers: a layer sits near an edge and a shadow loud enough to lift it off
   // the desktop reads as a black halo, while a menu floats over a window and
@@ -548,7 +550,8 @@ Singleton {
   // RECORDING (argus.lua asks for these through `qs ipc call Argus
   // recPrefs`, 2026-10-22): a countdown first; which sound goes in; a
   // bigger pointer and the camera in a corner while it records
-  property int recCountdown: 3
+  // none by default: the user's own setting (user, 2026-11-08)
+  property int recCountdown: 0
   property string recAudio: "system"
   property bool recBigPointer: false
   property bool recCamera: false
@@ -2055,9 +2058,9 @@ Singleton {
     { key: "hyprGapsOut", section: "windows", label: "Outer gaps", type: "int", min: 0, max: 40, step: 1, unit: "px",
       hyprFile: "effects", fx: "gaps_out", hyprDefault: 8, alias: "gaps margin space edge screen tiling padding",
       help: "Room between tiled windows and the screen's edges. Kept in ~/.config/zenworks/hypr/lua/effects.lua." },
-    { key: "hyprGapsIn", section: "windows", label: "Inner gaps", type: "int", min: 0, max: 20, step: 1, unit: "px",
+    { key: "hyprGapsIn", section: "windows", label: "Inner gaps", type: "int", min: -5, max: 20, step: 1, unit: "px",
       hyprFile: "effects", fx: "gaps_in", hyprDefault: 2, alias: "gaps space between windows tiling padding",
-      help: "Room between one tiled window and the next. Hyprland counts it on each side, so two windows stand twice this apart." },
+      help: "Room between one tiled window and the next. Hyprland counts it on each side, so two windows stand twice this apart. Below zero their borders overlap." },
     { key: "hyprSpecialGaps", section: "windows", label: "Special workspace gaps", type: "int", min: 0, max: 120, step: 2, unit: "px",
       hyprFile: "effects", fx: "special_gaps", hyprDefault: 30, alias: "special workspace scratchpad gaps margin edge",
       help: "How far the special workspace's windows stand in from the screen's edges (Super+` shows it)." },
@@ -4299,8 +4302,12 @@ Singleton {
       // load() only applies what it finds — a setting deleted by hand would
       // otherwise keep whatever it currently held, which is not what the file
       // now says. Cleared first, so "reload" means the file and nothing else.
-      root.resetAll();
-      root.load();
+      // Under _hyperOffOk: the reset's hyperKey "off" is not a question
+      // (the file says what Hyper is), and asked, the bar stood after the
+      // file had put Hyper back — "Turn off" then really turned it off
+      // (audit 2026-11-08).
+      root._hyperOffOk = true;
+      try { root.resetAll(); root.load(); } finally { root._hyperOffOk = false; }
       // the file is what holds now: nothing before it to go back to
       history.clear();
     }
@@ -4344,9 +4351,19 @@ Singleton {
   // startup there is nothing to clear and a reset pass would write the file
   // back out for no reason.
   // oracle.json that is not JSON: a copy kept beside it before anything
-  // writes over it, and a notice (Strings.keepAside). On a reload nothing
-  // else happens; at startup the shell goes on at its defaults.
-  function keepBroken(reloading) { Strings.keepAside(root.statePath, "oracle"); }
+  // writes over it, and a notice. On a reload nothing else happens; at
+  // startup the shell goes on at its defaults.
+  // Strings.keepAside's two lines, written out: Oracle does not import
+  // morpheus (morpheus reads this singleton), and `Strings` here was a
+  // ReferenceError — load() threw before anything was read, no copy was
+  // kept, and the next save wrote defaults over the file (audit 2026-11-08).
+  function keepBroken(reloading) {
+    const p = String(root.statePath || "");
+    if (p === "") return;
+    Quickshell.execDetached(["sh", "-c", 'cp -f -- "$1" "$1.broken-$(date +%Y%m%d-%H%M%S)"', "sh", p]);
+    Quickshell.execDetached(["notify-send", "-a", "oracle", "oracle.json could not be read",
+      "A copy is kept beside it as oracle.json.broken-\u2026 \u2014 oracle goes on without what it held."]);
+  }
 
   function load() {
     if (!Ora.parses(stateFile.text())) root.keepBroken(false);

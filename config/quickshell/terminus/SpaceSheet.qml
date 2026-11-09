@@ -85,7 +85,13 @@ Rectangle {
   }
   // the cursor walks the tiles biggest first, which is the order they come in
   readonly property var cur: space.tiles[space.sel] || null
-  onTilesChanged: if (space.sel >= space.tiles.length) space.sel = Math.max(0, space.tiles.length - 1)
+  onTilesChanged: {
+    // new tiles, a new directory: the old one's item is not under the
+    // pointer (the Repeater reuses its delegates when the count stays the
+    // same, so no tile said it was left; audit 2026-11-08)
+    space.hovered = null;
+    if (space.sel >= space.tiles.length) space.sel = Math.max(0, space.tiles.length - 1);
+  }
 
   function ask() {
     space.sel = 0;
@@ -256,6 +262,7 @@ Rectangle {
               font.pixelSize: Zenon.px(13)
             }
             Text {
+              textFormat: Text.PlainText
               width: parent.width
               elide: Text.ElideRight
               visible: tile.say > 1

@@ -21,6 +21,7 @@ import Quickshell.Io
 import "../morpheus"
 import "../morpheus/icons.js" as Icons
 import "terminus.js" as Terminus
+import "../morpheus/runjob.js" as RunJob
 
 Item {
   id: host
@@ -43,16 +44,19 @@ Item {
   function findRepos(rows) {
     const dirs = (rows || []).filter((r) => r.isDir).map((r) => r.path);
     host.repoDirs = ({});
-    if (dirs.length === 0) return;
-    repos.running = false;
-    repos.command = ["sh", "-c", "for d; do [ -e \"$d/.git\" ] && printf '%s\\n' \"$d\"; done; true", "sh"].concat(dirs);
-    repos.running = true;
+    if (dirs.length === 0) { RunJob.drop(repos); return; }
+    RunJob.latest(repos, { command: ["sh", "-c", "for d; do [ -e \"$d/.git\" ] && printf '%s\\n' \"$d\"; done; true", "sh"].concat(dirs) });
   }
   Process {
     id: repos
+    // a stopped run still streams: the last card's repositories (RunJob)
+    property var job: null
+    property var want: null
+    onExited: RunJob.next(repos)
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
+        if (!RunJob.current(repos)) return;
         const m = {};
         for (const p of text.split("\n")) if (p !== "") m[p] = true;
         host.repoDirs = m;

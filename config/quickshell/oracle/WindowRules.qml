@@ -236,6 +236,7 @@ Item {
                 font.pixelSize: Zenon.px(16)
               }
               Text {
+                textFormat: Text.PlainText
                 anchors.left: ruleName.right
                 anchors.leftMargin: 16
                 anchors.right: drop.left

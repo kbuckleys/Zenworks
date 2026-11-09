@@ -185,7 +185,8 @@ Item {
       if (last !== "" && p.indexOf(last === "/" ? "/" : last + "/") === 0) continue;
       out.push(p);
     }
-    return out.join("\n");
+    // NUL-joined: a directory name may hold a newline
+    return out.join("\u0000");
   }
   onDeepWantChanged: deepAim.restart()
   property string deepArmed: ""
@@ -206,7 +207,7 @@ Item {
         + '[ "$#" -gt 0 ] || exit 0; '
         + 'exec inotifywait -m -q -r --format %w -e create -e delete -e moved_to '
         + '-e moved_from -e close_write -e modify -- "$@"',
-        "sh"].concat(key.split("\n")));
+        "sh"].concat(key.split("\u0000")));
       deepProc.running = true;
     }
   }

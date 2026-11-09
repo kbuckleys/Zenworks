@@ -157,6 +157,10 @@ Scope {
     const src = plugins.sourceOf(input);
     if (src === "") return "not a plugin source: owner/repo, or a git URL";
     const name = plugins.nameOf(src);
+    // its directory under opt/: "owner/.." was opt/.., and the engine's
+    // next start deleted every plugin there (audit 2026-11-09)
+    if (name === "" || name === "." || name === ".." || name.startsWith("-"))
+      return "not a plugin source: owner/repo, or a git URL";
     if (plugins.installed.some((p) => p.name === name)) return name + " is already installed";
     plugins._writeManifest(plugins.installed.concat([{ src: src, name: name, enabled: true }]));
     plugins.phase = "applying";
@@ -363,22 +367,24 @@ Scope {
   // "" | "listing" | "building" | "done" | "failed"
   property string parserPhase: ""
   property string parserNote: ""
-  readonly property bool parserBusy: parserWorker.running
+  // busy until a stopped run has really exited: its late output was read
+  // as the next job's answer (audit 2026-11-09)
+  readonly property bool parserBusy: parserWorker.running || parserWorker.stopping
   signal parsersBuilt(var langs)
 
   function listParsers(ft) {
-    if (parserWorker.running) return;
+    if (plugins.parserBusy) return;
     plugins.parserPhase = "listing";
     plugins._runParsers("list", [], ft || "");
   }
   function installParsers(names) {
-    if (parserWorker.running || !names || names.length === 0) return;
+    if (plugins.parserBusy || !names || names.length === 0) return;
     plugins.parserPhase = "building";
     plugins.parserNote = "Building " + names.join(", ") + "…";
     plugins._runParsers("install", names, "");
   }
   function removeParsers(names) {
-    if (parserWorker.running || !names || names.length === 0) return;
+    if (plugins.parserBusy || !names || names.length === 0) return;
     plugins.parserPhase = "building";
     plugins.parserNote = "Removing " + names.join(", ") + "…";
     plugins._runParsers("remove", names, "");
@@ -399,7 +405,7 @@ Scope {
   // good: a minute to list, fifteen to build (audit 2026-11-07)
   Timer {
     id: parserCap
-    onTriggered: if (parserWorker.running) { parserWorker.timedOut = true; parserWorker.running = false; }
+    onTriggered: if (parserWorker.running) { parserWorker.timedOut = true; parserWorker.stopping = true; parserWorker.running = false; }
   }
   Process {
     id: parserWorker
@@ -407,7 +413,9 @@ Scope {
     property string ft: ""
     property var after: null
     property bool timedOut: false
+    property bool stopping: false
     onExited: {
+      parserWorker.stopping = false;
       parserCap.stop();
       const f = parserWorker.after;
       parserWorker.after = null;

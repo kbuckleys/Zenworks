@@ -211,7 +211,9 @@ Item {
         : op === "extract"
           ? { script: Terminus.extractJobCommand(paths[0], dest), args: [] }
         : Terminus.transferCommand(paths, dest, op === "move", clash)));
-    if (Jobs.start(op, paths, dest, argv) < 0) term.warn("Could not start");
+    const id = Jobs.start(op, paths, dest, argv);
+    if (id < 0) term.warn("Could not start");
+    else term.ownJobs[id] = true;
   }
   function clearEndedJobs() { Jobs.clearEnded(); }
   // cwd was a safe answer for as long as every row on screen was in it.

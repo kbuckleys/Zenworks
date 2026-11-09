@@ -37,7 +37,9 @@ Item {
     return rs.length > 0 ? rs : [{ name: "", standIn: true, x: 0, y: 0, w: 1920, h: 1080 }];
   }
   readonly property string mainName: {
-    if (Oracle.mainMonitor !== "") return Oracle.mainMonitor;
+    // the main one only while it is plugged in, else the leftmost, as the
+    // other pictures have it (audit 2026-11-08)
+    if (Oracle.mainMonitor !== "" && sample.mons.some((r) => r.name === Oracle.mainMonitor)) return Oracle.mainMonitor;
     let best = null;
     for (const r of sample.mons)
       if (!best || r.x < best.x || (r.x === best.x && r.y < best.y)) best = r;

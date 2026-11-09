@@ -135,8 +135,24 @@ Item {
   readonly property bool awake: !Zenon.scrollAutohide || wake.running
     || ma.containsMouse || ma.pressed || ma.dragging
     || (!!root.flick && root.flick.moving)
-  onPosChanged: if (Zenon.scrollAutohide) wake.restart()
-  Timer { id: wake; interval: 900 }
+  // ── NOT A RESTART A FRAME (2026-11-08) ────────────────────────────────
+  // Restarting the timer on every move stopped it first, so `awake` went
+  // false and back to true on every frame of a scroll: two runs of its
+  // binding, the handler below twice, and a fade started and stopped each
+  // time. Now a move only notes the time; the timer keeps running, looking
+  // in a few times a second, and stops once nothing has moved for `linger`.
+  readonly property int linger: 900
+  property real movedAt: 0
+  onPosChanged: if (Zenon.scrollAutohide) {
+    root.movedAt = Date.now();
+    if (!wake.running) wake.start();
+  }
+  Timer {
+    id: wake
+    interval: 150
+    repeat: true
+    onTriggered: if (Date.now() - root.movedAt >= root.linger) wake.stop()
+  }
   // In at once, with no ramp at all — the bar is there on the frame the
   // scroll starts — and out slowly, so it settles away rather than blinking
   // off. Driven by hand rather than by a Behavior whose duration follows

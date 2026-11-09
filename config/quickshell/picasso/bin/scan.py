@@ -93,7 +93,8 @@ def make(src, out, px):
     # transparency gets no JPEG in the shared pool, or Terminus and the
     # shelf would show it flattened where they draw the picture itself
     if not src.lower().endswith(JPEG_EXTS):
-        r = subprocess.run(["magick", "identify", "-format", "%[opaque]", src],
+        # the first frame: an animated one answers once per frame
+        r = subprocess.run(["magick", "identify", "-format", "%[opaque]", src + "[0]"],
                            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
         if r.stdout.strip() == b"False":
             # remembered, so the decode is paid once per version of a file
@@ -151,7 +152,10 @@ def main():
                 os.utime(t)
             except OSError:
                 pass
-        out.append("%s\t%s\t%d\t%d" % (p, t if h else "", mt, sz))
+        # "-": none on purpose (a .none marker), told apart from missing,
+        # or every scan of a directory with one transparent picture ran a
+        # second, useless make walk (audit 2026-11-09)
+        out.append("%s\t%s\t%d\t%d" % (p, t if h else ("-" if os.path.exists(none_of(t)) else ""), mt, sz))
     sys.stdout.write("\n".join(out) + ("\n" if out else ""))
 
 

@@ -9,6 +9,7 @@ import Quickshell.Widgets
 import Quickshell.Io
 import "../../morpheus"
 import "../../morpheus/gridnav.js" as Nav
+import "../../morpheus/runjob.js" as RunJob
 import "../../picasso"
 import "../../terminus"
 import "../../oracle"
@@ -131,7 +132,6 @@ Item {
   // one kind per command asked: a second asked while the first runs is
   // queued by the Process, and with one shared kind the first's exit read
   // the second's (two quick deletes closed the panel; audit 10-31)
-  property var actionKinds: []
 
   // ── THE PAGE A SNIPPET IS WRITTEN ON (user, 2026-10-21) ───────────────
   // ctrl n and ctrl e no longer hand the snippet to plato: the panel itself
@@ -275,12 +275,17 @@ Item {
 
 
 
+  // a reload asked while one runs is the one that counts (audit 11-09:
+  // it was dropped, and the list stayed as the earlier read had it)
   Process {
     id: listProc
+    property var job: null
+    property var want: null
+    onExited: RunJob.next(listProc)
     stdout: StdioCollector {
       id: out
       waitForEnd: true
-      onStreamFinished: popup.onList(out.text)
+      onStreamFinished: if (RunJob.current(listProc)) popup.onList(out.text)
     }
   }
 
@@ -289,9 +294,14 @@ Item {
     onExited: popup.onThumbsDone()
   }
 
+  // one at a time, in turn, each with its kind (audit 2026-11-09): a list
+  // of kinds beside a single command lost a second action and read every
+  // later exit as the one before
   Process {
     id: actionProc
-    onExited: popup.onActionDone()
+    property var job: null
+    property var queue: []
+    onExited: { popup.onActionDone(actionProc.job ? actionProc.job.kind : ""); RunJob.next(actionProc); }
   }
 
   // ── THE LEDGER: WHEN EACH ENTRY ARRIVED ───────────────────────────────
@@ -558,8 +568,7 @@ Item {
   function goBack() { popup.backed(); }
 
   function reload() {
-    listProc.command = ["cliphist", "-preview-width", "10000", "list"];
-    listProc.running = true;
+    RunJob.latest(listProc, { command: ["cliphist", "-preview-width", "10000", "list"] });
   }
 
   function onList(text) {
@@ -616,14 +625,10 @@ function onThumbsDone() {
 }
 
   function runAction(cmd, kind) {
-    popup.actionKinds = popup.actionKinds.concat([kind]);
-    actionProc.command = ["sh", "-c", cmd];
-    actionProc.running = true;
+    RunJob.queued(actionProc, { kind: kind, command: ["sh", "-c", cmd] });
   }
 
-  function onActionDone() {
-    const kind = popup.actionKinds.length > 0 ? popup.actionKinds[0] : "";
-    popup.actionKinds = popup.actionKinds.slice(1);
+  function onActionDone(kind) {
     // a copy leaves the panel open for the next one (user, 2026-11-08); the
     // list read again, since the copied clip is now the newest
     if (kind === "delete") popup.reload();
@@ -862,25 +867,28 @@ function onThumbsDone() {
   // The original behind a thumbnail, written out so it can be handed over —
   // see Folio.dragFileCommand. Asynchronous, like the grab above, so the
   // drag is offered from the callback rather than before it.
-  property var dragThen: null
+  // the newest ask wins, its callback carried on its own job: one shared
+  // `dragThen` handed the earlier run's file to the newer callback (Save,
+  // Annotate, the preview got the wrong picture; audit 2026-11-09)
   Process {
     id: dragProc
+    property var job: null
+    property var want: null
+    onExited: RunJob.next(dragProc)
     stdout: StdioCollector {
       id: dragOut
       waitForEnd: true
       onStreamFinished: {
+        if (!RunJob.current(dragProc)) return;
         const f = String(dragOut.text || "").trim();
-        const then = popup.dragThen;
-        popup.dragThen = null;
+        const then = dragProc.job.then;
         if (then) then(f);
       }
     }
   }
 
   function dragDecode(id, then) {
-    popup.dragThen = then;
-    dragProc.command = ["sh", "-c", Folio.dragFileCommand(id, Folio.openDir())];
-    dragProc.running = true;
+    RunJob.latest(dragProc, { then: then, command: ["sh", "-c", Folio.dragFileCommand(id, Folio.openDir())] });
   }
 
 

@@ -1250,9 +1250,9 @@ LayerPopup {
   // clipboard and the primary selection, as text)
   function openQuickLink(url, app) {
     if (!Cynosure.wantsDesk(url)) { popup.openLinkIn(url, app); return; }
-    deskProc.url = url;
-    deskProc.app = app || "";
-    deskProc.running = true;
+    // in turn, each with its own link (audit 11-09: a second one while the
+    // first read the clipboard was lost)
+    RunJob.queued(deskProc, { url: url, app: app || "", command: popup.deskCmd });
   }
   // in the browser the link was set to (2026-11-04), else the default one;
   // only a web address goes to the app
@@ -1278,16 +1278,19 @@ LayerPopup {
     popup.writeLinks();
     popup.rebuild();
   }
+  readonly property var deskCmd: ["sh", "-c", "wl-paste -n -t text 2>/dev/null | head -c 2000; printf '\\036'; wl-paste -p -n -t text 2>/dev/null | head -c 2000"]
   Process {
     id: deskProc
-    property string url: ""
-    property string app: ""
-    command: ["sh", "-c", "wl-paste -n -t text 2>/dev/null | head -c 2000; printf '\\036'; wl-paste -p -n -t text 2>/dev/null | head -c 2000"]
+    property var job: null
+    property var queue: []
+    onExited: RunJob.next(deskProc)
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
+        const j = deskProc.job;
+        if (!j) return;
         const parts = String(text).split("\u001e");
-        popup.openLinkIn(Cynosure.fillLinkFrom(deskProc.url, parts[0], parts[1] || ""), deskProc.app);
+        popup.openLinkIn(Cynosure.fillLinkFrom(j.url, parts[0], parts[1] || ""), j.app);
       }
     }
   }
@@ -1314,30 +1317,36 @@ LayerPopup {
     delete l[name];
     popup.writeLayouts(l);
   }
-  function saveLayout(name) { layoutProc.saving = name; layoutProc.running = true; }
-  function useLayout(name) { layoutProc.using = name; layoutProc.launch = true; layoutProc.running = true; }
+  // each run with its own job, in turn (audit 2026-11-09): the flags were
+  // the process's, and a save asked while a place ran (or its re-run after
+  // the launches) turned one into the other, and the new ask was dropped
+  readonly property var layoutCmd: ["sh", "-c", "hyprctl clients -j; printf '\\036'; hyprctl activeworkspace -j"]
+  function saveLayout(name) { RunJob.queued(layoutProc, { saving: name, using: "", launch: false, command: popup.layoutCmd }); }
+  function useLayout(name, launch) {
+    RunJob.queued(layoutProc, { saving: "", using: name, launch: launch !== false, command: popup.layoutCmd });
+  }
   Process {
     id: layoutProc
-    property string saving: ""
-    property string using: ""
-    property bool launch: false
-    command: ["sh", "-c", "hyprctl clients -j; printf '\\036'; hyprctl activeworkspace -j"]
+    property var job: null
+    property var queue: []
+    onExited: RunJob.next(layoutProc)
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
+        const job = layoutProc.job;
+        if (!job) return;
         const parts = String(text).split("\u001e");
         let clients = [], here = null;
         try { clients = JSON.parse(parts[0]); here = JSON.parse(parts[1]); } catch (e) { return; }
         clients = clients.filter((c) => c.mapped && c.workspace && !String(c.workspace.name).startsWith("special"));
-        if (layoutProc.saving !== "") {
+        if (job.saving !== "") {
           const l = Object.assign({}, popup.layouts);
-          l[layoutProc.saving] = clients.map((c) => ({ cls: c.class, title: c.title, ws: String(c.workspace.name),
+          l[job.saving] = clients.map((c) => ({ cls: c.class, title: c.title, ws: String(c.workspace.name),
             floating: !!c.floating, x: c.at[0], y: c.at[1], w: c.size[0], h: c.size[1] }));
           popup.writeLayouts(l);
-          layoutProc.saving = "";
           return;
         }
-        const want = popup.layouts[layoutProc.using] || [];
+        const want = popup.layouts[job.using] || [];
         const used = {};
         const steps = [];
         const missing = [];
@@ -1354,7 +1363,7 @@ LayerPopup {
         if (here) steps.push(Hypr.focusWorkspace(String(here.name)));
         if (steps.length > 0) Quickshell.execDetached(Off.wanted(steps));
         // the apps not open: opened once, then placed when they have come up
-        if (layoutProc.launch && missing.length > 0) {
+        if (job.launch && missing.length > 0) {
           const seen = {};
           for (const cls of missing) {
             if (seen[cls]) continue;
@@ -1362,13 +1371,14 @@ LayerPopup {
             const e = DesktopEntries.heuristicLookup(cls);
             if (e) e.execute();
           }
-          layoutProc.launch = false;
+          layoutAgain.name = job.using;
           layoutAgain.restart();
         }
       }
     }
   }
-  Timer { id: layoutAgain; interval: Oracle.cynosureLayoutWait * 1000; onTriggered: layoutProc.running = true }
+  // placed again once the launched apps are up: no launching this time
+  Timer { id: layoutAgain; property string name: ""; interval: Oracle.cynosureLayoutWait * 1000; onTriggered: popup.useLayout(layoutAgain.name, false) }
   // ── SNIPPET KEYWORDS, TYPED ANYWHERE (2026-11-03) ──────────────────────
   // keyword → snippet file (folio-keywords.json). While there is one,
   // expand.py reads the keyboards and says each keyword as it is typed;
@@ -1386,10 +1396,14 @@ LayerPopup {
   readonly property var snipWords: Object.keys(popup.snipKeys).sort()
   // a new list of words is a new run of the reader
   readonly property bool expanding: popup.snipWords.length > 0 && Oracle.cynosureExpand
-  onSnipWordsChanged: { expander.running = false; Qt.callLater(() => expander.running = popup.expanding); }
+  // ONE writer of `running`: it was a binding as well, and the first
+  // assignment here (at startup, when the words load) cut it, so turning
+  // Expand snippets off in Oracle left the reader typing (audit 2026-11-09)
+  function restartExpander() { expander.running = false; Qt.callLater(() => expander.running = popup.expanding); }
+  onSnipWordsChanged: popup.restartExpander()
+  onExpandingChanged: popup.restartExpander()
   Process {
     id: expander
-    running: popup.expanding
     command: Paths.tether(["python3", "-I", Quickshell.shellDir + "/cynosure/bin/expand.py"].concat(popup.snipWords))
     stdout: SplitParser { onRead: (kw) => popup.expandKeyword(String(kw).trim()) }
   }
@@ -1481,7 +1495,8 @@ LayerPopup {
       id: procOut
       waitForEnd: true
       onStreamFinished: {
-        if (procProc.asked !== popup.procLine) return;
+        // "ps 8080" and "port 8080" ask the same line: the kind too (11-09)
+        if (procProc.asked !== popup.procLine || procProc.port !== popup.portScoped) return;
         popup.procRows = procProc.port ? Cynosure.portRows(procOut.text, procProc.asked)
           : Cynosure.processRows(procOut.text, procProc.asked, 0);
         popup.applyFilter();
@@ -1489,7 +1504,9 @@ LayerPopup {
     }
   }
   function endProcess(row, force) {
-    popup.pending = { name: (force ? "Force quit " : "Quit ") + row.name + " (" + row.pid + ")", glyph: row.glyph, confirm: true,
+    // noBump: a name with a pid in it is a new key every time, and each
+    // quit grew the frequency file for good (audit 2026-11-09)
+    popup.pending = { name: (force ? "Force quit " : "Quit ") + row.name + " (" + row.pid + ")", glyph: row.glyph, confirm: true, noBump: true,
       sh: "kill " + (force ? "-KILL " : "") + "-- " + row.pid };
     popup.showPicker();
     popup.sel = popup.pickerRows.length - 1;
@@ -1631,25 +1648,24 @@ LayerPopup {
   function runListScript() {
     const sl = popup.scriptList;
     if (!sl) return;
-    if (listProc.running) { listProc.again = true; return; }
-    listProc.asked = popup.scriptListKey;
-    listProc.script = sl.script;
-    listProc.command = ["timeout", "10", "sh", "-c", "if [ -x \"$1\" ]; then exec \"$@\"; else exec sh \"$@\"; fi",
-      "cynosure", sl.script.path].concat(sl.arg !== "" ? [sl.arg] : []);
-    listProc.running = true;
+    // the newest query replaces a run still going (audit 11-09: it waited
+    // behind it, up to the 10 s timeout for a slow script)
+    RunJob.latest(listProc, { asked: popup.scriptListKey, script: sl.script,
+      command: ["timeout", "10", "sh", "-c", "if [ -x \"$1\" ]; then exec \"$@\"; else exec sh \"$@\"; fi",
+        "cynosure", sl.script.path].concat(sl.arg !== "" ? [sl.arg] : []) });
   }
   Process {
     id: listProc
-    property string asked: ""
-    property var script: null
-    property bool again: false
-    onExited: if (listProc.again) { listProc.again = false; Qt.callLater(popup.runListScript); }
+    property var job: null
+    property var want: null
+    onExited: RunJob.next(listProc)
     stdout: StdioCollector {
       id: listOut
       waitForEnd: true
       onStreamFinished: {
-        if (listProc.asked !== popup.scriptListKey) return;
-        popup.listRows = Cynosure.listItemRows(listProc.script, Cynosure.parseListItems(listOut.text));
+        const j = listProc.job;
+        if (!RunJob.current(listProc) || j.asked !== popup.scriptListKey) return;
+        popup.listRows = Cynosure.listItemRows(j.script, Cynosure.parseListItems(listOut.text));
         popup.applyFilter();
       }
     }
@@ -1787,30 +1803,39 @@ LayerPopup {
   onRecsScopedChanged: if (popup.recsScoped) popup.askCaptures()
   function askCaptures() {
     popup.capturesFound = "";
-    capturesProc.video = popup.capturesVideo;
-    capturesProc.command = ["sh", "-c", Cynosure.capturesCommand(popup.capturesVideo)];
-    capturesProc.running = true;
+    // `video` on the run's own job: set on the process, a shots run still
+    // out when Tab went to rec passed the check as the recordings (audit
+    // 2026-11-09)
+    RunJob.latest(capturesProc, { video: popup.capturesVideo,
+      command: ["sh", "-c", Cynosure.capturesCommand(popup.capturesVideo)] });
   }
   Process {
     id: capturesProc
-    property bool video: false
+    property var job: null
+    property var want: null
+    onExited: RunJob.next(capturesProc)
     stdout: StdioCollector {
       id: capturesOut
       waitForEnd: true
       onStreamFinished: {
-        if (capturesProc.video !== popup.capturesVideo) return;
+        if (!RunJob.current(capturesProc)) return;
+        const video = capturesProc.job.video;
+        if (video !== popup.capturesVideo) return;
         popup.capturesFound = capturesOut.text;
         popup.applyFilter();
         const jobs = capturesOut.text.split("\n").filter((l) => l.indexOf("\t") > 0)
-          .map((l) => ({ kind: capturesProc.video ? "v" : "i", src: l.slice(l.indexOf("\t") + 1) }));
+          .map((l) => ({ kind: video ? "v" : "i", src: l.slice(l.indexOf("\t") + 1) }));
         if (jobs.length === 0) return;
-        thumbsProc.command = ["sh", "-c", Thumbs.generate(jobs, false)];
-        thumbsProc.running = true;
+        // in turn: a batch asked while one is made is made after it
+        RunJob.queued(thumbsProc, { command: ["sh", "-c", Thumbs.generate(jobs, false)] });
       }
     }
   }
   Process {
     id: thumbsProc
+    property var job: null
+    property var queue: []
+    onExited: RunJob.next(thumbsProc)
     stdout: StdioCollector {
       id: thumbsOut
       waitForEnd: true
@@ -2391,17 +2416,22 @@ LayerPopup {
   // what runs in the tray, by process (bin/trayapps.py asks the bus), read
   // as "quit" is typed and again when the tray changes
   property var trayApps: []
-  onQuitScopedChanged: if (popup.quitScoped) trayProc.running = true
+  // the newest read counts: a tray change mid-read was dropped (11-09)
+  function askTray() { RunJob.latest(trayProc, { command: ["python3", "-I", Quickshell.shellDir + "/cynosure/bin/trayapps.py"] }); }
+  onQuitScopedChanged: if (popup.quitScoped) popup.askTray()
   Connections {
     target: SystemTray.items
-    function onValuesChanged() { if (popup.quitScoped) trayProc.running = true; }
+    function onValuesChanged() { if (popup.quitScoped) popup.askTray(); }
   }
   Process {
     id: trayProc
-    command: ["python3", "-I", Quickshell.shellDir + "/cynosure/bin/trayapps.py"]
+    property var job: null
+    property var want: null
+    onExited: RunJob.next(trayProc)
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
+        if (!RunJob.current(trayProc)) return;
         try { popup.trayApps = JSON.parse(text) || []; } catch (e) { popup.trayApps = []; }
         popup.applyFilter();
       }
@@ -3330,7 +3360,7 @@ LayerPopup {
   // is already a row of its own. `ipc` overrides the verb's own call, for a
   // choice made in the picker; the frecency still goes to the verb.
   function runAction(a, ipc) {
-    popup.bump(Cynosure.actionKey(a));
+    if (!a.noBump) popup.bump(Cynosure.actionKey(a));
     popup.closeCynosure();
     Quickshell.execDetached(["sh", "-c", ipc ? "qs ipc call " + ipc
       : Cynosure.actionCommand(a, Quickshell.shellDir, Quickshell.env("XDG_SESSION_ID") || "")]);
@@ -5011,18 +5041,43 @@ LayerPopup {
               anchors.horizontalCenter: parent.horizontalCenter
               spacing: Zenon.px(8)
               visible: readLine.text !== ""
-              Text {
+              // a chip, pressed to hear it — alt p's twin (user, 2026-11-09);
+              // a rounded square in the card's ink, ClearChip's press
+              Rectangle {
                 id: hearMark
                 visible: lexiBox.dict && popup.lexiCanSay
                 anchors.verticalCenter: parent.verticalCenter
-                text: "\u{F07C5}"
-                color: lexiBox.ink
-                font.family: Zenon.glyphFace
-                font.weight: Zenon.weight
-                font.pixelSize: Zenon.px(15)
+                // as tall as the reading line beside it, a few pixels over,
+                // so the two sit on one middle (user, 2026-11-09)
+                implicitWidth: readLine.implicitHeight + Zenon.px(6)
+                width: implicitWidth
+                height: width
+                radius: Zenon.radiusControl
+                color: hearPress.pressed ? Zenon.pressFill
+                  : Zenon.alpha(lexiBox.ink, hearPress.containsMouse ? 0.24 : 0.14)
+                Behavior on color { ColorAnimation { duration: Zenon.fast } }
+                Text {
+                  id: hearGlyph
+                  anchors.centerIn: parent
+                  text: "\u{F07C5}"
+                  color: lexiBox.ink
+                  opacity: hearPress.pressed ? Zenon.pressDim : 1
+                  font.family: Zenon.glyphFace
+                  font.weight: Zenon.weight
+                  font.pixelSize: Zenon.px(14)
+                }
+                MouseArea {
+                  id: hearPress
+                  // a little past the chip: it is small
+                  anchors.fill: parent
+                  anchors.margins: -4
+                  hoverEnabled: true
+                  onClicked: popup.lexi.cardSpeak(popup.lexiMode)
+                }
               }
               Text {
                 id: readLine
+                anchors.verticalCenter: parent.verticalCenter
                 width: Math.min(implicitWidth, lexiCol.width - (hearMark.visible ? hearMark.implicitWidth + Zenon.px(8) : 0))
                 horizontalAlignment: Text.AlignHCenter
                 textFormat: Text.StyledText
@@ -5729,6 +5784,8 @@ LayerPopup {
             anchors.verticalCenter: parent.verticalCenter
             horizontalAlignment: Text.AlignHCenter
             text: row.r.glyph || ""
+            // a script's list can name its own glyph: never markup (11-09)
+            textFormat: Text.PlainText
             // a picked color's swatch wears the color itself; the theme
             // worn now is dimmed (user, 2026-11-07)
             color: row.r.worn ? Zenon.accentMuted : row.r.ink || Zenon.white

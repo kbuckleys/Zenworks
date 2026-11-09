@@ -12,6 +12,7 @@ import Quickshell
 import Quickshell.Io
 import "../morpheus"
 import "terminus.js" as Terminus
+import "../morpheus/runjob.js" as RunJob
 
 Item {
   id: bookmarks
@@ -127,21 +128,23 @@ Item {
       if (term.localPaths(urls).length > 0) term.status = "Already bookmarked";
       return;
     }
-    if (bookmarkProbe.running) return;
-    bookmarkProbe.asked = paths.length;
-    bookmarkProbe.command = ["sh", "-c",
-      "for p; do [ -d \"$p\" ] && printf '%s\\n' \"$p\"; done; exit 0",
-      "terminus-bookmark"].concat(paths);
-    bookmarkProbe.running = true;
+    // a second drop while the first is probed waits its turn (it was lost)
+    RunJob.queued(bookmarkProbe, { asked: paths.length, command: ["sh", "-c",
+      "for p; do [ -d \"$p\" ] && printf '%s\\0' \"$p\"; done; exit 0",
+      "terminus-bookmark"].concat(paths) });
   }
   Process {
     id: bookmarkProbe
-    property int asked: 0
+    property var job: null
+    property var queue: []
+    onExited: RunJob.next(bookmarkProbe)
     stdout: StdioCollector {
       id: bookmarkProbeOut
       onStreamFinished: {
-        const dirs = String(bookmarkProbeOut.text).split("\n").filter((l) => l !== "");
-        const skipped = bookmarkProbe.asked - dirs.length;
+        if (!bookmarkProbe.job) return;
+        // NUL-separated: a directory name may hold a newline
+        const dirs = String(bookmarkProbeOut.text).split("\u0000").filter((l) => l !== "");
+        const skipped = bookmarkProbe.job.asked - dirs.length;
         if (dirs.length === 0) {
           term.status = "Only directories can be bookmarked";
           return;

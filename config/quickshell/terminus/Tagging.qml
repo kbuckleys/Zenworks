@@ -159,12 +159,15 @@ Item {
     if (!paths || paths.length === 0) return;
     // a glyph chosen for it goes with it (morpheus/FileGlyphs)
     FileGlyphs.forget(paths);
-    const hit = paths.filter((p) => term.tagMarks[p] !== undefined);
+    // the files INSIDE a directory that went too: they stayed in the
+    // index for good, rows that could not be opened (audit 2026-11-08)
+    const under = (k) => paths.some((p) => k === p || k.indexOf(p === "/" ? "/" : p + "/") === 0);
+    const hit = Object.keys(term.tagMarks).filter(under);
     // editTags reloads the shared file and waits for the write; not worth
     // paying for the overwhelmingly common case of untagged files.
     if (hit.length === 0) return;
     term.editTags((st) => {
-      for (let i = 0; i < hit.length; ++i) delete st.index[hit[i]];
+      for (const k of Object.keys(st.index)) if (under(k)) delete st.index[k];
     });
   }
   // `pairs` is [[from, to], …]. The tag travels with the file: the xattr
@@ -174,15 +177,22 @@ Item {
     if (!pairs || pairs.length === 0) return;
     // and so does a glyph chosen for it, descendants too (FileGlyphs)
     FileGlyphs.moved(pairs);
-    const hit = pairs.filter((q) => term.tagMarks[q[0]] !== undefined);
-    if (hit.length === 0) return;
-    term.editTags((st) => {
-      for (let i = 0; i < hit.length; ++i) {
-        const v = st.index[hit[i][0]];
-        if (v === undefined) continue;
-        delete st.index[hit[i][0]];
-        st.index[hit[i][1]] = v;
+    // a directory moved takes its tagged files along (their xattrs went
+    // with them), not just its own entry (audit 2026-11-08)
+    const dest = (k) => {
+      for (const q of pairs) {
+        if (k === q[0]) return q[1];
+        if (k.indexOf(q[0] + "/") === 0) return q[1] + k.slice(q[0].length);
       }
+      return "";
+    };
+    if (!Object.keys(term.tagMarks).some((k) => dest(k) !== "")) return;
+    term.editTags((st) => {
+      const moves = [];
+      for (const k of Object.keys(st.index)) { const to = dest(k); if (to !== "") moves.push([k, to]); }
+      const vals = moves.map((m) => st.index[m[0]]);
+      for (const m of moves) delete st.index[m[0]];
+      for (let i = 0; i < moves.length; ++i) st.index[moves[i][1]] = vals[i];
     });
   }
   function pruneTagIndex(asked, rows) {
@@ -217,6 +227,8 @@ Item {
     property var queue: []
     // A preset name being put back into use — see applyTagPairs.
     property string homing: ""
+    // "ok <i>" per file that took its tags (Tags.writeManyCommand)
+    stdout: StdioCollector { id: tagWriteOut; waitForEnd: true }
     stderr: StdioCollector {
       id: tagWriteErr
       waitForEnd: true
@@ -226,14 +238,17 @@ Item {
       }
     }
     onExited: (code) => {
-      if (code !== 0) {
-        term.warn("Could not tag");
+      // only the files that took their tags go in the index: the exit was
+      // the last file's alone (audit 2026-11-08)
+      const pairs = Tags.writtenOf(tagWriteProc.pending, tagWriteOut.text);
+      if (code !== 0) term.warn(pairs.length === 0 ? "Could not tag"
+        : "Could not tag " + (tagWriteProc.pending.length - pairs.length) + " of " + tagWriteProc.pending.length);
+      if (pairs.length === 0) {
         tagWriteProc.pending = [];
         tagWriteProc.homing = "";
         term.drainTagWrites();
         return;
       }
-      const pairs = tagWriteProc.pending;
       const back = tagWriteProc.homing;
       term.editTags((st) => {
         for (let i = 0; i < pairs.length; ++i) {

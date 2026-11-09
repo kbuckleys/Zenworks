@@ -82,19 +82,19 @@ Item {
       if (event.key === Qt.Key_Left || event.key === Qt.Key_Up || event.text === "k") { sp.step(-1); return; }
       return;
     }
-    if (term.disks.open && !term.confirmRef.open) {
-      if (event.key === Qt.Key_Escape) { term.disks.dismiss(); return; }
+    if (disks.open && !term.confirmRef.open) {
+      if (event.key === Qt.Key_Escape) { disks.dismiss(); return; }
       if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
-        term.disks.enter(); return;
+        disks.enter(); return;
       }
       if (event.key === Qt.Key_Down || event.text === "j") {
-        term.disks.step(1); return;
+        disks.step(1); return;
       }
       if (event.key === Qt.Key_Up || event.text === "k") {
-        term.disks.step(-1); return;
+        disks.step(-1); return;
       }
       if (event.text === "m" || event.text === "M") {
-        term.disks.toggle(); return;
+        disks.toggle(); return;
       }
       return;
     }

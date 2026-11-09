@@ -8,7 +8,7 @@
 // one passes it (`term: root`).
 
 import QtQuick
-import Quickshell.Widgets
+import QtQuick.Effects
 import "../morpheus"
 import "terminus.js" as Terminus
 import "../morpheus/thumbs.js" as Thumbs
@@ -57,7 +57,12 @@ Item {
   property string detail: ""
   // how far down the tile its content reaches, with the same air below
   // as the picture has above — the grid's cursor fits to this
-  readonly property real usedH: (tileDetail.visible ? tileDetail.y + tileDetail.height
+  // By the line's own rule, NOT tileDetail.visible: that is the effective
+  // visibility, false whenever the tile is — and the grid reuses tiles, so
+  // a current one put away hidden reported the height without its detail
+  // and the cursor stopped between the name and the date (user, 2026-11-09).
+  readonly property bool showsDetail: !tile.editing && tile.detail !== ""
+  readonly property real usedH: (tile.showsDetail ? tileDetail.y + tileDetail.height
     : tileName.y + tileName.height) + 8
   property bool ticked: false
   property bool passive: false
@@ -208,8 +213,8 @@ Item {
     // rounding the box would have curved empty space and left the
     // picture's own corners square.
     //
-    // ClippingRectangle rather than `clip: true`: an item's clip is
-    // a rectangle, always, and never follows a radius.
+    // A RoundImage rather than `clip: true`: an item's clip is a
+    // rectangle, always, and never follows a radius.
     //
     // The aspect ratio comes from a sizer image that is never drawn —
     // see thumbNat just below, and the note on it for why neither the
@@ -237,7 +242,12 @@ Item {
       sourceSize.height: thumb.sourceSize.height
     }
 
-    ClippingRectangle {
+    // ── ROUNDED WITHOUT A TEXTURE (2026-11-09) ───────────────────────
+    // This was a ClippingRectangle: two offscreen passes per tile, drawn
+    // again whenever a recycled tile took a new picture. The Image is now
+    // only the texture, and morpheus/RoundImage draws it rounded, as
+    // picasso's Thumb does.
+    Item {
       id: thumbClip
       anchors.centerIn: parent
       // ── IT FADES IN, SO THE GLYPH DOES NOT FLASH ─────────────────
@@ -259,8 +269,7 @@ Item {
         NumberAnimation { duration: Zenon.normal; easing.type: Easing.OutCubic }
       }
       visible: thumbClip.opacity > 0
-      color: "transparent"
-      radius: Zenon.windowRadius
+      readonly property real radius: Zenon.windowRadius
 
       readonly property real ar:
         thumbNat.implicitWidth > 0 && thumbNat.implicitHeight > 0
@@ -270,9 +279,35 @@ Item {
       height: Math.max(1, Math.min(thumbBox.height,
         thumbBox.width / thumbClip.ar))
 
+      // ── A SHADOW UNDER THE PICTURE, AS FINDER'S (user, 2026-11-09) ──
+      // RectangularShadow: one shader node, no offscreen pass, so the
+      // grid's scroll keeps what it gained. It is FILLED, so only under a
+      // picture that is surely opaque: a pool thumbnail (JPEG — one with
+      // transparency gets none, morpheus/thumbs.js) or a JPEG original.
+      // A PNG with clear parts would show the shadow through them.
+      RectangularShadow {
+        anchors.fill: parent
+        visible: thumbClip.opaque
+        radius: thumbClip.radius
+        offset.y: Math.max(2, Math.round(4 * tile.tileZoom))
+        blur: Math.max(6, Math.round(16 * tile.tileZoom))
+        spread: 1
+        color: Zenon.shade(0.55)
+        opacity: thumb.opacity
+      }
+      readonly property bool opaque: !!tile.entry && (thumb.pooled
+        || /\.(jpe?g|jpe)$/i.test(tile.entry.name))
+      RoundImage {
+        anchors.fill: thumb
+        image: thumb
+        radius: thumbClip.radius
+        opacity: thumb.opacity
+      }
       Image {
         id: thumb
         anchors.fill: parent
+        // only the texture: the RoundImage above draws it
+        visible: false
         opacity: tile.dim ? 0.45 : 1
         // the cached 256px PNG if the batch has made it, the original
         // otherwise — so a directory is never blank while it renders, it
@@ -445,16 +480,75 @@ Item {
       dim: tile.dim ? 0.45 : 1
     }
 
+    // built only while shown: every Qt Text observes the viewport, so a
+    // hidden one in each tile was measured on every frame of a scroll
+    // (2026-11-09). By x/y: a Loader given a size resizes what it holds.
+    // ── A FONT FILE IS DRAWN AS ITSELF (user, 2026-11-09) ──────────
+    // Cynosure's font tile: the family name written in its own face on a
+    // quiet ground. Only for a font file (a FontLoader handed anything else
+    // can half-register a family — see FontSpecimen), only with thumbnails
+    // on, and the glyph below stays until the face has loaded, or for good
+    // if it could not be read. Qt keeps one font per URL, so a tile scrolled
+    // back into view does not read the file again.
+    Loader {
+      id: fontTile
+      anchors.fill: parent
+      active: term.thumbsOn && !!tile.entry && !tile.entry.isDir
+        && Terminus.isFont(tile.entry.name)
+      // set from inside: the item is a plain QObject to the linter
+      property bool shown: false
+      onActiveChanged: if (!active) shown = false
+      sourceComponent: Component {
+        Item {
+          readonly property bool ready: face.status === FontLoader.Ready
+          onReadyChanged: fontTile.shown = ready
+          Component.onDestruction: fontTile.shown = false
+          FontLoader {
+            id: face
+            source: tile.entry ? Strings.fileUrl(tile.entry.path) : ""
+          }
+          Rectangle {
+            visible: parent.ready
+            anchors.fill: parent
+            radius: Zenon.menuRadius
+            color: Zenon.wash(0.04)
+            opacity: tile.dim ? 0.45 : 1
+          }
+          Text {
+            visible: parent.ready
+            textFormat: Text.PlainText
+            anchors.centerIn: parent
+            width: parent.width - Math.round(20 * tile.tileZoom)
+            horizontalAlignment: Text.AlignHCenter
+            elide: Text.ElideRight
+            maximumLineCount: 2
+            wrapMode: Text.Wrap
+            opacity: tile.dim ? 0.45 : 1
+            text: parent.ready ? face.font.family : ""
+            color: Zenon.white
+            font.family: parent.ready ? face.font.family : Zenon.face
+            font.weight: parent.ready ? face.font.weight : Zenon.weight
+            font.pixelSize: Math.round(24 * tile.tileZoom)
+          }
+        }
+      }
+    }
+
+    Loader {
+      active: (thumb.source == "" || thumb.status === Image.Error)
+        && !tileCover.shown && !fontTile.shown
+      sourceComponent: Component {
     Text {
-      anchors.centerIn: parent
-      visible: (thumb.source == "" || thumb.status === Image.Error)
-        && !tileCover.shown
+      x: Math.round((thumbBox.width - width) / 2)
+      y: Math.round((thumbBox.height - height) / 2)
       opacity: tile.dim ? 0.45 : 1
       text: tile.entry ? tile.entry.glyph : ""
       color: term.inkFor(tile.entry)
       font.family: Zenon.face
       font.weight: Zenon.weight
       font.pixelSize: Math.round(64 * tile.tileZoom)
+    }
+      }
     }
 
     // THE TAGS ARE NOT HERE ANY MORE — they ride in the name's lead, beside
@@ -538,7 +632,7 @@ Item {
     anchors.margins: 8
     horizontalAlignment: Text.AlignHCenter
     elide: Text.ElideRight
-    visible: !tile.editing && tile.detail !== ""
+    visible: tile.showsDetail
     text: tile.detail
     opacity: tile.dim ? 0.5 : 1
     color: Zenon.accentMuted

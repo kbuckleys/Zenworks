@@ -197,6 +197,8 @@ FocusScope {
         // a listing begun before the tree was handed its paths (the root
         // came first) must not land on the planted tree
         if (tree.given !== null) return;
+        // nor one of the old root's, read after the root changed
+        if (tree.rootPath !== "/" && lister.dir !== tree.rootPath && lister.dir.indexOf(tree.rootPath + "/") !== 0) return;
         const rows = Terminus.enrich(Terminus.sortEntries(
           Terminus.parseListing(listed.text, lister.dir), "name", false, true, true, ({})), Icons);
         const k = Object.assign({}, tree.kids);
@@ -331,6 +333,8 @@ FocusScope {
   }
   function _reset() {
     if (tree.given !== null) { tree.plant(); return; }
+    // the old root's directories still waiting are not this root's
+    tree.queue = [];
     tree.kids = ({});
     tree.revealed = ({});
     tree.openDirs = ({});
@@ -565,7 +569,7 @@ FocusScope {
     if (name === "") return;
     if (mode === "new") {
       const dir = tree.editDir;
-      tree.setOpen(dir === tree.rootPath ? dir : dir, true);
+      tree.setOpen(dir, true);
       tree.run(Terminus.createCommand(dir, name), () => {
         tree.readKids(dir);
         if (!/\/$/.test(name)) tree.fileActivated(Terminus.joinPath(dir, name));

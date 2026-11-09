@@ -307,6 +307,8 @@ module.exports = {
     t.eq("time in a city is not a translation", L("time in tokyo"), null);
     t.eq("money is not either", L("5 usd in eur"), null);
     t.eq("an app is nothing", L("firefox"), null);
+    t.eq("a two-letter word is not a language code", L("check in hi"), null);
+    t.eq("nor is it", L("files in it"), null);
     // settings, the store, notes, packages
     const pages = [{ id: "fonts", label: "Fonts", icon: "F" }, { id: "display", label: "Display", icon: "D" }];
     const schema = [{ key: "fontFamily", section: "fonts", label: "Font", help: "the type" },
@@ -363,6 +365,8 @@ module.exports = {
     t.eq("a row has one chord", hk.map((h) => h.chord), ["SUPER + G"]);
     t.eq("dropped", C.dropHotkey(hk, app), []);
     t.ok("the lua binds it", C.renderHotkeysLua(hk).indexOf('{ chord = "SUPER + G", label = "Cynosure: Firefox" }') >= 0);
+    t.ok("a carriage return in a label is escaped, not raw",
+      C.renderHotkeysLua([{ chord: "SUPER + R", row: { kind: "shell", key: "x", text: "a\rb\nc", exec: "x" } }]).indexOf("\r") < 0);
     t.eq("junk is not a hotkey", C.parseHotkeys('[{"chord":"X"},{"chord":"SUPER + A","row":{"kind":"clip"}}]'), []);
     t.ok("apps offer a hotkey", C.rowActions(app).some((x) => x.id === "setHotkey"));
     t.ok("windows can float", C.rowActions({ kind: "window" }).some((x) => x.id === "winFloat"));

@@ -52,8 +52,13 @@ Text {
   text: label.lead + label.body(label.shown) + label.trail
 
   // The twin. No line limit, so lineCount is the truth.
+  // KEPT OUT OF THE SCROLLED CONTENT (2026-11-09): every Qt Text observes
+  // the viewport, so a hidden twin inside each tile of a grid was measured
+  // on every frame of a scroll. At the window's root it is never walked;
+  // it is only ever read for its lineCount.
   Text {
     id: probe
+    parent: label.Window.contentItem ? label.Window.contentItem : label
     visible: false
     width: label.width - label.leftPadding - label.rightPadding
     textFormat: Text.StyledText

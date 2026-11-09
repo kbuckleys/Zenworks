@@ -539,8 +539,6 @@ Singleton {
         const f = ls[1].trim().split(/\s+/);
         if (f.length < 5) return;
         const total = parseInt(f[1], 10) || 0;
-        const used = parseInt(f[2], 10) || 0;
-        const avail = parseInt(f[3], 10) || 0;
         const pct = parseInt(String(f[4]).replace("%", ""), 10) || 0;
         root.diskTotal = total;
         root.diskUsedPct = pct;

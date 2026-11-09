@@ -948,7 +948,10 @@ function sideNames(state, oursLabel, theirsLabel) {
 }
 
 // a path as a .gitignore pattern that matches only itself (repo.glob_literal)
-function globLiteral(p) { return String(p || "").replace(/([\\\[\]*?])/g, "\\$1"); }
+// (trailing spaces escaped too: gitignore drops them otherwise)
+function globLiteral(p) {
+  return String(p || "").replace(/([\\\[\]*?])/g, "\\$1").replace(/ +$/, (m) => "\\ ".repeat(m.length));
+}
 
 // text into StyledText: its own < > & left as written
 function esc(s) { return Quote.escapeHtml(s); }

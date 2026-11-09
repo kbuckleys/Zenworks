@@ -53,6 +53,11 @@ Rectangle {
   // what the last try said: "" · the refusal · gvfs' question
   property string said: ""
   property bool question: false
+  // the question shown (gvfs' words) and the address it was asked for:
+  // "Connect anyway" says yes to that question only, never to whatever a
+  // retyped address (or a changed host key) asks next
+  property string asked: ""
+  property string askedUri: ""
   property int rev: 0
 
   readonly property string uri: { conn.rev; return N.normalize(addr.text); }
@@ -72,6 +77,8 @@ Rectangle {
     conn.question = !!why && why.why === "question";
     conn.said = why ? N.failWords(why) : "";
     conn.rev++;
+    conn.asked = conn.question ? String(why.message || "") : "";
+    conn.askedUri = conn.question ? conn.uri : "";
     conn.open = true;
     claim.begin();
   }
@@ -103,7 +110,7 @@ Rectangle {
   function commit() {
     if (!conn.ready) return;
     const p = { uri: conn.uri, name: name.text.trim(), user: user.text.trim(), domain: conn.isSmb ? domain.text.trim() : "" };
-    const accept = conn.question;
+    const accept = conn.question && N.sameUri(conn.askedUri, p.uri) ? conn.asked : "";
     const place = conn.place;
     const keep = conn.keep;
     conn.said = "";
@@ -123,6 +130,8 @@ Rectangle {
       if (!same) return;
       conn.question = !!r && r.why === "question";
       conn.said = N.failWords(r);
+      conn.asked = conn.question ? String(r.message || "") : "";
+      conn.askedUri = conn.question ? p.uri : "";
       pass.text = "";
       if (conn.open) (conn.question ? addr : pass).claim();
     });
@@ -179,7 +188,14 @@ Rectangle {
             trailRoom: kind.text !== "" ? kind.implicitWidth + 10 : 0
             mono: true
             ghost: "smb://server/share · user@host:/path · https://…"
-            onTextChanged: conn.rev++
+            onTextChanged: {
+              conn.rev++;
+              // another address: the question shown was not its question
+              if (conn.question && !N.sameUri(conn.askedUri, conn.uri)) {
+                conn.question = false;
+                conn.said = "";
+              }
+            }
             onTabbed: conn.focusFrom(addr, 1)
             onBackTabbed: conn.focusFrom(addr, -1)
             onAccepted: conn.commit()

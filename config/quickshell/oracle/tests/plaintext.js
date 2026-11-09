@@ -19,7 +19,7 @@ const fs = require("fs");
 const path = require("path");
 
 const SKIP_DIR = /^(oracle\/tests|oracle\/qmltests|themes|plato\/nvim)(\/|$)/;
-const SRC = /\b(vendor|command|mount|fstype|gitBranch|said|question|detailLine|title|summary|body|appName|artist|album|track|location|description|message|subject|label|name|path|text|preview|line|comment|author|desc|words|detail|content|snippet|caption|version|titleOf|killLabel|target|args|cwd|cmdline|procName|word)\b|\.h\b|modelData\[\d\]/i;
+const SRC = /\b(vendor|command|mount|fstype|gitBranch|said|question|detailLine|title|summary|body|appName|artist|album|track|location|description|message|subject|label|name|path|text|preview|line|comment|author|desc|words|detail|content|snippet|caption|version|titleOf|killLabel|target|args|cwd|cmdline|procName|word|display|value|windowRuleWords)\b|\.h\b|modelData\[\d\]/i;
 
 function walk(root, d, out) {
   for (const e of fs.readdirSync(path.join(root, d), { withFileTypes: true })) {

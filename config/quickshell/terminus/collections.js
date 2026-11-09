@@ -159,7 +159,10 @@ function dateArg(value) {
   var v = String(value || "").trim();
   if (v === "") return "";
   if (/^\d+$/.test(v)) return v + "d";          // a bare number means days
-  if (/^[0-9]+\s*(s|min|h|d|w|m|y|[a-z]+)$/i.test(v)) return v.replace(/\s+/g, "");
+  // fd's (humantime's) own unit words only: "7xyz" read as asked and fd
+  // refused it, an empty page with no word why
+  if (/^[0-9]+\s*(s|secs?|seconds?|m|mins?|minutes?|h|hrs?|hours?|d|days?|w|weeks?|M|months?|y|years?)$/.test(v))
+    return v.replace(/\s+/g, "");
   // An absolute date, which fd also takes
   if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
   return "";
@@ -230,6 +233,11 @@ function fdCommand(folder, rules, home) {
   // 2024 file. fd takes one pattern and --and for each further one.
   var patterns = [];
   var sawKind = false;
+  // Each ext or kind rule's extensions, one list per rule. Rules are ANDed,
+  // so two lists are their common part — fd ORs every -e it is given, and
+  // "kind image" with "extension pdf" listed the pictures AND the PDFs
+  // (audit 2026-11-08). Within one rule a list is still an OR.
+  var extSets = [];
 
   for (var i = 0; i < rules.length; ++i) {
     var r = rules[i];
@@ -254,17 +262,18 @@ function fdCommand(folder, rules, home) {
       // Comma-separated, so "png,jpg" is one rule. fd ORs its -e flags,
       // which is what a list of extensions means.
       var exts = v.split(",");
+      var set = [];
       for (var x = 0; x < exts.length; ++x) {
         var ex = exts[x].trim().replace(/^[.*]+/, "");
-        if (ex !== "") { args.push("-e " + Strings.shellQuote(ex)); sawKind = true; }
+        if (ex !== "") set.push(ex);
       }
+      if (set.length > 0) { extSets.push(set); sawKind = true; }
     } else if (r.kind === "kind") {
       var spec = kindSpec(v);
       if (!spec) continue;
       sawKind = true;
       if (spec.flag) args.push(spec.flag);
-      else for (var e = 0; e < spec.ext.length; ++e)
-        args.push("-e " + spec.ext[e]);
+      else extSets.push(spec.ext.slice());
     } else if (r.kind === "size") {
       var s = sizeArg(v);
       if (s !== "") args.push("--size " + (r.op === "smaller" ? "-" : "+") + s);
@@ -274,6 +283,19 @@ function fdCommand(folder, rules, home) {
         args.push((r.op === "before" ? "--changed-before " : "--changed-within ")
                   + Strings.shellQuote(d));
     }
+  }
+
+  if (extSets.length > 0) {
+    // fd's -e ignores case, so the lists meet ignoring it too
+    var common = extSets[0];
+    for (var c = 1; c < extSets.length; ++c) {
+      var low = extSets[c].map(function (x) { return x.toLowerCase(); });
+      common = common.filter(function (x) { return low.indexOf(x.toLowerCase()) >= 0; });
+    }
+    // nothing can be both: a pipeline that lists nothing, not one that
+    // drops the rules and lists everything
+    if (common.length === 0) return "true";
+    for (var u = 0; u < common.length; ++u) args.push("-e " + Strings.shellQuote(common[u]));
   }
 
   // Files by default. Without this a name rule matches the DIRECTORIES that
@@ -343,9 +365,9 @@ function rgStage(rule) {
 // "size larger than abc" listed every file under the directory (audit
 // 2026-11-07); it now asks nothing until the rule reads.
 function ruleState(r) {
-  if (r.kind === "tag") return "ok";
   var v = String(r.value || "").trim();
   if (v === "") return "";
+  if (r.kind === "tag") return "ok";
   if (r.kind === "size") return sizeArg(v) !== "" ? "ok" : "bad";
   if (r.kind === "date") return dateArg(v) !== "" ? "ok" : "bad";
   if (r.kind === "kind") return kindSpec(v) ? "ok" : "bad";
@@ -387,12 +409,16 @@ function command(folder, home) {
 function tagsOnly(folder) {
   var rules = (folder && folder.rules) ? folder.rules : [];
   if (rules.length === 0) return false;
+  // an empty tag rule asks nothing: with no tag named this is not a tag
+  // page but "every tagged file" (audit 2026-11-08)
+  var named = 0;
   for (var i = 0; i < rules.length; ++i) {
+    var v = String(rules[i].value || "").trim();
     if (rules[i].kind !== "tag") {
-      if (String(rules[i].value || "").trim() !== "") return false;
-    }
+      if (v !== "") return false;
+    } else if (v !== "") named++;
   }
-  return true;
+  return named > 0;
 }
 
 // ── stage three: the tag rules, in memory ───────────────────────────────

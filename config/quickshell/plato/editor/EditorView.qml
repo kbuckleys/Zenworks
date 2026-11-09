@@ -1077,10 +1077,12 @@ Item {
         return;
       }
       // the gutter's ring (EditorRow): the fold on its line, opened or closed
-      const ringLine = mouse.button === Qt.LeftButton && mouse.modifiers === Qt.NoModifier
-        ? foldRingAt(mouse.x, mouse.y) : 0;
-      if (ringLine > 0) {
-        view.client.cmd("call cursor(" + ringLine + ", 1) | normal! za");
+      const ring = mouse.button === Qt.LeftButton && mouse.modifiers === Qt.NoModifier
+        ? foldRingAt(mouse.x, mouse.y) : null;
+      if (ring) {
+        // in the window the ring is in, not the current one: a ring in the
+        // other split folded this one's line of the same number (audit 11-09)
+        view.client.cmd("call win_execute(" + Math.floor(ring.win) + ", 'call cursor(" + Math.floor(ring.line) + ", 1) | normal! za')");
         return;
       }
       held = button(mouse.button);
@@ -1091,8 +1093,9 @@ Item {
     // whether (x, y) is on a closed fold's "⋯ N lines" pill: the row's `fc`
     // is where the pill starts and how many cells it takes, from the start
     // of the window's text
-    // the line whose fold ring (x, y) is on, or 0: the two cells left of the
-    // text, a little wider than the glyph, as the tree's expander is
+    // { win, line } of the fold ring (x, y) is on, or null: the two cells
+    // left of the text, a little wider than the glyph, as the tree's
+    // expander is
     function foldRingAt(x, y) {
       const r = row(y), c = col(x);
       const ws = view.ed.wins;
@@ -1100,12 +1103,12 @@ Item {
         const w = ws[i];
         if (r < w.row || r >= w.row + w.height || c < w.col || c >= w.col + w.width) continue;
         const info = view.ed.rowsOf(w.id)[r - w.row];
-        if (!info || !info.fo || info.n <= 0) return 0;
+        if (!info || !info.fo || info.n <= 0) return null;
         const at = c - w.col;
         const off = w.textoff || 0;
-        return at >= off - 2 && at < off ? info.n : 0;
+        return at >= off - 2 && at < off ? { win: w.id, line: info.n } : null;
       }
-      return 0;
+      return null;
     }
     // git's bar (EditorRow): the first few pixels of a window's gutter, on a
     // row with a mark — or a row of a change opened in place
@@ -1152,7 +1155,7 @@ Item {
         const bar = overRail ? null : gitBarAt(mouse.x, mouse.y);
         hunkTip.show(bar);
         gitGlow.hover(bar);
-        overFold = !overRail && (!!bar || foldRingAt(mouse.x, mouse.y) > 0 || foldPillAt(mouse.x, mouse.y));
+        overFold = !overRail && (!!bar || !!foldRingAt(mouse.x, mouse.y) || foldPillAt(mouse.x, mouse.y));
         if (overRail || overFold) peek.hide(); else peek.hover(mouse.x, mouse.y);
         return;
       }

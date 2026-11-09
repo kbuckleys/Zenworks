@@ -110,12 +110,13 @@ QtObject {
       readonly property real edge: over < 0 ? lo : hi + span
       readonly property real factor: 1 + (el ? el.stretch : 0) * Math.abs(over) / span
       readonly property Scale grow: Scale {
+        objectName: "elasticStretch"
         origin.x: across ? edge : 0
         origin.y: across ? 0 : edge
         xScale: across ? factor : 1
         yScale: across ? 1 : factor
       }
-      readonly property Translate hold: Translate { x: across ? over : 0; y: across ? 0 : over }
+      readonly property Translate hold: Translate { objectName: "elasticStretch"; x: across ? over : 0; y: across ? 0 : over }
     }
   }
   // the views already given one (a view keeps its stretcher for good; it is
@@ -125,7 +126,16 @@ QtObject {
     if (!v || !v.contentItem || elastic._stretched.indexOf(v) >= 0) return;
     const s = stretcher.createObject(v.contentItem, { view: v, el: elastic });
     if (!s) return;
-    v.contentItem.transform = [s.grow, s.hold];
+    // ADDED to what the content already wears, never in place of it: the
+    // assignment used to drop picasso's gallery zoom (its zoomScale) on the
+    // first wheel (2026-11-08)
+    // and IN PLACE of another Elastic's stretcher: the guard above is this
+    // Elastic's own, and a rebuilt one stacked a second stretch (audit
+    // 2026-11-09)
+    const had = [];
+    const tr = v.contentItem.transform;
+    for (let i = 0; i < tr.length; ++i) if (tr[i] && tr[i].objectName !== "elasticStretch") had.push(tr[i]);
+    v.contentItem.transform = had.concat([s.grow, s.hold]);
     elastic._stretched.push(v);
   }
 

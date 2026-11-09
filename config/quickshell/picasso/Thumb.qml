@@ -16,11 +16,16 @@
 //           gallery that fills in and one that stalls
 
 import QtQuick
-import Quickshell.Widgets
 import "../morpheus"
 import "../morpheus/thumbs.js" as Thumbs
 
-ClippingRectangle {
+// ── ROUNDED WITHOUT A TEXTURE OF ITS OWN (2026-11-08) ──────────────────
+// It was a ClippingRectangle: two offscreen passes per tile, made again each
+// time a tile took a new picture — a row of them every time the gallery's
+// pool wrapped round while scrolling. The ground is a plain Rectangle and the
+// picture a RoundImage over the Image's own texture (see morpheus/RoundImage).
+// Nothing inside is clipped any more; nothing inside reaches past the box.
+Item {
   id: box
 
   property string path: ""
@@ -63,12 +68,29 @@ ClippingRectangle {
   // a new thumbnail is a new chance
   onThumbChanged: img.thumbFailed = false
 
-  radius: Zenon.windowRadius
-  color: Zenon.surface
+  property real radius: Zenon.windowRadius
+  property color color: Zenon.surface
+
+  Rectangle {
+    anchors.fill: parent
+    radius: box.radius
+    color: box.color
+    visible: box.color.a > 0
+  }
+
+  // the picture as drawn: the Image's texture, rounded, at the Image's fade
+  RoundImage {
+    anchors.fill: img
+    image: img
+    radius: box.radius
+    opacity: img.opacity
+  }
 
   Image {
     id: img
     anchors.fill: parent
+    // only the texture: RoundImage above draws it
+    visible: false
     // The cached thumbnail, not the original: these are ~70KB against 8MB,
     // and a grid rebuilds on every keystroke. Falls back to the original if a
     // thumbnail could not be generated, so a tile that cannot thumbnail still
@@ -133,23 +155,37 @@ ClippingRectangle {
 
   // An image Qt cannot decode used to leave a plain empty box,
   // indistinguishable from a very dark picture. Say so.
+  // Both built only when shown: every Qt Text observes the viewport, and a
+  // gallery's pool of tiles carrying two hidden ones each paid for them on
+  // every frame of a scroll (2026-11-08). By x/y, as a sized Loader would
+  // resize them.
+  Loader {
+    active: img.status === Image.Error
+    sourceComponent: Component {
   Text {
-    anchors.centerIn: parent
-    visible: img.status === Image.Error
+    x: Math.round((box.width - width) / 2)
+    y: Math.round((box.height - height) / 2)
     text: ""
     color: Zenon.accentMuted
     font.family: Zenon.face
     font.weight: Zenon.weight
     font.pixelSize: Zenon.px(22)
   }
+    }
+  }
 
+  Loader {
+    active: box.spinner && (img.status === Image.Loading || (box.wait && !img.hasThumb))
+    sourceComponent: Component {
   Text {
-    anchors.centerIn: parent
-    visible: box.spinner && (img.status === Image.Loading || (box.wait && !img.hasThumb))
+    x: Math.round((box.width - width) / 2)
+    y: Math.round((box.height - height) / 2)
     text: ""
     color: Zenon.accentMuted
     font.family: Zenon.face
     font.weight: Zenon.weight
     font.pixelSize: Zenon.px(18)
+  }
+    }
   }
 }

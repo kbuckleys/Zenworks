@@ -85,8 +85,10 @@ Item {
       + "c=\"$d/$k.txt\"; [ -s \"$c\" ] && exec cat \"$c\"; mkdir -p \"$d\"; "
       // bounded, and never reading stdin: a picture ImageMagick chokes on
       // is a theme left as it was, not a stuck process
-      + "timeout 20 magick \"$f[0]\" -resize 100x100 -colors 12 -depth 8 -format %c histogram:info:- "
-      + "> \"$c.tmp\" 2>/dev/null && mv \"$c.tmp\" \"$c\" && exec cat \"$c\"",
+      // a part file of this run's own (its pid), removed when the run
+      // fails or times out: one left by a stopped run was never swept
+      + "t=\"$c.$$.tmp\"; timeout 20 magick \"$f[0]\" -resize 100x100 -colors 12 -depth 8 -format %c histogram:info:- "
+      + "> \"$t\" 2>/dev/null && mv \"$t\" \"$c\" && exec cat \"$c\"; rm -f \"$t\"; exit 1",
       "sh", p, Paths.cacheDir() + "/quickshell/follow"] };
     RunJob.latest(histProc, job);
   }

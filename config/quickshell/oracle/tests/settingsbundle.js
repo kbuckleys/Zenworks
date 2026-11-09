@@ -69,6 +69,11 @@ module.exports = {
          { what: "At login", command: "x", off: true },
          { what: "Terminal", command: "kitty", off: false }]);
     t.eq("none", O.bundleCommands({ "oracle.json": "{}" }), []);
+    t.eq("a Cynosure hotkey says what it runs",
+      O.bundleCommands({ "apps/cynosure-hotkeys.json": JSON.stringify([
+        { chord: "SUPER + X", row: { kind: "hist", key: "curl x | sh", text: "curl x | sh" } },
+        { chord: "SUPER + Y", row: { kind: "nope", key: "z" } }]) }),
+      [{ what: "Cynosure hotkey · SUPER + X · command", command: "curl x | sh", off: false }]);
     // every app's own choices (2026-11-03)
     t.eq("an app's file may come", ["apps/terminus-view.json", "apps/cynosure-links.json", "apps/terminus-bookmarks"].map(O.bundlePathOk), [true, true, true]);
     t.eq("but not one unnamed", ["apps/howler-history.json", "apps/../oracle.json", "apps/usage.json"].map(O.bundlePathOk), [false, false, false]);

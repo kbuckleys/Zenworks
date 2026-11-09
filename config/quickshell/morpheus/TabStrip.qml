@@ -258,6 +258,14 @@ Rectangle {
           const id = tabCell.modelData.id;
           const fresh = !tabStrip.seen[id];
           tabStrip.seen[id] = true;
+          // only the tabs there now are kept once it grows: every id ever
+          // drawn piled up for as long as the window lived
+          if (Object.keys(tabStrip.seen).length > 200) {
+            const keep = ({});
+            for (const t of tabStrip.tabs || []) if (t && tabStrip.seen[t.id]) keep[t.id] = true;
+            keep[id] = true;
+            tabStrip.seen = keep;
+          }
           if (fresh && tabStrip.animate) { tabCell.scale = tabStrip.arriveScale; tabIn.start(); }
           else tabCell.opacity = 1;
           // a tab already drawn, rebuilt somewhere else: slide from there

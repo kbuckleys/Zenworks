@@ -2415,7 +2415,9 @@ const DISTRO_GLYPHS = {
 function readComputer(json, qsVersion) {
   let d = null;
   try { d = JSON.parse(String(json || "")); } catch (e) { d = null; }
-  if (!d || typeof d !== "object" || !Array.isArray(d.sections)) return { ok: false, sections: [], rows: [] };
+  // a why for the panel's empty box (it read `why`, and nothing set one)
+  if (!d || typeof d !== "object" || !Array.isArray(d.sections))
+    return { ok: false, sections: [], rows: [], why: "This computer could not be read." };
   const sections = d.sections
     .filter((s) => s && s.name && Array.isArray(s.rows))
     .map((s) => ({ name: String(s.name), rows: s.rows.filter((r) => r && r.k && String(r.v || "").trim() !== "") }))
@@ -2779,7 +2781,7 @@ var EFFECTS = [
   { fx: "animations",       def: true },
   { fx: "wobble",           def: false },
   { fx: "gaps_out",         def: 8, min: 0, max: 40 },
-  { fx: "gaps_in",          def: 2, min: 0, max: 20 },
+  { fx: "gaps_in",          def: 2, min: -5, max: 20 },
   { fx: "special_gaps",     def: 30, min: 0, max: 120 },
   { fx: "border_size",      def: 1, min: 0, max: 5 },
   { fx: "layout",           def: "dwindle", options: ["dwindle", "master", "scrolling"] },
@@ -4116,6 +4118,27 @@ function bundleCommands(files) {
       const c = String(d[k] || "").trim();
       if (c !== "" && !(k === "sysmon" && (c === "zeus" || /\.desktop$/.test(c))))
         out.push({ what: named[k], command: c, off: false });
+    }
+  }
+  // Cynosure's hotkeys: a chord that runs a command, a script, an app or a
+  // file. Imported whole, and bound after the restart, so each one is shown
+  // here with what it runs — the sheet said nothing of them (audit
+  // 2026-11-08). The row is Cynosure's as it was saved (cynosure.js
+  // HOTKEY_KINDS); what it runs is whichever of its fields names it.
+  // Aliases are not listed: an alias is a word on a row Cynosure already
+  // has (kind + key, matched in withAliases) or a file to open, never a
+  // command of its own (audit 2026-11-09).
+  if (typeof f["apps/cynosure-hotkeys.json"] === "string") {
+    let list = null;
+    try { list = JSON.parse(f["apps/cynosure-hotkeys.json"]); } catch (e) { list = null; }
+    const word = { app: "app", shell: "command", hist: "command", script: "script", file: "file", link: "link" };
+    for (const h of Array.isArray(list) ? list : []) {
+      const r = h && h.row && typeof h.row === "object" ? h.row : null;
+      if (!r || typeof h.chord !== "string" || h.chord === "" || !word[r.kind]) continue;
+      const what = r.kind === "script" && r.script && typeof r.script === "object"
+        ? (r.script.path || r.script.name) : (r.exec || r.text || r.path || r.url || r.key);
+      out.push({ what: "Cynosure hotkey · " + h.chord + " · " + word[r.kind],
+                 command: String(what || r.key || ""), off: false });
     }
   }
   return out;

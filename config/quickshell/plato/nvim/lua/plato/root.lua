@@ -73,7 +73,13 @@ local function write(buf, target, quit)
           return
         end
         vim.notify(tidy(target) .. " written as root")
-        if quit then vim.cmd("quit") end
+        -- the buffer's own window: polkit took a while, and the split you
+        -- went to meanwhile was the one closed (audit 2026-11-09)
+        if quit then
+          local w = api.nvim_get_current_win()
+          if api.nvim_win_get_buf(w) ~= buf then w = vim.fn.win_findbuf(buf)[1] end
+          if w then api.nvim_win_call(w, function() vim.cmd("quit") end) end
+        end
       elseif r.code == 126 then
         vim.notify("Not saved: the password was not given", vim.log.levels.WARN)
       elseif r.code == 127 then

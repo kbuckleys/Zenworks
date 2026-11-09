@@ -59,7 +59,10 @@ Item {
           width: Zenon.px(15) * 2
           height: width
           radius: width / 2
-          color: Zenon[sw.modelData]
+          // the theme's own as the theme has it, not the accent worn now
+          // ("cyan" is the worn one, your own included: picked blue, the
+          // first swatch went blue too; audit 2026-11-08)
+          color: sw.own ? Zenon.themeAccent : Zenon[sw.modelData]
           border.width: sw.on ? 3 : 1
           border.color: sw.on ? Zenon.ink : Zenon.border
           MouseArea {

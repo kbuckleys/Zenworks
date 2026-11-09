@@ -152,21 +152,25 @@ Item {
 
   // ── the one chosen ─────────────────────────────────────────────────────
   property var thread: null
+  // which list the thread is from: GitLab's issue #3 and merge request !3
+  // are two things, and a late answer drew one as the other (audit 11-09)
+  property bool threadPull: false
   property bool threadLoading: false
   // the thread when it is the chosen row's; until it comes, the row itself
-  readonly property bool whole: !!pg.thread && !!pg.row && pg.thread.number === pg.row.number
+  readonly property bool whole: !!pg.thread && !!pg.row && pg.thread.number === pg.row.number && pg.threadPull === pg.pulls
   readonly property var item: pg.whole ? pg.thread : pg.row
   function loadThread() {
     const r = pg.row;
     if (!r) { pg.thread = null; return; }
-    const n = r.number, full = pg.hubFull;
+    const n = r.number, full = pg.hubFull, pull = pg.pulls;
     pg.threadLoading = true;
     // `pull`: GitLab numbers merge requests and issues apart
-    pg.win.mgr.call(pg.op("Thread"), null, { full: full, number: n, pull: pg.pulls }, (ok, t, err) => {
-      if (!pg || !pg.row || pg.row.number !== n || full !== pg.hubFull) return;
+    pg.win.mgr.call(pg.op("Thread"), null, { full: full, number: n, pull: pull }, (ok, t, err) => {
+      if (!pg || !pg.row || pg.row.number !== n || full !== pg.hubFull || pull !== pg.pulls) return;
       pg.threadLoading = false;
       if (ok) {
-        const fresh = !pg.thread || pg.thread.number !== n;
+        const fresh = !pg.thread || pg.thread.number !== n || pg.threadPull !== pull;
+        pg.threadPull = pull;
         pg.thread = t;
         if (fresh) threadFlick.contentY = 0;
       } else pg.win.say("Could not read #" + n + ": " + D.errorText(err ? err.error : ""), true);

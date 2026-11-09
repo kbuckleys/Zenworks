@@ -97,7 +97,7 @@ Item {
   readonly property var toolkitColors: {
     const out = { name: Zenon.theme.name || Zenon.themeName };
     for (const s of ["ground", "card", "surface", "ink", "blue", "accent", "magenta"])
-      out[s] = Zenon.hex(Zenon[s === "onAccent" ? "inkOnAccent" : s]);
+      out[s] = Zenon.hex(Zenon[s]);
     return out;
   }
   readonly property string toolkitText: Sync.renderHyprtoolkit(sync.toolkitColors, Zenon.light, {

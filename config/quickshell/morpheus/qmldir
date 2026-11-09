@@ -45,6 +45,7 @@ DragPan 1.0 DragPan.qml
 Elastic 1.0 Elastic.qml
 ElasticScroll 1.0 ElasticScroll.qml
 ScrollEdge 1.0 ScrollEdge.qml
+RoundImage 1.0 RoundImage.qml
 TabGlass 1.0 TabGlass.qml
 SideGlass 1.0 SideGlass.qml
 Frost 1.0 Frost.qml

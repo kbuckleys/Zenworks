@@ -77,8 +77,13 @@ FloatingWindow {
     }
     // a new window made for this file has it as openPath already: through
     // openFile it went on _later too and was opened twice
-    if (win.openPath !== path) win.openFile(path);
-    if (win.openPath === path) win.openLine = line;
+    if (win.openPath === path) { win.openLine = line; return; }
+    if (win.openPath === "") { win.openFile(path); win.openLine = line; return; }
+    // a second file before the hello: it waits with its line, not without
+    // (audit 2026-11-09: it opened at the top)
+    sidebar.follow(path, false);
+    win.noteOpening();
+    win._later.push({ path: path, line: line });
   }
   function openFile(path) {
     // opened from outside (terminus, artemis, `plato f`): the tree goes there
@@ -86,7 +91,7 @@ FloatingWindow {
     win.noteOpening();
     if (nvim.ready) nvim.open(path);
     else if (win.openPath === "") win.openPath = path;
-    else win._later.push(path);
+    else win._later.push({ path: path, line: 0 });
   }
 
   // the files open here, as nvim names them ("~/…"), and whether that list
@@ -270,7 +275,7 @@ FloatingWindow {
         // a new window's first file: the tree goes there, as openFile's do
         sidebar.follow(win.openPath, false);
       }
-      for (const p of win._later) nvim.open(p);
+      for (const p of win._later) { if (p.line > 0) nvim.openAt(p.path, p.line, 0); else nvim.open(p.path); }
       win.openPath = "";
       win.openLine = 0;
       win._later = [];
@@ -1254,7 +1259,8 @@ FloatingWindow {
     const dir = win.mdDir();
     const lines = (paths || []).map((p) => {
       const rel = dir !== "" && p.indexOf(dir + "/") === 0 ? p.slice(dir.length + 1) : p;
-      const url = encodeURI(rel);
+      // ( ) too: Markdown's link ends at the first ")" (a (1).png)
+      const url = encodeURI(rel).replace(/\(/g, "%28").replace(/\)/g, "%29");
       const name = D.baseName(p).replace(/\.[^.]*$/, "").replace(/[\[\]]/g, "");
       return D.mediaKindOf(p) === "video" ? url : "![" + name + "](" + url + ")";
     });

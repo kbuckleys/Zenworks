@@ -316,6 +316,7 @@ Rectangle {
            ["esc", "close"]]
         : [["\u2191\u2193", "move"], ["esc", "close"]]
       leading: Text {
+        textFormat: Text.PlainText
         anchors.verticalCenter: parent.verticalCenter
         text: cmdPalette.query !== "" ? cmdPalette.query
           : (cmdPalette.shown.length === 0 ? "nothing matches"

@@ -103,8 +103,15 @@ Item {
   readonly property int padL: bar.note !== "" ? 14 : lead.width > 0 ? bar.pad + 6 : bar.pad
   readonly property int padR: bar.note !== "" ? 14 : bar.pad + 6
   // the pill in the middle of the foot rather than at its right end (a
-  // settings sheet's, Argus')
-  property bool centered: false
+  // settings sheet's, Argus'). In a sheet it always is (user, 2026-11-09):
+  // a HintBar anywhere inside a morpheus Sheet finds it once it is built.
+  property bool centered: bar.inSheet
+  property bool inSheet: false
+  Component.onCompleted: {
+    for (let p = bar.parent; p; p = p.parent) {
+      if (p instanceof Sheet) { bar.inSheet = true; return; }
+    }
+  }
   // keys that do not fit go onto more lines, centered in the pill, rather
   // than behind "?" (terminus' which-key strip, where the list IS the point)
   property bool wrap: false

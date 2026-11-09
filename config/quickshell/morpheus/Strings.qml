@@ -95,9 +95,7 @@ QtObject {
     return e ? Icons.appGlyph(names, Array.from(e.categories || [])) : "";
   }
 
-  function fileUrl(p) {
-    return "file://" + String(p ?? "").split("/").map(encodeURIComponent).join("/");
-  }
+  function fileUrl(p) { return Quote.fileUrl(p); }
 
   function escapeHtml(s) { return Quote.escapeHtml(s); }
 

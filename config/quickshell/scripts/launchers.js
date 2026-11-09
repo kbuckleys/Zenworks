@@ -40,7 +40,8 @@ const PREFIX = "/usr/share/zenworks/quickshell";
 // An Exec value for a program by its absolute path: quoted per the
 // desktop-entry spec only when it has to be, then the field code. The same
 // rule as morpheus/Desktop.qml's execLine, which the managers call.
-function execLine(p, code) {
+function execLine(path, code) {
+  const p = String(path).replace(/%/g, "%%");
   const q = /[\s"'\\$`]/.test(p) ? "\"" + p.replace(/(["`$\\])/g, "\\$1") + "\"" : p;
   return code ? q + " " + code : q;
 }

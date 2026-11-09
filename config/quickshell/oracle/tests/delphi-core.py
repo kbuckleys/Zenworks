@@ -402,6 +402,26 @@ def refs_branches_tags():
 
 
 @test
+def names_that_look_like_options_are_refused():
+    d = fresh({"a": "1\n"})
+    r = R.Repo(d)
+    r.branch_create("feature", switch=False)
+    for call in (lambda: r.branch_create("-D", "feature", switch=False),
+                 lambda: r.branch_create("-f", "feature", switch=False),
+                 lambda: r.tag_create("-d", "HEAD"),
+                 lambda: r.branch_rename("feature", "--force"),
+                 lambda: r.merge("--abort"),
+                 lambda: r.reset("--hard")):
+        try:
+            call()
+        except R.GitError as e:
+            eq("cannot start with" in str(e), True, "said why")
+        else:
+            raise AssertionError("an option-looking name was taken")
+    eq(sorted(b["name"] for b in r.refs()["local"]), ["feature", "main"], "feature survived")
+
+
+@test
 def stash_round_trip():
     d = fresh({"a": "1\n"})
     r = R.Repo(d)
@@ -535,6 +555,15 @@ def upload_expands_directories():
     # x.log, build/out.bin, src/m.pyc; a skipped directory (__pycache__) is
     # passed by, not walked to be counted
     eq(skipped, 3, "left out")
+    # a link to a file goes as the file when the file is inside, and is
+    # left out when it leads out (a cloned repository's link to a key)
+    d = os.path.join(TMP, "links")
+    write(d, "secret", "KEY"); write(d, "proj/real", "r")
+    os.symlink(os.path.join(d, "proj", "real"), os.path.join(d, "proj", "near"))
+    os.symlink(os.path.join(d, "secret"), os.path.join(d, "proj", "far"))
+    got, skipped = github.expand([{"local": os.path.join(d, "proj"), "path": "p"}], count=True)
+    eq([g["path"] for g in got], ["p/near", "p/real"], "a link out is not uploaded")
+    eq(skipped, 1, "and is counted")
 
 
 @test

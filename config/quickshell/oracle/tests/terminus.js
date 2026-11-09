@@ -387,8 +387,9 @@ module.exports = {
     // ── archives, and the count that drives the progress bar ──────────────
     const czCmd = T.archiveJobCommand(["/d/src"], "/d/out.tar.zst");
     const cz = czCmd.script;
-    t.eq("the archive takes names relative to their folder, as arguments",
-      czCmd.args, ["src"]);
+    t.eq("the archive takes names relative to their directory, as ./name arguments",
+      czCmd.args, ["./src"]);
+    t.has("and bsdtar strips the ./ from what it stores", cz, "-s ',^\\./,,'");
     t.has("bsdtar picks the format out of the name", cz, "bsdtar -a -cvf");
     t.has("verbose, because the entries ARE the progress", cz, "-cvf");
     t.has("the total is counted before the work starts", cz, "wc -l");
@@ -811,6 +812,19 @@ module.exports = {
       t.eq("and the file is back under its old name", r("c"), "C");
       t.eq("nothing is left under a temporary name",
         fs.readdirSync(d).filter((n) => n.indexOf(".terminus-rename.") === 0), []);
+      // The log names the renames that landed, a swap's too, and not the one
+      // that went back.
+      {
+        const lg = path.join(os.tmpdir(), "terminus-bulk-log-" + process.pid);
+        w("e", "E"); w("f", "F"); w("g", "G"); w("held", "H");
+        const c = T.bulkRenameApply([["e", "f"], ["f", "e"], ["g", "held"]]
+          .map((p) => p.map((n) => path.join(d, n))), lg);
+        t.eq("a batch with one clash fails",
+          cp.spawnSync("sh", ["-c", c.script, "t"].concat(c.args)).status, 1);
+        t.eq("and the log names the swap's two renames, not the clash",
+          fs.readFileSync(lg, "utf8"), "0\n1\n");
+        fs.rmSync(lg, { force: true });
+      }
       fs.rmSync(d, { recursive: true, force: true });
     }
 
@@ -971,6 +985,12 @@ module.exports = {
         const rs = logged().split("\0");
         t.eq("rsync gets every path, then the destination",
           rs.slice(rs.indexOf("--") + 1, -1), paths.concat([dest + "/"]));
+
+        // the name search answers NUL-separated, a newline in a name intact
+        const fnd = run(["sh", "-c", T.findCommand(src, "line")]);
+        started("the name search starts", fnd);
+        t.ok("and a name with a newline comes back whole",
+          fnd.stdout.split("\0").indexOf(path.join(src, "new\nline")) >= 0);
 
         const ar = run(["setsid"].concat(T.shArgv(T.archiveJobCommand(paths, path.join(tmp, "out.tar.zst")))));
         started("an archive starts", ar);

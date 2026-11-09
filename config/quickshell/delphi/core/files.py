@@ -53,7 +53,10 @@ def expand(files, count=False):
     for every file under it, each landing at path + its place inside (the
     directory keeps its own name: path is where the directory itself goes).
     Symbolic links to directories are not followed (a loop, or half the
-    disk); a link to a file uploads the file's contents. Sockets, devices
+    disk); a link to a file uploads the file's contents — when the file is
+    inside the directory: a cloned repository's `notes -> ~/.ssh/id_ed25519`
+    uploaded the key (audit 2026-11-09), so a link out is left out and
+    counted. Sockets, devices
     and broken links are left out, as are caches and what git ignores there
     (see SKIP_DIRS). Sorted, so a plan and its upload agree. With `count`, a
     pair: the files, and how many files were left out (a skipped directory
@@ -62,11 +65,15 @@ def expand(files, count=False):
     for f in files:
         local, path = f["local"], f["path"].strip("/")
         if os.path.isdir(local) and not os.path.islink(local):
+            inside = os.path.realpath(local) + os.sep
             for top, dirs, names in os.walk(local):
                 dirs[:] = sorted(d for d in dirs if d not in SKIP_DIRS)
                 for n in sorted(names):
                     full = os.path.join(top, n)
                     if not os.path.isfile(full):
+                        continue
+                    if os.path.islink(full) and not os.path.realpath(full).startswith(inside):
+                        skipped[0] += 1
                         continue
                     if n in SKIP_FILES or n.endswith(SKIP_ENDS):
                         skipped[0] += 1

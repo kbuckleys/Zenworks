@@ -239,7 +239,8 @@ Item {
     asynchronous: true
     sourceSize.width: fp.imageSource
     sourceSize.height: fp.imageSource
-    source: fp._pic !== "" ? "file://" + fp._pic : ""
+    // encoded: a # or ? in a name ended the path (audit 2026-11-09)
+    source: fp._pic !== "" ? Strings.fileUrl(fp._pic) : ""
   }
   Text {
     textFormat: Text.PlainText

@@ -56,7 +56,8 @@ Item {
   property bool foot: true
   // the keys' pill in the middle of the foot (the settings and the plugins,
   // user 2026-11-03)
-  property bool footCentered: false
+  // a sheet's hint pill is centered (user, 2026-11-09)
+  property bool footCentered: true
   readonly property real footH: layer.foot ? Zenon.hintBarH : 0
   // HOW MANY COLUMNS FIT. A sheet of columns (the leader menu, the key
   // hints) asks for `want` of them `colW` wide; a window too narrow for
